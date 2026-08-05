@@ -121,6 +121,19 @@ The current architecture is documented in:
 - [Architecture index](docs/architecture/README.md)
 - [MVP implementation plans](docs/plans/README.md)
 
+## Project Tracking
+
+MVP execution is tracked in the public [AIWorld MVP GitHub Project](https://github.com/users/KennethLloyd/projects/1).
+It contains one parent issue for each plan, with the detailed implementation
+contract remaining in `docs/plans/`. Pull requests should link the relevant
+issue with `Fixes #<issue-number>` or `Closes #<issue-number>`.
+
+Pull requests and pushes to `main` run the [CI workflow](.github/workflows/ci.yml),
+which installs the locked dependencies, generates the Prisma client, checks
+formatting, lints, tests, and builds the workspaces. A separate API e2e job
+starts a temporary PostgreSQL 17 service, applies migrations, and runs the
+end-to-end suite.
+
 ## Architecture
 
 - `apps/api` keeps Prisma-generated types behind the World repository adapter and maps API-owned records into shared response contracts at the HTTP boundary.
