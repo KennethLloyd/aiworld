@@ -1,0 +1,20 @@
+{
+  "moduleFileExtensions": ["mjs", "js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.m?[jt]s$": [
+      "ts-jest",
+      { "tsconfig": "<rootDir>/test/tsconfig.e2e.json" }
+    ]
+  },
+  "setupFiles": ["<rootDir>/test/jest-e2e-setup.ts"],
+  "transformIgnorePatterns": [],
+  "modulePathIgnorePatterns": ["<rootDir>/dist/"],
+  "moduleNameMapper": {
+    "^@thallesp/nestjs-better-auth$": "<rootDir>/test/__mocks__/nestjs-better-auth.ts",
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  }
+}

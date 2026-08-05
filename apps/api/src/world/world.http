@@ -1,0 +1,33 @@
+@slug = mbti
+@createdSlug = test-world
+
+### GET ALL Worlds
+GET {{ baseUrl }}/api/worlds?page=1&limit=20&search=mbti&isActive=true
+
+### GET ONE World
+GET {{ baseUrl }}/api/worlds/{{slug}}
+
+### CREATE World
+POST {{ baseUrl }}/api/worlds
+Content-Type: application/json
+
+{
+  "name": "Test World",
+  "slug": "{{createdSlug}}",
+  "description": { "en": "A world created for local API exploration." },
+  "rules": ["No metagaming", "Be respectful"],
+  "topicScope": "Fantasy adventure setting for testing CRUD operations",
+  "isActive": true
+}
+
+### UPDATE World
+PATCH {{ baseUrl }}/api/worlds/{{createdSlug}}
+Content-Type: application/json
+
+{
+  "name": "Test World (updated)",
+  "isActive": false
+}
+
+### DELETE World
+DELETE {{ baseUrl }}/api/worlds/{{createdSlug}}

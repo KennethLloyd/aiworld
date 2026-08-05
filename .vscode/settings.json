@@ -1,0 +1,18 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "api_version": "v1"
+    },
+    "development": {
+      "baseUrl": "http://localhost:3000",
+      "token": "dev-secret-key"
+    },
+    "production": {
+      "baseUrl": "https://example.com",
+      "token": "prod-secret-key"
+    }
+  },
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  }
+}

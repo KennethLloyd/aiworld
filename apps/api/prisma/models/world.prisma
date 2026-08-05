@@ -1,0 +1,13 @@
+model World {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description Json?
+  rules       Json
+  topicScope  String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("world")
+}

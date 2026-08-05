@@ -1,0 +1,27 @@
+### Register
+POST {{ baseUrl }}/api/auth/sign-up/email
+Content-Type: application/json
+Origin: {{ baseUrl }}
+
+{
+  "name": "John Doe",
+  "email": "johndoe@test.com",
+  "username": "johndoe",
+  "password": "password",
+  "image": "https://i.pravatar.cc/300",
+  "callbackURL": "",
+  "rememberMe": true
+}
+
+### Login
+POST {{ baseUrl }}/api/auth/sign-in/email
+Content-Type: application/json
+Origin: {{ baseUrl }}
+
+{
+  "email": "johndoe@test.com",
+  "password": "password",
+  "callbackURL": "",
+  "rememberMe": true
+}
+
