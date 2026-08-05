@@ -119,6 +119,7 @@ The current architecture is documented in:
 - [Backend architecture](docs/architecture/backend.md)
 - [Frontend architecture](docs/architecture/frontend.md)
 - [Architecture index](docs/architecture/README.md)
+- [MVP implementation plans](docs/plans/README.md)
 
 ## Architecture
 
