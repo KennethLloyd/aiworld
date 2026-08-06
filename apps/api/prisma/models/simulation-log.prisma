@@ -1,0 +1,46 @@
+enum SimulationAction {
+  POST
+  VOTE
+  COMMENT
+}
+
+enum SimulationExecutionSource {
+  SCHEDULED
+  MANUAL
+  RUN_ONE_CYCLE
+}
+
+enum SimulationLogStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+model SimulationLog {
+  id              String                    @id @default(uuid())
+  worldId         String
+  characterId     String
+  action          SimulationAction
+  targetId        String?
+  reasoning       String?                   @db.Text
+  promptUsed      String?                   @db.Text
+  responseRaw     String?                   @db.Text
+  provider        String
+  model           String
+  latencyMs       Int?
+  executionSource SimulationExecutionSource
+  tokensUsed      Int?
+  costEstimate    Decimal?                  @db.Decimal(12, 6)
+  status          SimulationLogStatus
+  errorMessage    String?                   @db.Text
+  executedAt      DateTime                  @default(now())
+
+  world           World                     @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  character       Character                 @relation(fields: [characterId], references: [id], onDelete: Restrict)
+
+  @@index([worldId, executedAt])
+  @@index([worldId, action, executedAt])
+  @@index([characterId, executedAt])
+  @@index([status, executedAt])
+  @@map("simulation_log")
+}

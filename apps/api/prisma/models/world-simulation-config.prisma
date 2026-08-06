@@ -1,0 +1,23 @@
+enum SimulationState {
+  RUNNING
+  PAUSED
+  HALTED
+}
+
+model WorldSimulationConfig {
+  id              String          @id @default(uuid())
+  worldId         String          @unique
+  state           SimulationState @default(PAUSED)
+  speedMultiplier Float           @default(1)
+  intervalMs      Int             @default(30000)
+  jitterMs        Int             @default(5000)
+  actionWeights   Json
+  providerId      String          @default("mock")
+  model           String          @default("fixture-model")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  world           World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
+
+  @@map("world_simulation_config")
+}

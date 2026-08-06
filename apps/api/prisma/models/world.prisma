@@ -9,5 +9,10 @@ model World {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  characters           Character[]
+  posts               Post[]
+  simulationLogs      SimulationLog[]
+  simulationConfig    WorldSimulationConfig?
+
   @@map("world")
 }

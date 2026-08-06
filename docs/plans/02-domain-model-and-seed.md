@@ -1,6 +1,6 @@
 # Plan 02: Domain Model and Prototype Seed
 
-Status: Planned
+Status: Complete
 
 ## Goal
 
@@ -24,8 +24,8 @@ Update the seed to include:
 - World slug `mbti-house`
 - JSON description key-value pairs
 - Prototype rules and topic scope
-- All 16 MBTI characters with handles, type, group, avatar seed, biography,
-  traits, active state, and system prompt
+- All 16 MBTI residents with handles, generic classification and classification
+  group values, avatar seed, biography, traits, active state, and system prompt
 - Prototype starter posts and nested comments mapped to relational IDs
 - One persisted simulation configuration in a safe local default state
 
@@ -55,7 +55,7 @@ may use Prisma directly because they are infrastructure composition code.
 
 - Prisma migration and generation succeed.
 - Seed can run twice without duplicate canonical records.
-- All 16 MBTI types exist exactly once for the MBTI House.
+- All 16 MBTI classifications exist exactly once for the MBTI House.
 - Prototype posts, comments, and parent relationships are present.
 - JSON description values round-trip through the shared contract.
 - Invalid comment depth and duplicate vote cases are rejected at the domain or
@@ -90,16 +90,70 @@ on actual query requirements.
 
 ## Implementation Record
 
-Status: Planned
+Status: Complete
 
 ### Senior-Level Summary
 
+The persistence layer now represents the complete single-World MVP domain rather
+than only generic World CRUD. Character, post, comment, vote, simulation log, and
+simulation configuration models are separated into feature-owned Prisma files.
+Character classification and classification-group fields are generic optional
+strings, so MBTI is seed data for this World rather than a schema requirement for
+every future character. The seed composes deterministic UUIDs, transactional
+upserts, relational author and parent references, and a paused Mock provider
+configuration so a fresh database is immediately useful and safe to rerun.
+
 ### Files Changed
+
+- `apps/api/prisma/models/auth.prisma`
+- `apps/api/prisma/models/world.prisma`
+- `apps/api/prisma/models/character.prisma`
+- `apps/api/prisma/models/post.prisma`
+- `apps/api/prisma/models/comment.prisma`
+- `apps/api/prisma/models/vote.prisma`
+- `apps/api/prisma/models/simulation-log.prisma`
+- `apps/api/prisma/models/world-simulation-config.prisma`
+- `apps/api/prisma/migrations/20260806030017_add_mvp_domain/migration.sql`
+- `apps/api/prisma/migrations/20260806030018_add_domain_constraints/migration.sql`
+- `apps/api/prisma/migrations/20260806030636_make_character_mbti_metadata_optional/migration.sql`
+- `apps/api/prisma/migrations/20260806031000_generalize_character_classification/migration.sql`
+- `apps/api/prisma/seed-data.ts`
+- `apps/api/prisma/seed-world.ts`
+- `apps/api/src/seed-data.spec.ts`
+- `apps/api/test/seed.e2e-spec.ts`
 
 ### Architecture and SOLID Notes
 
+Prisma generated types remain inside seed infrastructure and concrete persistence
+adapters. Feature-owned schema files preserve the same vertical-slice direction as
+the NestJS modules. Database constraints enforce vote shape, duplicate-vote
+prevention, non-negative counters, and one simulation configuration per World;
+seed/domain validation enforces the three-level comment depth rule. MBTI fields
+are generic optional fields on Character rather than requirements for every future
+World. The migration preserves existing MBTI seed values while removing the
+MBTI-specific enum and column names from persistence.
+
 ### Tests Run
+
+- `pnpm --filter @aiworld/api db:generate`
+- `pnpm --filter @aiworld/api exec prisma migrate status`
+- `pnpm --filter @aiworld/api exec prisma migrate deploy`
+- Fresh PostgreSQL migration deploy, seed twice, and count verification: 16 characters, 4 posts, 14 comments, 1 reply, 1 simulation config
+- `pnpm --filter @aiworld/api test` — 55 tests passed
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 12 tests passed
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm build`
 
 ### Browser Verification
 
+- `http://localhost:5173/worlds/mbti-house` loaded successfully.
+- Accessibility snapshot confirmed `The MBTI House`, topic scope, description fields, and rules.
+
 ### Known Risks and Follow-Up Work
+
+- Character, content, and simulation API boundaries remain in Plans 4 through 7.
+- Comment depth must also be enforced by the future comment service/API boundary;
+  Plan 2 validates seed composition and the persistence model only.
+- The local configuration is intentionally `PAUSED` with the Mock provider until
+  the simulation lifecycle and provider plans are implemented.

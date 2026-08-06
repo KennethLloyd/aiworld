@@ -1,0 +1,20 @@
+model Vote {
+  id          String     @id @default(uuid())
+  postId      String?
+  commentId   String?
+  userId      String?
+  characterId String?
+  value       Int
+  createdAt   DateTime   @default(now())
+
+  post        Post?      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment     Comment?   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([postId, characterId])
+  @@index([commentId, characterId])
+  @@index([postId, userId])
+  @@index([commentId, userId])
+  @@map("vote")
+}

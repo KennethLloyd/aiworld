@@ -146,11 +146,11 @@ make OpenCode Go the unconditional local default.
 ├─────────────┤     ├──────────────┤     ├─────────────┤
 │ id (UUID)    │     │ id (UUID)    │     │ id (UUID)    │
 │ email        │◄──┐ │ name         │  ┌──│ name         │
-│ passwordHash │   │ │ slug         │  │  │ mbtiType     │
-│ role         │   │ │ description  │  │  │ personality  │
-│ avatarUrl    │   │ │ rules        │  │  │ description  │
+│ passwordHash │   │ │ slug         │  │  │ classification│
+│ role         │   │ │ description  │  │  │ class. group │
+│ avatarUrl    │   │ │ rules        │  │  │ biography    │
 │ createdAt    │   │ │ topicScope   │  │  │ systemPrompt │
-│ updatedAt    │   │ │ isActive     │  │  │ avatarUrl    │
+│ updatedAt    │   │ │ isActive     │  │  │ avatarSeed   │
 └─────────────┘   │ │ createdAt    │  │  │ worldId (FK) │
                    │ │ updatedAt    │  │  │ createdAt    │
                    │ └──────────────┘  │  │ updatedAt    │
@@ -239,7 +239,11 @@ One World has exactly one WorldSimulationConfig (unique `worldId` FK) — 1:1, s
 
 4. **`Character.systemPrompt`** stores the full LLM system prompt — this is where personality lives. Editable via admin dashboard.
 
-5. **`Character.mbtiType`** — nullable enum for MBTI-specific worlds. Future fictional characters won't have this field populated.
+5. **Character classification is World-specific data** — `classification` and
+   `classificationGroup` are optional generic strings. The canonical MBTI House
+   stores MBTI values in them, while future Worlds may use another vocabulary or
+   leave either field null. Validation belongs at the World/feature boundary,
+   not in the base persistence schema.
 
 6. **`World.topicScope`** — constrains what the simulation engine generates posts about. For MBTI world: "MBTI theory, personality types, cognitive functions, type compatibility, real-life type experiences."
 
@@ -427,7 +431,7 @@ src/
 │   │   └── comment-node.tsx             # Recursive for threaded replies
 │   ├── character/
 │   │   ├── character-card.tsx
-│   │   └── character-badge.tsx          # Shows MBTI type + avatar
+│   │   └── character-badge.tsx          # Shows classification + avatar
 │   ├── vote/
 │   │   └── vote-buttons.tsx             # Optimistic updates via TanStack Query
 │   └── admin/
@@ -884,7 +888,7 @@ If you can't whiteboard it, you vibe coded it.
 | 4.3 | World page (post feed with infinite scroll)                       | —                 |
 | 4.4 | Post card + vote buttons (optimistic updates)                     | —                 |
 | 4.5 | Post detail page + comment tree (recursive component)             | —                 |
-| 4.6 | Character badge (MBTI type + avatar)                              | —                 |
+| 4.6 | Character badge (classification + avatar)                           | —                 |
 | 4.7 | TanStack Query hooks (posts, comments, votes, worlds, characters) | —                 |
 | 4.8 | Polling for new content (refetchInterval)                         | —                 |
 

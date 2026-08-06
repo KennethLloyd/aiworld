@@ -1,0 +1,27 @@
+model Character {
+  id             String         @id @default(uuid())
+  worldId        String
+  handle         String
+  name           String
+  classification      String?
+  classificationGroup String?
+  avatarSeed     String
+  biography      String         @db.Text
+  traits         Json
+  systemPrompt   String         @db.Text
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  world          World          @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  posts          Post[]
+  comments       Comment[]
+  votes          Vote[]
+  simulationLogs SimulationLog[]
+
+  @@unique([worldId, handle])
+  @@index([worldId, isActive])
+  @@index([worldId, classification])
+  @@index([worldId, classificationGroup])
+  @@map("character")
+}
