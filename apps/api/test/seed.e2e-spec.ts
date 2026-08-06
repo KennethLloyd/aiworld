@@ -11,14 +11,65 @@ describe('seed persistence constraints', () => {
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
+  const worldId = seedUuid('test-world:constraints');
+  const characterId = seedUuid('test-character:constraints');
+  const unclassifiedCharacterId = seedUuid('test-character:unclassified');
+  const postId = seedUuid('test-post:constraints');
+
+  beforeAll(async () => {
+    await prisma.vote.deleteMany({ where: { postId } });
+    await prisma.post.deleteMany({ where: { id: postId } });
+    await prisma.character.deleteMany({
+      where: { id: { in: [characterId, unclassifiedCharacterId] } },
+    });
+    await prisma.world.deleteMany({ where: { id: worldId } });
+
+    await prisma.world.create({
+      data: {
+        id: worldId,
+        name: 'Constraint Test World',
+        slug: 'constraint-test-world',
+        description: { about: 'Persistence constraint fixture.' },
+        rules: ['Test rules.'],
+        topicScope: 'Persistence tests.',
+      },
+    });
+    await prisma.character.create({
+      data: {
+        id: characterId,
+        worldId,
+        handle: 'constraint_fixture',
+        name: 'Constraint Fixture',
+        classification: 'fixture',
+        classificationGroup: null,
+        avatarSeed: 'ConstraintFixture',
+        biography: 'A persistence test character.',
+        traits: ['Precise'],
+        systemPrompt: 'You are a persistence test character.',
+      },
+    });
+    await prisma.post.create({
+      data: {
+        id: postId,
+        worldId,
+        authorCharacterId: characterId,
+        title: 'Constraint fixture post',
+        content: 'A persistence test post.',
+      },
+    });
+  });
 
   afterAll(async () => {
+    await prisma.vote.deleteMany({ where: { postId } });
+    await prisma.post.deleteMany({ where: { id: postId } });
+    await prisma.character.deleteMany({
+      where: { id: { in: [characterId, unclassifiedCharacterId] } },
+    });
+    await prisma.world.deleteMany({ where: { id: worldId } });
     await prisma.$disconnect();
   });
 
   it('rejects duplicate votes by the same character and post', async () => {
-    const characterId = seedUuid('character:standard_procedure');
-    const postId = seedUuid('post:p1');
     const firstVoteId = seedUuid('test-vote:character-post');
 
     await prisma.vote.deleteMany({ where: { id: firstVoteId } });
@@ -41,29 +92,23 @@ describe('seed persistence constraints', () => {
   });
 
   it('allows a character without classification metadata', async () => {
-    const world = await prisma.world.findUniqueOrThrow({
-      where: { slug: 'mbti-house' },
-    });
-    const characterId = seedUuid('test-character:non-mbti');
-
-    await prisma.character.deleteMany({ where: { id: characterId } });
     const character = await prisma.character.create({
       data: {
-        id: characterId,
-        worldId: world.id,
-        handle: 'hermione_granger',
-        name: 'Hermione Granger',
+        id: unclassifiedCharacterId,
+        worldId,
+        handle: 'unclassified_fixture',
+        name: 'Unclassified Fixture',
         classification: null,
         classificationGroup: null,
-        avatarSeed: 'HermioneGranger',
-        biography: 'A diligent witch and researcher.',
-        traits: ['Diligent', 'Brave', 'Curious'],
-        systemPrompt: 'You are Hermione Granger. Stay in character.',
+        avatarSeed: 'UnclassifiedFixture',
+        biography: 'A character without a classification.',
+        traits: ['Generic'],
+        systemPrompt: 'You are an unclassified fixture character.',
       },
     });
 
     expect(character.classification).toBeNull();
     expect(character.classificationGroup).toBeNull();
-    await prisma.character.delete({ where: { id: characterId } });
+    await prisma.character.delete({ where: { id: unclassifiedCharacterId } });
   });
 });
