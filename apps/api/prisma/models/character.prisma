@@ -4,7 +4,6 @@ model Character {
   name           String
   classification      String?
   classificationGroup String?
-  avatarSeed     String?
   avatarUrl      String?
   biography      String         @db.Text
   traits         Json

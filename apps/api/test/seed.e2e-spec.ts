@@ -43,7 +43,7 @@ describe('seed persistence constraints', () => {
         name: 'Constraint Fixture',
         classification: 'fixture',
         classificationGroup: null,
-        avatarSeed: 'ConstraintFixture',
+        avatarUrl: '/avatars/constraint_fixture.svg',
         biography: 'A persistence test character.',
         traits: ['Precise'],
         systemPrompt: 'You are a persistence test character.',
@@ -101,7 +101,7 @@ describe('seed persistence constraints', () => {
     await prisma.vote.delete({ where: { id: firstVoteId } });
   });
 
-  it('allows a character without classification metadata', async () => {
+  it('allows a character without classification metadata or an avatar', async () => {
     const character = await prisma.character.create({
       data: {
         id: unclassifiedCharacterId,
@@ -109,8 +109,7 @@ describe('seed persistence constraints', () => {
         name: 'Unclassified Fixture',
         classification: null,
         classificationGroup: null,
-        avatarSeed: null,
-        avatarUrl: 'https://example.test/unclassified-fixture.png',
+        avatarUrl: null,
         biography: 'A character without a classification.',
         traits: ['Generic'],
         systemPrompt: 'You are an unclassified fixture character.',
@@ -119,6 +118,7 @@ describe('seed persistence constraints', () => {
 
     expect(character.classification).toBeNull();
     expect(character.classificationGroup).toBeNull();
+    expect(character.avatarUrl).toBeNull();
     await prisma.character.delete({ where: { id: unclassifiedCharacterId } });
   });
 });

@@ -20,7 +20,7 @@ contracts and the shared simulation pipeline.
 - Telemetry and live execution feedback
 - World configuration editor
 - Character registry and editor
-- Character avatar URL override with deterministic seed fallback
+- Character avatar URL editor with a default fallback
 - Filterable simulation log viewer
 - Log detail view with provider, model, latency, source, prompt, response,
   tokens, cost estimate, and error details where authorized

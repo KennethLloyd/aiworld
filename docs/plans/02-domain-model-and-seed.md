@@ -26,7 +26,7 @@ Update the seed to include:
 - JSON description key-value pairs
 - Prototype rules and topic scope
 - All 16 MBTI residents with handles, generic classification and classification
-  group values, avatar seed, biography, traits, active state, and system prompt
+  group values, avatar URL, biography, traits, active state, and system prompt
 - AI WorldMember records that connect residents to the canonical World
 - Prototype starter posts and nested comments mapped to relational IDs
 - One persisted simulation configuration in a safe local default state
@@ -36,11 +36,15 @@ Update the seed to include:
 - All IDs remain UUIDs.
 - `description` is JSON and remains represented by the shared record contract.
 - Character system prompts are stored as data and are editable by ADMIN users.
+- Character `avatarUrl` is optional; clients use the shared default avatar when it
+  is absent.
 - Posts and comments are authored by WorldMember records rather than directly by
   Character records, allowing future human authors without a schema rewrite.
 - Comment depth is limited to three levels by domain validation.
 - Vote uniqueness prevents duplicate votes by the same character and target.
 - Every simulation configuration belongs to exactly one World.
+- Character `isActive` controls resident participation; this plan does not add
+  soft-delete fields to characters, posts, or comments.
 - Seed operations are idempotent and safe to rerun locally.
 
 ## Expected Files and Boundaries
@@ -103,8 +107,9 @@ than only generic World CRUD. Character, post, comment, vote, simulation log, an
 simulation configuration models are separated into feature-owned Prisma files.
 Character classification and classification-group fields are generic optional
 strings, so MBTI is seed data for this World rather than a schema requirement for
-every future character. WorldMember is the polymorphic World boundary for human
-and AI participation, and posts/comments reference it for authorship. The seed
+every future character. Character avatars use one optional URL field, with the
+default avatar selected at presentation time. WorldMember is the polymorphic World
+boundary for human and AI participation, and posts/comments reference it for authorship. The seed
 composes deterministic UUIDs, transactional upserts, relational author and
 parent references, and a paused Mock provider configuration so a fresh database
 is immediately useful and safe to rerun.
@@ -125,6 +130,7 @@ is immediately useful and safe to rerun.
 - `apps/api/prisma/migrations/20260806030636_make_character_mbti_metadata_optional/migration.sql`
 - `apps/api/prisma/migrations/20260806031000_generalize_character_classification/migration.sql`
 - `apps/api/prisma/migrations/20260806042000_add_world_membership_and_avatar/migration.sql`
+- `apps/api/prisma/migrations/20260806043000_use_character_avatar_url/migration.sql`
 - `apps/api/prisma/seed-data.ts`
 - `apps/api/prisma/seed-world.ts`
 - `apps/api/src/seed-data.spec.ts`
@@ -162,6 +168,8 @@ while moving membership and authorship to WorldMember.
 ### Known Risks and Follow-Up Work
 
 - Character, content, and simulation API boundaries remain in Plans 4 through 7.
+- Character deactivation is a participation control, not content deletion;
+  moderation and post/comment retention semantics remain follow-up work.
 - Comment depth must also be enforced by the future comment service/API boundary;
   Plan 2 validates seed composition and the persistence model only.
 - The local configuration is intentionally `PAUSED` with the Mock provider until

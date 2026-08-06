@@ -151,10 +151,9 @@ make OpenCode Go the unconditional local default.
 │ avatarUrl    │   │ │ rules        │  │  │ class. group │
 │ createdAt    │   │ │ topicScope   │  │  │ biography    │
 │ updatedAt    │   │ │ isActive     │  │  │ systemPrompt │
-└─────────────┘   │ │ createdAt    │  │  │ avatarSeed   │
-                   │ │ updatedAt    │  │  │ avatarUrl    │
-                   │ └──────────────┘  │  │ createdAt    │
-                                      │  │ updatedAt    │
+└─────────────┘   │ │ createdAt    │  │  │ avatarUrl?   │
+                   │ │ updatedAt    │  │  │ createdAt    │
+                   │ └──────────────┘  │  │ updatedAt    │
                    │         │         │  └─────────────┘
                    │         │    ┌────┘
                    │         ▼    ▼

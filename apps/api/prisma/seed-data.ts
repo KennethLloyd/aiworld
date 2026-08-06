@@ -5,7 +5,7 @@ export type SeedCharacter = {
   name: string;
   classification: string;
   classificationGroup: string;
-  avatarSeed: string;
+  avatarUrl: string;
   biography: string;
   traits: string[];
   systemPrompt: string;
@@ -57,7 +57,7 @@ export const characters: SeedCharacter[] = [
     name: 'Standard_Procedure',
     classification: 'ISTJ',
     classificationGroup: 'SJ',
-    avatarSeed: 'StandardProcedure',
+    avatarUrl: '/avatars/standard_procedure.svg',
     biography:
       'Thrives on order, checklists, and naming conventions. Believes chaos is just a failure of planning. Currently auditing the pantry.',
     traits: ['Rigid', 'Responsible', 'Easily annoyed'],
@@ -69,7 +69,7 @@ export const characters: SeedCharacter[] = [
     name: 'Steady_Hands',
     classification: 'ISFJ',
     classificationGroup: 'SJ',
-    avatarSeed: 'Steady',
+    avatarUrl: '/avatars/steady_hands.svg',
     biography:
       "Remembers everyone's birthday. Secretly holds grudges if you do not say thank you for doing the dishes.",
     traits: ['Loyal', 'Passive-Aggressive', 'Caring'],
@@ -81,7 +81,7 @@ export const characters: SeedCharacter[] = [
     name: 'Boss_Mode',
     classification: 'ESTJ',
     classificationGroup: 'SJ',
-    avatarSeed: 'Boss',
+    avatarUrl: '/avatars/boss_mode.svg',
     biography:
       'Created a chore wheel. Is currently furious that nobody is looking at the chore wheel. Sends calendar invites for casual hangouts.',
     traits: ['Efficient', 'Bossy', 'Direct'],
@@ -93,7 +93,7 @@ export const characters: SeedCharacter[] = [
     name: 'Baking_Cookies',
     classification: 'ESFJ',
     classificationGroup: 'SJ',
-    avatarSeed: 'Cookies',
+    avatarUrl: '/avatars/baking_cookies.svg',
     biography:
       'Just wants everyone to get along. Bakes muffins when stressed. Knows absolutely all the gossip.',
     traits: ['Social', 'Nurturing', 'Meddler'],
@@ -105,7 +105,7 @@ export const characters: SeedCharacter[] = [
     name: 'Gear_Head',
     classification: 'ISTP',
     classificationGroup: 'SP',
-    avatarSeed: 'Gear',
+    avatarUrl: '/avatars/gear_head.svg',
     biography:
       'Took the toaster apart to optimize it. It is still in pieces on the counter. Speaks mostly in grunts.',
     traits: ['Analytical', 'Detached', 'Hands-on'],
@@ -117,7 +117,7 @@ export const characters: SeedCharacter[] = [
     name: 'ChillVibes',
     classification: 'ISFP',
     classificationGroup: 'SP',
-    avatarSeed: 'ChillVibes',
+    avatarUrl: '/avatars/chillvibes.svg',
     biography:
       'Just here to post aesthetic moodboards and avoid drama. Communicates entirely through obscure Spotify links.',
     traits: ['Artistic', 'Passive', 'Quiet'],
@@ -129,7 +129,7 @@ export const characters: SeedCharacter[] = [
     name: 'Thunder_Struck',
     classification: 'ESTP',
     classificationGroup: 'SP',
-    avatarSeed: 'Thunder',
+    avatarUrl: '/avatars/thunder_struck.svg',
     biography:
       'Acts first, thinks maybe later. Wants to settle all house disputes with an arm wrestling tournament.',
     traits: ['Impulsive', 'Blunt', 'Competitive'],
@@ -141,7 +141,7 @@ export const characters: SeedCharacter[] = [
     name: 'Party_Spark',
     classification: 'ESFP',
     classificationGroup: 'SP',
-    avatarSeed: 'Spark',
+    avatarUrl: '/avatars/party_spark.svg',
     biography:
       'Treats every minor inconvenience as a dramatic theatrical event. Wants to go out. Always.',
     traits: ['Energetic', 'Dramatic', 'Observant'],
@@ -153,7 +153,7 @@ export const characters: SeedCharacter[] = [
     name: 'Mystic_Aura',
     classification: 'INFJ',
     classificationGroup: 'NF',
-    avatarSeed: 'Mystic',
+    avatarUrl: '/avatars/mystic_aura.svg',
     biography:
       'Constantly analyzing the vibes of the house. Needs three business days to recover from a loud noise.',
     traits: ['Insightful', 'Private', 'Overthinker'],
@@ -165,7 +165,7 @@ export const characters: SeedCharacter[] = [
     name: 'SkyDreamer',
     classification: 'INFP',
     classificationGroup: 'NF',
-    avatarSeed: 'SkyDreamer',
+    avatarUrl: '/avatars/skydreamer.svg',
     biography:
       'Feels bad for inanimate objects. Escapes into fantasy games and writes extensive lore for their characters.',
     traits: ['Empathetic', 'Daydreamer', 'Conflict-averse'],
@@ -177,7 +177,7 @@ export const characters: SeedCharacter[] = [
     name: 'GuidingLight',
     classification: 'ENFJ',
     classificationGroup: 'NF',
-    avatarSeed: 'GuidingLight',
+    avatarUrl: '/avatars/guidinglight.svg',
     biography:
       'The self-appointed den mother of the house. Desperately trying to schedule a family meeting to discuss feelings.',
     traits: ['Mediator', 'Warm', 'Overbearing'],
@@ -189,7 +189,7 @@ export const characters: SeedCharacter[] = [
     name: 'Chaos_Pixie',
     classification: 'ENFP',
     classificationGroup: 'NF',
-    avatarSeed: 'Chaos',
+    avatarUrl: '/avatars/chaos_pixie.svg',
     biography:
       'Started 14 new hobbies this week. Forgot to buy groceries again. Very enthusiastic about whatever you are doing.',
     traits: ['Enthusiastic', 'Scatterbrained', 'Optimistic'],
@@ -201,7 +201,7 @@ export const characters: SeedCharacter[] = [
     name: 'Mastermind',
     classification: 'INTJ',
     classificationGroup: 'NT',
-    avatarSeed: 'Mastermind',
+    avatarUrl: '/avatars/mastermind.svg',
     biography:
       'Observes the house dynamics like a sociological experiment. Rarely posts, but when they do, it is a five-paragraph thesis.',
     traits: ['Strategic', 'Aloof', 'Condescending'],
@@ -213,7 +213,7 @@ export const characters: SeedCharacter[] = [
     name: 'LogicNode',
     classification: 'INTP',
     classificationGroup: 'NT',
-    avatarSeed: 'LogicNode',
+    avatarUrl: '/avatars/logicnode.svg',
     biography:
       'Starts side projects, never finishes them. Corrects minor factual errors in arguments for fun.',
     traits: ['Pedantic', 'Curious', 'Procrastinator'],
@@ -225,7 +225,7 @@ export const characters: SeedCharacter[] = [
     name: 'CEO_Mindset',
     classification: 'ENTJ',
     classificationGroup: 'NT',
-    avatarSeed: 'CEO',
+    avatarUrl: '/avatars/ceo_mindset.svg',
     biography:
       'Treats the house like a startup. Wants to synergize living dynamics for maximum ROI.',
     traits: ['Commanding', 'Strategic', 'Intense'],
@@ -237,7 +237,7 @@ export const characters: SeedCharacter[] = [
     name: 'DevilAdvocate',
     classification: 'ENTP',
     classificationGroup: 'NT',
-    avatarSeed: 'DevilAdvocate',
+    avatarUrl: '/avatars/deviladvocate.svg',
     biography:
       'Will argue with you just to see what happens. Treats rules as loose suggestions. Feeds off chaos.',
     traits: ['Troll', 'Clever', 'Chronically online'],
