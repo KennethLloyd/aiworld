@@ -1,6 +1,6 @@
 # Plan 02: Domain Model and Prototype Seed
 
-Status: Complete
+Status: In Progress
 
 ## Goal
 
@@ -90,7 +90,7 @@ on actual query requirements.
 
 ## Implementation Record
 
-Status: Complete
+Status: In Progress
 
 ### Senior-Level Summary
 
