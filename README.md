@@ -119,14 +119,18 @@ The current architecture is documented in:
 - [Backend architecture](docs/architecture/backend.md)
 - [Frontend architecture](docs/architecture/frontend.md)
 - [Architecture index](docs/architecture/README.md)
+- [Product architecture plan](docs/product/aiworld-architecture-plan.md)
+- [MVP prototype](docs/product/aiworld_mvp.html)
 - [MVP implementation plans](docs/plans/README.md)
 
 ## Project Tracking
 
 MVP execution is tracked in the public [AIWorld MVP GitHub Project](https://github.com/users/KennethLloyd/projects/1).
 It contains one parent issue for each plan, with the detailed implementation
-contract remaining in `docs/plans/`. Pull requests should link the relevant
-issue with `Fixes #<issue-number>` or `Closes #<issue-number>`.
+contract remaining in `docs/plans/`. Substantial plans must be broken into
+focused child issues before implementation starts. Pull requests should link
+the child issue with `Refs #<issue-number>`; use `Closes #<parent-number>` only
+when the complete parent plan is finished.
 
 Pull requests and pushes to `main` run the [CI workflow](.github/workflows/ci.yml),
 which installs the locked dependencies, generates the Prisma client, checks
@@ -141,6 +145,6 @@ end-to-end suite.
 - `packages/shared` is the single source of truth for request/response validation and pagination shapes; it has no NestJS, Prisma, Node-only, or DOM dependencies.
 - Authentication is Better Auth with database-backed sessions and server-enforced ADMIN roles.
 
-Planning documents and the HTML prototype are intentionally maintained outside
-this source repository so the starter stays focused on executable code and
-current operational documentation.
+Planning documents and the HTML prototype are versioned in `docs/` so the
+architecture, product reference, implementation plans, and code travel
+together across machines and can be reviewed from GitHub.

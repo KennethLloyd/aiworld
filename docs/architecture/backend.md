@@ -255,4 +255,7 @@ Two tradeoffs are accepted today:
 
 The senior skill is not using every pattern. It is recognizing the boundaries where abstraction protects the system - the repository port, the response mapper, the shared contracts - while rejecting abstraction that has no real purpose.
 
-Detailed planning artifacts are maintained outside this starter repository. This reference is intentionally high-level and serves as the backend architecture documentation for the current implementation.
+Detailed planning artifacts are maintained in `docs/plans/` and the product
+architecture reference in `docs/product/`. This document is intentionally
+high-level and serves as the backend architecture documentation for the
+current implementation.

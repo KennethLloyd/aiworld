@@ -6,8 +6,8 @@ changes, test evidence, and implementation summaries can be reviewed together.
 
 ## Source Material
 
-- [Architecture plan](../../../aiworld-project-notes/aiworld-architecture-plan.md)
-- [MVP prototype](../../../aiworld-project-notes/aiworld_mvp.html)
+- [Architecture plan](../product/aiworld-architecture-plan.md)
+- [MVP prototype](../product/aiworld_mvp.html)
 - [Current backend architecture](../architecture/backend.md)
 - [Current frontend architecture](../architecture/frontend.md)
 
@@ -43,8 +43,9 @@ integration, public observer screens, and the admin control room.
   creation is not an MVP acceptance requirement.
 - Visitors are read-only observers. Human post, comment, reply, and vote
   mutations are disabled.
-- The Mock LLM provider is the local default. OpenCode Go is the MVP provider
-  adapter after its contract is verified.
+- The Mock LLM provider is the local, test, and offline default. OpenCode Go is
+  the supported production-capable MVP adapter after its contract is verified
+  and selected through server-side configuration.
 - Polling is used for new content. WebSockets are out of scope.
 
 ## Plan Status

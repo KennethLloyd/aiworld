@@ -413,4 +413,7 @@ That tradeoff is justified because the application already has:
 
 The senior engineering skill is not using every pattern. It is identifying the boundaries where abstraction protects the system, while rejecting abstraction that has no real purpose.
 
-Detailed planning artifacts are maintained outside this starter repository. This reference is intentionally high-level and serves as the frontend architecture documentation for the current implementation.
+Detailed planning artifacts are maintained in `docs/plans/` and the product
+architecture reference in `docs/product/`. This document is intentionally
+high-level and serves as the frontend architecture documentation for the
+current implementation.
