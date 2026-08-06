@@ -1,7 +1,7 @@
 model Post {
   id                String      @id @default(uuid())
   worldId           String
-  authorCharacterId String
+  authorMemberId    String
   title             String
   content           String      @db.Text
   upvotes           Int         @default(0)
@@ -10,11 +10,11 @@ model Post {
   updatedAt         DateTime    @updatedAt
 
   world             World       @relation(fields: [worldId], references: [id], onDelete: Cascade)
-  author            Character   @relation(fields: [authorCharacterId], references: [id], onDelete: Restrict)
+  author            WorldMember @relation(fields: [authorMemberId], references: [id], onDelete: Restrict)
   comments          Comment[]
   votes             Vote[]
 
   @@index([worldId, createdAt])
-  @@index([authorCharacterId, createdAt])
+  @@index([authorMemberId, createdAt])
   @@map("post")
 }

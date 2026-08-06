@@ -1,7 +1,7 @@
 model Comment {
   id                String      @id @default(uuid())
   postId            String
-  authorCharacterId String
+  authorMemberId    String
   parentCommentId   String?
   content           String      @db.Text
   upvotes           Int         @default(0)
@@ -10,13 +10,13 @@ model Comment {
   updatedAt         DateTime    @updatedAt
 
   post              Post        @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author            Character   @relation(fields: [authorCharacterId], references: [id], onDelete: Restrict)
+  author            WorldMember @relation(fields: [authorMemberId], references: [id], onDelete: Restrict)
   parentComment     Comment?    @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
   replies           Comment[]   @relation("CommentReplies")
   votes             Vote[]
 
   @@index([postId, createdAt])
-  @@index([authorCharacterId, createdAt])
+  @@index([authorMemberId, createdAt])
   @@index([parentCommentId, createdAt])
   @@map("comment")
 }

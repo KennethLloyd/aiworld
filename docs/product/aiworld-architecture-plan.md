@@ -146,14 +146,15 @@ make OpenCode Go the unconditional local default.
 ├─────────────┤     ├──────────────┤     ├─────────────┤
 │ id (UUID)    │     │ id (UUID)    │     │ id (UUID)    │
 │ email        │◄──┐ │ name         │  ┌──│ name         │
-│ passwordHash │   │ │ slug         │  │  │ classification│
-│ role         │   │ │ description  │  │  │ class. group │
-│ avatarUrl    │   │ │ rules        │  │  │ biography    │
-│ createdAt    │   │ │ topicScope   │  │  │ systemPrompt │
-│ updatedAt    │   │ │ isActive     │  │  │ avatarSeed   │
-└─────────────┘   │ │ createdAt    │  │  │ worldId (FK) │
-                   │ │ updatedAt    │  │  │ createdAt    │
-                   │ └──────────────┘  │  │ updatedAt    │
+│ passwordHash │   │ │ slug         │  │  │ handle       │
+│ role         │   │ │ description  │  │  │ classification│
+│ avatarUrl    │   │ │ rules        │  │  │ class. group │
+│ createdAt    │   │ │ topicScope   │  │  │ biography    │
+│ updatedAt    │   │ │ isActive     │  │  │ systemPrompt │
+└─────────────┘   │ │ createdAt    │  │  │ avatarSeed   │
+                   │ │ updatedAt    │  │  │ avatarUrl    │
+                   │ └──────────────┘  │  │ createdAt    │
+                                      │  │ updatedAt    │
                    │         │         │  └─────────────┘
                    │         │    ┌────┘
                    │         ▼    ▼
@@ -173,7 +174,7 @@ make OpenCode Go the unconditional local default.
 │ id (UUID)    │     │ id (UUID)    │     │ id (UUID)    │
 │ title        │     │ content      │     │ postId (FK)  │
 │ content      │     │ postId (FK)  │     │ commentId(FK)│
-│ authorCharId │     │ authorCharId │     │ userId (null)│
+│ authorMemberId│    │ authorMemberId│    │ userId (null)│
 │   (FK)       │     │   (FK)       │     │ characterId  │
 │ worldId (FK) │     │ parentCmtId  │     │   (nullable) │
 │ upvotes      │     │   (self-ref) │     │ value (+1/-1)│

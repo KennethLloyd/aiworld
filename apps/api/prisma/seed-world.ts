@@ -30,12 +30,15 @@ export async function seedWorld() {
       update: canonicalWorld,
     });
 
+    const memberIds = new Map<string, string>();
+
     for (const character of characters) {
+      const characterId = seedUuid(`character:${character.key}`);
+
       await tx.character.upsert({
-        where: { id: seedUuid(`character:${character.key}`) },
+        where: { id: characterId },
         create: {
-          id: seedUuid(`character:${character.key}`),
-          worldId: world.id,
+          id: characterId,
           handle: character.key,
           name: character.name,
           classification: character.classification,
@@ -47,7 +50,6 @@ export async function seedWorld() {
           isActive: true,
         },
         update: {
-          worldId: world.id,
           handle: character.key,
           name: character.name,
           classification: character.classification,
@@ -59,7 +61,36 @@ export async function seedWorld() {
           isActive: true,
         },
       });
+
+      const existingMember = await tx.worldMember.findFirst({
+        where: { worldId: world.id, characterId },
+      });
+      const member = await tx.worldMember.upsert({
+        where: {
+          id: existingMember?.id ?? seedUuid(`member:${character.key}`),
+        },
+        create: {
+          id: seedUuid(`member:${character.key}`),
+          worldId: world.id,
+          characterId,
+          role: 'AI',
+        },
+        update: {
+          worldId: world.id,
+          characterId,
+          role: 'AI',
+        },
+      });
+      memberIds.set(character.key, member.id);
     }
+
+    const memberIdFor = (characterKey: string): string => {
+      const memberId = memberIds.get(characterKey);
+      if (!memberId) {
+        throw new Error(`Missing WorldMember for ${characterKey}.`);
+      }
+      return memberId;
+    };
 
     for (const post of posts) {
       await tx.post.upsert({
@@ -67,7 +98,7 @@ export async function seedWorld() {
         create: {
           id: seedUuid(`post:${post.key}`),
           worldId: world.id,
-          authorCharacterId: seedUuid(`character:${post.authorKey}`),
+          authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
           upvotes: post.upvotes,
@@ -75,7 +106,7 @@ export async function seedWorld() {
         },
         update: {
           worldId: world.id,
-          authorCharacterId: seedUuid(`character:${post.authorKey}`),
+          authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
           upvotes: post.upvotes,
@@ -90,7 +121,7 @@ export async function seedWorld() {
           create: {
             id: seedUuid(`comment:${comment.key}`),
             postId: seedUuid(`post:${post.key}`),
-            authorCharacterId: seedUuid(`character:${comment.authorKey}`),
+            authorMemberId: memberIdFor(comment.authorKey),
             parentCommentId: comment.parentKey
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
@@ -100,7 +131,7 @@ export async function seedWorld() {
           },
           update: {
             postId: seedUuid(`post:${post.key}`),
-            authorCharacterId: seedUuid(`character:${comment.authorKey}`),
+            authorMemberId: memberIdFor(comment.authorKey),
             parentCommentId: comment.parentKey
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,

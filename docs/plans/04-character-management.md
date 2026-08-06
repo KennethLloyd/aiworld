@@ -10,6 +10,7 @@ public application and ADMIN control room can use the same validated data.
 ## Scope
 
 - Character domain record and repository port
+- WorldMember membership and author mapping
 - Prisma repository adapter
 - Public character list and detail reads
 - ADMIN create, update, activate, and deactivate operations

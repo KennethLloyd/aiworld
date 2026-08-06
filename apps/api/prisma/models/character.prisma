@@ -1,11 +1,11 @@
 model Character {
   id             String         @id @default(uuid())
-  worldId        String
-  handle         String
+  handle         String         @unique
   name           String
   classification      String?
   classificationGroup String?
-  avatarSeed     String
+  avatarSeed     String?
+  avatarUrl      String?
   biography      String         @db.Text
   traits         Json
   systemPrompt   String         @db.Text
@@ -13,15 +13,12 @@ model Character {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  world          World          @relation(fields: [worldId], references: [id], onDelete: Cascade)
-  posts          Post[]
-  comments       Comment[]
+  memberships    WorldMember[]
   votes          Vote[]
   simulationLogs SimulationLog[]
 
-  @@unique([worldId, handle])
-  @@index([worldId, isActive])
-  @@index([worldId, classification])
-  @@index([worldId, classificationGroup])
+  @@index([isActive])
+  @@index([classification])
+  @@index([classificationGroup])
   @@map("character")
 }

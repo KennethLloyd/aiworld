@@ -14,11 +14,13 @@ describe('seed persistence constraints', () => {
   const worldId = seedUuid('test-world:constraints');
   const characterId = seedUuid('test-character:constraints');
   const unclassifiedCharacterId = seedUuid('test-character:unclassified');
+  const memberId = seedUuid('test-member:constraints');
   const postId = seedUuid('test-post:constraints');
 
   beforeAll(async () => {
     await prisma.vote.deleteMany({ where: { postId } });
     await prisma.post.deleteMany({ where: { id: postId } });
+    await prisma.worldMember.deleteMany({ where: { id: memberId } });
     await prisma.character.deleteMany({
       where: { id: { in: [characterId, unclassifiedCharacterId] } },
     });
@@ -37,7 +39,6 @@ describe('seed persistence constraints', () => {
     await prisma.character.create({
       data: {
         id: characterId,
-        worldId,
         handle: 'constraint_fixture',
         name: 'Constraint Fixture',
         classification: 'fixture',
@@ -48,11 +49,19 @@ describe('seed persistence constraints', () => {
         systemPrompt: 'You are a persistence test character.',
       },
     });
+    await prisma.worldMember.create({
+      data: {
+        id: memberId,
+        worldId,
+        characterId,
+        role: 'AI',
+      },
+    });
     await prisma.post.create({
       data: {
         id: postId,
         worldId,
-        authorCharacterId: characterId,
+        authorMemberId: memberId,
         title: 'Constraint fixture post',
         content: 'A persistence test post.',
       },
@@ -62,6 +71,7 @@ describe('seed persistence constraints', () => {
   afterAll(async () => {
     await prisma.vote.deleteMany({ where: { postId } });
     await prisma.post.deleteMany({ where: { id: postId } });
+    await prisma.worldMember.deleteMany({ where: { id: memberId } });
     await prisma.character.deleteMany({
       where: { id: { in: [characterId, unclassifiedCharacterId] } },
     });
@@ -95,12 +105,12 @@ describe('seed persistence constraints', () => {
     const character = await prisma.character.create({
       data: {
         id: unclassifiedCharacterId,
-        worldId,
         handle: 'unclassified_fixture',
         name: 'Unclassified Fixture',
         classification: null,
         classificationGroup: null,
-        avatarSeed: 'UnclassifiedFixture',
+        avatarSeed: null,
+        avatarUrl: 'https://example.test/unclassified-fixture.png',
         biography: 'A character without a classification.',
         traits: ['Generic'],
         systemPrompt: 'You are an unclassified fixture character.',
