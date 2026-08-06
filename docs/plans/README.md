@@ -52,7 +52,7 @@ integration, public observer screens, and the admin control room.
 
 | Plan | Capability | Depends on | Status |
 | --- | --- | --- | --- |
-| [01](./01-mvp-contract.md) | MVP contract and plan governance | Current baseline | Planned |
+| [01](./01-mvp-contract.md) | MVP contract and plan governance | Current baseline | Complete |
 | [02](./02-domain-model-and-seed.md) | Domain model and prototype seed | 01 | Planned |
 | [03](./03-opencode-provider-spike.md) | OpenCode Go contract verification | 01 | Planned |
 | [04](./04-character-management.md) | Character persistence and API | 02 | Planned |
