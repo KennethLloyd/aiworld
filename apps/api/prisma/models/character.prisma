@@ -1,0 +1,23 @@
+model Character {
+  id             String         @id @default(uuid())
+  handle         String         @unique
+  name           String
+  classification      String?
+  classificationGroup String?
+  avatarUrl      String?
+  biography      String         @db.Text
+  traits         Json
+  systemPrompt   String         @db.Text
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  memberships    WorldMember[]
+  votes          Vote[]
+  simulationLogs SimulationLog[]
+
+  @@index([isActive])
+  @@index([classification])
+  @@index([classificationGroup])
+  @@map("character")
+}

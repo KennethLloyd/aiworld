@@ -4,17 +4,19 @@ Status: Planned
 
 ## Goal
 
-Expose the seeded MBTI residents through a tested backend feature boundary so
-the public application and ADMIN control room can use the same validated data.
+Expose the seeded residents through a tested backend feature boundary so the
+public application and ADMIN control room can use the same validated data.
 
 ## Scope
 
 - Character domain record and repository port
+- WorldMember membership and author mapping
 - Prisma repository adapter
 - Public character list and detail reads
 - ADMIN create, update, activate, and deactivate operations
 - Shared request and response Zod contracts
-- MBTI validation and prototype field mapping
+- Optional generic classification and classification-group validation
+- Canonical MBTI value validation for the `mbti-house` World
 - API authorization and error handling
 
 The frontend editor is implemented in Plan 10. This plan provides the API and
@@ -32,13 +34,19 @@ contract foundation it consumes.
 Use the shared pagination contract where lists can grow. Do not create a
 frontend schema mirror.
 
+Character `classification` and `classificationGroup` are optional generic
+strings. The canonical `mbti-house` World validates its MBTI values at the
+feature boundary, but the base Character model must not require MBTI metadata or
+assume that every World shares the same classification vocabulary.
+
 ## Tests
 
 - Repository mapping never returns generated Prisma types.
 - Anonymous character reads succeed for an active public World.
 - Anonymous mutations return unauthorized.
 - Non-ADMIN mutations return forbidden.
-- ADMIN mutations validate fields and persist changes.
+- ADMIN mutations validate generic fields and World-specific classification rules
+  and persist changes.
 - Inactive residents are handled consistently by public and simulation queries.
 - Controller, service, repository, contract, and e2e boundary tests are added.
 

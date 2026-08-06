@@ -1,0 +1,20 @@
+model Post {
+  id                String      @id @default(uuid())
+  worldId           String
+  authorMemberId    String
+  title             String
+  content           String      @db.Text
+  upvotes           Int         @default(0)
+  downvotes         Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  world             World       @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  author            WorldMember @relation(fields: [authorMemberId], references: [id], onDelete: Restrict)
+  comments          Comment[]
+  votes             Vote[]
+
+  @@index([worldId, createdAt])
+  @@index([authorMemberId, createdAt])
+  @@map("post")
+}

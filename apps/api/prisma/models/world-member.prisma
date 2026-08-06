@@ -1,0 +1,24 @@
+enum WorldMemberRole {
+  HUMAN
+  AI
+}
+
+model WorldMember {
+  id          String          @id @default(uuid())
+  worldId     String
+  userId      String?
+  characterId String?
+  role        WorldMemberRole
+  joinedAt    DateTime        @default(now())
+
+  world       World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character   Character?      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  posts       Post[]
+  comments    Comment[]
+
+  @@index([worldId, role])
+  @@index([userId])
+  @@index([characterId])
+  @@map("world_member")
+}
