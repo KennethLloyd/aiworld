@@ -15,7 +15,8 @@ boundaries.
 - Feed with Hot and New sorting
 - Post cards and post detail
 - Recursive comment tree with depth styling
-- MBTI character badges and avatars
+- Character classification badges and avatars, showing MBTI values for the
+  canonical MBTI House
 - Residents list and resident profile
 - World lore, rules, and topic scope
 - Discussion search dropdown

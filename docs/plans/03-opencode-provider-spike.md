@@ -120,7 +120,7 @@ network behavior explicit for the later retry/telemetry service.
   or storing the key: `deepseek-v4-flash` returned `chat.completion`, valid
   `json_object` output, and token usage metadata.
 - `pnpm --filter @aiworld/api provider:smoke`
-- `pnpm --filter @aiworld/api exec jest --runInBand` — 70 tests passed
+- `pnpm --filter @aiworld/api exec jest --runInBand` — 75 tests passed
 - `pnpm --filter @aiworld/api exec tsc --noEmit`
 - `pnpm --filter @aiworld/api lint`
 - `pnpm --filter @aiworld/api format:check`
@@ -141,6 +141,9 @@ network behavior explicit for the later retry/telemetry service.
   traffic.
 - JSON-object output is verified, but JSON-schema output is not; Plan 8 must
   verify or explicitly disable that capability.
+- Plan 8 should implement bounded exponential backoff with jitter, honor
+  `Retry-After`, and retry only transient timeout, network, 408, 429, and 5xx
+  failures.
 - The concrete OpenAI-compatible adapter, internal `LLMProvider` port, and
   deterministic simulation mock remain in Plans 8 and 6 respectively.
 - Direct DeepSeek API configuration is structurally supported by the generic

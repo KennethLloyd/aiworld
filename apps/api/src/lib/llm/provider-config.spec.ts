@@ -1,4 +1,8 @@
-import { loadProviderConfig, toSafeProviderConfig } from './provider-config.js';
+import {
+  assertStructuredOutputCapability,
+  loadProviderConfig,
+  toSafeProviderConfig,
+} from './provider-config.js';
 
 describe('loadProviderConfig', () => {
   it('defaults to a network-free mock configuration', () => {
@@ -85,5 +89,22 @@ describe('loadProviderConfig', () => {
         LLM_TIMEOUT_MS: '0',
       }),
     ).toThrow('Invalid LLM provider configuration');
+  });
+
+  it('raises a capability error when a native output mode is unavailable', () => {
+    const config = loadProviderConfig({
+      LLM_PROVIDER: 'openai-compatible',
+      LLM_BASE_URL: 'https://opencode.ai/zen/go/v1',
+      LLM_API_KEY: 'fixture-api-key',
+      LLM_MODEL: 'deepseek-v4-flash',
+      LLM_STRUCTURED_OUTPUT: 'json-object',
+    });
+
+    expect(() =>
+      assertStructuredOutputCapability(config, 'json-object'),
+    ).not.toThrow();
+    expect(() =>
+      assertStructuredOutputCapability(config, 'json-schema'),
+    ).toThrow('native json-schema structured output');
   });
 });

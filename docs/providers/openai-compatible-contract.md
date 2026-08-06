@@ -61,6 +61,13 @@ OpenCode Go accepted `response_format.type = "json_object"` and returned JSON
 text in the assistant message. The provider capability is therefore recorded as
 `json-object`, not `json-schema`.
 
+`ProviderCapabilityError` is raised when a caller requires native JSON Schema
+output from a provider configured only for JSON object output. For example, a
+future action that needs a vendor-native schema request must fail explicitly
+against the verified OpenCode Go profile rather than silently sending an
+unsupported request. Callers that accept text-to-JSON fallback use the safe
+fallback parser instead.
+
 The internal boundary must:
 
 1. Prefer native `json_object` output when configured and supported.
@@ -118,6 +125,11 @@ The live smoke request verified successful authentication, model selection,
 request mapping, JSON-object output, response parsing, and usage metadata. It did
 not intentionally exercise rate limits or failure responses. Plan 8 should verify
 provider-specific retry headers and backoff behavior before production traffic.
+The planned retry policy is bounded exponential backoff with jitter, honoring a
+provider `Retry-After` value when present. Retries are limited by
+`LLM_MAX_RETRIES` and the request timeout, and apply only to timeout, network,
+408, 429, and 5xx failures. Authentication, malformed-response, capability, and
+other client errors fail immediately.
 
 ## Local Verification
 

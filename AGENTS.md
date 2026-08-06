@@ -9,8 +9,11 @@
   for execution status.
 - Treat each plan issue as the parent tracker. Break substantial plans into
   child issues before implementation.
+- Assign every plan and child issue to `KennethLloyd` before implementation.
 - Move the plan or task to `In Progress` before starting work and to `Done`
-  only after implementation and verification are complete.
+  only after its pull request is open, required checks pass, implementation and
+  verification are complete, you have reviewed and merged the pull request, and
+  the review handoff is complete.
 - Link pull requests to child issues with `Refs #<number>`. Use `Closes
   #<number>` only when the whole parent plan is complete.
 
@@ -22,7 +25,13 @@
    boundaries.
 4. Update the plan implementation record in the same task as the code.
 5. Run the applicable local checks before opening or updating a pull request.
-6. Report incomplete checks, known risks, and follow-up work explicitly.
+6. Create a dedicated branch for the ticket; never complete implementation on
+   `main`.
+7. Commit only the focused ticket changes, push the branch, and open a review
+   pull request.
+8. Confirm required CI checks pass and wait for the user to review and merge the
+   pull request; do not mark the issue or plan `Done`/`Complete` before then.
+9. Report incomplete checks, known risks, and follow-up work explicitly.
 
 ## Pull Request Strategy
 
@@ -34,6 +43,9 @@
   rebase the remaining branches onto `main`.
 - Keep each pull request reviewable and linked to its child issue; do not use a
   stack to avoid breaking down an oversized task.
+- The completion gate is ordered: `In Progress` -> dedicated branch -> focused
+  commit -> pushed branch -> open PR -> passing checks -> user review -> user
+  merge -> plan record marked `Complete` and project item marked `Done`.
 
 ## Required Boundaries
 

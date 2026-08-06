@@ -75,6 +75,7 @@ export function parseOpenAiCompatibleChatCompletion(
 export function extractAssistantContent(
   response: OpenAiCompatibleChatCompletion,
 ): string {
+  // Actions consume this validated message content, not the provider envelope.
   const content = response.choices[0]?.message.content;
   if (typeof content !== 'string' || content.trim().length === 0) {
     throw new ProviderMalformedResponseError(

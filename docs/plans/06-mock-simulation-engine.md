@@ -32,6 +32,7 @@ fetch context -> build prompt -> call provider -> parse result
 - Vote generation returns a structured upvote, downvote, or skip decision.
 - Comment generation includes post and bounded parent-thread context.
 - Inactive characters cannot be selected for actions.
+- Actions resolve an active Character through its WorldMember in the target World.
 - Failed or invalid provider output never creates partial content.
 - Every provider call produces a SimulationLog entry with source, model,
   latency, tokens where available, and configurable cost estimate.

@@ -8,6 +8,8 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  votes         Vote[]
+  worldMemberships WorldMember[]
 
   role      String  @default("USER")
   username  String  @unique

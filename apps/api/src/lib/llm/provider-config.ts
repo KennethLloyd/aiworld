@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-import { ProviderConfigurationError } from './provider-error.js';
+import {
+  ProviderCapabilityError,
+  ProviderConfigurationError,
+} from './provider-error.js';
 
 export const providerIds = ['mock', 'openai-compatible'] as const;
 export const structuredOutputModes = [
@@ -119,4 +122,21 @@ export function toSafeProviderConfig(config: ProviderConfig) {
     capabilities: config.capabilities,
     hasApiKey: config.apiKey !== undefined,
   };
+}
+
+export function assertStructuredOutputCapability(
+  config: Pick<ProviderConfig, 'capabilities'>,
+  requested: 'json-object' | 'json-schema',
+): void {
+  const configured = config.capabilities.structuredOutput;
+  const supportsRequest =
+    requested === 'json-schema'
+      ? configured === 'json-schema'
+      : configured === 'json-schema' || configured === 'json-object';
+
+  if (!supportsRequest) {
+    throw new ProviderCapabilityError(
+      `Provider does not support native ${requested} structured output`,
+    );
+  }
 }
