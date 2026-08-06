@@ -108,7 +108,7 @@ describe('WorldController', () => {
       const response = await controller.list(query);
 
       expect(response).toEqual(paginatedWorldResponse);
-      expect(mockWorldService.list).toHaveBeenCalledWith(query);
+      expect(mockWorldService.list).toHaveBeenCalledWith(query, false);
       expect(
         mockWorldResponseMapper.mapToPaginatedWorldResponse,
       ).toHaveBeenCalledWith(paginatedWorldRecord);
@@ -125,7 +125,7 @@ describe('WorldController', () => {
       const response = await controller.getBySlug('mbti');
 
       expect(response).toEqual(worldResponseFixture);
-      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('mbti');
+      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('mbti', false);
       expect(mockWorldResponseMapper.mapToWorldResponse).toHaveBeenCalledWith(
         worldRecordFixture,
       );
@@ -137,7 +137,10 @@ describe('WorldController', () => {
       await expect(controller.getBySlug('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
-      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('nonexistent');
+      expect(mockWorldService.getBySlug).toHaveBeenCalledWith(
+        'nonexistent',
+        false,
+      );
       expect(mockWorldResponseMapper.mapToWorldResponse).not.toHaveBeenCalled();
     });
   });
@@ -212,7 +215,7 @@ describe('WorldController', () => {
       mockWorldService.delete.mockResolvedValue(undefined);
 
       await expect(controller.delete('mbti')).resolves.toBeUndefined();
-      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('mbti');
+      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('mbti', true);
       expect(mockWorldService.delete).toHaveBeenCalledWith('mbti');
     });
 
@@ -222,7 +225,10 @@ describe('WorldController', () => {
       await expect(controller.delete('nonexistent')).rejects.toThrow(
         NotFoundException,
       );
-      expect(mockWorldService.getBySlug).toHaveBeenCalledWith('nonexistent');
+      expect(mockWorldService.getBySlug).toHaveBeenCalledWith(
+        'nonexistent',
+        true,
+      );
       expect(mockWorldService.delete).not.toHaveBeenCalled();
     });
 

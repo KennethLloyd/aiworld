@@ -6,10 +6,14 @@ import type { INestApplication } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import type { OpenAPIObject } from '@nestjs/swagger';
 
+import { registerCharactersOpenApi } from '@/characters/characters.openapi';
+import { registerWorldMembersOpenApi } from '@/world-members/world-members.openapi';
 import { registerWorldOpenApi } from '@/world/world.openapi';
 
 const openApiRegistrars: Array<(registry: OpenAPIRegistry) => void> = [
   registerWorldOpenApi,
+  registerCharactersOpenApi,
+  registerWorldMembersOpenApi,
 ];
 
 export function createOpenApiDocument(): OpenAPIObject {
@@ -28,7 +32,7 @@ export function createOpenApiDocument(): OpenAPIObject {
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
     info: {
-      title: 'AIWorld Worlds API',
+      title: 'AIWorld API',
       version: '1.0.0',
     },
     servers: [{ url: '/api' }],

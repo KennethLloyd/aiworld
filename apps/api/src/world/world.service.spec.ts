@@ -117,6 +117,21 @@ describe('WorldService', () => {
         isActive: false,
       });
     });
+
+    it('should force active-only results for non-admin callers', async () => {
+      mockRepository.findAll.mockResolvedValue({
+        items: [],
+        meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+      });
+
+      await worldService.list({ page: 1, limit: 10, isActive: false }, false);
+
+      expect(mockRepository.findAll).toHaveBeenCalledWith({
+        page: 1,
+        limit: 10,
+        isActive: true,
+      });
+    });
   });
 
   describe('getBySlug', () => {
@@ -136,6 +151,14 @@ describe('WorldService', () => {
 
       expect(result).toBeNull();
       expect(mockRepository.findBySlug).toHaveBeenCalledWith('nonexistent');
+    });
+
+    it('should require an active World for non-admin callers', async () => {
+      mockRepository.findBySlug.mockResolvedValue(null);
+
+      await worldService.getBySlug('mbti', false);
+
+      expect(mockRepository.findBySlug).toHaveBeenCalledWith('mbti', true);
     });
   });
 

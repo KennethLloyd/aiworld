@@ -23,10 +23,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { AllowAnonymous, Roles } from '@thallesp/nestjs-better-auth';
 
 import { ZodValidationPipe } from '@/common/pipes';
+import { isAdminRequest } from '@/lib/auth/request-access';
+import type { AuthenticatedRequest } from '@/lib/auth/request-access';
 import { WorldResponseMapper } from '@/world/mappers/world-response.mapper';
 import { WorldService } from '@/world/world.service';
 
@@ -66,16 +69,26 @@ export class WorldController {
   @AllowAnonymous()
   async list(
     @Query(new ZodValidationPipe(listWorldsQuerySchema)) query: ListWorldsQuery,
+    @Req() request?: AuthenticatedRequest,
   ): Promise<ListWorldsResponse> {
-    const worlds = await this.worldService.list(query);
+    const worlds = await this.worldService.list(
+      query,
+      isAdminRequest(request ?? {}),
+    );
 
     return this.worldResponseMapper.mapToPaginatedWorldResponse(worlds);
   }
 
   @Get(':slug')
   @AllowAnonymous()
-  async getBySlug(@Param('slug') slug: string): Promise<WorldResponse> {
-    const world = await this.worldService.getBySlug(slug);
+  async getBySlug(
+    @Param('slug') slug: string,
+    @Req() request?: AuthenticatedRequest,
+  ): Promise<WorldResponse> {
+    const world = await this.worldService.getBySlug(
+      slug,
+      isAdminRequest(request ?? {}),
+    );
     if (!world) {
       throw new NotFoundException();
     }
@@ -87,7 +100,7 @@ export class WorldController {
   @HttpCode(204)
   @Roles(['ADMIN'])
   async delete(@Param('slug') slug: string): Promise<void> {
-    const world = await this.worldService.getBySlug(slug);
+    const world = await this.worldService.getBySlug(slug, true);
     if (!world) {
       throw new NotFoundException();
     }

@@ -75,12 +75,15 @@ export class PrismaWorldRepository extends WorldRepository {
     };
   }
 
-  async findBySlug(slug: string): Promise<WorldRecord | null> {
+  async findBySlug(
+    slug: string,
+    isActive?: boolean,
+  ): Promise<WorldRecord | null> {
     const item = await this.prisma.world.findUnique({
       where: { slug },
     });
 
-    if (!item) {
+    if (!item || (isActive !== undefined && item.isActive !== isActive)) {
       return null;
     }
 

@@ -28,10 +28,13 @@ pipeline in Plan 06.
 - `GET /api/worlds/:slug/posts/:postId`
 - `GET /api/worlds/:slug/comments` or an embedded bounded comment tree
 - `GET /api/worlds/:slug/search?q=...`
-- `GET /api/worlds/:slug/characters/:characterId/activity`
+- `GET /api/characters/:characterId/activity?worldSlug=...`
 
 Choose the smallest coherent surface and document the final shape in shared
 schemas. Avoid premature cursor pagination unless query evidence requires it.
+
+Character profile reads belong to Plan 04. Activity remains a World-scoped
+content read because one reusable Character may participate in multiple Worlds.
 
 ## Tests
 
