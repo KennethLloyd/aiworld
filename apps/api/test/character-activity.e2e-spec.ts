@@ -18,9 +18,8 @@ const databaseUrl =
   'postgres://postgres:postgres@localhost:5432/aiworld';
 
 /**
- * Synthetic fixture worlds keep this spec's posts and members out of the
- * seeded canonical world, so e2e tests that assert the exact seeded feed
- * never observe them.
+ * Fixture worlds stay out of the seeded canonical world, so tests that
+ * assert the exact seeded feed never see them.
  */
 async function createSyntheticWorld(
   prisma: PrismaClient,
@@ -45,9 +44,8 @@ async function createSyntheticWorld(
 }
 
 /**
- * Deletes a synthetic fixture world. Vote rows reference the voting member
- * with onDelete: Restrict, so votes must be removed before the world can
- * cascade its members away.
+ * Deletes a fixture world. Votes use onDelete: Restrict, so votes
+ * must be removed before the world can cascade its members away.
  */
 async function deleteSyntheticWorld(
   prisma: PrismaClient,
@@ -97,6 +95,30 @@ const outsider = {
   id: seedUuid('character:activity-outsider'),
   handle: 'activity_outsider',
   name: 'Activity Outsider',
+  avatarUrl: null,
+};
+
+// The response author is the authoring WorldMember, never the character:
+// `id` is the member id, and the identity fields come from the member's
+// Character (see prismaContentAuthorSelect and mapContentAuthor).
+const authorIdentityA = {
+  id: seedUuid('member:activity-author'),
+  handle: author.handle,
+  name: author.name,
+  avatarUrl: null,
+};
+
+const inactiveIdentity = {
+  id: seedUuid('member:activity-inactive'),
+  handle: inactive.handle,
+  name: inactive.name,
+  avatarUrl: null,
+};
+
+const dormantIdentity = {
+  id: seedUuid('member:activity-dormant'),
+  handle: dormant.handle,
+  name: dormant.name,
   avatarUrl: null,
 };
 
@@ -329,10 +351,8 @@ describe('Character activity (real database)', () => {
       },
     });
 
-    // Votes: distinct members per target (partial unique indexes
-    // vote_member_post_unique / vote_member_comment_unique), two per target.
-    // Every (member, target) pair below is unique, so no duplicate-vote row
-    // is rejected.
+    // Two voters per target. Every (member, target) pair is unique, so
+    // no duplicate-vote row is rejected.
     const worldAVoters = [commenterMemberIdA, authorMemberIdA];
     const worldBVoters = [commenterMemberIdB, authorMemberIdB];
     const voteTargets = [
@@ -397,12 +417,12 @@ describe('Character activity (real database)', () => {
       seedUuid('post:activity-post-a'),
     ]);
     expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(author);
+    expect(res.body.posts[0].author).toEqual(authorIdentityA);
     expect(
       res.body.comments.map((comment: { id: string }) => comment.id),
     ).toEqual([seedUuid('comment:activity-comment-a')]);
     expect(res.body.comments[0].voteScore).toBe(2);
-    expect(res.body.comments[0].author).toEqual(author);
+    expect(res.body.comments[0].author).toEqual(authorIdentityA);
     expect(res.body.comments[0].replies).toEqual([]);
   });
 
@@ -461,7 +481,7 @@ describe('Character activity (real database)', () => {
       seedUuid('post:activity-post-inactive'),
     ]);
     expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(inactive);
+    expect(res.body.posts[0].author).toEqual(inactiveIdentity);
     expect(res.body.comments.map((c: { id: string }) => c.id)).toEqual([
       seedUuid('comment:activity-comment-inactive'),
     ]);
@@ -479,7 +499,7 @@ describe('Character activity (real database)', () => {
       seedUuid('post:activity-post-dormant'),
     ]);
     expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(dormant);
+    expect(res.body.posts[0].author).toEqual(dormantIdentity);
     expect(res.body.comments.map((c: { id: string }) => c.id)).toEqual([
       seedUuid('comment:activity-comment-dormant'),
     ]);
@@ -608,12 +628,13 @@ describe('Character activity (HTTP boundary)', () => {
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: {
+      id: memberId,
       character: {
-        id: characterId,
         handle: 'standard_procedure',
         name: 'Standard_Procedure',
         avatarUrl: null,
       },
+      user: null,
     },
   };
 
@@ -625,12 +646,13 @@ describe('Character activity (HTTP boundary)', () => {
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     author: {
+      id: memberId,
       character: {
-        id: characterId,
         handle: 'standard_procedure',
         name: 'Standard_Procedure',
         avatarUrl: null,
       },
+      user: null,
     },
   };
 

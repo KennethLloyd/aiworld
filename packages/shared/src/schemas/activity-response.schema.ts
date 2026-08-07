@@ -3,9 +3,7 @@ import { z } from "zod";
 import { commentResponseSchema } from "./comment-response.schema.ts";
 import { postWithAuthorResponseSchema } from "./post-response.schema.ts";
 
-// A character's activity in one World is unpaginated: a single character's
-// own posts and comments in one World are bounded, so the response carries
-// both lists in full.
+// Unpaginated: one character's own posts and comments in one World are bounded.
 
 export const characterActivityResponseSchema = z.object({
   posts: z.array(postWithAuthorResponseSchema),

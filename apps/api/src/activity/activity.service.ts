@@ -26,19 +26,16 @@ export class ActivityService {
       return null;
     }
 
-    // The active state never blocks the read: an inactive character's public
-    // content stays visible, so the character resolves without the active
-    // filter (CharactersService.getById would filter it out).
+    // No active filter here: an inactive character's public content stays
+    // visible (CharactersService.getById would filter it out).
     const character = await this.characterRepository.findById(characterId);
     if (!character) {
       return null;
     }
 
-    // A character with no membership in this World has no activity here. The
-    // membership lookup is World-scoped (worldId + characterId), so another
-    // World's content can never surface. An inactive membership still
-    // resolves: its public content stays readable (like inactive authors in
-    // post detail), and only a missing membership returns empty.
+    // The membership lookup is World-scoped, so another World's content
+    // never surfaces. Inactive memberships still resolve; only a missing
+    // membership returns empty.
     const membership = await this.worldMemberRepository.findByWorldAndCharacter(
       world.id,
       characterId,

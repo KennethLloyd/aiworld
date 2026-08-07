@@ -540,7 +540,11 @@ responses.
 Plan 05-5 lands the character activity read: `GET
 /api/characters/:characterId/activity?worldSlug=...` lists a character's
 posts and comments in one World with vote scores aggregated from Vote rows,
-reusing the vote helpers and author select from plan 05-3/05-4. A new
+reusing the vote helpers from plan 05-3 and the shared author projection
+from plan 05-4 (`prismaContentAuthorSelect`, `mapContentAuthor`). The
+author shape follows the merged member-based model: the author is the
+authoring WorldMember and is never null, `author.id` is the member id, AI
+members show their Character, and HUMAN members their User. A new
 `activity` module composes five existing boundaries — `WorldService`
 (active-World resolution, anonymous callers only ever see active Worlds),
 `CharacterRepository`, `WorldMemberRepository`, `PostRepository`, and
@@ -605,11 +609,12 @@ schema overflows the generator with a stack overflow).
   includes `/characters/{characterId}/activity`
 - `apps/api/test/character-activity.e2e-spec.ts` — hermetic fixture-world
   e2e (worlds `activity-fixture` and `activity-fixture-b`; author content
-  with vote scores, other-character content excluded, World-scoping for the
-  same reusable Character, inactive character and inactive membership still
-  listed with identity, no-membership empty activity, 404 envelopes for
-  missing character/world, anonymous access) plus stubbed-boundary HTTP
-  tests (contract-only fields, query shapes scoped through worldId +
+  with vote scores and member-based author ids, other-character content
+  excluded, World-scoping for the same reusable Character, inactive
+  character and inactive membership still listed with identity,
+  no-membership empty activity, 404 envelopes for missing
+  character/world, anonymous access) plus stubbed-boundary HTTP tests
+  (contract-only fields, query shapes scoped through worldId +
   authorMemberId and the post relation, one grouped vote query per entity,
   empty membership activity, 404 envelopes, missing `worldSlug` 400)
 
@@ -641,6 +646,47 @@ schema overflows the generator with a stack overflow).
   mirrors the flat contract: comments with `replies: z.array(z.any())`
   (the API always returns `[]`). The shared schema remains the validation
   contract.
+
+### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm exec tsc --noEmit -p apps/api/tsconfig.json` (run inside
+  `apps/api`) — clean
+- `pnpm --filter @aiworld/api test` — 135 unit tests pass (15 new)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 70 tests pass
+  (suite is deterministic under `maxWorkers: 1`); 17 new activity tests
+  (11 real-database, 6 HTTP-boundary)
+- Seeded DB verified clean of residue after the activity e2e run (no
+  `activity-*` worlds or characters remain)
+
+### Browser Verification
+
+None required for the endpoint itself; the OpenAPI document assertions
+cover the new path (`/characters/{characterId}/activity`), its
+`characterId` path param, its `worldSlug` query param, and its 200/400/404
+responses.
+
+### Known Risks and Follow-Up Work
+
+- Activity is unpaginated by design; a future "more content per author"
+  World should revisit paging at the repository seam.
+- Feed items (plan 05-3) still carry no author; extending the feed
+  contract to match the activity/detail author shape is still open for the
+  plan 09 UI.
+- The e2e suite remains serial (`maxWorkers: 1`); the shared pre-seeded
+  database fixture idea from the 05-4 record still applies if it grows.
+- Review follow-up: the `characterId` path param now validates through the
+  shared `activityParamsSchema` (400 envelope for malformed ids, matching
+  the 05-4 `postId` behavior), the inactive-membership semantics comment
+  was corrected to match the pinned behavior (inactive memberships keep
+  their content), the OpenAPI document reuses the shared
+  `postWithAuthorResponseSchema` for posts, and e2e now covers the
+  inactive-World 404 and missing-`worldSlug` 400 cases. After merging
+  docs/plans-revision (PR #33), the activity code, tests, and this record
+  were aligned with the member-based author model: the response author is
+  the WorldMember (never null, `author.id` is the member id), the OpenAPI
+  mirror dropped its stale `.nullable()` author, and the e2e fixtures
+  assert member-based author identities.
 ## Plan 05-6 (ticket #29) Implementation Record
 
 ### Senior-Level Summary
@@ -776,8 +822,3 @@ requirement.
   (member-based identity, never null), ILIKE wildcards are escaped, the
   page/limit validation is shared, and e2e covers the inactive-World 404
   and the member-based author identity.
-- The base branch (plan 05-5) still has stale author expectations: its
-  character-activity e2e and specs assert the old character-based author
-  id and `author: null` fixtures, and its post-detail e2e has a type
-  error. These are outside this PR's diff and need a follow-up on the
-  05-5 branch.
