@@ -371,7 +371,10 @@ describe('Post detail (real database)', () => {
 
       const topLevel = res.body.comments as Array<{
         id: string;
-        replies: Array<{ id: string; replies: Array<{ id: string }> }>;
+        replies: Array<{
+          id: string;
+          replies: Array<{ id: string; replies: unknown[] }>;
+        }>;
       }>;
       expect(topLevel.map((comment) => comment.id)).toEqual([
         seedUuid('comment:deep1'),
