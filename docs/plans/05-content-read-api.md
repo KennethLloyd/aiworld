@@ -129,16 +129,72 @@ shared contract before it reaches TanStack Query.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress
 
 ### Senior-Level Summary
 
+Plan 05-1 (ticket #24) landed first: the Vote schema migration to
+WorldMember-gated ownership (ADR-0002). `Vote` now references the voting
+WorldMember through `authorMemberId` — the same WorldMember reference posts and
+comments use — instead of direct `characterId`/`userId` links. The
+`Post.upvotes`/`downvotes` and `Comment.upvotes`/`downvotes` counter columns
+and their non-negative CHECK constraints are dropped; vote counts are derived
+from Vote rows at read time by the plan's later tickets. The raw partial
+unique duplicate-vote indexes were rewritten against `authorMemberId`, and the
+one-target-per-vote and value CHECKs were preserved. The seed no longer writes
+counter columns; seeding the Vote rows that reproduce the prototype totals is
+Plan 05-2 (ticket #25).
+
 ### Files Changed
+
+- `apps/api/prisma/models/vote.prisma` — replaced `userId`/`characterId` with
+  the NOT NULL `authorMemberId` WorldMember reference; new query indexes
+- `apps/api/prisma/models/post.prisma`, `comment.prisma` — removed counter
+  columns
+- `apps/api/prisma/models/character.prisma`, `auth.prisma` — removed the
+  obsolete Vote relations
+- `apps/api/prisma/models/world-member.prisma` — added the Vote relation
+- `apps/api/prisma/migrations/20260807090000_vote_worldmember_ownership/migration.sql`
+  — new migration: drops old principal columns/indexes/constraints, backfills
+  `authorMemberId` World-scoped, drops counters, rewrites partial unique
+  indexes
+- `apps/api/prisma/seed-world.ts` — no longer writes counter columns
+- `apps/api/test/seed.e2e-spec.ts` — migration tests: duplicate votes
+  (post and comment) rejected, value/target CHECKs enforced, counters gone,
+  constraint rewrite matches ADR-0002
 
 ### Architecture and SOLID Notes
 
+Vote ownership now matches the WorldMember authorship boundary of posts and
+comments exactly: one membership record per participant, historical votes
+survive membership deactivation, and `WorldMember.role` `HUMAN` means the
+model generalizes unchanged to human members post-MVP. The backfill resolves
+the membership through the voted target's World because a principal may hold
+memberships in several Worlds. The partial unique indexes stay raw SQL (as
+before) because Prisma cannot express partial predicates; a
+`prisma migrate dev --create-only` drift check produced an empty migration,
+confirming the hand-written migration matches the Prisma models.
+
 ### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm --filter @aiworld/api test` — 83 unit tests pass
+- `pnpm --filter @aiworld/api test:e2e` — 25 e2e tests pass, including the new
+  migration constraint suite
+- `db:generate`, `migrate deploy`, `db:seed` run twice (idempotent) against
+  local Postgres
 
 ### Browser Verification
 
+None needed: schema and persistence boundary only; the public read API lands
+in later Plan 05 tickets.
+
 ### Known Risks and Follow-Up Work
+
+- Seeded content has no Vote rows until Plan 05-2 (#25) seeds them; nothing
+  reads votes yet, so the app remains fully functional.
+- Prisma 7 maps CHECK violations to the generic `P2039` database-error code
+  via the pg driver adapter; tests assert that code.
+- `docs/product/aiworld-architecture-plan.md` still shows the pre-migration
+  Vote ERD; Plan 11's docs-update scope should refresh it (per the drift
+  report).
