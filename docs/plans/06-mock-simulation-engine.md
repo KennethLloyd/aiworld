@@ -1,6 +1,7 @@
 # Plan 06: Mock Simulation Engine
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`, ADR-0002.
 
 ## Goal
 
@@ -10,7 +11,9 @@ before the OpenCode Go adapter is connected.
 
 ## Scope
 
-- Internal `LLMProvider` port
+- Internal `LLMProvider` port built on the existing `lib/llm` foundation
+  shipped in Plan 03 (config loader, capability modes, error mapping) rather
+  than re-deriving it
 - Deterministic `MockLLMProvider`
 - Provider result and telemetry types
 - Prompt composition for system, World, character, action, and output format
@@ -18,6 +21,8 @@ before the OpenCode Go adapter is connected.
 - Shared command and action-executor pipeline
 - Persistence of generated posts, votes, comments, and SimulationLog records
 - Output validation and safe failure behavior
+- Service-boundary comment depth enforcement (Plan 02's deferred follow-up):
+  the write path rejects replies beyond three levels
 
 The action lifecycle should be consistent:
 
@@ -29,8 +34,12 @@ fetch context -> build prompt -> call provider -> parse result
 ## Domain Behavior
 
 - Post generation uses World topic scope and character personality.
-- Vote generation returns a structured upvote, downvote, or skip decision.
+- Vote generation returns a structured upvote, downvote, or skip decision; an
+  upvote or downvote persists one Vote row against the post-05 WorldMember-gated
+  schema (ADR-0002), and a skip persists no Vote row and is logged as SKIPPED.
 - Comment generation includes post and bounded parent-thread context.
+- Comment replies deeper than three levels are rejected at the service
+  boundary, not just truncated on read.
 - Inactive characters cannot be selected for actions.
 - Actions resolve an active Character through its WorldMember in the target World.
 - Failed or invalid provider output never creates partial content.
@@ -43,7 +52,10 @@ fetch context -> build prompt -> call provider -> parse result
 - Each action follows the shared lifecycle and persists only valid results.
 - Invalid structured output becomes a logged failure rather than a crash.
 - Post, vote, and comment actions use the correct context.
-- Comment depth limits are enforced.
+- Vote actions persist a row only for upvote/downvote; a skip produces no row
+  and a SKIPPED log entry.
+- Comment depth limits are enforced by the write service; deeper replies are
+  rejected, not truncated.
 - Repositories are injected through ports in service tests.
 - A full mock cycle creates observable persisted content and logs.
 
@@ -69,7 +81,9 @@ Use Strategy and Adapter at the provider boundary, Template Method for the
 shared action lifecycle, and a prompt chain only for independently variable
 context sections. The engine orchestrates; actions own action-specific work;
 logging and cost tracking remain separate services. Do not let action classes
-import a vendor SDK or call Prisma directly.
+import a vendor SDK or call Prisma directly. The `LLMProvider` port sits on the
+Plan 03 `lib/llm` infrastructure (`provider-config.ts`, `provider-error.ts`) —
+reuse it, do not reimplement it.
 
 ## Implementation Record
 

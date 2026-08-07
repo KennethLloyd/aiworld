@@ -15,6 +15,13 @@ The repository architecture references describe implemented behavior. These
 plans describe work that extends that behavior. Update the architecture
 references only after a planned capability is implemented and stable.
 
+Plan 11 consolidates these references: it writes
+[`docs/architecture/mvp-architecture.md`](../architecture/mvp-architecture.md)
+as the single implemented-architecture document for the MVP and removes the
+architecture plan, `backend.md`, and `frontend.md` (all preserved in git
+history and the starter repo upstream). Until then the files above remain
+valid guides; post-MVP extensions are documented in new documents.
+
 ## Current Baseline
 
 The starter already contains:

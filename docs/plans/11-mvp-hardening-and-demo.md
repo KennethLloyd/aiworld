@@ -1,6 +1,7 @@
 # Plan 11: MVP Hardening and Demo
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
 
@@ -20,6 +21,13 @@ demonstration.
 - Verify provider configuration and secret handling.
 - Run production builds and deployment smoke checks.
 - Update README and architecture references with implemented behavior.
+- Docs consolidation: write `docs/architecture/mvp-architecture.md` capturing
+  the implemented WorldMember-era architecture (Vote model, scheduler port,
+  provider seam, boundaries); remove `docs/product/aiworld-architecture-plan.md`
+  and `docs/architecture/backend.md` + `frontend.md` (preserved in git history
+  and the starter repo upstream); update `docs/plans/README.md` source material
+  to point at the new document. Post-MVP feature extensions get new documents,
+  not edits to the MVP architecture.
 
 ## Demo Acceptance Criteria
 

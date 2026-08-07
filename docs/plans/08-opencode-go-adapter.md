@@ -1,22 +1,35 @@
 # Plan 08: OpenCode Go Adapter
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
 
 Connect the already-tested simulation port to OpenCode Go without changing
 simulation actions, prompts, repositories, or controllers.
 
+## Existing Foundation
+
+Plan 03 already shipped the provider seam this plan builds on — do not re-derive
+it: the configuration loader and provider ID selection
+(`apps/api/src/lib/llm/provider-config.ts`), capability modes including
+`text-json-fallback` and the capability assert helper, safe provider config
+reporting that strips secrets (`toSafeProviderConfig`), and provider error
+mapping (`provider-error.ts`). This plan writes only the delta below and
+references those files as foundations.
+
 ## Scope
 
-- Provider configuration loader
 - OpenCode Go Adapter implementing `LLMProvider`
-- Provider registry selection by configured provider ID
-- Timeout and retry decorator/service
+- Provider registry/factory selecting Mock or OpenCode Go by the configured
+  provider ID
+- Timeout and retry decorator/service (including the retry/backoff policy
+  flagged as open in Plan 03)
 - Response normalization
-- Structured-output capability handling
+- Structured-output capability handling and the pending json-schema-capability
+  verification flagged in Plan 03
 - Token, latency, and configurable cost telemetry
-- Safe error mapping into SimulationLog
+- Safe error mapping into SimulationLog, extending the existing mapping
 - Mock provider retained for tests and local offline development
 
 ## Configuration Rules
@@ -32,7 +45,7 @@ simulation actions, prompts, repositories, or controllers.
 - Adapter request mapping uses sanitized fixtures.
 - Credentials never appear in logs or response contracts.
 - Timeout, retry, rate-limit, malformed-response, and capability errors map to
-  stable domain errors.
+  stable domain errors, reusing the Plan 03 helpers rather than duplicating them.
 - Provider registry selects Mock or OpenCode Go from configuration.
 - Mock and real adapters satisfy the same port contract.
 - Simulation actions remain unchanged when the provider changes.
