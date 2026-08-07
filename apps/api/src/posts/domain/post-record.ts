@@ -1,3 +1,5 @@
+import { AuthorRecord, CommentRecord } from '@/comments/domain/comment-record';
+
 export interface PostRecord {
   id: string;
   title: string;
@@ -5,4 +7,12 @@ export interface PostRecord {
   voteScore: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface PostWithAuthorRecord extends PostRecord {
+  author: AuthorRecord;
+}
+
+export interface PostDetailRecord extends PostWithAuthorRecord {
+  comments: CommentRecord[];
 }

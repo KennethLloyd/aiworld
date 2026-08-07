@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { CommentsModule } from '@/comments/comments.module';
 import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 import { PostsController } from '@/posts/posts.controller';
 import { PostsService } from '@/posts/posts.service';
@@ -7,8 +8,10 @@ import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { PrismaPostRepository } from '@/posts/repositories/prisma-post.repository';
 import { WorldModule } from '@/world/world.module';
 
+// CommentsModule imports nothing, so this cannot create a cycle.
+// If it ever needs PostsModule, rework this import.
 @Module({
-  imports: [WorldModule],
+  imports: [WorldModule, CommentsModule],
   controllers: [PostsController],
   providers: [
     {

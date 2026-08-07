@@ -393,3 +393,140 @@ responses, no security requirement).
   this is accepted for polling and a cursor seam is documented in the plan.
 - Feed items carry no author information yet; the post-detail ticket (#27)
   and plan 09 UI should define the author shape when they land.
+
+## Plan 05-4 (ticket #27) Implementation Record
+
+### Senior-Level Summary
+
+Plan 05-4 lands the post detail read: `GET /api/worlds/:slug/posts/:postId`
+returns the post with its aggregated vote score, its author identity, and the
+embedded comment tree bounded at three levels of nesting. The author shape is
+now defined (the follow-up noted in the 05-3 record): a public `AuthorRecord`
+modeled on the authoring WorldMember — AI members surface their Character
+identity (`handle`, `name`, `avatarUrl`), HUMAN members their User identity
+(`username`, `name`, `image`), and `id` is the member id so readers can link
+the author back to the membership that authored the content. The author is
+never null because posts and comments carry a NOT NULL `authorMemberId` FK;
+review feedback on PR #33 replaced the earlier character-only, nullable
+design with this member-based identity. The module owns the comment
+read model (`FlatCommentRecord`), a pure, unit-tested `buildCommentTree`
+domain function that assembles siblings deterministically (createdAt asc, id
+asc) and stops recursion at `MAX_COMMENT_DEPTH = 3` — deeper comments are
+dropped from the response while top-level comments are never lost, exactly
+the "read-side safety stop" the plan describes (write-side enforcement is
+Plan 06's). The comment tree lives in the response as a recursive shared
+schema (`commentResponseSchema`, expressed with the official Zod 4
+recursive-object getter form) that validates at any depth, while the OpenAPI
+document mirrors the bounded three-level shape because zod-to-openapi cannot
+generate recursive schemas (verified on 9.1.0, upstream issue #372).
+
+Missing or character-less authors resolve safely instead of erroring: a
+WorldMember with no Character (HUMAN role) surfaces its User identity, and
+inactive members keep their identity intact — both covered by real-database
+e2e tests. A member with neither identity (unreachable through the write
+paths) maps to a neutral identity instead of erroring. "Deleted targets never
+surface" holds structurally: posts and comments have no soft-delete state;
+deletion is hard (cascade), so a deleted target is simply absent and reads as
+404, and the Vote/author FKs use `onDelete: Restrict` so orphaned vote rows
+cannot appear. The controller now validates the `postId` path parameter
+through the shared `postDetailParamsSchema` (zod uuid), so malformed ids
+return the 400 validation envelope instead of a raw 500 from the database.
+The two repositories share the vote aggregation (ADR-0002 grouped COUNTs,
+active member filter) via `apps/api/src/votes/vote-aggregation.ts` and the
+author projection via the Prisma-specific `prismaContentAuthorSelect` plus
+the pure `mapContentAuthor` mapper, since both posts and comments reads
+aggregate scores — plan 05-5 and 05-6 reuse the same helpers.
+
+Test hygiene: the new e2e spec is hermetic — it plants its own synthetic
+fixture world (with votes from distinct members, respecting the partial
+unique indexes) and never seeds or mutates the canonical world, so parallel
+workers that assert the exact seeded feed are unaffected. The suite itself
+was intermittently flaky under parallel workers against the shared Postgres
+(even before this ticket: concurrent `seedWorld` interactive transactions
+timed out and force-exited workers left residue that compounded), so the e2e
+jest config now runs with `maxWorkers: 1`; the full 53-test suite passes
+deterministically across repeated runs.
+
+### Files Changed
+
+- `packages/shared/src/schemas/author-response.schema.ts` — public author
+  identity contract (member-based, never null)
+- `packages/shared/src/schemas/comment-response.schema.ts` — recursive
+  comment tree contract (Zod 4 getter form)
+- `packages/shared/src/schemas/post-response.schema.ts` —
+  `postWithAuthorResponseSchema`, `postDetailResponseSchema`
+- `packages/shared/src/schemas/post.schema.ts` — `postDetailParamsSchema`
+- `apps/api/src/comments/` — new module: `domain/comment-record.ts`,
+  `domain/comment-tree.ts` (pure builder, `MAX_COMMENT_DEPTH`),
+  `domain/content-author.ts` (pure author mapper),
+  `repositories/comment-repository.interface.ts`,
+  `repositories/prisma-comment.repository.ts`,
+  `repositories/prisma-content-author-select.ts` (Prisma-only projection),
+  `mappers/comment-response.mapper.ts`, `comments.module.ts`; unit specs for
+  the tree builder, author mapper, and response mapper
+- `apps/api/src/votes/vote-aggregation.ts` — shared grouped vote-score
+  helpers (posts and comments)
+- `apps/api/src/posts/` — `findById` on repository/service/controller,
+  `post-detail` OpenAPI registration (bounded doc mirror), param validation,
+  updated unit specs
+- `apps/api/src/app.module.ts` — registered `CommentsModule`
+- `apps/api/test/post-detail.e2e-spec.ts` — hermetic fixture-world e2e
+  (author identity, tree hierarchy, vote aggregation, three-level cap,
+  inactive-author identity, HUMAN-member user identity, wrong-world/
+  missing-post 404s, malformed postId 400) plus stubbed-boundary HTTP tests
+  (query shapes, contract-only fields, anonymous access)
+- `apps/api/test/jest-e2e.json` — `maxWorkers: 1` (serial shared-DB suite)
+- `apps/api/src/world/world.openapi.spec.ts`, `posts.openapi.spec.ts` —
+  expected path lists
+
+### Architecture and SOLID Notes
+
+- The comment tree is assembled at the service boundary from flat repository
+  rows (one grouped vote query per entity per request, no N+1); sorting and
+  depth rules live in the pure domain function, not in controllers or
+  React. The repository seam remains the designated place for a counter
+  cache if load ever justifies it.
+- The author projection (`prismaContentAuthorSelect`) and vote aggregation
+  are shared across the posts and comments repositories, so plan 05-5/05-6
+  add methods without duplicating the grouped COUNT logic. The projection is
+  named as Prisma-specific because only concrete Prisma adapters use it; the
+  repository interfaces exchange domain records.
+- The recursive shared schema and the bounded doc mirror deliberately
+  diverge: validation always accepts any depth (the API bounds it), while
+  the OpenAPI document describes the actual three-level read contract.
+- `PostDetailRecord` composes `PostWithAuthorRecord` (repository seam) with
+  the tree built by the service; mappers stay thin and are unit-tested.
+
+### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm --filter @aiworld/api test` — 122 unit tests pass (including the
+  new `mapContentAuthor` spec; the review-driven author redesign updated the
+  mapper and controller specs from the null-author shape)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 53 tests pass,
+  run twice consecutively (suite is deterministic under `maxWorkers: 1`);
+  post-detail tests updated for the member-based author identity
+- Seeded DB verified clean of residue after repeated crashed runs
+
+### Browser Verification
+
+None required for the endpoint itself; the OpenAPI document assertions cover
+the new path (`/worlds/{slug}/posts/{postId}`), its params, and its
+responses.
+
+### Known Risks and Follow-Up Work
+
+- Comments nested deeper than level 3 are silently omitted from the
+  response (the documented read-side cap); a truncation marker or count is
+  possible follow-up if the UI needs to signal it. Plan 06 owns write-side
+  depth enforcement.
+- The OpenAPI document mirrors the bounded tree with `z.any()` at the leaf
+  because the generator cannot express recursive schemas (verified against
+  zod-to-openapi 9.1.0; upstream issue #372); if the doc ever needs exact
+  leaf typing, upgrade the zod-to-openapi integration.
+- HUMAN members' author identity is their User profile fields for now;
+  plan 09 UI should render it distinctly from character authors. Feed items
+  (plan 05-3) still carry no author; extending the feed contract is a
+  possible follow-up for the plan 09 UI.
+- The e2e suite is now serial (`maxWorkers: 1`); if the suite grows large,
+  a shared pre-seeded database fixture would let it parallelize again.

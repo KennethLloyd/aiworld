@@ -1,6 +1,13 @@
 import { ListPostsResponse } from '@aiworld/shared/schemas/post-response.schema';
-import { listPostsQuerySchema } from '@aiworld/shared/schemas/post.schema';
-import type { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
+import { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
+import {
+  listPostsQuerySchema,
+  postDetailParamsSchema,
+} from '@aiworld/shared/schemas/post.schema';
+import type {
+  ListPostsQuery,
+  PostDetailParams,
+} from '@aiworld/shared/schemas/post.schema';
 import {
   Controller,
   Get,
@@ -35,5 +42,20 @@ export class PostsController {
     }
 
     return this.postResponseMapper.mapToPaginatedPostResponse(feed);
+  }
+
+  @Get(':postId')
+  @AllowAnonymous()
+  async getById(
+    @Param(new ZodValidationPipe(postDetailParamsSchema))
+    params: PostDetailParams,
+  ): Promise<PostDetailResponse> {
+    const post = await this.postsService.findById(params.slug, params.postId);
+
+    if (!post) {
+      throw new NotFoundException();
+    }
+
+    return this.postResponseMapper.mapToPostDetailResponse(post);
   }
 }

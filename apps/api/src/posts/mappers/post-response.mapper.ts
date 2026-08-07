@@ -1,14 +1,23 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import {
   ListPostsResponse,
+  PostDetailResponse,
   PostResponse,
+  PostWithAuthorResponse,
 } from '@aiworld/shared/schemas/post-response.schema';
 import { Injectable } from '@nestjs/common';
 
-import { PostRecord } from '@/posts/domain/post-record';
+import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
+import {
+  PostDetailRecord,
+  PostRecord,
+  PostWithAuthorRecord,
+} from '@/posts/domain/post-record';
 
 @Injectable()
 export class PostResponseMapper {
+  constructor(private readonly commentResponseMapper: CommentResponseMapper) {}
+
   mapToPostResponse(record: PostRecord): PostResponse {
     return {
       id: record.id,
@@ -17,6 +26,24 @@ export class PostResponseMapper {
       voteScore: record.voteScore,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+    };
+  }
+
+  mapToPostWithAuthorResponse(
+    record: PostWithAuthorRecord,
+  ): PostWithAuthorResponse {
+    return {
+      ...this.mapToPostResponse(record),
+      author: record.author,
+    };
+  }
+
+  mapToPostDetailResponse(record: PostDetailRecord): PostDetailResponse {
+    return {
+      ...this.mapToPostWithAuthorResponse(record),
+      comments: record.comments.map((comment) =>
+        this.commentResponseMapper.mapToCommentResponse(comment),
+      ),
     };
   }
 

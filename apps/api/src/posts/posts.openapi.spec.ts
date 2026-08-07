@@ -22,6 +22,15 @@ describe('postsOpenApiDocument', () => {
     expect(paths['/worlds/{slug}/posts']?.get).toBeDefined();
   });
 
+  it('registers the public post detail path', () => {
+    const paths = (postsOpenApiDocument.paths ?? {}) as Record<
+      string,
+      PostsDocumentPath
+    >;
+
+    expect(paths['/worlds/{slug}/posts/{postId}']?.get).toBeDefined();
+  });
+
   it('does not require the session cookie', () => {
     const paths = (postsOpenApiDocument.paths ?? {}) as Record<
       string,
@@ -29,6 +38,9 @@ describe('postsOpenApiDocument', () => {
     >;
 
     expect(paths['/worlds/{slug}/posts']?.get).not.toHaveProperty('security');
+    expect(paths['/worlds/{slug}/posts/{postId}']?.get).not.toHaveProperty(
+      'security',
+    );
   });
 
   it('documents the slug param and the sort and pagination query params', () => {
