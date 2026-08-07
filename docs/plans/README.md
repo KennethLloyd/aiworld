@@ -55,7 +55,7 @@ integration, public observer screens, and the admin control room.
 | [01](./01-mvp-contract.md) | MVP contract and plan governance | Current baseline | Complete |
 | [02](./02-domain-model-and-seed.md) | Domain model and prototype seed | 01 | Complete |
 | [03](./03-opencode-provider-spike.md) | OpenCode Go contract verification | 01 | Complete |
-| [04](./04-character-management.md) | Character and World membership API | 02 | In Progress |
+| [04](./04-character-management.md) | Character and World membership API | 02 | Complete |
 | [05](./05-content-read-api.md) | Public content read API | 02, 04 | Planned |
 | [06](./06-mock-simulation-engine.md) | Mock simulation action pipeline | 02, 04, 05 | Planned |
 | [07](./07-simulation-lifecycle-and-admin-api.md) | Scheduler and admin simulation API | 06 | Planned |
