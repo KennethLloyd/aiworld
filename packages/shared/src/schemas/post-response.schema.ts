@@ -18,7 +18,7 @@ export const postResponseSchema = z.object({
 export type PostResponse = z.infer<typeof postResponseSchema>;
 
 export const postWithAuthorResponseSchema = postResponseSchema.extend({
-  author: authorResponseSchema.nullable(),
+  author: authorResponseSchema,
 });
 
 export type PostWithAuthorResponse = z.infer<

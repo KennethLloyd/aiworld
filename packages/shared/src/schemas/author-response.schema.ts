@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-// Author identity exposed on public content reads. A WorldMember without a
-// Character (HUMAN members) resolves to a null author; the schema keeps the
-// field nullable so reads stay safe instead of erroring.
+// Public author identity on content reads, modeled on the authoring
+// WorldMember (posts and comments carry a NOT NULL authorMemberId): AI
+// members surface their Character identity, HUMAN members their User
+// identity. The authoring member always exists, so the author is never null.
+// `id` is the WorldMember id, so a reader can link the author back to the
+// membership that authored the content.
 
 export const authorResponseSchema = z.object({
   id: z.uuid(),

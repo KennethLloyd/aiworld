@@ -10,17 +10,19 @@ import {
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
-// zod-to-openapi cannot transform recursive schemas: its optional/nullable
-// probes run safeParse on every schema, and a circular schema overflows the
-// error formatter. The document therefore mirrors the read-side contract
-// exactly as the API bounds it: the comment tree stops at three levels of
-// nesting, and the leaf level declares `replies` with an untyped array
-// (z.any, which the generator emits as an open items schema) because the API
-// never returns replies there. The shared commentResponseSchema remains the
-// validation contract.
+// zod-to-openapi cannot transform recursive schemas, verified against the
+// latest release (9.1.0, 2026-07-19): its nullability probes run
+// safeParse on every schema, and a circular schema overflows the error
+// formatter during generation (upstream issue #372 remains open). The
+// document therefore mirrors the read-side contract exactly as the API
+// bounds it: the comment tree stops at three levels of nesting, and the
+// leaf level declares `replies` with an untyped array (z.any, which the
+// generator emits as an open items schema) because the API never returns
+// replies there. The shared commentResponseSchema remains the validation
+// contract.
 const commentTreeFields = {
   id: z.uuid(),
-  author: authorResponseSchema.nullable(),
+  author: authorResponseSchema,
   content: z.string(),
   voteScore: z.number().int(),
   createdAt: z.iso.datetime(),
@@ -47,7 +49,7 @@ const CommentResponseDoc = z
 const PostDetailResponseDoc = z
   .object({
     ...postResponseSchema.shape,
-    author: authorResponseSchema.nullable(),
+    author: authorResponseSchema,
     comments: z.array(CommentResponseDoc),
   })
   .meta({ id: 'PostDetailResponse' });

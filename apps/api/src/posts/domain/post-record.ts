@@ -10,7 +10,7 @@ export interface PostRecord {
 }
 
 export interface PostWithAuthorRecord extends PostRecord {
-  author: AuthorRecord | null;
+  author: AuthorRecord;
 }
 
 export interface PostDetailRecord extends PostWithAuthorRecord {

@@ -2,7 +2,11 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
 import { Injectable } from '@nestjs/common';
 
-import { contentAuthorSelect } from '@/comments/repositories/content-author-select';
+import {
+  ContentAuthorRow,
+  mapContentAuthor,
+} from '@/comments/domain/content-author';
+import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { compareByHot } from '@/posts/domain/post-ranking';
@@ -20,7 +24,7 @@ const postSelect = {
 
 const postWithAuthorSelect = {
   ...postSelect,
-  author: contentAuthorSelect,
+  author: prismaContentAuthorSelect,
 } as const;
 
 type PostFeedRow = Pick<
@@ -29,14 +33,7 @@ type PostFeedRow = Pick<
 >;
 
 type PostWithAuthorRow = PostFeedRow & {
-  author: {
-    character: {
-      id: string;
-      handle: string;
-      name: string;
-      avatarUrl: string | null;
-    } | null;
-  } | null;
+  author: ContentAuthorRow;
 };
 
 const newOrderBy: Prisma.PostOrderByWithRelationInput[] = [
@@ -140,7 +137,7 @@ export class PrismaPostRepository extends PostRepository {
   ): PostWithAuthorRecord {
     return {
       ...this.mapToRecord(post, scores),
-      author: post.author?.character ?? null,
+      author: mapContentAuthor(post.author),
     };
   }
 }

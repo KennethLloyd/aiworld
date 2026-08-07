@@ -88,17 +88,19 @@ const fixture = {
     },
   ],
   author: {
-    id: seedUuid('character:detail-author'),
+    id: seedUuid('member:detail-author'),
     handle: 'detail_author',
     name: 'Detail Author',
     avatarUrl: null,
   },
+  authorCharacterId: seedUuid('character:detail-author'),
   commenter: {
-    id: seedUuid('character:detail-commenter'),
+    id: seedUuid('member:detail-commenter'),
     handle: 'detail_commenter',
     name: 'Detail Commenter',
     avatarUrl: null,
   },
+  commenterCharacterId: seedUuid('character:detail-commenter'),
 };
 
 describe('Post detail (real database)', () => {
@@ -126,7 +128,7 @@ describe('Post detail (real database)', () => {
     fixtureWorld = await createSyntheticWorld(prisma, fixture.worldKey);
     await prisma.character.create({
       data: {
-        id: fixture.author.id,
+        id: fixture.authorCharacterId,
         handle: fixture.author.handle,
         name: fixture.author.name,
         biography: 'Synthetic author for the post-detail fixture.',
@@ -136,7 +138,7 @@ describe('Post detail (real database)', () => {
     });
     await prisma.character.create({
       data: {
-        id: fixture.commenter.id,
+        id: fixture.commenterCharacterId,
         handle: fixture.commenter.handle,
         name: fixture.commenter.name,
         biography: 'Synthetic commenter for the post-detail fixture.',
@@ -150,7 +152,7 @@ describe('Post detail (real database)', () => {
       data: {
         id: authorMemberId,
         worldId: fixtureWorld.id,
-        characterId: fixture.author.id,
+        characterId: fixture.authorCharacterId,
         role: 'AI',
       },
     });
@@ -158,7 +160,7 @@ describe('Post detail (real database)', () => {
       data: {
         id: commenterMemberId,
         worldId: fixtureWorld.id,
-        characterId: fixture.commenter.id,
+        characterId: fixture.commenterCharacterId,
         role: 'AI',
       },
     });
@@ -226,7 +228,11 @@ describe('Post detail (real database)', () => {
     await app.close();
     await deleteSyntheticWorld(prisma, fixture.worldKey);
     await prisma.character.deleteMany({
-      where: { id: { in: [fixture.author.id, fixture.commenter.id] } },
+      where: {
+        id: {
+          in: [fixture.authorCharacterId, fixture.commenterCharacterId],
+        },
+      },
     });
     await prisma.$disconnect();
   });
@@ -336,7 +342,11 @@ describe('Post detail (real database)', () => {
     });
 
     let parentCommentId: string | null = null;
-    for (const key of deepChain) {
+    for (const [index, key] of deepChain.entries()) {
+      // Explicit timestamps keep the top-level sibling ordering deterministic.
+      const createdAt = new Date(
+        Date.parse('2026-08-07T10:00:00.000Z') + index * 60_000,
+      );
       const created: { id: string } = await prisma.comment.create({
         data: {
           id: seedUuid(`comment:${key}`),
@@ -344,24 +354,42 @@ describe('Post detail (real database)', () => {
           authorMemberId: seedUuid('member:deep-chain-test'),
           parentCommentId,
           content: `depth comment ${key}`,
+          createdAt,
         },
       });
       parentCommentId = created.id;
     }
+    await prisma.comment.create({
+      data: {
+        id: seedUuid('comment:deep-sibling'),
+        postId,
+        authorMemberId: seedUuid('member:deep-chain-test'),
+        parentCommentId: null,
+        content: 'A sibling top-level comment that must survive the cap.',
+        createdAt: new Date('2026-08-07T10:05:00.000Z'),
+      },
+    });
 
     try {
       const res = await request(app.getHttpServer())
         .get(`/api/worlds/${world.slug}/posts/${postId}`)
         .expect(200);
 
-      const [level1, level2] = res.body.comments;
-      expect(level1.id).toBe(seedUuid('comment:deep1'));
+      const topLevel = res.body.comments as Array<{
+        id: string;
+        replies: Array<{ id: string; replies: Array<{ id: string }> }>;
+      }>;
+      expect(topLevel.map((comment) => comment.id)).toEqual([
+        seedUuid('comment:deep1'),
+        seedUuid('comment:deep-sibling'),
+      ]);
+      expect(topLevel[1].replies).toEqual([]);
+      const [level1] = topLevel;
       expect(level1.replies).toHaveLength(1);
       expect(level1.replies[0].id).toBe(seedUuid('comment:deep1a'));
       expect(level1.replies[0].replies).toHaveLength(1);
       expect(level1.replies[0].replies[0].id).toBe(seedUuid('comment:deep1a1'));
       expect(level1.replies[0].replies[0].replies).toEqual([]);
-      expect(level2).toBeUndefined();
     } finally {
       await deleteSyntheticWorld(prisma, world.slug);
       await prisma.character.delete({ where: { id: characterId } });
@@ -419,12 +447,12 @@ describe('Post detail (real database)', () => {
         .expect(200);
 
       expect(res.body.author).toEqual({
-        id: characterId,
+        id: memberId,
         handle: 'inactive_author_test',
         name: 'Inactive Author Test',
         avatarUrl: null,
       });
-      expect(res.body.comments[0].author!.id).toBe(characterId);
+      expect(res.body.comments[0].author!.id).toBe(memberId);
     } finally {
       await deleteSyntheticWorld(prisma, world.slug);
       await prisma.character.delete({ where: { id: characterId } });
@@ -505,7 +533,7 @@ describe('Post detail (real database)', () => {
     });
   });
 
-  it('reads a post authored by a member without a character as a null author', async () => {
+  it('reads a post authored by a HUMAN member with their User identity', async () => {
     const world = await createSyntheticWorld(prisma, 'human-member-test');
     const userId = seedUuid('user:human-member-test');
     const memberId = seedUuid('member:human-member-test');
@@ -533,7 +561,7 @@ describe('Post detail (real database)', () => {
         worldId: world.id,
         authorMemberId: memberId,
         title: 'Signed by a human',
-        content: 'Human members have no character identity.',
+        content: 'Human members carry their user identity.',
       },
     });
 
@@ -543,7 +571,12 @@ describe('Post detail (real database)', () => {
         .expect(200);
 
       expect(postDetailResponseSchema.safeParse(res.body).success).toBe(true);
-      expect(res.body.author).toBeNull();
+      expect(res.body.author).toEqual({
+        id: memberId,
+        handle: 'human_resident_test',
+        name: 'A Human Resident',
+        avatarUrl: null,
+      });
     } finally {
       await deleteSyntheticWorld(prisma, world.slug);
       await prisma.user.delete({ where: { id: userId } });
@@ -567,20 +600,23 @@ describe('Post detail (HTTP boundary)', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
+  const authorMemberRow = {
+    id: '00000000-0000-4000-8000-000000000201',
+    character: {
+      handle: 'standard_procedure',
+      name: 'Standard_Procedure',
+      avatarUrl: null,
+    },
+    user: null,
+  };
+
   const postRow = {
     id: '00000000-0000-4000-8000-000000000101',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
-    author: {
-      character: {
-        id: '00000000-0000-4000-8000-000000000201',
-        handle: 'standard_procedure',
-        name: 'Standard_Procedure',
-        avatarUrl: null,
-      },
-    },
+    author: authorMemberRow,
   };
 
   const commentRow = {
@@ -590,14 +626,7 @@ describe('Post detail (HTTP boundary)', () => {
     content: 'It was me. I said it.',
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
-    author: {
-      character: {
-        id: '00000000-0000-4000-8000-000000000201',
-        handle: 'standard_procedure',
-        name: 'Standard_Procedure',
-        avatarUrl: null,
-      },
-    },
+    author: authorMemberRow,
   };
 
   const prismaStub = {
@@ -690,7 +719,11 @@ describe('Post detail (HTTP boundary)', () => {
         where: { id: postRow.id, worldId },
         select: expect.objectContaining({
           author: {
-            select: expect.objectContaining({ character: expect.any(Object) }),
+            select: expect.objectContaining({
+              id: expect.any(Boolean),
+              character: expect.any(Object),
+              user: expect.any(Object),
+            }),
           },
         }),
       }),
@@ -713,21 +746,40 @@ describe('Post detail (HTTP boundary)', () => {
     );
   });
 
-  it('maps a member without a character to a null author', async () => {
+  it('maps a member without a character to their User identity', async () => {
+    const humanAuthorRow = {
+      id: authorMemberRow.id,
+      character: null,
+      user: {
+        username: 'human_resident',
+        name: 'A Human Resident',
+        image: 'https://example.com/human.png',
+      },
+    };
     prismaStub.post.findFirst.mockResolvedValue({
       ...postRow,
-      author: { character: null },
+      author: humanAuthorRow,
     });
     prismaStub.comment.findMany.mockResolvedValue([
-      { ...commentRow, author: { character: null } },
+      { ...commentRow, author: humanAuthorRow },
     ]);
 
     const res = await request(app.getHttpServer())
       .get(`/api/worlds/mbti-house/posts/${postRow.id}`)
       .expect(200);
 
-    expect(res.body.author).toBeNull();
-    expect(res.body.comments[0].author).toBeNull();
+    expect(res.body.author).toEqual({
+      id: authorMemberRow.id,
+      handle: 'human_resident',
+      name: 'A Human Resident',
+      avatarUrl: 'https://example.com/human.png',
+    });
+    expect(res.body.comments[0].author).toEqual({
+      id: authorMemberRow.id,
+      handle: 'human_resident',
+      name: 'A Human Resident',
+      avatarUrl: 'https://example.com/human.png',
+    });
   });
 
   it('rejects a malformed postId through the error envelope', async () => {
