@@ -517,7 +517,6 @@ responses.
 - The e2e suite is now serial (`maxWorkers: 1`); if the suite grows large,
   a shared pre-seeded database fixture would let it parallelize again.
 
-<<<<<<< HEAD
 ## Plan 05-5 (ticket #28) Implementation Record
 
 ### Senior-Level Summary
@@ -626,7 +625,6 @@ schema overflows the generator with a stack overflow).
   mirrors the flat contract: comments with `replies: z.array(z.any())`
   (the API always returns `[]`). The shared schema remains the validation
   contract.
-=======
 ## Plan 05-6 (ticket #29) Implementation Record
 
 ### Senior-Level Summary
@@ -660,9 +658,11 @@ resolve thread context. Safe-empty behavior is defined at the service: a
 query whose trimmed length is under two characters (absent, empty,
 whitespace, or single-character `q` — `q` is optional in the shared
 `searchQuerySchema`) returns an empty page with zero metadata instead of an
-error, and a no-result query does the same. The response validates through
-the shared `searchResponseSchema` (a discriminated union of the existing
-post-with-author and comment contracts), the endpoint is
+error, and a no-result query does the same. Query text is escaped with
+`escapeSearchText` before ILIKE matching, so `%`, `_`, and `\` match
+literally and a query like `%%` cannot match every row. The response
+validates through the shared `searchResponseSchema` (a discriminated union
+of the existing post-with-author and comment contracts), the endpoint is
 `@AllowAnonymous()` (Observer reads never require auth), and OpenAPI
 registration was added with a bounded comment mirror because
 zod-to-openapi cannot transform the recursive `commentResponseSchema` (see
@@ -671,7 +671,11 @@ the note in `posts.openapi.ts`).
 ### Files Changed
 
 - `packages/shared/src/schemas/search.schema.ts` — `searchQuerySchema`
-  (`q` optional, page/limit with the shared defaults) and `SearchQuery`
+  (`q` optional, page/limit shared via `paginationQueryFields`) and
+  `SearchQuery`
+- `packages/shared/src/schemas/pagination.schema.ts` —
+  `paginationQueryFields` extracted so every paginated read endpoint
+  (feed, search) shares one page/limit validation instead of two copies
 - `packages/shared/src/schemas/search-response.schema.ts` —
   `postSearchResultSchema`, `commentSearchResultSchema`,
   `searchItemSchema` (discriminated union), `searchResponseSchema` reusing
@@ -680,13 +684,18 @@ the note in `posts.openapi.ts`).
   `prisma-post.repository.ts` — `searchByText(worldId, q)`:
   `post.findMany` with the `worldId` + title/content OR match on
   `postWithAuthorSelect`, ordered createdAt desc / id desc, one grouped
-  vote query for all matches
+  vote query for all matches; the pattern is escaped via
+  `escapeSearchText`
 - `apps/api/src/comments/repositories/comment-repository.interface.ts` +
   `prisma-comment.repository.ts` — `searchByText(worldId, q)`: comment
   content match scoped through `post: { worldId }` (the no-leak
   guarantee), same ordering and single grouped vote query
 - `apps/api/src/posts/posts.module.ts` — exports `PostRepository` and
   `PostResponseMapper` so the search module can consume the seams
+- `apps/api/src/lib/search-text.ts` + spec — `escapeSearchText`: escapes
+  `%`, `_`, and `\` before Prisma `contains` (ILIKE) matching, so wildcard
+  characters are matched literally and a query like `%%` cannot match every
+  row; both repositories apply it
 - `apps/api/src/search/` — new module: `domain/search-record.ts`
   (`SearchResultRecord` union + pure `compareSearchResults`),
   `search.service.ts`, `search.controller.ts` (GET, `@AllowAnonymous`,
@@ -700,10 +709,11 @@ the note in `posts.openapi.ts`).
 - `apps/api/test/search.e2e-spec.ts` — hermetic fixture-world e2e (title
   and content matches, comment matches, vote scores, deterministic merge
   order, other-World content never appears, empty/short/no-result safe
-  responses, shared pagination metadata, anonymous access) plus
-  stubbed-boundary HTTP tests (contract-only fields with type tags, query
-  shapes incl. the post-relation comment scope, no repository calls for
-  absent/short queries, 404 envelope, validation 400s)
+  responses, literal ILIKE-wildcard matching, inactive-World 404, shared
+  pagination metadata, anonymous access) plus stubbed-boundary HTTP tests
+  (contract-only fields with type tags, query shapes incl. the post-relation
+  comment scope, no repository calls for absent/short queries, 404 envelope,
+  validation 400s)
 
 ### Architecture and SOLID Notes
 
@@ -729,57 +739,23 @@ the note in `posts.openapi.ts`).
 - The min-two-characters rule is a service decision (query validation
   would otherwise 400 a legitimately empty search box); the response is
   still a well-defined empty page through the shared contract.
->>>>>>> 5c34093 (feat(api): add world-scoped discussion search)
 
 ### Tests Run
 
 - `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
-<<<<<<< HEAD
-- `pnpm exec tsc --noEmit -p apps/api/tsconfig.json` (run inside
-  `apps/api`) — clean
-- `pnpm --filter @aiworld/api test` — 135 unit tests pass (15 new)
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 70 tests pass
-  (suite is deterministic under `maxWorkers: 1`); 17 new activity tests
-  (11 real-database, 6 HTTP-boundary)
-- Seeded DB verified clean of residue after the activity e2e run (no
-  `activity-*` worlds or characters remain)
-=======
-- `pnpm --filter @aiworld/api test` — 141 unit tests pass (21 new: 11
-  search service, 3 controller, 3 mapper, 4 OpenAPI document)
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 69 tests pass
-  (16 new: 11 real-database fixture-world, 5 HTTP-boundary); the hermetic
+- `pnpm --filter @aiworld/api test` — 145 unit tests pass (25 new: 11
+  search service, 3 controller, 3 mapper, 4 OpenAPI document, 4
+  search-text)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 71 tests pass
+  (18 new: 13 real-database fixture-world, 5 HTTP-boundary); the hermetic
   spec cleans both fixture slugs and its characters in afterAll, and a
   residue probe confirmed the shared DB is clean
 - `pnpm exec tsc --noEmit -p tsconfig.json` — clean
 - Postgres `migrate deploy` — no pending migrations; seeded DB used as-is
->>>>>>> 5c34093 (feat(api): add world-scoped discussion search)
 
 ### Browser Verification
 
 None required for the endpoint itself; the OpenAPI document assertions
-<<<<<<< HEAD
-cover the new path (`/characters/{characterId}/activity`), its
-`characterId` path param, its `worldSlug` query param, and its 200/400/404
-responses.
-
-### Known Risks and Follow-Up Work
-
-- Activity is unpaginated by design; a future "more content per author"
-  World should revisit paging at the repository seam.
-- Feed items (plan 05-3) still carry no author; extending the feed
-  contract to match the activity/detail author shape is still open for the
-  plan 09 UI.
-- The e2e suite remains serial (`maxWorkers: 1`); the shared pre-seeded
-  database fixture idea from the 05-4 record still applies if it grows.
-- Review follow-up: the `characterId` path param now validates through the
-  shared `activityParamsSchema` (400 envelope for malformed ids, matching
-  the 05-4 `postId` behavior), the inactive-membership semantics comment
-  was corrected to match the pinned behavior (inactive memberships keep
-  their content), the OpenAPI document reuses the shared
-  `postWithAuthorResponseSchema` for posts, and e2e now covers the
-  inactive-World 404 and missing-`worldSlug` 400 cases.
-
-=======
 cover the new path (`/worlds/{slug}/search`), its params (slug, q, page,
 limit), its responses (200/400/404), and the absence of a security
 requirement.
@@ -800,4 +776,8 @@ requirement.
 - Vote scores are computed over all matches, so totals in the page metadata
   are match counts, not score sums; the Plan 09 UI should not conflate the
   two.
->>>>>>> 5c34093 (feat(api): add world-scoped discussion search)
+- Review follow-up: ILIKE wildcard characters are now escaped via
+  `escapeSearchText` (a `100%` query matches literally, pinned by e2e), the
+  page/limit query validation is shared via `paginationQueryFields`
+  (previously duplicated in the feed and search schemas), and e2e now
+  covers the inactive-World 404 case.

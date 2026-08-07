@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { contentAuthorSelect } from '@/comments/repositories/content-author-select';
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { escapeSearchText } from '@/lib/search-text';
 import { compareByHot } from '@/posts/domain/post-ranking';
 import { PostRecord, PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
@@ -146,12 +147,13 @@ export class PrismaPostRepository extends PostRepository {
     worldId: string,
     q: string,
   ): Promise<PostWithAuthorRecord[]> {
+    const pattern = escapeSearchText(q);
     const posts = await this.prisma.post.findMany({
       where: {
         worldId,
         OR: [
-          { title: { contains: q, mode: 'insensitive' } },
-          { content: { contains: q, mode: 'insensitive' } },
+          { title: { contains: pattern, mode: 'insensitive' } },
+          { content: { contains: pattern, mode: 'insensitive' } },
         ],
       },
       select: postWithAuthorSelect,

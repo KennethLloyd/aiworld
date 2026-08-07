@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { paginationQueryFields } from "./pagination.schema.ts";
+
 // Request DTOs
 
 // q is optional: an absent or empty query is a defined safe response (an
@@ -7,9 +9,7 @@ import { z } from "zod";
 
 export const searchQuerySchema = z.object({
   q: z.string().optional(),
-  // .coerce is needed because query strings arrive as strings so we need to convert them
-  page: z.coerce.number().pipe(z.int().min(1)).default(1),
-  limit: z.coerce.number().pipe(z.int().min(1).max(100)).default(20),
+  ...paginationQueryFields,
 });
 
 // Inferred types

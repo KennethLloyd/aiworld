@@ -25,6 +25,7 @@ const databaseUrl =
 async function createSyntheticWorld(
   prisma: PrismaClient,
   key: string,
+  options: { isActive?: boolean } = {},
 ): Promise<{ id: string; slug: string }> {
   const id = seedUuid(`world:${key}`);
   await prisma.world.create({
@@ -35,6 +36,7 @@ async function createSyntheticWorld(
       description: { about: 'Synthetic world for search e2e fixtures.' },
       rules: [],
       topicScope: 'Testing fixtures.',
+      isActive: options.isActive ?? true,
     },
   });
   return { id, slug: key };
@@ -87,6 +89,12 @@ const fixture = {
     upvotes: 0,
     createdAt: '2026-08-06T13:00:00.000Z',
   },
+  wildcardComment: {
+    key: 'search-cw',
+    content: 'Waffles are 100% essential.',
+    upvotes: 0,
+    createdAt: '2026-08-06T14:00:00.000Z',
+  },
   otherWorld: {
     postKey: 'search-b-p1',
     title: 'Another world entirely',
@@ -125,7 +133,11 @@ describe('World discussion search (real database)', () => {
 
   beforeAll(async () => {
     // Remove any residue from a previously crashed run, then rebuild.
-    for (const slug of [fixture.worldKey, fixture.otherWorldKey]) {
+    for (const slug of [
+      fixture.worldKey,
+      fixture.otherWorldKey,
+      'search-inactive-world',
+    ]) {
       await deleteSyntheticWorld(prisma, slug);
     }
     await prisma.character.deleteMany({
@@ -199,7 +211,11 @@ describe('World discussion search (real database)', () => {
         updatedAt: fixture.postTwo.createdAt,
       },
     });
-    for (const comment of [fixture.commentOne, fixture.commentTwo]) {
+    for (const comment of [
+      fixture.commentOne,
+      fixture.commentTwo,
+      fixture.wildcardComment,
+    ]) {
       await prisma.comment.create({
         data: {
           id: seedUuid(`comment:${comment.key}`),
@@ -505,6 +521,41 @@ describe('World discussion search (real database)', () => {
       total: 0,
       totalPages: 0,
     });
+  });
+
+  it('matches ILIKE wildcard characters literally', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/worlds/${fixtureWorld.slug}/search?q=100%25`)
+      .expect(200);
+
+    expect(searchResponseSchema.safeParse(res.body).success).toBe(true);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].type).toBe('comment');
+    expect(res.body.items[0].comment.content).toBe(
+      fixture.wildcardComment.content,
+    );
+  });
+
+  it('returns the 404 envelope for an inactive world', async () => {
+    const inactiveWorld = await createSyntheticWorld(
+      prisma,
+      'search-inactive-world',
+      { isActive: false },
+    );
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/api/worlds/${inactiveWorld.slug}/search?q=quillfox`)
+        .expect(404);
+
+      expect(res.body).toEqual({
+        statusCode: 404,
+        message: 'Not Found',
+        error: 'NotFoundException',
+      });
+    } finally {
+      await deleteSyntheticWorld(prisma, inactiveWorld.slug);
+    }
   });
 });
 
