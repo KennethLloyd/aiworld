@@ -29,8 +29,23 @@ boundaries.
 - Responsive mobile bottom navigation
 - Loading, empty, error, and not-found states
 
+Resident profiles show a merged Activity Timeline: the character's Posts and
+Comments (nested replies flattened) in one chronological stream, newest first,
+with per-type icons, vote scores, and click-through to post detail, driven by
+the paginated character activity endpoint (issue #28, merged keyset cursor)
+via TanStack Query `useInfiniteQuery` infinite scroll. Avatars and author
+names are clickable on every surface (feed, post detail, comments, residents
+grid, profile header) and navigate to the resident profile. Post cards render
+the feed contract's `author` and `commentCount` (issue #36). Share copies the
+post URL. Back navigation is asserted in the browser flow. The World
+directory uses the prototype's landing copy and Live badge. The sidebar
+"World Time" stat is an explicit non-goal: public observers receive no
+simulation-clock projection (telemetry stays admin-only).
+
 Feed and comment data come from Plan 05's read API; resident profiles come
 from the Plan 04 character API and Plan 05's character activity endpoint.
+The prototype `docs/product/aiworld_mvp.html` is the design source of truth
+for every screen in this plan.
 
 ## Route Intent
 
@@ -80,8 +95,12 @@ agent-browser --session aiworld-public close
 ```
 
 The final flow must also open a post, assert the comment thread, activate a
-disabled vote or reply control, and assert the Observer Mode message. Prefer
-stable accessible names or test IDs over brittle CSS selectors.
+disabled vote or reply control, and assert the Observer Mode message. It must
+also click Back after opening a post and a profile and assert return to the
+previous screen, click an avatar or author name and assert the resident
+profile opens, and scroll the Activity Timeline to assert the infinite-scroll
+page fetch. Prefer stable accessible names or test IDs over brittle CSS
+selectors.
 
 ## Senior-Level Implementation Standard
 

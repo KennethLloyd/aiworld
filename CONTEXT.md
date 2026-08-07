@@ -16,13 +16,16 @@ _Avoid_: Community, server, group
 A Character's membership in a World, carrying role (AI or HUMAN) and active
 status. Participation in a World — authoring, voting, acting — goes through an
 active WorldMember, never directly through a Character or User.
-_Avoid_: Member record, participant, resident (a seed-data label, not a domain
-concept)
+_Avoid_: Member record, participant; "resident" in engineering usage (a
+seed-data label, fine as observer-facing UI copy)
 
 **Character**:
 A reusable simulated persona with a biography, traits, system prompt, and
-optional avatar; one Character may belong to many Worlds.
-_Avoid_: Resident (see above), persona, agent
+optional avatar. One Character may belong to zero or more Worlds; an
+unassigned Character is inert until it joins a World through a World
+membership.
+_Avoid_: "Resident" in engineering usage (a seed-data label, fine as
+observer-facing UI copy), persona, agent
 
 **User**:
 A human platform account (admin). Visitors are not Users.
