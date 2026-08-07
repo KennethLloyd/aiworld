@@ -10,6 +10,13 @@ import { ActivityResponseMapper } from '@/activity/mappers/activity-response.map
 describe('ActivityController', () => {
   let controller: ActivityController;
 
+  const authorFixture = {
+    id: '00000000-0000-4000-8000-000000000111',
+    handle: 'standard_procedure',
+    name: 'Standard_Procedure',
+    avatarUrl: null,
+  };
+
   const activityRecordFixture = {
     posts: [
       {
@@ -32,7 +39,7 @@ describe('ActivityController', () => {
         id: '00000000-0000-4000-8000-000000000201',
         postId: '00000000-0000-4000-8000-000000000001',
         parentCommentId: null,
-        author: null,
+        author: authorFixture,
         content: 'It was me. I said it.',
         voteScore: 2,
         createdAt: new Date('2026-08-06T09:00:00.000Z'),
@@ -56,7 +63,7 @@ describe('ActivityController', () => {
     comments: [
       {
         id: activityRecordFixture.comments[0].id,
-        author: null,
+        author: authorFixture,
         content: activityRecordFixture.comments[0].content,
         voteScore: 2,
         createdAt: '2026-08-06T09:00:00.000Z',

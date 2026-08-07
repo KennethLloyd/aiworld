@@ -7,14 +7,12 @@ import { postWithAuthorResponseSchema } from '@aiworld/shared/schemas/post-respo
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
-// zod-to-openapi cannot transform the recursive commentResponseSchema (see
-// posts.openapi.ts). Activity comments are always flat — the service never
-// nests replies — so the document mirrors that exact contract: one level of
-// comments whose `replies` is an untyped array (the API always returns []).
+// zod-to-openapi cannot transform the recursive comment schema.
+// Activity comments are always flat, so the doc mirrors that shape.
 const ActivityCommentDoc = z
   .object({
     id: z.uuid(),
-    author: authorResponseSchema.nullable(),
+    author: authorResponseSchema,
     content: z.string(),
     voteScore: z.number().int(),
     createdAt: z.iso.datetime(),

@@ -79,12 +79,21 @@ describe('ActivityResponseMapper', () => {
     ]);
   });
 
-  it('keeps a null author for members without a character', () => {
+  it('maps the member-based author through the response unchanged', () => {
+    const memberAuthor = {
+      id: '00000000-0000-4000-8000-000000000222',
+      handle: 'another_member',
+      name: 'Another Member',
+      avatarUrl: null,
+    };
+
     const response = mapper.mapToCharacterActivityResponse({
       posts: [],
-      comments: [{ ...activityRecordFixture.comments[0], author: null }],
+      comments: [
+        { ...activityRecordFixture.comments[0], author: memberAuthor },
+      ],
     });
 
-    expect(response.comments[0].author).toBeNull();
+    expect(response.comments[0].author).toEqual(memberAuthor);
   });
 });
