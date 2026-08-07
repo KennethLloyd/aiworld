@@ -15,11 +15,8 @@ function searchResultId(record: SearchResultRecord): string {
   return record.type === 'post' ? record.post.id : record.comment.id;
 }
 
-/**
- * Deterministic merge rule for the search result list: newest first, then
- * highest id. Both posts and comments carry createdAt and id, so the merged
- * list is stable across reads for fixed data.
- */
+// Deterministic merge rule: newest first, then highest id.
+// Posts and comments both carry createdAt and id.
 export function compareSearchResults(
   a: SearchResultRecord,
   b: SearchResultRecord,

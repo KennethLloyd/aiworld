@@ -5,6 +5,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AuthorRecord } from '@/comments/domain/comment-record';
 import { PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { SearchResultRecord } from '@/search/domain/search-record';
 import { SearchResponseMapper } from '@/search/mappers/search-response.mapper';
@@ -14,12 +15,19 @@ import { SearchService } from '@/search/search.service';
 describe('SearchController', () => {
   let controller: SearchController;
 
+  const authorFixture: AuthorRecord = {
+    id: '00000000-0000-4000-8000-000000000101',
+    handle: 'standard_procedure',
+    name: 'Standard_Procedure',
+    avatarUrl: null,
+  };
+
   const postRecordFixture: PostWithAuthorRecord = {
     id: '00000000-0000-4000-8000-000000000001',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
     voteScore: 5,
-    author: null,
+    author: authorFixture,
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
   };
@@ -38,7 +46,7 @@ describe('SearchController', () => {
           title: postRecordFixture.title,
           content: postRecordFixture.content,
           voteScore: postRecordFixture.voteScore,
-          author: null,
+          author: authorFixture,
           createdAt: postRecordFixture.createdAt.toISOString(),
           updatedAt: postRecordFixture.updatedAt.toISOString(),
         },

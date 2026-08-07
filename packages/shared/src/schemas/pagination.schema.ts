@@ -13,9 +13,8 @@ export type PaginationMeta = z.infer<typeof paginationMetaSchema>;
 
 export type Paginated<T> = { items: T[]; meta: PaginationMeta };
 
-// Request-side pagination fields shared by every paginated read endpoint.
-// .coerce is needed because query strings arrive as strings so we need to
-// convert them.
+// Shared page and limit fields for paginated read endpoints.
+// .coerce converts query strings to numbers.
 
 export const paginationQueryFields = {
   page: z.coerce.number().pipe(z.int().min(1)).default(1),

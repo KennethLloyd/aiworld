@@ -4,8 +4,8 @@ import { commentResponseSchema } from "./comment-response.schema.ts";
 import { paginationMetaSchema } from "./pagination.schema.ts";
 import { postWithAuthorResponseSchema } from "./post-response.schema.ts";
 
-// Response contract: a single merged list of World-scoped posts and comments,
-// each tagged with its type so the client can render the correct item shape.
+// One merged list of World-scoped posts and comments.
+// Each item is tagged with its type.
 
 export const postSearchResultSchema = z.object({
   type: z.literal("post"),

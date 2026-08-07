@@ -17,11 +17,8 @@ const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://postgres:postgres@localhost:5432/aiworld';
 
-/**
- * Synthetic fixture worlds keep this spec's posts and members out of the
- * seeded canonical world, so parallel e2e workers that assert the exact
- * seeded feed never observe them.
- */
+// Synthetic fixture worlds keep this spec's data out of the seeded world,
+// so parallel e2e workers never see it.
 async function createSyntheticWorld(
   prisma: PrismaClient,
   key: string,
@@ -42,11 +39,8 @@ async function createSyntheticWorld(
   return { id, slug: key };
 }
 
-/**
- * Deletes a synthetic fixture world. Vote rows reference the voting member
- * with onDelete: Restrict, so votes must be removed before the world can
- * cascade its members away.
- */
+// Deletes a synthetic fixture world. Votes restrict member deletion,
+// so remove votes first.
 async function deleteSyntheticWorld(
   prisma: PrismaClient,
   slug: string,
@@ -317,6 +311,22 @@ describe('World discussion search (real database)', () => {
     expect(res.body.items).toHaveLength(3);
   });
 
+  it('shows the member-based author identity on results', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/worlds/${fixtureWorld.slug}/search?q=quillfox`)
+      .expect(200);
+
+    const postItem = res.body.items.find(
+      (item: { type: string }) => item.type === 'post',
+    );
+    expect(postItem.post.author).toEqual({
+      id: seedUuid('member:search-a-author'),
+      handle: 'search_fixture_author',
+      name: 'Search Fixture Author',
+      avatarUrl: null,
+    });
+  });
+
   it('matches posts by title and by content', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/worlds/${fixtureWorld.slug}/search?q=quillfox`)
@@ -575,6 +585,8 @@ describe('World discussion search (HTTP boundary)', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
+  const authorMemberId = '00000000-0000-4000-8000-000000000401';
+
   const postRow = {
     id: '00000000-0000-4000-8000-000000000101',
     title: 'The quillfox manifesto',
@@ -582,12 +594,13 @@ describe('World discussion search (HTTP boundary)', () => {
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: {
+      id: authorMemberId,
       character: {
-        id: '00000000-0000-4000-8000-000000000201',
         handle: 'standard_procedure',
         name: 'Standard_Procedure',
         avatarUrl: null,
       },
+      user: null,
     },
   };
 
@@ -599,12 +612,13 @@ describe('World discussion search (HTTP boundary)', () => {
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     author: {
+      id: authorMemberId,
       character: {
-        id: '00000000-0000-4000-8000-000000000201',
         handle: 'standard_procedure',
         name: 'Standard_Procedure',
         avatarUrl: null,
       },
+      user: null,
     },
   };
 
@@ -682,6 +696,12 @@ describe('World discussion search (HTTP boundary)', () => {
       ].sort(),
     );
     expect(res.body.items[0].comment.replies).toEqual([]);
+    expect(res.body.items[0].comment.author).toEqual({
+      id: authorMemberId,
+      handle: 'standard_procedure',
+      name: 'Standard_Procedure',
+      avatarUrl: null,
+    });
     expect(Object.keys(res.body.items[1]).sort()).toEqual(
       ['post', 'type'].sort(),
     );
@@ -696,6 +716,12 @@ describe('World discussion search (HTTP boundary)', () => {
         'voteScore',
       ].sort(),
     );
+    expect(res.body.items[1].post.author).toEqual({
+      id: authorMemberId,
+      handle: 'standard_procedure',
+      name: 'Standard_Procedure',
+      avatarUrl: null,
+    });
     expect(res.body.meta).toEqual({
       page: 1,
       limit: 20,
@@ -720,7 +746,11 @@ describe('World discussion search (HTTP boundary)', () => {
         },
         select: expect.objectContaining({
           author: {
-            select: expect.objectContaining({ character: expect.any(Object) }),
+            select: expect.objectContaining({
+              id: true,
+              character: expect.any(Object),
+              user: expect.any(Object),
+            }),
           },
         }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],

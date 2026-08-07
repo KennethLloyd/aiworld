@@ -5,15 +5,13 @@ import { searchQuerySchema } from '@aiworld/shared/schemas/search.schema';
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
-// zod-to-openapi cannot transform the recursive commentResponseSchema (see
-// the bounded-mirror note in posts.openapi.ts), so the document mirrors the
-// flat search comment exactly as the API returns it: replies is always the
-// empty array. The shared searchResponseSchema remains the validation
-// contract.
+// zod-to-openapi cannot render the recursive commentResponseSchema,
+// so this document mirrors the flat search comment. replies is always [].
+// The shared searchResponseSchema stays the validation contract.
 const SearchCommentDoc = z
   .object({
     id: z.uuid(),
-    author: authorResponseSchema.nullable(),
+    author: authorResponseSchema,
     content: z.string(),
     voteScore: z.number().int(),
     createdAt: z.iso.datetime(),
@@ -54,7 +52,7 @@ export function registerSearchOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          'World-scoped posts and comments matching the query, merged and paginated with aggregated vote scores.',
+          'Posts and comments in the World that match the query, with vote scores.',
         content: {
           'application/json': {
             schema: SearchResponseDoc,

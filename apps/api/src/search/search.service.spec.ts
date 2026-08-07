@@ -201,8 +201,8 @@ describe('SearchService', () => {
 
     const results = await service.search('mbti-house', queryFixture);
 
-    // comment 1 (11:00), then the two 10:00 records tie-broken by id desc
-    // (post ...0003 before comment ...0002), then post ...0004 (08:00).
+    // 11:00 comment first, then the two 10:00 records by id desc,
+    // then the 08:00 post.
     const ids = results!.items.map((item) =>
       item.type === 'post' ? item.post.id : item.comment.id,
     );

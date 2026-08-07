@@ -645,128 +645,112 @@ schema overflows the generator with a stack overflow).
 
 ### Senior-Level Summary
 
-Plan 05-6 lands the world-scoped discussion search: `GET
-/api/worlds/:slug/search?q=...` returns matching posts (title or content)
-and comments (content) scoped to that World, merged into one paginated list
-whose items are tagged with their type (`{ type: 'post', post }` /
-`{ type: 'comment', comment }`) so the Plan 09 dropdown UI can render the
-correct shape per row from a single coherent pagination metadata. The
-`search` module follows the established shape: `SearchService` resolves the
-World through `WorldService.getBySlug(slug, false)` (404 for missing or
-inactive Worlds via the controller's `NotFoundException`), then delegates to
-new `searchByText` methods on the existing `PostRepository` and
-`CommentRepository` seams. World-scoping is structural, not filtered after
-the fact: posts match with `where: { worldId, OR: [title/content contains] }`
-and comments match with `where: { content: contains, post: { worldId } }` —
-a comment belongs to a World exactly when its post does, which is the
-no-leak guarantee. Both queries aggregate vote scores with the shared
-all-matches `aggregatePostVoteScores`/`aggregateCommentVoteScores` grouped
-COUNTs (active-member filter), like the Hot path, rather than page-scoped
-aggregation.
+Plan 05-6 adds World-scoped discussion search. `GET
+/api/worlds/:slug/search?q=...` returns the posts and comments in that
+World that match the query. Posts match on title or content; comments
+match on content. Results merge into one paginated list, and each item is
+tagged with its type: `{ type: 'post', post }` or
+`{ type: 'comment', comment }`. The Plan 09 dropdown renders one row per
+item.
 
-The merged list is sorted deterministically by a pure domain comparator
-(`compareSearchResults`: createdAt desc, then id desc — both record shapes
-carry createdAt and id), sliced in the service for pagination, and mapped at
-the response boundary through the existing `PostResponseMapper` and
-`CommentResponseMapper`, so no admin-only prompt or provider data can leak.
-Comments in search results are flat (`replies: []`): search reads never
-resolve thread context. Safe-empty behavior is defined at the service: a
-query whose trimmed length is under two characters (absent, empty,
-whitespace, or single-character `q` — `q` is optional in the shared
-`searchQuerySchema`) returns an empty page with zero metadata instead of an
-error, and a no-result query does the same. Query text is escaped with
-`escapeSearchText` before ILIKE matching, so `%`, `_`, and `\` match
-literally and a query like `%%` cannot match every row. The response
-validates through the shared `searchResponseSchema` (a discriminated union
-of the existing post-with-author and comment contracts), the endpoint is
-`@AllowAnonymous()` (Observer reads never require auth), and OpenAPI
-registration was added with a bounded comment mirror because
-zod-to-openapi cannot transform the recursive `commentResponseSchema` (see
-the note in `posts.openapi.ts`).
+`SearchService` resolves the World through `WorldService.getBySlug`.
+Missing or inactive Worlds get the 404 envelope. The service then asks
+the existing post and comment repository seams for matches. Both queries
+are scoped to the World id. Comments are scoped through the post
+relation, because a comment belongs to a World exactly when its post
+does. This is the no-leak guarantee; it is structural, not a filter.
+
+Vote scores come from the shared grouped-count helpers over all matches,
+so scores stay stable across pages of one query. A pure comparator sorts
+the merged list (createdAt desc, id desc), and the service slices it into
+pages. The existing post and comment response mappers build the response,
+so no admin-only fields can leak. Search comments are flat: `replies` is
+always `[]`.
+
+Absent, empty, whitespace, and one-character queries return an empty page
+with zero metadata, never an error. A query with no matches does the
+same. Query text is escaped before ILIKE matching, so `%`, `_`, and `\`
+match literally and a query like `%%` cannot match every row.
+
+The endpoint is anonymous, its response validates through the shared
+`searchResponseSchema`, and the OpenAPI document registers the path. The
+document mirrors the flat search comment because zod-to-openapi cannot
+transform the recursive `commentResponseSchema` (see the note in
+`posts.openapi.ts`).
 
 ### Files Changed
 
 - `packages/shared/src/schemas/search.schema.ts` — `searchQuerySchema`
-  (`q` optional, page/limit shared via `paginationQueryFields`) and
-  `SearchQuery`
+  (`q` optional) and `SearchQuery`
 - `packages/shared/src/schemas/pagination.schema.ts` —
-  `paginationQueryFields` extracted so every paginated read endpoint
-  (feed, search) shares one page/limit validation instead of two copies
-- `packages/shared/src/schemas/search-response.schema.ts` —
-  `postSearchResultSchema`, `commentSearchResultSchema`,
-  `searchItemSchema` (discriminated union), `searchResponseSchema` reusing
-  the shared `paginationMetaSchema`, plus their types
-- `apps/api/src/posts/repositories/post-repository.interface.ts` +
-  `prisma-post.repository.ts` — `searchByText(worldId, q)`:
-  `post.findMany` with the `worldId` + title/content OR match on
-  `postWithAuthorSelect`, ordered createdAt desc / id desc, one grouped
-  vote query for all matches; the pattern is escaped via
-  `escapeSearchText`
-- `apps/api/src/comments/repositories/comment-repository.interface.ts` +
-  `prisma-comment.repository.ts` — `searchByText(worldId, q)`: comment
-  content match scoped through `post: { worldId }` (the no-leak
-  guarantee), same ordering and single grouped vote query
+  `paginationQueryFields`; the feed and search endpoints now share one
+  page/limit validation
+- `packages/shared/src/schemas/search-response.schema.ts` — the
+  discriminated-union search item and response schemas, reusing
+  `postWithAuthorResponseSchema`, `commentResponseSchema`, and
+  `paginationMetaSchema`
+- `apps/api/src/posts/` — `searchByText(worldId, q)` on the repository
+  interface and Prisma adapter: worldId + title/content OR match,
+  createdAt desc / id desc, one grouped vote query for all matches
+- `apps/api/src/comments/` — `searchByText(worldId, q)` on the repository
+  interface and Prisma adapter: content match scoped through
+  `post: { worldId }`, same ordering and vote aggregation
 - `apps/api/src/posts/posts.module.ts` — exports `PostRepository` and
-  `PostResponseMapper` so the search module can consume the seams
-- `apps/api/src/lib/search-text.ts` + spec — `escapeSearchText`: escapes
-  `%`, `_`, and `\` before Prisma `contains` (ILIKE) matching, so wildcard
-  characters are matched literally and a query like `%%` cannot match every
-  row; both repositories apply it
+  `PostResponseMapper` for the search module
+- `apps/api/src/lib/search-text.ts` + spec — `escapeSearchText` escapes
+  `%`, `_`, and `\` before Prisma `contains` matching; both search
+  repositories apply it
 - `apps/api/src/search/` — new module: `domain/search-record.ts`
   (`SearchResultRecord` union + pure `compareSearchResults`),
-  `search.service.ts`, `search.controller.ts` (GET, `@AllowAnonymous`,
-  `ZodValidationPipe`), `mappers/search-response.mapper.ts`,
-  `search.module.ts`, `search.openapi.ts` (bounded comment doc mirror);
-  unit specs for the service, controller, mapper, and OpenAPI document
+  `search.service.ts`, `search.controller.ts` (GET, `@AllowAnonymous`),
+  `mappers/search-response.mapper.ts`, `search.module.ts`,
+  `search.openapi.ts`; unit specs for the service, controller, mapper,
+  and OpenAPI document
 - `apps/api/src/app.module.ts` — registered `SearchModule`
-- `apps/api/src/lib/openapi/openapi.ts` — registered `registerSearchOpenApi`
+- `apps/api/src/lib/openapi/openapi.ts` — registered
+  `registerSearchOpenApi`
 - `apps/api/src/world/world.openapi.spec.ts` — expected path list now
   includes `/worlds/{slug}/search`
-- `apps/api/test/search.e2e-spec.ts` — hermetic fixture-world e2e (title
-  and content matches, comment matches, vote scores, deterministic merge
-  order, other-World content never appears, empty/short/no-result safe
-  responses, literal ILIKE-wildcard matching, inactive-World 404, shared
-  pagination metadata, anonymous access) plus stubbed-boundary HTTP tests
-  (contract-only fields with type tags, query shapes incl. the post-relation
-  comment scope, no repository calls for absent/short queries, 404 envelope,
+- `apps/api/test/search.e2e-spec.ts` — fixture-world e2e (title, content,
+  and comment matches, vote scores, member-based author identity,
+  deterministic merge order, no other-World content, empty/short/
+  no-result safe responses, literal ILIKE-wildcard matching,
+  inactive-World 404, shared pagination metadata, anonymous access) plus
+  stubbed-boundary HTTP tests (contract-only fields with type tags, query
+  shapes, no repository calls for absent/short queries, 404 envelope,
   validation 400s)
 
 ### Architecture and SOLID Notes
 
-- The world-existence check stays in the world module; the search service
-  depends on `WorldService` plus the two exported repository seams, and
-  the merge/sort/slice rules live in the service and a pure domain
-  comparator, not in the controller or React.
-- The merged single-list design with type tags keeps one pagination
-  contract for mixed content — the alternative (separate post and comment
-  pages) would force the Plan 09 dropdown to reconcile two pagination
-  cursors. The discriminated union in the shared schema validates the tag
-  and shape together.
-- Comments are World-scoped through the `post` relation in SQL, so a
-  comment can never match unless its post is in the World; this is
-  stronger than filtering by author membership because it uses the same
-  ownership boundary as every other content read.
-- Vote aggregation is all-matches (world-scoped), mirroring the Hot path,
-  not page-scoped like the New path: search returns a merged ranking page,
-  so scores must be stable across pages of one query.
-- Search repositories fetch every match and slice in memory (like Hot);
-  `ILIKE '%q%'` cannot use a B-tree index anyway. A future FTS/trigram
-  upgrade slots into the same repository seam.
-- The min-two-characters rule is a service decision (query validation
-  would otherwise 400 a legitimately empty search box); the response is
-  still a well-defined empty page through the shared contract.
+- The world check stays in the world module. The search service depends
+  on `WorldService` and the two repository seams. Merge, sort, and slice
+  rules live in the service and a pure comparator, not in the controller.
+- One merged list with type tags keeps one pagination contract for mixed
+  content. Two separate pages would force the Plan 09 dropdown to
+  reconcile two cursors.
+- Comments are World-scoped in SQL through the post relation. A comment
+  can only match when its post is in the World.
+- Vote scores are computed over all matches, not per page. Scores stay
+  stable across pages of one query.
+- Search fetches all matches and slices in memory, like the Hot path.
+  ILIKE substring matching cannot use a B-tree index. A future FTS or
+  trigram upgrade slots into the same repository seam.
+- The two-character minimum is a service decision, not query validation.
+  An empty search box is a valid request; it returns an empty page.
 
 ### Tests Run
 
 - `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
-- `pnpm --filter @aiworld/api test` — 145 unit tests pass (25 new: 11
-  search service, 3 controller, 3 mapper, 4 OpenAPI document, 4
-  search-text)
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 71 tests pass
-  (18 new: 13 real-database fixture-world, 5 HTTP-boundary); the hermetic
-  spec cleans both fixture slugs and its characters in afterAll, and a
-  residue probe confirmed the shared DB is clean
-- `pnpm exec tsc --noEmit -p tsconfig.json` — clean
+- `pnpm --filter @aiworld/api test` — 162 unit tests pass (34 suites),
+  including the 25 search module tests
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 89 tests:
+  85 pass, including all 19 search tests. The 4 failures are pre-existing
+  base-branch tests (character-activity) that still assert the old
+  character-based author id; they fail the same way on the base branch
+  and are outside this PR's diff
+- `pnpm exec tsc --noEmit -p tsconfig.json` — clean for this PR's files;
+  the base branch has pre-existing type errors in its activity and
+  post-detail specs
 - Postgres `migrate deploy` — no pending migrations; seeded DB used as-is
 
 ### Browser Verification
@@ -778,22 +762,22 @@ requirement.
 
 ### Known Risks and Follow-Up Work
 
-- Search is `ILIKE` substring matching over title/content; no stemming,
-  ranking by relevance, or full-text features. Fine for MVP scale; the
-  repository seam is the place for a trigram/FTS upgrade, and Plan 09
-  should keep result ordering purely recency-based.
-- Comment results are flat and carry no post reference, so the UI cannot
-  jump from a search hit to its thread context without the post id; adding
-  `postId` to the comment item is a possible follow-up if the dropdown
-  needs it.
-- All-matches aggregation means the whole World's matching rows are
-  fetched per request; fine at MVP scale, and a counter cache (the
-  documented seam) or FTS with scores would change that.
-- Vote scores are computed over all matches, so totals in the page metadata
-  are match counts, not score sums; the Plan 09 UI should not conflate the
-  two.
-- Review follow-up: ILIKE wildcard characters are now escaped via
-  `escapeSearchText` (a `100%` query matches literally, pinned by e2e), the
-  page/limit query validation is shared via `paginationQueryFields`
-  (previously duplicated in the feed and search schemas), and e2e now
-  covers the inactive-World 404 case.
+- Search is ILIKE substring matching over title and content. There is no
+  stemming or relevance ranking. That is fine at MVP scale; the
+  repository seam is the place for a trigram or FTS upgrade.
+- Search comments are flat and carry no post reference. The UI cannot
+  jump from a hit to its thread. Add `postId` to the comment item if the
+  dropdown needs it.
+- Every match in the World is fetched and scored per request. Fine at MVP
+  scale; a counter cache would change that.
+- Page metadata totals are match counts, not score sums. The Plan 09 UI
+  should not conflate the two.
+- Review follow-up: search now uses the merged author model from #27
+  (member-based identity, never null), ILIKE wildcards are escaped, the
+  page/limit validation is shared, and e2e covers the inactive-World 404
+  and the member-based author identity.
+- The base branch (plan 05-5) still has stale author expectations: its
+  character-activity e2e and specs assert the old character-based author
+  id and `author: null` fixtures, and its post-detail e2e has a type
+  error. These are outside this PR's diff and need a follow-up on the
+  05-5 branch.
