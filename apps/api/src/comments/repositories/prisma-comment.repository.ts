@@ -36,6 +36,11 @@ const commentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
   { id: 'asc' },
 ];
 
+const searchOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
+];
+
 @Injectable()
 export class PrismaCommentRepository extends CommentRepository {
   constructor(private readonly prisma: PrismaService) {
@@ -68,6 +73,25 @@ export class PrismaCommentRepository extends CommentRepository {
     const scores = await aggregateCommentVoteScores(
       this.prisma,
       comments.map((c) => c.id),
+    );
+
+    return comments.map((comment) => this.mapToRecord(comment, scores));
+  }
+
+  async searchByText(worldId: string, q: string): Promise<FlatCommentRecord[]> {
+    // World-scoped through the post relation: a comment belongs to a World
+    // exactly when its post does, which is the no-leak guarantee.
+    const comments = await this.prisma.comment.findMany({
+      where: {
+        content: { contains: q, mode: 'insensitive' },
+        post: { worldId },
+      },
+      select: commentSelect,
+      orderBy: searchOrderBy,
+    });
+    const scores = await aggregateCommentVoteScores(
+      this.prisma,
+      comments.map((comment) => comment.id),
     );
 
     return comments.map((comment) => this.mapToRecord(comment, scores));

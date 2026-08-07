@@ -16,4 +16,8 @@ export abstract class PostRepository {
     worldId: string,
     authorMemberId: string,
   ): Promise<PostWithAuthorRecord[]>;
+  abstract searchByText(
+    worldId: string,
+    q: string,
+  ): Promise<PostWithAuthorRecord[]>;
 }

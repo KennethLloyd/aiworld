@@ -6,4 +6,8 @@ export abstract class CommentRepository {
     worldId: string,
     authorMemberId: string,
   ): Promise<FlatCommentRecord[]>;
+  abstract searchByText(
+    worldId: string,
+    q: string,
+  ): Promise<FlatCommentRecord[]>;
 }

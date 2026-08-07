@@ -9,6 +9,7 @@ import type { OpenAPIObject } from '@nestjs/swagger';
 import { registerActivityOpenApi } from '@/activity/activity.openapi';
 import { registerCharactersOpenApi } from '@/characters/characters.openapi';
 import { registerPostsOpenApi } from '@/posts/posts.openapi';
+import { registerSearchOpenApi } from '@/search/search.openapi';
 import { registerWorldMembersOpenApi } from '@/world-members/world-members.openapi';
 import { registerWorldOpenApi } from '@/world/world.openapi';
 
@@ -18,6 +19,7 @@ const openApiRegistrars: Array<(registry: OpenAPIRegistry) => void> = [
   registerWorldMembersOpenApi,
   registerPostsOpenApi,
   registerActivityOpenApi,
+  registerSearchOpenApi,
 ];
 
 export function createOpenApiDocument(): OpenAPIObject {
