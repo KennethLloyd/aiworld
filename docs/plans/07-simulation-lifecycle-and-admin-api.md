@@ -1,6 +1,7 @@
 # Plan 07: Simulation Lifecycle and Admin API
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`, ADR-0001.
 
 ## Goal
 
@@ -11,17 +12,32 @@ work.
 ## Scope
 
 - WorldSimulationConfig repository and state machine
-- BullMQ and Redis integration
+- `SimulationScheduler` port with two interchangeable adapters (ADR-0001):
+  a BullMQ adapter as the runtime implementation (Redis via docker-compose,
+  matching the product plan's retries and dead-letter queues) and an in-process
+  adapter as the test/CI/offline implementation
 - Randomized scheduler interval and jitter
 - Weighted action selection
 - Character selection with activity balancing
 - RUNNING, PAUSED, and HALTED lifecycle
-- Speed presets: 0.5x, 1x, 2x, 5x, 10x
+- Speed multiplier range validation (0.1-100) in the shared contract; the
+  presets shown in the admin UI are vocabulary, not schema values
 - Run One Cycle command
 - Manual Trigger Job command
 - Telemetry endpoint
 - Filtered simulation log endpoint
 - Server-side ADMIN authorization
+
+## Scheduler Port
+
+The port exposes lifecycle and command operations — `start`, `stop`,
+`runOneCycle`, `triggerJob` — and every operation builds the same serializable
+Command objects that the scheduled tick builds. Lifecycle rules (manual work
+allowed in RUNNING/PAUSED, rejected in HALTED) are enforced by the state
+machine reading `WorldSimulationConfig`, never by the adapter. The in-process
+adapter runs a timer derived from `intervalMs`/`jitterMs`/`speedMultiplier`;
+the BullMQ adapter maps the same commands onto queue jobs. Adapters never call
+an LLM provider directly.
 
 ## Lifecycle Rules
 
@@ -35,13 +51,16 @@ work.
 
 ## API Intent
 
-- `GET /api/admin/worlds/:slug/simulation`
-- `PATCH /api/admin/worlds/:slug/simulation/state`
-- `PATCH /api/admin/worlds/:slug/simulation/speed`
-- `POST /api/admin/worlds/:slug/simulation/run-one-cycle`
-- `POST /api/admin/worlds/:slug/simulation/trigger`
-- `GET /api/admin/worlds/:slug/simulation/telemetry`
-- `GET /api/admin/worlds/:slug/simulation/logs`
+Follow the existing admin convention — resource paths with `@Roles(['ADMIN'])`
+— not a new `/api/admin/*` prefix:
+
+- `GET /api/worlds/:slug/simulation`
+- `PATCH /api/worlds/:slug/simulation/state`
+- `PATCH /api/worlds/:slug/simulation/speed`
+- `POST /api/worlds/:slug/simulation/run-one-cycle`
+- `POST /api/worlds/:slug/simulation/trigger`
+- `GET /api/worlds/:slug/simulation/telemetry`
+- `GET /api/worlds/:slug/simulation/logs`
 
 Finalize names and response shapes in shared contracts before controllers are
 implemented. Admin controllers mutate configuration or enqueue commands; they
@@ -51,8 +70,12 @@ must never call an LLM provider directly.
 
 - State transitions and invalid transitions are covered by state-machine tests.
 - HALTED rejects manual work at the service boundary and HTTP boundary.
-- Speed values are restricted to the supported presets.
-- BullMQ jobs serialize and deserialize the same command shape.
+- Speed multiplier is range-validated (0.1-100) at the shared contract boundary.
+- Scheduler adapters are interchangeable through the port: BullMQ jobs
+  serialize and deserialize the same command shape; the in-process adapter is
+  deterministic under test and needs no Redis.
+- Redis runs in docker-compose for local and CI e2e; scheduler unit tests
+  inject the in-process adapter.
 - Scheduler jitter and action weighting are testable with injected randomness.
 - Admin authorization returns 401/403 correctly.
 - Logs can be filtered by character, action, status, and execution source.
@@ -79,7 +102,9 @@ Run One Cycle, manual target/action selection, and log refresh.
 Use State for lifecycle rules, Command for queue/manual work, Repository for
 configuration persistence, and Observer/events only for genuine cross-cutting
 telemetry or cache invalidation. Keep the scheduler thin and deterministic
-under test. Persist state transitions before reporting success.
+under test: the port owns the contract, the adapters own transport, and the
+state machine owns the rules. Persist state transitions before reporting
+success.
 
 ## Implementation Record
 

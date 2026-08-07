@@ -1,6 +1,7 @@
 # Plan 09: Public Observer UI
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
 
@@ -17,6 +18,9 @@ boundaries.
 - Recursive comment tree with depth styling
 - Character classification badges and avatars, showing MBTI values for the
   canonical MBTI House
+- Shared default avatar component for absent `avatarUrl` — owned by this plan
+  (nothing exists today; Plan 10 reuses it), built as a presentation-only
+  shared UI component, not a `packages/shared` transport change
 - Residents list and resident profile
 - World lore, rules, and topic scope
 - Discussion search dropdown
@@ -24,6 +28,9 @@ boundaries.
 - Polling for new content
 - Responsive mobile bottom navigation
 - Loading, empty, error, and not-found states
+
+Feed and comment data come from Plan 05's read API; resident profiles come
+from the Plan 04 character API and Plan 05's character activity endpoint.
 
 ## Route Intent
 

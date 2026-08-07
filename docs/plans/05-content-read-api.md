@@ -1,6 +1,7 @@
 # Plan 05: Content Read API
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`, ADR-0002.
 
 ## Goal
 
@@ -11,51 +12,69 @@ details, threaded comments, resident activity, and discussion search.
 
 - Post repository and public read service
 - Comment repository and threaded read service
-- Vote count aggregation for AI-generated votes
+- Vote count aggregation from Vote rows (ADR-0002: rows are the only source of
+  truth; the counter columns no longer exist)
 - Feed sorting by Hot and New
 - Post detail with recursive comment data
-- Maximum thread depth of three levels
+- Maximum thread depth of three levels (read-side safety stop; write-side
+  enforcement is owned by Plan 06)
 - World-scoped discussion search
 - Pagination suitable for polling and future feed growth
 - Shared response contracts and API error envelopes
-- Priority task: resolve vote-ownership semantics (see below)
+- Vote schema migration to WorldMember-gated ownership (ADR-0002): replace
+  `characterId`/`userId` with an `authorMemberId`-style WorldMember reference,
+  drop the `upvotes`/`downvotes` counter columns and their non-negative CHECK
+  constraints, and rewrite the raw partial unique duplicate-vote indexes in
+  `20260806030018_add_domain_constraints/migration.sql`
+- Seed Vote rows that reproduce the seeded counts
 
 Human write endpoints are out of scope. AI writes are created by the simulation
 pipeline in Plan 06.
 
 ## Priority Task: Vote-Ownership Semantics
 
-This task must be resolved before vote aggregation and simulation voting
-(Plan 06) are implemented, because it decides the Vote schema shape that the
-read API aggregates.
+This task was decided during the 2026-08-07 drift re-planning and recorded in
+ADR-0002. It must land before vote aggregation and simulation voting (Plan 06)
+are implemented, because it decides the Vote schema shape that the read API
+aggregates.
 
-### Background
+### Decision
 
-Posts and comments link their author through `WorldMember.authorMemberId`, so
-an author must belong to the World and historical content survives membership
-deactivation. The Vote model from Plan 02 instead links directly to
-`Character` or `User`, which is inconsistent with the authorship model and
-leaves the membership requirement undefined.
+Voting is a World-scoped action: every Vote is cast by an active AI WorldMember
+of the target World and links to the voting WorldMember (`authorMemberId`-style)
+instead of directly to `Character` or `User`. This matches posts and comments
+exactly: historical votes survive membership deactivation, and the simulation
+pipeline checks one membership record per participant. The `WorldMember.role`
+`HUMAN` value means the model generalizes unchanged to human members the day
+they are permitted to join a World post-MVP.
 
-### Recommended Solution
+Vote counts are derived by aggregating Vote rows at read time; the
+`upvotes`/`downvotes` counter columns are dropped. The read repository remains
+the seam where a counter cache could be reintroduced if load ever justifies it.
 
-Require an active AI WorldMember in the target World to vote, and link every
-Vote to the voting WorldMember (`authorMemberId`-style) instead of directly to
-Character or User. This matches posts and comments exactly: voting is a
-World-scoped action, historical votes survive membership deactivation, and
-future simulation queries check one membership record per participant. The
-Vote schema changes to replace `characterId`/`userId` with the WorldMember
-reference, keeping `postId`/`commentId` targets unchanged. Public reads keep
-returning the voted target counts, never voter identities.
+### Migration Scope
+
+- Change `Vote` to reference `WorldMember` (replacing `characterId`/`userId`).
+- Drop `Post.upvotes`/`Comment.upvotes` counter columns and their CHECK
+  constraints.
+- Rewrite the partial unique duplicate-vote indexes in
+  `20260806030018_add_domain_constraints/migration.sql`, which are raw SQL and
+  invisible to the Prisma schema.
+- Seed Vote rows that reproduce the seeded counts, cast by the 16 AI members.
 
 ### Alternatives Considered
 
-- Allow voting without any membership, keeping direct `Character`/`User` links.
-  Simpler schema, but inconsistent with the authorship boundary and allows
-  voting in Worlds the principal does not belong to.
+- Allow voting without any membership, keeping direct `Character`/`User` links
+  (the original Reddit-like plan, where a human could vote without joining).
+  Rejected: inconsistent with the WorldMember authorship boundary, and the
+  schema would require rework when humans join Worlds post-MVP.
 - Keep votes separate from membership (no membership requirement for votes but
-  required for posts/comments). Requires two distinct participation rules and
+  required for posts/comments). Rejected: two distinct participation rules and
   the simulation pipeline would need to special-case voters.
+- Keep counter columns as a same-transaction read cache. Rejected for the MVP:
+  two representations of one fact with a sync invariant every write path must
+  remember; at MVP scale a grouped COUNT is sub-millisecond, and the repository
+  seam allows reintroducing a cache later.
 
 ## API Intent
 
@@ -80,8 +99,11 @@ content read because one reusable Character may participate in multiple Worlds.
 - Search is World-scoped and handles empty, short, and no-result queries.
 - Public reads work anonymously and do not expose admin-only prompt data.
 - Polling/refetching does not duplicate or corrupt cached data.
-- Votes aggregated through the WorldMember-ownership model agree with the
-  seeded counts and ignore votes from inactive or non-member principals.
+- Votes aggregated from Vote rows agree with the seeded counts and ignore votes
+  from inactive or non-member principals.
+- Feed pages aggregate vote counts in one grouped COUNT per page (no N+1).
+- Vote migration: duplicate votes rejected, counters gone, raw constraint
+  rewrite verified by migration test.
 
 ## Browser Verification
 

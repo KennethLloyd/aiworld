@@ -6,32 +6,45 @@
 - Treat the relevant file under `docs/plans/` as the detailed engineering
   contract for that plan.
 - Use the public [AIWorld MVP GitHub Project](https://github.com/users/KennethLloyd/projects/1)
-  for execution status.
-- Treat each plan issue as the parent tracker. Break substantial plans into
-  child issues before implementation.
-- Assign every plan and child issue to `KennethLloyd` before implementation.
+  for execution status; issues and tickets live in GitHub Issues via the `gh`
+  CLI (see `docs/agents/issue-tracker.md`).
+- Treat each plan issue as the parent tracker. Split substantial plans into
+  child tickets with `/to-tickets` before implementation — tracer-bullet
+  vertical slices, each declaring its blocking edges (native GitHub blocking
+  links). Work the frontier: a ticket is grabbable when every blocker is
+  closed.
+- Assign every plan and ticket to `KennethLloyd` before implementation.
 - Move the plan or task to `In Progress` before starting work and to `Done`
   only after its pull request is open, required checks pass, implementation and
   verification are complete, you have reviewed and merged the pull request, and
   the review handoff is complete.
-- Link pull requests to child issues with `Refs #<number>`. Use `Closes
+- Link pull requests to child tickets with `Refs #<number>`. Use `Closes
   #<number>` only when the whole parent plan is complete.
 
 ## Implementation Workflow
 
-1. Read the plan, its dependencies, and the current architecture documents.
-2. Inspect the current repository and existing worktree before editing.
-3. Implement the smallest coherent ticket without bypassing established
-   boundaries.
-4. Update the plan implementation record in the same task as the code.
-5. Run the applicable local checks before opening or updating a pull request.
-6. Create a dedicated branch for the ticket; never complete implementation on
+1. Read the plan, its dependencies, and the current architecture references
+   (the source material listed in `docs/plans/README.md`).
+2. Pick the next unblocked ticket; inspect the current repository and existing
+   worktree before editing.
+3. Implement the ticket with `/implement`, driving `/tdd` internally — one
+   red-green slice at a time at pre-agreed seams — without bypassing
+   established boundaries. Run typechecking and single test files regularly,
+   and the full suite once at the end.
+4. Update the ticket and the plan implementation record in the same task as
+   the code.
+5. Run `/code-review` (Standards and Spec axes) on the diff before committing.
+6. Run the applicable local checks before opening or updating a pull request.
+7. Create a dedicated branch for the ticket; never complete implementation on
    `main`.
-7. Commit only the focused ticket changes, push the branch, and open a review
+8. Commit only the focused ticket changes, push the branch, and open a review
    pull request.
-8. Confirm required CI checks pass and wait for the user to review and merge the
-   pull request; do not mark the issue or plan `Done`/`Complete` before then.
-9. Report incomplete checks, known risks, and follow-up work explicitly.
+9. Confirm required CI checks pass and wait for the user to review and merge
+   the pull request; do not mark the ticket or plan `Done`/`Complete` before
+   then.
+10. `/clear` between tickets — each ticket is self-contained, so its context is
+    disposable — and report incomplete checks, known risks, and follow-up work
+    explicitly.
 
 ## Pull Request Strategy
 
@@ -95,3 +108,17 @@ application is running. Re-snapshot after navigation or dynamic UI changes.
 - Stage only files related to the requested change.
 - Do not reset, checkout, revert, or modify unrelated user changes.
 - Keep commits focused and use the repository's conventional commit style.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` at the repo root plus `docs/adr/`. See `docs/agents/domain.md`.

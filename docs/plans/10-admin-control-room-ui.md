@@ -1,6 +1,7 @@
 # Plan 10: Admin Control Room UI
 
 Status: Planned
+Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
 
@@ -13,7 +14,8 @@ contracts and the shared simulation pipeline.
 - Terminal/control-room visual language
 - Simulation Status tab
 - Run, Pause, Halt controls
-- Speed selector with persisted feedback
+- Speed selector — preset buttons (0.5x, 1x, 2x, 5x, 10x) mapping to the
+  range-validated multiplier (0.1-100), with persisted feedback
 - Run One Cycle control
 - Target Resident and action selectors
 - Manual Trigger Job control
@@ -21,11 +23,14 @@ contracts and the shared simulation pipeline.
 - World configuration editor
 - Character registry and editor
 - World member management (list, assign, activate, and deactivate AI memberships)
-- Character avatar URL editor with a default fallback
+- Character avatar URL editor with the shared default fallback from Plan 09
 - Filterable simulation log viewer
 - Log detail view with provider, model, latency, source, prompt, response,
   tokens, cost estimate, and error details where authorized
 - CSV export only if supported by the final API contract
+
+Re-confirm every tab's request and response contracts against Plan 07's
+finalized shared schemas before implementation.
 
 ## Security Rules
 
