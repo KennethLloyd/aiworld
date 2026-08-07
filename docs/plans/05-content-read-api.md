@@ -560,7 +560,8 @@ schema overflows the generator with a stack overflow).
 ### Files Changed
 
 - `packages/shared/src/schemas/activity.schema.ts` —
-  `activityQuerySchema` (`worldSlug`), `ActivityQuery`
+  `activityParamsSchema` (`characterId` uuid), `activityQuerySchema`
+  (`worldSlug`), `ActivityParams`, `ActivityQuery`
 - `packages/shared/src/schemas/activity-response.schema.ts` —
   `characterActivityResponseSchema`, `CharacterActivityResponse`
   (unpaginated)
@@ -631,9 +632,9 @@ schema overflows the generator with a stack overflow).
 - `pnpm exec tsc --noEmit -p apps/api/tsconfig.json` (run inside
   `apps/api`) — clean
 - `pnpm --filter @aiworld/api test` — 135 unit tests pass (15 new)
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 67 tests pass,
-  run twice consecutively (suite is deterministic under `maxWorkers: 1`);
-  14 new activity tests (8 real-database, 6 HTTP-boundary)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 70 tests pass
+  (suite is deterministic under `maxWorkers: 1`); 17 new activity tests
+  (11 real-database, 6 HTTP-boundary)
 - Seeded DB verified clean of residue after the activity e2e run (no
   `activity-*` worlds or characters remain)
 
@@ -646,11 +647,6 @@ responses.
 
 ### Known Risks and Follow-Up Work
 
-- The characterId path parameter is validated only in the OpenAPI document
-  (`z.uuid()`); the runtime reads it as a plain string per the agreed
-  controller shape, so a malformed id surfaces as a 404 (no character
-  resolves) rather than a 400. If the control room ever needs a 400 for
-  malformed ids, add the shared Zod pipe to the path param.
 - Activity is unpaginated by design; a future "more content per author"
   World should revisit paging at the repository seam.
 - Feed items (plan 05-3) still carry no author; extending the feed
@@ -658,4 +654,11 @@ responses.
   plan 09 UI.
 - The e2e suite remains serial (`maxWorkers: 1`); the shared pre-seeded
   database fixture idea from the 05-4 record still applies if it grows.
+- Review follow-up: the `characterId` path param now validates through the
+  shared `activityParamsSchema` (400 envelope for malformed ids, matching
+  the 05-4 `postId` behavior), the inactive-membership semantics comment
+  was corrected to match the pinned behavior (inactive memberships keep
+  their content), the OpenAPI document reuses the shared
+  `postWithAuthorResponseSchema` for posts, and e2e now covers the
+  inactive-World 404 and missing-`worldSlug` 400 cases.
 

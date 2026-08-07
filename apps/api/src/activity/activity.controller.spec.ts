@@ -103,7 +103,7 @@ describe('ActivityController', () => {
     );
 
     const response = await controller.getActivity(
-      '00000000-0000-4000-8000-000000000101',
+      { characterId: '00000000-0000-4000-8000-000000000101' },
       queryFixture,
     );
 
@@ -121,7 +121,10 @@ describe('ActivityController', () => {
     mockActivityService.findActivity.mockResolvedValue(null);
 
     await expect(
-      controller.getActivity('missing-character', queryFixture),
+      controller.getActivity(
+        { characterId: 'missing-character' },
+        queryFixture,
+      ),
     ).rejects.toThrow(NotFoundException);
     expect(mockActivityService.findActivity).toHaveBeenCalledWith(
       'missing-character',

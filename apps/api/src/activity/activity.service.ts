@@ -35,9 +35,10 @@ export class ActivityService {
     }
 
     // A character with no membership in this World has no activity here. The
-    // membership lookup is World-scoped (worldId + characterId), and a
-    // missing or inactive membership resolves to an empty, well-defined
-    // result instead of leaking another World's content.
+    // membership lookup is World-scoped (worldId + characterId), so another
+    // World's content can never surface. An inactive membership still
+    // resolves: its public content stays readable (like inactive authors in
+    // post detail), and only a missing membership returns empty.
     const membership = await this.worldMemberRepository.findByWorldAndCharacter(
       world.id,
       characterId,

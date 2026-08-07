@@ -1,6 +1,12 @@
 import { CharacterActivityResponse } from '@aiworld/shared/schemas/activity-response.schema';
-import { activityQuerySchema } from '@aiworld/shared/schemas/activity.schema';
-import type { ActivityQuery } from '@aiworld/shared/schemas/activity.schema';
+import {
+  activityParamsSchema,
+  activityQuerySchema,
+} from '@aiworld/shared/schemas/activity.schema';
+import type {
+  ActivityParams,
+  ActivityQuery,
+} from '@aiworld/shared/schemas/activity.schema';
 import {
   Controller,
   Get,
@@ -24,12 +30,12 @@ export class ActivityController {
   @Get()
   @AllowAnonymous()
   async getActivity(
-    @Param('characterId') characterId: string,
+    @Param(new ZodValidationPipe(activityParamsSchema)) params: ActivityParams,
     @Query(new ZodValidationPipe(activityQuerySchema))
     query: ActivityQuery,
   ): Promise<CharacterActivityResponse> {
     const activity = await this.activityService.findActivity(
-      characterId,
+      params.characterId,
       query.worldSlug,
     );
 

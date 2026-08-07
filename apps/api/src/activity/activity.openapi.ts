@@ -1,6 +1,9 @@
-import { activityQuerySchema } from '@aiworld/shared/schemas/activity.schema';
+import {
+  activityParamsSchema,
+  activityQuerySchema,
+} from '@aiworld/shared/schemas/activity.schema';
 import { authorResponseSchema } from '@aiworld/shared/schemas/author-response.schema';
-import { postResponseSchema } from '@aiworld/shared/schemas/post-response.schema';
+import { postWithAuthorResponseSchema } from '@aiworld/shared/schemas/post-response.schema';
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
@@ -22,12 +25,7 @@ const ActivityCommentDoc = z
 
 const CharacterActivityResponseDoc = z
   .object({
-    posts: z.array(
-      z.object({
-        ...postResponseSchema.shape,
-        author: authorResponseSchema.nullable(),
-      }),
-    ),
+    posts: z.array(postWithAuthorResponseSchema),
     comments: z.array(ActivityCommentDoc),
   })
   .meta({ id: 'CharacterActivityResponse' });
@@ -39,7 +37,7 @@ export function registerActivityOpenApi(registry: OpenAPIRegistry): void {
     tags: ['activity'],
     summary: "List a character's posts and comments in a World",
     request: {
-      params: z.object({ characterId: z.uuid() }),
+      params: activityParamsSchema,
       query: activityQuerySchema,
     },
     responses: {

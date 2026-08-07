@@ -25,6 +25,7 @@ const databaseUrl =
 async function createSyntheticWorld(
   prisma: PrismaClient,
   key: string,
+  options: { isActive?: boolean } = {},
 ): Promise<{ id: string; slug: string }> {
   const id = seedUuid(`world:${key}`);
   await prisma.world.create({
@@ -37,6 +38,7 @@ async function createSyntheticWorld(
       },
       rules: [],
       topicScope: 'Testing fixtures.',
+      isActive: options.isActive ?? true,
     },
   });
   return { id, slug: key };
@@ -119,7 +121,7 @@ describe('Character activity (real database)', () => {
 
   beforeAll(async () => {
     // Remove any residue from a previously crashed run, then rebuild.
-    for (const slug of [worldAKey, worldBKey]) {
+    for (const slug of [worldAKey, worldBKey, 'activity-inactive-world']) {
       await deleteSyntheticWorld(prisma, slug);
     }
     await prisma.character.deleteMany({
@@ -518,6 +520,52 @@ describe('Character activity (real database)', () => {
       message: 'Not Found',
       error: 'NotFoundException',
     });
+  });
+
+  it('returns the 404 envelope for an inactive world', async () => {
+    const inactiveWorld = await createSyntheticWorld(
+      prisma,
+      'activity-inactive-world',
+      { isActive: false },
+    );
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/characters/${author.id}/activity?worldSlug=${inactiveWorld.slug}`,
+        )
+        .expect(404);
+
+      expect(res.body).toEqual({
+        statusCode: 404,
+        message: 'Not Found',
+        error: 'NotFoundException',
+      });
+    } finally {
+      await deleteSyntheticWorld(prisma, inactiveWorld.slug);
+    }
+  });
+
+  it('rejects a malformed characterId through the error envelope', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/characters/not-a-uuid/activity?worldSlug=activity-fixture')
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['characterId'] }),
+    );
+  });
+
+  it('rejects a missing worldSlug query through the error envelope', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/characters/${author.id}/activity`)
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['worldSlug'] }),
+    );
   });
 });
 
