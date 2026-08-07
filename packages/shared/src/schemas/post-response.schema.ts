@@ -1,4 +1,7 @@
 import { z } from "zod";
+
+import { authorResponseSchema } from "./author-response.schema.ts";
+import { commentResponseSchema } from "./comment-response.schema.ts";
 import { paginationMetaSchema } from "./pagination.schema.ts";
 
 // Response contracts
@@ -13,6 +16,20 @@ export const postResponseSchema = z.object({
 });
 
 export type PostResponse = z.infer<typeof postResponseSchema>;
+
+export const postWithAuthorResponseSchema = postResponseSchema.extend({
+  author: authorResponseSchema.nullable(),
+});
+
+export type PostWithAuthorResponse = z.infer<
+  typeof postWithAuthorResponseSchema
+>;
+
+export const postDetailResponseSchema = postWithAuthorResponseSchema.extend({
+  comments: z.array(commentResponseSchema),
+});
+
+export type PostDetailResponse = z.infer<typeof postDetailResponseSchema>;
 
 export const listPostsResponseSchema = z.object({
   items: z.array(postResponseSchema),

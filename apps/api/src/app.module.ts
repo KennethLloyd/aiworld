@@ -4,6 +4,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
 import { CharactersModule } from '@/characters/characters.module';
+import { CommentsModule } from '@/comments/comments.module';
 import { PostsModule } from '@/posts/posts.module';
 import { WorldMembersModule } from '@/world-members/world-members.module';
 import { WorldModule } from '@/world/world.module';
@@ -27,6 +28,7 @@ import { PrismaService } from './lib/database/prisma.service';
     CharactersModule,
     WorldMembersModule,
     PostsModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [

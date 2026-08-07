@@ -9,6 +9,12 @@ export const listPostsQuerySchema = z.object({
   limit: z.coerce.number().pipe(z.int().min(1).max(100)).default(20),
 });
 
+export const postDetailParamsSchema = z.object({
+  slug: z.string(),
+  postId: z.uuid(),
+});
+
 // Inferred types
 
 export type ListPostsQuery = z.infer<typeof listPostsQuerySchema>;
+export type PostDetailParams = z.infer<typeof postDetailParamsSchema>;

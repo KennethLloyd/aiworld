@@ -17,5 +17,6 @@
     "^@aiworld/shared/(.*)$": "<rootDir>/../../packages/shared/src/$1",
     "^@/(.*)$": "<rootDir>/src/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1"
-  }
+  },
+  "maxWorkers": 1
 }

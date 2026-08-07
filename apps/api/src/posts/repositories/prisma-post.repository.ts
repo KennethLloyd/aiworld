@@ -2,11 +2,13 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
 import { Injectable } from '@nestjs/common';
 
+import { contentAuthorSelect } from '@/comments/repositories/content-author-select';
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { compareByHot } from '@/posts/domain/post-ranking';
-import { PostRecord } from '@/posts/domain/post-record';
+import { PostRecord, PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { aggregatePostVoteScores } from '@/votes/vote-aggregation';
 
 const postSelect = {
   id: true,
@@ -16,10 +18,26 @@ const postSelect = {
   updatedAt: true,
 } as const;
 
+const postWithAuthorSelect = {
+  ...postSelect,
+  author: contentAuthorSelect,
+} as const;
+
 type PostFeedRow = Pick<
   Post,
   'id' | 'title' | 'content' | 'createdAt' | 'updatedAt'
 >;
+
+type PostWithAuthorRow = PostFeedRow & {
+  author: {
+    character: {
+      id: string;
+      handle: string;
+      name: string;
+      avatarUrl: string | null;
+    } | null;
+  } | null;
+};
 
 const newOrderBy: Prisma.PostOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
@@ -49,7 +67,8 @@ export class PrismaPostRepository extends PostRepository {
         }),
         this.prisma.post.count({ where: { worldId } }),
       ]);
-      const scores = await this.aggregateVoteScores(
+      const scores = await aggregatePostVoteScores(
+        this.prisma,
         posts.map((post) => post.id),
       );
 
@@ -64,7 +83,10 @@ export class PrismaPostRepository extends PostRepository {
       select: postSelect,
       orderBy: newOrderBy,
     });
-    const scores = await this.aggregateVoteScores(posts.map((post) => post.id));
+    const scores = await aggregatePostVoteScores(
+      this.prisma,
+      posts.map((post) => post.id),
+    );
     const ranked = posts
       .map((post) => this.mapToRecord(post, scores))
       .sort(compareByHot);
@@ -81,6 +103,23 @@ export class PrismaPostRepository extends PostRepository {
     };
   }
 
+  async findById(
+    worldId: string,
+    postId: string,
+  ): Promise<PostWithAuthorRecord | null> {
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, worldId },
+      select: postWithAuthorSelect,
+    });
+
+    if (!post) {
+      return null;
+    }
+
+    const scores = await aggregatePostVoteScores(this.prisma, [post.id]);
+    return this.mapToWithAuthorRecord(post, scores);
+  }
+
   private mapToRecord(
     post: PostFeedRow,
     scores: Map<string, number>,
@@ -95,30 +134,13 @@ export class PrismaPostRepository extends PostRepository {
     };
   }
 
-  /**
-   * Aggregates Vote rows into per-post scores in one grouped query. Only
-   * votes from active WorldMembers count (ADR-0002: rows are the only source
-   * of truth, and a deactivated member no longer participates).
-   */
-  private async aggregateVoteScores(
-    postIds: string[],
-  ): Promise<Map<string, number>> {
-    if (postIds.length === 0) {
-      return new Map();
-    }
-
-    const rows = await this.prisma.vote.groupBy({
-      by: ['postId'],
-      where: { postId: { in: postIds }, author: { isActive: true } },
-      _sum: { value: true },
-    });
-
-    const scores = new Map<string, number>();
-    for (const row of rows) {
-      if (row.postId) {
-        scores.set(row.postId, row._sum.value ?? 0);
-      }
-    }
-    return scores;
+  private mapToWithAuthorRecord(
+    post: PostWithAuthorRow,
+    scores: Map<string, number>,
+  ): PostWithAuthorRecord {
+    return {
+      ...this.mapToRecord(post, scores),
+      author: post.author?.character ?? null,
+    };
   }
 }

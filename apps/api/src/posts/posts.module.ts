@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { CommentsModule } from '@/comments/comments.module';
 import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 import { PostsController } from '@/posts/posts.controller';
 import { PostsService } from '@/posts/posts.service';
@@ -8,7 +9,7 @@ import { PrismaPostRepository } from '@/posts/repositories/prisma-post.repositor
 import { WorldModule } from '@/world/world.module';
 
 @Module({
-  imports: [WorldModule],
+  imports: [WorldModule, CommentsModule],
   controllers: [PostsController],
   providers: [
     {
