@@ -6,14 +6,16 @@ import { CommentResponseMapper } from '@/comments/mappers/comment-response.mappe
 describe('CommentResponseMapper', () => {
   const mapper = new CommentResponseMapper();
 
+  const authorFixture = {
+    id: '00000000-0000-4000-8000-000000000101',
+    handle: 'standard_procedure',
+    name: 'Standard_Procedure',
+    avatarUrl: null,
+  };
+
   const commentRecordFixture: CommentRecord = {
     id: '00000000-0000-4000-8000-000000000201',
-    author: {
-      id: '00000000-0000-4000-8000-000000000101',
-      handle: 'standard_procedure',
-      name: 'Standard_Procedure',
-      avatarUrl: null,
-    },
+    author: authorFixture,
     content: 'It was me. I said it.',
     voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
@@ -40,7 +42,7 @@ describe('CommentResponseMapper', () => {
     const reply: CommentRecord = {
       ...commentRecordFixture,
       id: '00000000-0000-4000-8000-000000000301',
-      author: null,
+      author: { ...authorFixture, id: '00000000-0000-4000-8000-000000000401' },
       content: 'No it was not.',
     };
     const record: CommentRecord = {
@@ -53,7 +55,7 @@ describe('CommentResponseMapper', () => {
     expect(response.replies).toEqual([
       {
         id: reply.id,
-        author: null,
+        author: reply.author,
         content: reply.content,
         voteScore: 2,
         createdAt: '2026-08-06T09:00:00.000Z',
@@ -61,14 +63,5 @@ describe('CommentResponseMapper', () => {
         replies: [],
       },
     ]);
-  });
-
-  it('keeps a null author for members without a character', () => {
-    const response = mapper.mapToCommentResponse({
-      ...commentRecordFixture,
-      author: null,
-    });
-
-    expect(response.author).toBeNull();
   });
 });

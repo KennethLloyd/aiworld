@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { FlatCommentRecord } from '@/comments/domain/comment-record';
+import {
+  ContentAuthorRow,
+  mapContentAuthor,
+} from '@/comments/domain/content-author';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { contentAuthorSelect } from '@/comments/repositories/content-author-select';
+import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Comment } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { aggregateCommentVoteScores } from '@/votes/vote-aggregation';
@@ -14,21 +18,14 @@ const commentSelect = {
   content: true,
   createdAt: true,
   updatedAt: true,
-  author: contentAuthorSelect,
+  author: prismaContentAuthorSelect,
 } as const;
 
 type CommentRow = Pick<
   Comment,
   'id' | 'postId' | 'parentCommentId' | 'content' | 'createdAt' | 'updatedAt'
 > & {
-  author: {
-    character: {
-      id: string;
-      handle: string;
-      name: string;
-      avatarUrl: string | null;
-    } | null;
-  } | null;
+  author: ContentAuthorRow;
 };
 
 const commentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
@@ -81,7 +78,7 @@ export class PrismaCommentRepository extends CommentRepository {
       id: comment.id,
       postId: comment.postId,
       parentCommentId: comment.parentCommentId,
-      author: comment.author?.character ?? null,
+      author: mapContentAuthor(comment.author),
       content: comment.content,
       voteScore: scores.get(comment.id) ?? 0,
       createdAt: comment.createdAt,
