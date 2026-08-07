@@ -18,7 +18,6 @@ same validated data without coupling a character's identity to one World.
 - Optional single starting-World assignment during character creation
 - Shared request and response Zod contracts, including private ADMIN projections
 - Optional generic classification and classification-group validation
-- Canonical MBTI value and group-pair validation for the `mbti-house` World
 - Server-enforced active visibility for anonymous and non-ADMIN requests
 - API authorization, conflict handling, and error handling
 
@@ -45,9 +44,9 @@ Use the shared pagination contract where lists can grow. Do not create a
 frontend schema mirror.
 
 Character `classification` and `classificationGroup` are optional generic
-strings. The canonical `mbti-house` World validates its MBTI values at the
-feature boundary, but the base Character model must not require MBTI metadata or
-assume that every World shares the same classification vocabulary.
+strings on the Character record. Membership is a pure principal-to-World link:
+a World imposes no classification rules on the characters that join it, so the
+Character model does not assume any shared classification vocabulary.
 
 Public responses never include `systemPrompt`. ADMIN responses use a separate
 server-selected private projection. Public and ADMIN status filters cannot be
@@ -61,8 +60,7 @@ used to bypass server-side authorization or private-field projection.
   status filter is supplied.
 - Anonymous mutations return unauthorized.
 - Non-ADMIN mutations return forbidden.
-- ADMIN character mutations validate generic fields and World-specific
-  classification rules and persist changes.
+- ADMIN character mutations validate generic fields and persist changes.
 - ADMIN membership mutations support AI principals and preserve historical content
   when memberships are deactivated.
 - Inactive characters and memberships are excluded consistently from public and
@@ -122,7 +120,7 @@ active state so historical post and comment authors remain intact.
 - `apps/api/src/lib/openapi/openapi.ts`
 - `apps/api/src/characters/`
 - `apps/api/src/world-members/`
-- `apps/api/src/world/` including the world classification-policy registry
+- `apps/api/src/world/` active-visibility enforcement and safe read defaults
 - `apps/api/test/characters-and-world-members.e2e-spec.ts`
 - `packages/shared/src/schemas/query.schema.ts`
 - `packages/shared/src/schemas/character.schema.ts`
@@ -159,6 +157,11 @@ The review round also removed the `packages/shared` barrel so every consumer
 imports the exact schema file it needs, made the World service default to
 public (non-ADMIN) reads, and dropped the file-tree listing and feature detail
 sections from the high-level backend architecture reference.
+
+A second review round dropped World-specific classification validation
+entirely: membership is a pure principal-to-World link, and classification
+remains optional generic character data with no per-World enforcement. The
+`mbti-house` vocabulary stays in the prototype seed data only.
 
 ### Tests Run
 

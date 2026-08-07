@@ -1,5 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
-
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 
 import { CharactersService } from './characters.service';
@@ -13,6 +11,17 @@ describe('CharactersService', () => {
     update: jest.fn(),
   };
   let service: CharactersService;
+
+  const createInput = {
+    handle: 'new_agent',
+    name: 'New Agent',
+    classification: 'ENFP',
+    classificationGroup: 'NF',
+    avatarUrl: null,
+    biography: 'A test resident',
+    traits: ['Curious'],
+    systemPrompt: 'Stay in character.',
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -43,52 +52,26 @@ describe('CharactersService', () => {
     expect(repository.findAll).toHaveBeenCalledWith({ page: 1, limit: 20 });
   });
 
-  it('rejects an invalid MBTI classification for the canonical World', async () => {
-    await expect(
-      service.create({
-        handle: 'new_agent',
-        name: 'New Agent',
-        classification: 'ENFP',
-        classificationGroup: 'NT',
-        avatarUrl: null,
-        biography: 'A test resident',
-        traits: ['Curious'],
-        systemPrompt: 'Stay in character.',
-        worldSlug: 'mbti-house',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(repository.create).not.toHaveBeenCalled();
-  });
-
-  it('allows duplicate MBTI classifications', async () => {
+  it('delegates character creation to the repository', async () => {
     const record = {
       id: '00000000-0000-4000-8000-000000000001',
-      handle: 'new_agent',
-      name: 'New Agent',
-      classification: 'ENFP',
-      classificationGroup: 'NF',
-      avatarUrl: null,
-      biography: 'A test resident',
-      traits: ['Curious'],
-      systemPrompt: 'Stay in character.',
+      ...createInput,
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     repository.create.mockResolvedValue(record);
 
+    await expect(service.create(createInput)).resolves.toEqual(record);
+    expect(repository.create).toHaveBeenCalledWith(createInput);
+  });
+
+  it('returns null when updating a missing character', async () => {
+    repository.findById.mockResolvedValue(null);
+
     await expect(
-      service.create({
-        handle: 'new_agent',
-        name: 'New Agent',
-        classification: 'ENFP',
-        classificationGroup: 'NF',
-        avatarUrl: null,
-        biography: 'A test resident',
-        traits: ['Curious'],
-        systemPrompt: 'Stay in character.',
-        worldSlug: 'mbti-house',
-      }),
-    ).resolves.toEqual(record);
+      service.update('missing-id', { name: 'Renamed' }),
+    ).resolves.toBe(null);
+    expect(repository.update).not.toHaveBeenCalled();
   });
 });

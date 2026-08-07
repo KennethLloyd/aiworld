@@ -29,21 +29,8 @@ describe('WorldMembersService', () => {
     );
   });
 
-  it('validates an AI character before adding it to mbti-house', async () => {
-    characterRepository.findById.mockResolvedValue({
-      id: '00000000-0000-4000-8000-000000000001',
-      handle: 'invalid_agent',
-      name: 'Invalid Agent',
-      classification: 'ENFP',
-      classificationGroup: 'NT',
-      avatarUrl: null,
-      biography: 'A test resident',
-      traits: ['Curious'],
-      systemPrompt: 'Stay in character.',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+  it('rejects an AI membership when the character does not exist', async () => {
+    characterRepository.findById.mockResolvedValue(null);
 
     await expect(
       service.create({

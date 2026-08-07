@@ -9,7 +9,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 import { WorldMemberRecord } from '@/world-members/domain/world-member-record';
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { validateWorldClassificationPolicy } from '@/world/domain/classification-policy';
 
 @Injectable()
 export class WorldMembersService {
@@ -33,18 +32,6 @@ export class WorldMembersService {
       );
       if (!character) {
         throw new BadRequestException('Character not found');
-      }
-
-      try {
-        validateWorldClassificationPolicy(
-          input.worldSlug,
-          character.classification,
-          character.classificationGroup,
-        );
-      } catch (error) {
-        throw new BadRequestException(
-          error instanceof Error ? error.message : 'Invalid classification',
-        );
       }
     }
 

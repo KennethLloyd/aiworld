@@ -4,11 +4,10 @@ import {
   UpdateCharacter,
 } from '@aiworld/shared/schemas/character.schema';
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { CharacterRecord } from '@/characters/domain/character-record';
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { validateWorldClassificationPolicy } from '@/world/domain/classification-policy';
 
 @Injectable()
 export class CharactersService {
@@ -31,12 +30,7 @@ export class CharactersService {
     return this.characterRepository.findById(id, isAdmin ? undefined : true);
   }
 
-  async create(input: CreateCharacter): Promise<CharacterRecord> {
-    this.validateWorldClassification(
-      input.worldSlug,
-      input.classification,
-      input.classificationGroup,
-    );
+  create(input: CreateCharacter): Promise<CharacterRecord> {
     return this.characterRepository.create(input);
   }
 
@@ -49,46 +43,6 @@ export class CharactersService {
       return null;
     }
 
-    const worldSlugs = await this.characterRepository.findWorldSlugs(id);
-    const classification =
-      input.classification === undefined
-        ? existing.classification
-        : input.classification;
-    const classificationGroup =
-      input.classificationGroup === undefined
-        ? existing.classificationGroup
-        : input.classificationGroup;
-
-    for (const worldSlug of worldSlugs) {
-      this.validateWorldClassification(
-        worldSlug,
-        classification,
-        classificationGroup,
-      );
-    }
-
     return this.characterRepository.update(id, input);
-  }
-
-  private validateWorldClassification(
-    worldSlug: string | undefined,
-    classification: string | null | undefined,
-    classificationGroup: string | null | undefined,
-  ): void {
-    if (!worldSlug) {
-      return;
-    }
-
-    try {
-      validateWorldClassificationPolicy(
-        worldSlug,
-        classification,
-        classificationGroup,
-      );
-    } catch (error) {
-      throw new BadRequestException(
-        error instanceof Error ? error.message : 'Invalid classification',
-      );
-    }
   }
 }
