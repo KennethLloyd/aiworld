@@ -789,14 +789,11 @@ transform the recursive `commentResponseSchema` (see the note in
 - `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
 - `pnpm --filter @aiworld/api test` — 162 unit tests pass (34 suites),
   including the 25 search module tests
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 89 tests:
-  85 pass, including all 19 search tests. The 4 failures are pre-existing
-  base-branch tests (character-activity) that still assert the old
-  character-based author id; they fail the same way on the base branch
-  and are outside this PR's diff
-- `pnpm exec tsc --noEmit -p tsconfig.json` — clean for this PR's files;
-  the base branch has pre-existing type errors in its activity and
-  post-detail specs
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 89 tests pass,
+  including all 19 search tests, after the revised 05-5 base was merged
+  in
+- `pnpm exec tsc --noEmit -p tsconfig.json` — clean, after the post-detail
+  e2e annotation fix was cherry-picked from `docs/plans-revision`
 - Postgres `migrate deploy` — no pending migrations; seeded DB used as-is
 
 ### Browser Verification
