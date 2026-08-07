@@ -10,6 +10,13 @@ export interface AuthorRecord {
   avatarUrl: string | null;
 }
 
+/**
+ * One comment row as the database returns it: flat, with its
+ * `parentCommentId` and no `replies`. The repository returns these and
+ * `buildCommentTree` joins them into `CommentRecord` (the nested tree
+ * with `replies`). The two stay apart so the repository never builds
+ * trees and the tree builder never talks to the database.
+ */
 export interface FlatCommentRecord {
   id: string;
   postId: string;
