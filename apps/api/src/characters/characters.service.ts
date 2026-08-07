@@ -7,8 +7,8 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { CharacterRecord } from '@/characters/domain/character-record';
-import { validateMbtiClassification } from '@/characters/domain/classification';
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
+import { validateWorldClassificationPolicy } from '@/world/domain/classification-policy';
 
 @Injectable()
 export class CharactersService {
@@ -59,9 +59,9 @@ export class CharactersService {
         ? existing.classificationGroup
         : input.classificationGroup;
 
-    if (worldSlugs.includes('mbti-house')) {
+    for (const worldSlug of worldSlugs) {
       this.validateWorldClassification(
-        'mbti-house',
+        worldSlug,
         classification,
         classificationGroup,
       );
@@ -75,15 +75,19 @@ export class CharactersService {
     classification: string | null | undefined,
     classificationGroup: string | null | undefined,
   ): void {
-    if (!worldSlug || worldSlug !== 'mbti-house') {
+    if (!worldSlug) {
       return;
     }
 
     try {
-      validateMbtiClassification(classification, classificationGroup);
+      validateWorldClassificationPolicy(
+        worldSlug,
+        classification,
+        classificationGroup,
+      );
     } catch (error) {
       throw new BadRequestException(
-        error instanceof Error ? error.message : 'Invalid MBTI classification',
+        error instanceof Error ? error.message : 'Invalid classification',
       );
     }
   }

@@ -67,7 +67,7 @@ describe('WorldService', () => {
       };
       mockRepository.findAll.mockResolvedValue(paginatedFixture);
 
-      const result = await worldService.list(query);
+      const result = await worldService.list(query, true);
 
       expect(result).toEqual(paginatedFixture);
       expect(mockRepository.findAll).toHaveBeenCalledWith({
@@ -84,7 +84,7 @@ describe('WorldService', () => {
       };
       mockRepository.findAll.mockResolvedValue(paginatedFixture);
 
-      await worldService.list(query);
+      await worldService.list(query, true);
 
       expect(query).toEqual({
         page: 1,
@@ -109,7 +109,7 @@ describe('WorldService', () => {
         meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
       });
 
-      await worldService.list(query);
+      await worldService.list(query, true);
 
       expect(mockRepository.findAll).toHaveBeenCalledWith({
         page: 1,
@@ -138,7 +138,7 @@ describe('WorldService', () => {
     it('should return the world when it exists', async () => {
       mockRepository.findBySlug.mockResolvedValue(worldRecordFixture);
 
-      const result = await worldService.getBySlug('mbti');
+      const result = await worldService.getBySlug('mbti', true);
 
       expect(result).toEqual(worldRecordFixture);
       expect(mockRepository.findBySlug).toHaveBeenCalledWith('mbti');
@@ -147,7 +147,7 @@ describe('WorldService', () => {
     it('should return null when the world does not exist', async () => {
       mockRepository.findBySlug.mockResolvedValue(null);
 
-      const result = await worldService.getBySlug('nonexistent');
+      const result = await worldService.getBySlug('nonexistent', true);
 
       expect(result).toBeNull();
       expect(mockRepository.findBySlug).toHaveBeenCalledWith('nonexistent');

@@ -122,18 +122,20 @@ active state so historical post and comment authors remain intact.
 - `apps/api/src/lib/openapi/openapi.ts`
 - `apps/api/src/characters/`
 - `apps/api/src/world-members/`
-- `apps/api/src/world/`
+- `apps/api/src/world/` including the world classification-policy registry
 - `apps/api/test/characters-and-world-members.e2e-spec.ts`
-- `packages/shared/src/index.ts`
 - `packages/shared/src/schemas/query.schema.ts`
 - `packages/shared/src/schemas/character.schema.ts`
 - `packages/shared/src/schemas/character-response.schema.ts`
 - `packages/shared/src/schemas/world-member.schema.ts`
 - `packages/shared/src/schemas/world-member-response.schema.ts`
+- `packages/shared/src/index.ts` removed; importers now use direct schema paths
 - `docs/architecture/backend.md`
 - `docs/plans/README.md`
 - `docs/plans/02-domain-model-and-seed.md`
 - `docs/plans/04-character-management.md`
+- `docs/plans/05-content-read-api.md`
+- `docs/plans/10-admin-control-room-ui.md`
 
 ### Architecture and SOLID Notes
 
@@ -145,11 +147,26 @@ membership flow use the same resource without putting user fields on Character.
 The persisted membership active flag protects historical authorship and gives
 future simulation queries an explicit World-specific participation check.
 
+World-specific classification rules live in the World feature as a
+classification-policy registry keyed by World slug. The character domain stays
+generic: it has no MBTI knowledge and merely asks the World feature to validate
+the classification pair for the Worlds a character belongs to. The registry
+grew from the review round that removed `validateMbtiClassification` from the
+character domain. Character existence is now checked for every AI membership
+creation, not only `mbti-house`.
+
+The review round also removed the `packages/shared` barrel so every consumer
+imports the exact schema file it needs, made the World service default to
+public (non-ADMIN) reads, and dropped the file-tree listing and feature detail
+sections from the high-level backend architecture reference.
+
 ### Tests Run
 
 - `pnpm --filter @aiworld/api db:generate`
 - `pnpm --filter @aiworld/api build`
-- `pnpm --filter @aiworld/api exec jest --runInBand` — 81 tests passed
+- `pnpm --filter @aiworld/api exec jest --runInBand` — 83 tests passed
+- `pnpm --filter @aiworld/web test` — 118 tests passed
+- `pnpm --filter @aiworld/web build`
 - `DATABASE_URL=postgres://postgres:postgres@localhost:5432/aiworld pnpm --filter @aiworld/api exec jest --config ./test/jest-e2e.json --runInBand` — 19 tests passed
 - `pnpm lint`
 - `pnpm format:check`
@@ -165,7 +182,12 @@ future simulation queries an explicit World-specific participation check.
 ### Known Risks and Follow-Up Work
 
 - The Plan 10 admin UI must consume the standalone Character and WorldMember
-  contracts and present the prototype's single starting-World selector.
+  contracts, present the prototype's single starting-World selector, and include
+  World member management screens (list, assign, activate, and deactivate).
+  Added to the Plan 10 scope in this implementation record.
+- Vote ownership semantics are unresolved: votes link directly to `Character` or
+  `User` while posts and comments link via `WorldMember`. Decide whether voting
+  requires an active WorldMember for the voting principal during Plan 05 or 06.
 - Human WorldMember creation is contract- and persistence-ready but remains an
   ADMIN-managed path until human membership product flows are scoped.
 - Plan 05 owns resident activity reads; this plan intentionally returns profile

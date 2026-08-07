@@ -1,4 +1,4 @@
-import type { WorldResponse } from '@aiworld/shared';
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';

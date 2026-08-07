@@ -6,10 +6,10 @@ import {
 } from '@aiworld/shared/schemas/world-member.schema';
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { validateMbtiClassification } from '@/characters/domain/classification';
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 import { WorldMemberRecord } from '@/world-members/domain/world-member-record';
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
+import { validateWorldClassificationPolicy } from '@/world/domain/classification-policy';
 
 @Injectable()
 export class WorldMembersService {
@@ -27,7 +27,7 @@ export class WorldMembersService {
   }
 
   async create(input: CreateWorldMember): Promise<WorldMemberRecord> {
-    if (input.characterId && input.worldSlug === 'mbti-house') {
+    if (input.characterId) {
       const character = await this.characterRepository.findById(
         input.characterId,
       );
@@ -36,15 +36,14 @@ export class WorldMembersService {
       }
 
       try {
-        validateMbtiClassification(
+        validateWorldClassificationPolicy(
+          input.worldSlug,
           character.classification,
           character.classificationGroup,
         );
       } catch (error) {
         throw new BadRequestException(
-          error instanceof Error
-            ? error.message
-            : 'Invalid MBTI classification',
+          error instanceof Error ? error.message : 'Invalid classification',
         );
       }
     }

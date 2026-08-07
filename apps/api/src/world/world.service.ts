@@ -18,7 +18,7 @@ export class WorldService {
 
   list(
     query: ListWorldsQuery,
-    isAdmin = true,
+    isAdmin = false,
   ): Promise<Paginated<WorldRecord>> {
     const normalizedQuery = {
       ...query,
@@ -30,7 +30,7 @@ export class WorldService {
     );
   }
 
-  getBySlug(slug: string, isAdmin = true): Promise<WorldRecord | null> {
+  getBySlug(slug: string, isAdmin = false): Promise<WorldRecord | null> {
     return isAdmin
       ? this.worldRepository.findBySlug(slug)
       : this.worldRepository.findBySlug(slug, true);

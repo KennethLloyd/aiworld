@@ -20,7 +20,6 @@
     "types": ["vite/client", "node"],
     "paths": {
       "@/*": ["./src/*"],
-      "@aiworld/shared": ["../../packages/shared/src"],
       "@aiworld/shared/*": ["../../packages/shared/src/*"]
     }
   },

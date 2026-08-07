@@ -1,4 +1,4 @@
-import type { WorldResponse } from '@aiworld/shared';
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { CalendarDays, Compass, ListOrdered } from 'lucide-react';
 
 import { GlassPanel } from '@/shared/ui/glass-panel';

@@ -15,7 +15,6 @@ export class CharacterResponseMapper {
     const { systemPrompt: _systemPrompt, ...publicRecord } = record;
     return {
       ...publicRecord,
-      avatarUrl: record.avatarUrl,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };

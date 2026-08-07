@@ -1,4 +1,4 @@
-import type { ListWorldsQuery } from '@aiworld/shared';
+import type { ListWorldsQuery } from '@aiworld/shared/schemas/world.schema';
 
 /**
  * Query key factory - the only place world keys are spelled. No inline

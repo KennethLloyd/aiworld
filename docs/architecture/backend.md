@@ -52,62 +52,6 @@ A feature is a vertical slice that owns its controller, service, domain record, 
 
 `packages/shared` is the single source of truth for request, response, and pagination Zod schemas. The API imports contracts from the shared package, so there is exactly one copy of every wire shape.
 
-### Current source tree
-
-The implemented tree, without test, config, or generated listings:
-
-```text
-apps/api/src/
-  main.ts                        # bootstrap: helmet, bodyParser: false, globalPrefix 'api'
-  app.module.ts                  # composition root + global guard/filter/interceptor
-  app.controller.ts              # GET /api (anonymous)
-  common/
-    filters/http-exception.filter.ts
-    interceptors/logging.interceptor.ts
-    pipes/zod-validation.pipe.ts
-  lib/
-    auth/auth.ts
-    database/prisma.module.ts
-    database/prisma.service.ts
-  types/userRole.ts
-  world/                         # canonical feature pattern
-    world.module.ts
-    world.controller.ts
-    world.service.ts
-    domain/world-record.ts
-    mappers/world-response.mapper.ts
-    repositories/world-repository.interface.ts
-    repositories/prisma-world.repository.ts
-  characters/                    # standalone AI character resource
-    characters.module.ts
-    characters.controller.ts
-    characters.service.ts
-    domain/character-record.ts
-    mappers/character-response.mapper.ts
-    repositories/character-repository.interface.ts
-    repositories/prisma-character.repository.ts
-  world-members/                 # reusable human/AI membership resource
-    world-members.module.ts
-    world-members.controller.ts
-    world-members.service.ts
-    domain/world-member-record.ts
-    mappers/world-member-response.mapper.ts
-    repositories/world-member-repository.interface.ts
-    repositories/prisma-world-member.repository.ts
-
-packages/shared/src/
-  index.ts
-  schemas/
-    world.schema.ts
-    world-response.schema.ts
-    character.schema.ts
-    character-response.schema.ts
-    world-member.schema.ts
-    world-member-response.schema.ts
-    query.schema.ts
-    pagination.schema.ts
-```
-
 ## 2. Example request flow
 
 ### GET /api/worlds (public read)
@@ -119,7 +63,7 @@ WorldController.list
    |  ZodValidationPipe(listWorldsQuerySchema)  <-- handler boundary
    |  coerces "1" and "20" to numbers, applies defaults
    v
-WorldService.list(query)              (trims search, defaults isActive)
+WorldService.list(query, isAdmin)      (trims search, forces active-only for public callers)
    |
 WorldRepository.findAll(query)        (port, abstract class DI token)
    |
@@ -140,33 +84,6 @@ ListWorldsResponse transport contract serialized to JSON
 ### Admin mutations (briefly)
 
 `POST /api/worlds` runs the same spine with two extra steps: the global auth/role guard rejects anonymous requests (401) and non-ADMIN sessions (403) before the handler, and the body pipe validates against `createWorldSchema`. Success returns 201 with a `WorldResponse`.
-
-### Public versus ADMIN status visibility
-
-World and character collection/detail reads are public routes so an ADMIN can
-use the same resource while authenticated. The controller inspects the
-server-provided request user and passes an access decision into the service:
-
-- Anonymous and non-ADMIN requests force `isActive: true`, regardless of the
-  query string.
-- ADMIN requests may omit `isActive` to see all records or explicitly request a
-  status.
-- Public character responses never include `systemPrompt`; ADMIN projections are
-  selected by the server rather than a client-controlled private-field flag.
-
-The web public World gateway omits `isActive` from shareable URL parameters and
-sends `isActive=true`; server enforcement prevents direct API callers from
-using `isActive=false` to bypass public visibility.
-
-### Standalone characters and World memberships
-
-Characters are reusable AI identities and are not owned by one World. The
-character resource is exposed at `/api/characters` and can be filtered by
-`worldSlug` through active WorldMember records. Membership is a separate
-`/api/world-members` resource that accepts either a `characterId` or future
-`userId`; the server derives the `AI` or `HUMAN` role. Memberships have their own
-`isActive` state so deactivation preserves historical post/comment authorship.
-Simulation later requires both the Character and its AI WorldMember to be active.
 
 ## 3. Dependency direction
 

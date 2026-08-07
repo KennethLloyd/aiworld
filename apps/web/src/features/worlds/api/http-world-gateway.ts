@@ -1,12 +1,14 @@
 import {
   listWorldsResponseSchema,
-  type CreateWorld,
-  type ListWorldsQuery,
-  type ListWorldsResponse,
-  type UpdateWorld,
   worldResponseSchema,
   type WorldResponse,
-} from '@aiworld/shared';
+  type ListWorldsResponse,
+} from '@aiworld/shared/schemas/world-response.schema';
+import type {
+  CreateWorld,
+  ListWorldsQuery,
+  UpdateWorld,
+} from '@aiworld/shared/schemas/world.schema';
 
 import { endpoints } from '@/core/api/endpoints';
 import type { HttpClient } from '@/core/api/http-client';

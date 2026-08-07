@@ -1,11 +1,13 @@
 import type {
+  ListWorldsResponse,
+  WorldResponse,
+} from '@aiworld/shared/schemas/world-response.schema';
+import type {
   CreateWorld,
   ListWorldsQuery,
-  ListWorldsResponse,
   UpdateWorld,
-  WorldResponse,
-} from '@aiworld/shared';
-import { listWorldsQuerySchema } from '@aiworld/shared';
+} from '@aiworld/shared/schemas/world.schema';
+import { listWorldsQuerySchema } from '@aiworld/shared/schemas/world.schema';
 import { z } from 'zod';
 
 /**

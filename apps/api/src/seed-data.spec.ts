@@ -1,4 +1,4 @@
-import { worldResponseSchema } from '@aiworld/shared';
+import { worldResponseSchema } from '@aiworld/shared/schemas/world-response.schema';
 
 import {
   canonicalWorld,

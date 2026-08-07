@@ -1,3 +1,8 @@
+export type ClassificationPolicy = (
+  classification: string | null | undefined,
+  classificationGroup: string | null | undefined,
+) => void;
+
 const MBTI_GROUPS: Record<string, string> = {
   ISTJ: 'SJ',
   ISFJ: 'SJ',
@@ -17,7 +22,7 @@ const MBTI_GROUPS: Record<string, string> = {
   ENTP: 'NT',
 };
 
-export function validateMbtiClassification(
+function validateMbtiHouseClassification(
   classification: string | null | undefined,
   classificationGroup: string | null | undefined,
 ): void {
@@ -33,4 +38,16 @@ export function validateMbtiClassification(
       'classification and classificationGroup are not a valid MBTI pair',
     );
   }
+}
+
+const worldClassificationPolicies: Record<string, ClassificationPolicy> = {
+  'mbti-house': validateMbtiHouseClassification,
+};
+
+export function validateWorldClassificationPolicy(
+  worldSlug: string,
+  classification: string | null | undefined,
+  classificationGroup: string | null | undefined,
+): void {
+  worldClassificationPolicies[worldSlug]?.(classification, classificationGroup);
 }

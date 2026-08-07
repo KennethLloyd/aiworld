@@ -1,9 +1,11 @@
 import type {
-  CreateWorld,
   ListWorldsResponse,
-  UpdateWorld,
   WorldResponse,
-} from '@aiworld/shared';
+} from '@aiworld/shared/schemas/world-response.schema';
+import type {
+  CreateWorld,
+  UpdateWorld,
+} from '@aiworld/shared/schemas/world.schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 

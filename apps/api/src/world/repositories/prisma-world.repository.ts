@@ -83,6 +83,9 @@ export class PrismaWorldRepository extends WorldRepository {
       where: { slug },
     });
 
+    // The active check is applied to the fetched record instead of the Prisma
+    // query so ADMIN and public callers share one read while only ADMIN can
+    // observe inactive Worlds.
     if (!item || (isActive !== undefined && item.isActive !== isActive)) {
       return null;
     }

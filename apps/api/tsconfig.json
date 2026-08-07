@@ -16,8 +16,7 @@
 
     /* Path Aliases */
     "paths": {
-      "@/*": ["./src/*"],
-      "@aiworld/shared": ["../../packages/shared/src"]
+      "@/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

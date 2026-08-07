@@ -20,6 +20,7 @@ contracts and the shared simulation pipeline.
 - Telemetry and live execution feedback
 - World configuration editor
 - Character registry and editor
+- World member management (list, assign, activate, and deactivate AI memberships)
 - Character avatar URL editor with a default fallback
 - Filterable simulation log viewer
 - Log detail view with provider, model, latency, source, prompt, response,
