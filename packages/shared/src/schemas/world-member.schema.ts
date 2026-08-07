@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { booleanQuerySchema } from "./query.schema.ts";
-
 const worldMemberPrincipalSchema = z
   .object({
     worldSlug: z
@@ -39,7 +37,7 @@ export const listWorldMembersQuerySchema = z.object({
   role: z.enum(["AI", "HUMAN"]).optional(),
   page: z.coerce.number().pipe(z.int().min(1)).default(1),
   limit: z.coerce.number().pipe(z.int().min(1).max(100)).default(20),
-  isActive: booleanQuerySchema.optional(),
+  isActive: z.stringbool().optional(),
 });
 
 export type CreateWorldMember = z.infer<typeof createWorldMemberSchema>;

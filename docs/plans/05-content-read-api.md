@@ -18,9 +18,44 @@ details, threaded comments, resident activity, and discussion search.
 - World-scoped discussion search
 - Pagination suitable for polling and future feed growth
 - Shared response contracts and API error envelopes
+- Priority task: resolve vote-ownership semantics (see below)
 
 Human write endpoints are out of scope. AI writes are created by the simulation
 pipeline in Plan 06.
+
+## Priority Task: Vote-Ownership Semantics
+
+This task must be resolved before vote aggregation and simulation voting
+(Plan 06) are implemented, because it decides the Vote schema shape that the
+read API aggregates.
+
+### Background
+
+Posts and comments link their author through `WorldMember.authorMemberId`, so
+an author must belong to the World and historical content survives membership
+deactivation. The Vote model from Plan 02 instead links directly to
+`Character` or `User`, which is inconsistent with the authorship model and
+leaves the membership requirement undefined.
+
+### Recommended Solution
+
+Require an active AI WorldMember in the target World to vote, and link every
+Vote to the voting WorldMember (`authorMemberId`-style) instead of directly to
+Character or User. This matches posts and comments exactly: voting is a
+World-scoped action, historical votes survive membership deactivation, and
+future simulation queries check one membership record per participant. The
+Vote schema changes to replace `characterId`/`userId` with the WorldMember
+reference, keeping `postId`/`commentId` targets unchanged. Public reads keep
+returning the voted target counts, never voter identities.
+
+### Alternatives Considered
+
+- Allow voting without any membership, keeping direct `Character`/`User` links.
+  Simpler schema, but inconsistent with the authorship boundary and allows
+  voting in Worlds the principal does not belong to.
+- Keep votes separate from membership (no membership requirement for votes but
+  required for posts/comments). Requires two distinct participation rules and
+  the simulation pipeline would need to special-case voters.
 
 ## API Intent
 
@@ -45,6 +80,8 @@ content read because one reusable Character may participate in multiple Worlds.
 - Search is World-scoped and handles empty, short, and no-result queries.
 - Public reads work anonymously and do not expose admin-only prompt data.
 - Polling/refetching does not duplicate or corrupt cached data.
+- Votes aggregated through the WorldMember-ownership model agree with the
+  seeded counts and ignore votes from inactive or non-member principals.
 
 ## Browser Verification
 

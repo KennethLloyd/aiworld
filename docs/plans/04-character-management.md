@@ -122,11 +122,12 @@ active state so historical post and comment authors remain intact.
 - `apps/api/src/world-members/`
 - `apps/api/src/world/` active-visibility enforcement and safe read defaults
 - `apps/api/test/characters-and-world-members.e2e-spec.ts`
-- `packages/shared/src/schemas/query.schema.ts`
 - `packages/shared/src/schemas/character.schema.ts`
 - `packages/shared/src/schemas/character-response.schema.ts`
 - `packages/shared/src/schemas/world-member.schema.ts`
 - `packages/shared/src/schemas/world-member-response.schema.ts`
+- `packages/shared/src/schemas/query.schema.ts` removed; query booleans use the
+  native `z.stringbool()` helper
 - `packages/shared/src/index.ts` removed; importers now use direct schema paths
 - `docs/architecture/backend.md`
 - `docs/plans/README.md`
@@ -163,6 +164,10 @@ entirely: membership is a pure principal-to-World link, and classification
 remains optional generic character data with no per-World enforcement. The
 `mbti-house` vocabulary stays in the prototype seed data only.
 
+A third review round replaced the custom `booleanQuerySchema` query helper with
+the native Zod 4 `z.stringbool()` string-format schema and removed
+`query.schema.ts`.
+
 ### Tests Run
 
 - `pnpm --filter @aiworld/api db:generate`
@@ -189,8 +194,8 @@ remains optional generic character data with no per-World enforcement. The
   World member management screens (list, assign, activate, and deactivate).
   Added to the Plan 10 scope in this implementation record.
 - Vote ownership semantics are unresolved: votes link directly to `Character` or
-  `User` while posts and comments link via `WorldMember`. Decide whether voting
-  requires an active WorldMember for the voting principal during Plan 05 or 06.
+  `User` while posts and comments link via `WorldMember`. Plan 05 now owns this
+  as a priority task with a recommended WorldMember-gated model.
 - Human WorldMember creation is contract- and persistence-ready but remains an
   ADMIN-managed path until human membership product flows are scoped.
 - Plan 05 owns resident activity reads; this plan intentionally returns profile

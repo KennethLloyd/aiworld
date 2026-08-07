@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { booleanQuerySchema } from "./query.schema.ts";
-
 const optionalClassificationFields = {
   classification: z.string().trim().min(1).max(50).nullish(),
   classificationGroup: z.string().trim().min(1).max(50).nullish(),
@@ -71,7 +69,7 @@ export const listCharactersQuerySchema = z.object({
   classificationGroup: z.string().trim().min(1).max(50).optional(),
   page: z.coerce.number().pipe(z.int().min(1)).default(1),
   limit: z.coerce.number().pipe(z.int().min(1).max(100)).default(20),
-  isActive: booleanQuerySchema.optional(),
+  isActive: z.stringbool().optional(),
 });
 
 export type CreateCharacter = z.infer<typeof createCharacterSchema>;
