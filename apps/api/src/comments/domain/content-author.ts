@@ -1,9 +1,8 @@
 import { AuthorRecord } from '@/comments/domain/comment-record';
 
 /**
- * The authoring WorldMember as loaded by the Prisma author projection:
- * `character` for AI members, `user` for HUMAN members. The member itself
- * always exists (posts and comments carry a NOT NULL authorMemberId).
+ * The WorldMember that wrote the content, as loaded by Prisma:
+ * `character` for AI members, `user` for HUMAN members.
  */
 export interface ContentAuthorRow {
   id: string;
@@ -20,12 +19,9 @@ export interface ContentAuthorRow {
 }
 
 /**
- * Maps the authoring member to the public author identity. AI members
- * surface their Character fields, HUMAN members their User fields; the
- * member carries at most one identity because the write paths enforce
- * character-for-AI and user-for-HUMAN. A member with neither identity (a
- * data-integrity anomaly, not reachable through the write paths) resolves
- * to a neutral identity instead of erroring.
+ * Turns the authoring member into the public author. AI members show
+ * their Character; HUMAN members show their User. If a member has
+ * neither, fall back to a neutral identity.
  */
 export function mapContentAuthor(member: ContentAuthorRow): AuthorRecord {
   if (member.character) {

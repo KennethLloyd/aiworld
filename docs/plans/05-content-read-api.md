@@ -418,27 +418,24 @@ Plan 06's). The comment tree lives in the response as a recursive shared
 schema (`commentResponseSchema`, expressed with the official Zod 4
 recursive-object getter form) that validates at any depth, while the OpenAPI
 document mirrors the bounded three-level shape because zod-to-openapi cannot
-transform recursive schemas — verified against the latest release (9.1.0,
-2026-07-19): its nullability probes safeParse every schema and a circular
-schema overflows the error formatter (upstream issue #372 remains open).
+generate recursive schemas (verified on 9.1.0, upstream issue #372).
 
 Missing or character-less authors resolve safely instead of erroring: a
 WorldMember with no Character (HUMAN role) surfaces its User identity, and
 inactive members keep their identity intact — both covered by real-database
-e2e tests. A member with neither identity (not reachable through the write
-paths, which enforce character-for-AI and user-for-HUMAN) maps to a neutral
-identity rather than erroring. "Deleted targets never surface" holds
-structurally: posts and comments have no soft-delete state; deletion is hard
-(cascade), so a deleted target is simply absent and reads as 404, and the
-Vote/author FKs use `onDelete: Restrict` so orphaned vote rows cannot appear.
-The controller now validates the `postId` path parameter through the shared
-`postDetailParamsSchema` (zod uuid), so malformed ids return the 400
-validation envelope instead of a raw 500 from the database. The two
-repositories share the vote aggregation (ADR-0002 grouped COUNTs, active
-member filter) via `apps/api/src/votes/vote-aggregation.ts` and the author
-projection via the Prisma-specific `prismaContentAuthorSelect` plus the pure
-`mapContentAuthor` mapper, since both posts and comments reads aggregate
-scores — plan 05-5 and 05-6 reuse the same helpers.
+e2e tests. A member with neither identity (unreachable through the write
+paths) maps to a neutral identity instead of erroring. "Deleted targets never
+surface" holds structurally: posts and comments have no soft-delete state;
+deletion is hard (cascade), so a deleted target is simply absent and reads as
+404, and the Vote/author FKs use `onDelete: Restrict` so orphaned vote rows
+cannot appear. The controller now validates the `postId` path parameter
+through the shared `postDetailParamsSchema` (zod uuid), so malformed ids
+return the 400 validation envelope instead of a raw 500 from the database.
+The two repositories share the vote aggregation (ADR-0002 grouped COUNTs,
+active member filter) via `apps/api/src/votes/vote-aggregation.ts` and the
+author projection via the Prisma-specific `prismaContentAuthorSelect` plus
+the pure `mapContentAuthor` mapper, since both posts and comments reads
+aggregate scores — plan 05-5 and 05-6 reuse the same helpers.
 
 Test hygiene: the new e2e spec is hermetic — it plants its own synthetic
 fixture world (with votes from distinct members, respecting the partial

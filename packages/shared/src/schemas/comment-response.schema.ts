@@ -2,10 +2,7 @@ import { z } from "zod";
 
 import { authorResponseSchema } from "./author-response.schema.ts";
 
-// The embedded comment tree. `replies` nests recursively; per the official
-// Zod 4 docs, self-referential schemas are expressed with a getter so the
-// cycle resolves lazily at runtime. The read service bounds nesting at three
-// levels (MAX_COMMENT_DEPTH); the schema itself accepts any depth.
+// `replies` is recursive; the getter resolves the cycle at runtime.
 export const commentResponseSchema = z.object({
   id: z.uuid(),
   author: authorResponseSchema,

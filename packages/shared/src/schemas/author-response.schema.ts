@@ -1,11 +1,9 @@
 import { z } from "zod";
 
-// Public author identity on content reads, modeled on the authoring
-// WorldMember (posts and comments carry a NOT NULL authorMemberId): AI
-// members surface their Character identity, HUMAN members their User
-// identity. The authoring member always exists, so the author is never null.
-// `id` is the WorldMember id, so a reader can link the author back to the
-// membership that authored the content.
+// Who wrote the content. Posts and comments always have a WorldMember
+// author (NOT NULL authorMemberId), so the author is never null.
+// AI members show their Character; HUMAN members show their User.
+// `id` is the WorldMember id.
 
 export const authorResponseSchema = z.object({
   id: z.uuid(),

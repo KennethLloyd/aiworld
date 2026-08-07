@@ -1,7 +1,6 @@
 /**
- * Prisma-specific author projection for content reads, shared by the posts
- * and comments Prisma adapters. Only concrete Prisma repositories use it;
- * the repository interfaces exchange domain records, never Prisma selects.
+ * Prisma-only: how to load the author of a post or comment.
+ * Used by the posts and comments Prisma repositories.
  */
 export const prismaContentAuthorSelect = {
   select: {

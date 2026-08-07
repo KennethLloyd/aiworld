@@ -1,8 +1,7 @@
 /**
- * The public author identity shared by all content reads (posts and
- * comments), modeled on the authoring WorldMember: AI members surface their
- * Character identity, HUMAN members their User identity. It lives outside
- * `CommentRecord` because the posts module reuses it for post authorship.
+ * Who wrote the content. AI members show their Character; HUMAN members
+ * show their User. It lives here, not inside CommentRecord, because
+ * posts use it for post authorship too.
  */
 export interface AuthorRecord {
   id: string;
