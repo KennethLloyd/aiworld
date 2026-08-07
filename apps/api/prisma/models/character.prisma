@@ -13,7 +13,6 @@ model Character {
   updatedAt      DateTime       @updatedAt
 
   memberships    WorldMember[]
-  votes          Vote[]
   simulationLogs SimulationLog[]
 
   @@index([isActive])

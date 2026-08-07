@@ -101,7 +101,6 @@ export async function seedWorld() {
           authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
-          upvotes: post.upvotes,
           createdAt: new Date(post.createdAt),
         },
         update: {
@@ -109,8 +108,6 @@ export async function seedWorld() {
           authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
-          upvotes: post.upvotes,
-          downvotes: 0,
           createdAt: new Date(post.createdAt),
         },
       });
@@ -126,7 +123,6 @@ export async function seedWorld() {
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
             content: comment.content,
-            upvotes: comment.upvotes,
             createdAt: new Date(comment.createdAt),
           },
           update: {
@@ -136,8 +132,6 @@ export async function seedWorld() {
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
             content: comment.content,
-            upvotes: comment.upvotes,
-            downvotes: 0,
             createdAt: new Date(comment.createdAt),
           },
         });

@@ -17,6 +17,7 @@ model WorldMember {
   character   Character?      @relation(fields: [characterId], references: [id], onDelete: Cascade)
   posts       Post[]
   comments    Comment[]
+  votes       Vote[]
 
   @@index([worldId, role])
   @@index([userId])
