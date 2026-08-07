@@ -18,62 +18,83 @@ describe('ActivityController', () => {
   };
 
   const activityRecordFixture = {
-    posts: [
+    items: [
       {
-        id: '00000000-0000-4000-8000-000000000001',
-        title: 'Who actually uses the microwave for FISH?',
-        content: 'It smells like low tide.',
-        voteScore: 5,
-        createdAt: new Date('2026-08-06T08:00:00.000Z'),
-        updatedAt: new Date('2026-08-06T08:00:00.000Z'),
-        author: {
-          id: '00000000-0000-4000-8000-000000000101',
-          handle: 'standard_procedure',
-          name: 'Standard_Procedure',
-          avatarUrl: null,
+        kind: 'post' as const,
+        record: {
+          id: '00000000-0000-4000-8000-000000000001',
+          title: 'Who actually uses the microwave for FISH?',
+          content: 'It smells like low tide.',
+          voteScore: 5,
+          createdAt: new Date('2026-08-06T08:00:00.000Z'),
+          updatedAt: new Date('2026-08-06T08:00:00.000Z'),
+          author: {
+            id: '00000000-0000-4000-8000-000000000101',
+            handle: 'standard_procedure',
+            name: 'Standard_Procedure',
+            avatarUrl: null,
+          },
+        },
+      },
+      {
+        kind: 'comment' as const,
+        record: {
+          id: '00000000-0000-4000-8000-000000000201',
+          postId: '00000000-0000-4000-8000-000000000001',
+          parentCommentId: null,
+          author: authorFixture,
+          content: 'It was me. I said it.',
+          voteScore: 2,
+          createdAt: new Date('2026-08-06T09:00:00.000Z'),
+          updatedAt: new Date('2026-08-06T09:00:00.000Z'),
+          postTitle: 'Who actually uses the microwave for FISH?',
         },
       },
     ],
-    comments: [
-      {
-        id: '00000000-0000-4000-8000-000000000201',
-        postId: '00000000-0000-4000-8000-000000000001',
-        parentCommentId: null,
-        author: authorFixture,
-        content: 'It was me. I said it.',
-        voteScore: 2,
-        createdAt: new Date('2026-08-06T09:00:00.000Z'),
-        updatedAt: new Date('2026-08-06T09:00:00.000Z'),
-      },
-    ],
+    nextCursor: 'opaque-cursor-value',
   };
 
+  const postRecordFixture = activityRecordFixture.items[0]!;
+  const commentRecordFixture = activityRecordFixture.items[1]!;
+  if (
+    postRecordFixture.kind !== 'post' ||
+    commentRecordFixture.kind !== 'comment'
+  ) {
+    throw new Error('Fixture shape mismatch');
+  }
+
   const activityResponseFixture: CharacterActivityResponse = {
-    posts: [
+    items: [
       {
-        id: activityRecordFixture.posts[0].id,
-        title: activityRecordFixture.posts[0].title,
-        content: activityRecordFixture.posts[0].content,
+        kind: 'post',
+        id: postRecordFixture.record.id,
+        title: postRecordFixture.record.title,
+        content: postRecordFixture.record.content,
         voteScore: 5,
         createdAt: '2026-08-06T08:00:00.000Z',
         updatedAt: '2026-08-06T08:00:00.000Z',
-        author: activityRecordFixture.posts[0].author,
+        author: postRecordFixture.record.author,
       },
-    ],
-    comments: [
       {
-        id: activityRecordFixture.comments[0].id,
+        kind: 'comment',
+        id: commentRecordFixture.record.id,
         author: authorFixture,
-        content: activityRecordFixture.comments[0].content,
+        content: commentRecordFixture.record.content,
         voteScore: 2,
         createdAt: '2026-08-06T09:00:00.000Z',
         updatedAt: '2026-08-06T09:00:00.000Z',
         replies: [],
+        postTitle: 'Who actually uses the microwave for FISH?',
       },
     ],
+    nextCursor: 'opaque-cursor-value',
   };
 
-  const queryFixture = { worldSlug: 'mbti-house' };
+  const queryFixture = {
+    worldSlug: 'mbti-house',
+    limit: 20,
+    cursor: undefined,
+  };
 
   const mockActivityService: jest.Mocked<
     Pick<ActivityService, 'findActivity'>
@@ -118,10 +139,35 @@ describe('ActivityController', () => {
     expect(mockActivityService.findActivity).toHaveBeenCalledWith(
       '00000000-0000-4000-8000-000000000101',
       'mbti-house',
+      undefined,
+      20,
     );
     expect(
       mockActivityResponseMapper.mapToCharacterActivityResponse,
     ).toHaveBeenCalledWith(activityRecordFixture);
+  });
+
+  it('should forward the cursor and limit from the query', async () => {
+    mockActivityService.findActivity.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+    });
+    mockActivityResponseMapper.mapToCharacterActivityResponse.mockReturnValue({
+      items: [],
+      nextCursor: null,
+    });
+
+    await controller.getActivity(
+      { characterId: '00000000-0000-4000-8000-000000000101' },
+      { worldSlug: 'mbti-house', limit: 5, cursor: 'some-cursor' },
+    );
+
+    expect(mockActivityService.findActivity).toHaveBeenCalledWith(
+      '00000000-0000-4000-8000-000000000101',
+      'mbti-house',
+      'some-cursor',
+      5,
+    );
   });
 
   it('should throw NotFoundException when the character or world is missing', async () => {
@@ -136,6 +182,8 @@ describe('ActivityController', () => {
     expect(mockActivityService.findActivity).toHaveBeenCalledWith(
       'missing-character',
       'mbti-house',
+      undefined,
+      20,
     );
     expect(
       mockActivityResponseMapper.mapToCharacterActivityResponse,

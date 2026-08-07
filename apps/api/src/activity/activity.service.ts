@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { CharacterActivityRecord } from '@/activity/domain/activity-record';
+import {
+  encodeActivityCursor,
+  parseActivityCursor,
+} from '@/activity/domain/activity-cursor';
+import { CharacterActivityPageRecord } from '@/activity/domain/activity-record';
+import { mergeActivityItems } from '@/activity/domain/activity-timeline';
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
@@ -20,7 +25,9 @@ export class ActivityService {
   async findActivity(
     characterId: string,
     worldSlug: string,
-  ): Promise<CharacterActivityRecord | null> {
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<CharacterActivityPageRecord | null> {
     const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       return null;
@@ -41,14 +48,45 @@ export class ActivityService {
       characterId,
     );
     if (!membership) {
-      return { posts: [], comments: [] };
+      return { items: [], nextCursor: null };
     }
 
+    const parsedCursor = parseActivityCursor(cursor);
+    if (!parsedCursor.ok) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: [
+          { code: 'custom', path: ['cursor'], message: 'Invalid cursor.' },
+        ],
+        error: 'Validation Failed',
+      });
+    }
+
+    // Over-fetch one item per stream: with `limit + 1` from each side, the
+    // merged page has more than `limit` items exactly when more items
+    // remain, so nextCursor is exact.
     const [posts, comments] = await Promise.all([
-      this.postRepository.findByAuthorMembership(world.id, membership.id),
-      this.commentRepository.findByAuthorMembership(world.id, membership.id),
+      this.postRepository.findByAuthorMembership(
+        world.id,
+        membership.id,
+        parsedCursor.cursor,
+        limit + 1,
+      ),
+      this.commentRepository.findByAuthorMembership(
+        world.id,
+        membership.id,
+        parsedCursor.cursor,
+        limit + 1,
+      ),
     ]);
 
-    return { posts, comments };
+    const merged = mergeActivityItems(posts, comments);
+    const items = merged.slice(0, limit);
+    const nextCursor =
+      merged.length > limit
+        ? encodeActivityCursor(items[items.length - 1])
+        : null;
+
+    return { items, nextCursor };
   }
 }
