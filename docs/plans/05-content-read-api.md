@@ -281,3 +281,115 @@ counts are inspectable through the plan 05-3 read API once it lands.
   decide that policy for simulation votes.
 - The seed currently creates only +1 rows because the original data carried
   no downvotes; the -1 path is covered by the migration e2e tests.
+
+## Plan 05-3 (ticket #26) Implementation Record
+
+### Senior-Level Summary
+
+Plan 05-3 lands the public post feed: `GET /api/worlds/:slug/posts` with
+Hot/New sorting, offset pagination, and vote scores aggregated from Vote rows
+in one grouped query per request (ADR-0002: rows are the only source of truth
+since the counter columns are gone). A new `posts` module follows the existing
+world/character module shape: `PostsService` resolves the World through the
+existing `WorldService.getBySlug(slug, false)` boundary (anonymous callers
+only ever see active Worlds; missing/inactive Worlds surface as 404 through
+the normalized envelope), then delegates to a `PostRepository` seam whose
+Prisma implementation owns the persistence. The "New" sort pages in SQL on the
+`[worldId, createdAt]` index and aggregates votes only for the page's posts;
+the "Hot" sort fetches the World's posts and one grouped `vote.groupBy` sum
+(the repository seam where a counter cache could later replace it), then ranks
+in memory with a pure, unit-tested comparator (`compareByHot`: score desc,
+then recency, then id — deterministic for fixed data, matching the prototype's
+`b.upvotes - a.upvotes` rule). Only votes from active WorldMembers count, so a
+deactivated member's historical votes no longer move the public score. The
+shared `post.schema.ts`/`post-response.schema.ts` contracts are the single
+source of truth for the query DTO and response shape; the response exposes
+exactly the shared feed fields (id, title, content, voteScore, createdAt,
+updatedAt) with no admin-only prompt or provider data. Invalid sort values and
+out-of-range page/limit are rejected by the Zod pipe through the API error
+envelope, and the endpoint is `@AllowAnonymous()` (Observer reads never
+require auth). OpenAPI registration was added so the docs page shows the new
+operation.
+
+### Files Changed
+
+- `packages/shared/src/schemas/post.schema.ts` — `listPostsQuerySchema`
+  (`sort` hot|new default hot, page, limit) and `ListPostsQuery`
+- `packages/shared/src/schemas/post-response.schema.ts` —
+  `postResponseSchema`, `listPostsResponseSchema` reusing the shared
+  `paginationMetaSchema`
+- `apps/api/src/posts/` — new module: `domain/post-record.ts`,
+  `domain/post-ranking.ts` (pure `compareByHot`), `repositories/
+  post-repository.interface.ts`, `repositories/prisma-post.repository.ts`
+  (single grouped vote query, active-member filter),
+  `mappers/post-response.mapper.ts`, `posts.service.ts`, `posts.controller.ts`,
+  `posts.module.ts`, `posts.openapi.ts`; unit specs for ranking, mapper,
+  service, controller, and OpenAPI document
+- `apps/api/src/app.module.ts` — registered `PostsModule`
+- `apps/api/src/lib/openapi/openapi.ts` — registered `registerPostsOpenApi`
+- `apps/api/src/world/world.openapi.spec.ts` — expected path list now includes
+  `/worlds/{slug}/posts`
+- `apps/api/test/posts.e2e-spec.ts` — seeded-database feed tests (hot/new
+  ordering, vote scores equal the seeded totals, pagination metadata,
+  beyond-last-page returns an empty page with stable metadata, repeated reads
+  stable, inactive-member votes excluded, NOT NULL principal schema guard)
+  plus stubbed-boundary HTTP tests (400/404 envelopes, anonymous access,
+  one-grouped-query call shapes, response exposes only shared contract fields)
+
+### Architecture and SOLID Notes
+
+- The world-existence check stays in the world module (`WorldService`), the
+  posts module depends on that exported boundary instead of duplicating slug
+  lookup; the post repository is purely posts+votes by `worldId`.
+- Sorting rules live in the domain (pure comparator functions) and the
+  repository, not in controllers; the comparator is unit-tested without a
+  database.
+- The Hot path's in-memory ranking is documented: Prisma cannot ORDER BY an
+  aggregate from `groupBy`, so the World's score map is fetched once per
+  request and ranked in memory. At MVP scale this is sub-millisecond; the
+  repository seam is the designated place to reintroduce a counter cache if
+  load ever justifies it. The New path keeps SQL-side pagination on the
+  `[worldId, createdAt]` index; the shared `newOrderBy` const
+  (`createdAt desc, id asc`) is the single definition of the deterministic
+  New rule.
+- The vote aggregation filters `author: { isActive: true }` in the grouped
+  query, implementing "ignore votes from inactive or non-member principals"
+  from the plan's test list; the non-member case is structurally impossible
+  (`authorMemberId` NOT NULL FK), and a raw-SQL e2e test proves the schema
+  boundary rejects a principal-less vote row.
+- Beyond-last-page requests return 200 with an empty page and stable metadata
+  (standard offset-pagination behavior, matching the existing list endpoints);
+  out-of-range *values* (page < 1, limit outside 1..100, non-numeric) are
+  rejected by the schema through the error envelope. The behavior is pinned
+  by an e2e test.
+- e2e verification is split: a real-Postgres spec proves the aggregation
+  agrees with the seeded counts end to end (and restores canonical state
+  after its synthetic inactive-member fixture), while a stubbed-boundary spec
+  proves the query shapes (one `vote.groupBy` per request, page-scoped for
+  New, world-scoped for Hot) and the validation envelopes without a database.
+
+### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm --filter @aiworld/api test` — 104 unit tests pass (16 new)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 40 e2e tests pass
+  (12 new: 7 seeded-database feed tests, 5 HTTP-boundary tests); the real-DB
+  spec disconnects both its raw client and the app's PrismaService so no
+  worker leaks remain
+- `db:generate`/`migrate deploy` unchanged; seeded DB used as-is
+
+### Browser Verification
+
+None required for the endpoint itself; the plan's OpenAPI checkpoint was
+covered by the `posts.openapi.spec.ts` document assertions (path, parameters,
+responses, no security requirement).
+
+### Known Risks and Follow-Up Work
+
+- Hot ranking is computed for the whole World on every request; fine for MVP
+  scale and the 16-member population, but a counter cache or SQL-side ranking
+  is the documented follow-up if the World grows.
+- Offset pagination can drift when new posts arrive between page requests;
+  this is accepted for polling and a cursor seam is documented in the plan.
+- Feed items carry no author information yet; the post-detail ticket (#27)
+  and plan 09 UI should define the author shape when they land.
