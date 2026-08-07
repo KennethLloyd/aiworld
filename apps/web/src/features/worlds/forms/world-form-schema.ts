@@ -3,7 +3,7 @@ import {
   type CreateWorld,
   type UpdateWorld,
   updateWorldSchema,
-} from '@aiworld/shared';
+} from '@aiworld/shared/schemas/world.schema';
 import { z } from 'zod';
 
 /**

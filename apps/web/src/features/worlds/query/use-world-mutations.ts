@@ -1,4 +1,7 @@
-import type { CreateWorld, UpdateWorld } from '@aiworld/shared';
+import type {
+  CreateWorld,
+  UpdateWorld,
+} from '@aiworld/shared/schemas/world.schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { useGateways } from '@/providers/gateways-provider';

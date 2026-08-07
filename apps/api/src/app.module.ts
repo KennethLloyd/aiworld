@@ -3,6 +3,8 @@ import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
+import { CharactersModule } from '@/characters/characters.module';
+import { WorldMembersModule } from '@/world-members/world-members.module';
 import { WorldModule } from '@/world/world.module';
 
 import { AppController } from './app.controller';
@@ -21,6 +23,8 @@ import { PrismaService } from './lib/database/prisma.service';
       useFactory: (prisma: PrismaService) => ({ auth: createAuth(prisma) }),
     }),
     WorldModule,
+    CharactersModule,
+    WorldMembersModule,
   ],
   controllers: [AppController],
   providers: [

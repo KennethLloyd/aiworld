@@ -16,15 +16,24 @@ export class WorldService {
     private readonly worldRepository: WorldRepository,
   ) {}
 
-  list(query: ListWorldsQuery): Promise<Paginated<WorldRecord>> {
-    return this.worldRepository.findAll({
+  list(
+    query: ListWorldsQuery,
+    isAdmin = false,
+  ): Promise<Paginated<WorldRecord>> {
+    const normalizedQuery = {
       ...query,
       search: query.search?.trim() || undefined,
-    });
+    };
+
+    return this.worldRepository.findAll(
+      isAdmin ? normalizedQuery : { ...normalizedQuery, isActive: true },
+    );
   }
 
-  getBySlug(slug: string): Promise<WorldRecord | null> {
-    return this.worldRepository.findBySlug(slug);
+  getBySlug(slug: string, isAdmin = false): Promise<WorldRecord | null> {
+    return isAdmin
+      ? this.worldRepository.findBySlug(slug)
+      : this.worldRepository.findBySlug(slug, true);
   }
 
   create(input: CreateWorld): Promise<WorldRecord> {

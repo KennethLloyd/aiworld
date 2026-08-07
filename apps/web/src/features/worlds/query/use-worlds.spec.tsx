@@ -1,4 +1,4 @@
-import type { WorldResponse } from '@aiworld/shared';
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';

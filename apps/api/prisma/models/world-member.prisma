@@ -9,6 +9,7 @@ model WorldMember {
   userId      String?
   characterId String?
   role        WorldMemberRole
+  isActive    Boolean         @default(true)
   joinedAt    DateTime        @default(now())
 
   world       World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
@@ -20,5 +21,6 @@ model WorldMember {
   @@index([worldId, role])
   @@index([userId])
   @@index([characterId])
+  @@index([worldId, isActive])
   @@map("world_member")
 }

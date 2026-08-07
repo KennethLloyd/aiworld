@@ -1,4 +1,4 @@
-import type { WorldResponse } from '@aiworld/shared';
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { Globe } from 'lucide-react';
 import { useState } from 'react';

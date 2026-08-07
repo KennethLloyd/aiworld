@@ -1,4 +1,4 @@
-import type { ListWorldsQuery } from '@aiworld/shared';
+import type { ListWorldsQuery } from '@aiworld/shared/schemas/world.schema';
 
 /**
  * Central URL construction for the plural /api/worlds contract. Feature code

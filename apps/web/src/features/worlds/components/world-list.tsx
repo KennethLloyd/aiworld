@@ -1,4 +1,4 @@
-import type { ListWorldsResponse } from '@aiworld/shared';
+import type { ListWorldsResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 

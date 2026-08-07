@@ -40,19 +40,26 @@ describe('worldOpenApiDocument', () => {
   it('is an OpenAPI 3.1 document for the Worlds API served under /api', () => {
     expect(worldOpenApiDocument.openapi).toBe('3.1.0');
     expect(worldOpenApiDocument.info).toEqual({
-      title: 'AIWorld Worlds API',
+      title: 'AIWorld API',
       version: '1.0.0',
     });
     expect(worldOpenApiDocument.servers).toEqual([{ url: '/api' }]);
   });
 
-  it('exposes the five expected operations across the two world paths', () => {
+  it('exposes the registered operations across the World, character, and membership paths', () => {
     const paths = (worldOpenApiDocument.paths ?? {}) as Record<
       string,
       WorldDocumentPath
     >;
 
-    expect(Object.keys(paths).sort()).toEqual(['/worlds', '/worlds/{slug}']);
+    expect(Object.keys(paths).sort()).toEqual([
+      '/characters',
+      '/characters/{characterId}',
+      '/world-members',
+      '/world-members/{memberId}',
+      '/worlds',
+      '/worlds/{slug}',
+    ]);
     expect(paths['/worlds']?.get).toBeDefined();
     expect(paths['/worlds']?.post).toBeDefined();
     expect(paths['/worlds/{slug}']?.get).toBeDefined();

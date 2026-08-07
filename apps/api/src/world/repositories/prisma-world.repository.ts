@@ -75,12 +75,18 @@ export class PrismaWorldRepository extends WorldRepository {
     };
   }
 
-  async findBySlug(slug: string): Promise<WorldRecord | null> {
+  async findBySlug(
+    slug: string,
+    isActive?: boolean,
+  ): Promise<WorldRecord | null> {
     const item = await this.prisma.world.findUnique({
       where: { slug },
     });
 
-    if (!item) {
+    // The active check is applied to the fetched record instead of the Prisma
+    // query so ADMIN and public callers share one read while only ADMIN can
+    // observe inactive Worlds.
+    if (!item || (isActive !== undefined && item.isActive !== isActive)) {
       return null;
     }
 

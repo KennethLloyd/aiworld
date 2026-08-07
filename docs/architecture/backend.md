@@ -52,41 +52,6 @@ A feature is a vertical slice that owns its controller, service, domain record, 
 
 `packages/shared` is the single source of truth for request, response, and pagination Zod schemas. The API imports contracts from the shared package, so there is exactly one copy of every wire shape.
 
-### Current source tree
-
-The implemented tree, without test, config, or generated listings:
-
-```text
-apps/api/src/
-  main.ts                        # bootstrap: helmet, bodyParser: false, globalPrefix 'api'
-  app.module.ts                  # composition root + global guard/filter/interceptor
-  app.controller.ts              # GET /api (anonymous)
-  common/
-    filters/http-exception.filter.ts
-    interceptors/logging.interceptor.ts
-    pipes/zod-validation.pipe.ts
-  lib/
-    auth/auth.ts
-    database/prisma.module.ts
-    database/prisma.service.ts
-  types/userRole.ts
-  world/                         # canonical feature pattern
-    world.module.ts
-    world.controller.ts
-    world.service.ts
-    domain/world-record.ts
-    mappers/world-response.mapper.ts
-    repositories/world-repository.interface.ts
-    repositories/prisma-world.repository.ts
-
-packages/shared/src/
-  index.ts
-  schemas/
-    world.schema.ts
-    world-response.schema.ts
-    pagination.schema.ts
-```
-
 ## 2. Example request flow
 
 ### GET /api/worlds (public read)
@@ -98,7 +63,7 @@ WorldController.list
    |  ZodValidationPipe(listWorldsQuerySchema)  <-- handler boundary
    |  coerces "1" and "20" to numbers, applies defaults
    v
-WorldService.list(query)              (trims search, defaults isActive)
+WorldService.list(query, isAdmin)      (trims search, forces active-only for public callers)
    |
 WorldRepository.findAll(query)        (port, abstract class DI token)
    |

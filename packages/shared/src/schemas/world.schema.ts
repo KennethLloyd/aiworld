@@ -29,7 +29,7 @@ export const listWorldsQuerySchema = z.object({
   // .coerce is needed because query strings arrive as strings so we need to convert them
   page: z.coerce.number().pipe(z.int().min(1)).default(1),
   limit: z.coerce.number().pipe(z.int().min(1).max(100)).default(20),
-  isActive: z.coerce.boolean().optional(),
+  isActive: z.stringbool().optional(),
 });
 
 // Inferred types

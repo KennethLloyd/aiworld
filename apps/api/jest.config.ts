@@ -12,7 +12,6 @@ const config: Config = {
   moduleNameMapper: {
     '^@thallesp/nestjs-better-auth$':
       '<rootDir>/test/__mocks__/nestjs-better-auth.ts',
-    '^@aiworld/shared$': '<rootDir>/../../packages/shared/src/index.ts',
     '^@aiworld/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',

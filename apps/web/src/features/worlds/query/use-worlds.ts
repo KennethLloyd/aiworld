@@ -1,4 +1,4 @@
-import type { ListWorldsQuery } from '@aiworld/shared';
+import type { ListWorldsQuery } from '@aiworld/shared/schemas/world.schema';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useGateways } from '@/providers/gateways-provider';

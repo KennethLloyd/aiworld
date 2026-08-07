@@ -1,8 +1,8 @@
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import {
   listWorldsQuerySchema,
   type ListWorldsQuery,
-  type WorldResponse,
-} from '@aiworld/shared';
+} from '@aiworld/shared/schemas/world.schema';
 import {
   createFileRoute,
   Link,
