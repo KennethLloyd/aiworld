@@ -1,6 +1,7 @@
 import { worldResponseSchema } from '@aiworld/shared/schemas/world-response.schema';
 
 import {
+  buildSeedVotes,
   canonicalWorld,
   characters,
   flattenComments,
@@ -79,5 +80,73 @@ describe('canonical MBTI House seed data', () => {
         },
       ]),
     ).toThrow('cannot exceed three levels');
+  });
+});
+
+describe('seeded vote distribution', () => {
+  const memberKeys = characters.map((character) => character.key);
+
+  it('keeps every seeded total within the representable member count', () => {
+    const totals = [
+      ...posts,
+      ...posts.flatMap((post) => flattenComments(post.comments)),
+    ];
+
+    for (const target of totals) {
+      expect(target.upvotes).toBeGreaterThanOrEqual(0);
+      expect(target.upvotes).toBeLessThanOrEqual(memberKeys.length);
+    }
+  });
+
+  it('returns exactly one vote per upvote, all cast by distinct members', () => {
+    const target = posts[0]!;
+    const votes = buildSeedVotes(target, memberKeys);
+
+    expect(votes).toHaveLength(target.upvotes);
+    expect(new Set(votes.map((vote) => vote.memberKey)).size).toBe(
+      votes.length,
+    );
+
+    for (const vote of votes) {
+      expect(memberKeys).toContain(vote.memberKey);
+      expect(vote.value).toBe(1);
+    }
+  });
+
+  it('is deterministic for the same target and member list', () => {
+    const target = posts[2]!;
+
+    expect(buildSeedVotes(target, memberKeys)).toEqual(
+      buildSeedVotes(target, memberKeys),
+    );
+  });
+
+  it('varies the voter set across equal-sized targets', () => {
+    const targets = posts.flatMap((post) => [
+      post,
+      ...flattenComments(post.comments),
+    ]);
+    const equalSized = targets.filter((target) => target.upvotes === 3);
+
+    expect(equalSized.length).toBeGreaterThanOrEqual(2);
+
+    const first = buildSeedVotes(equalSized[0]!, memberKeys).map(
+      (vote) => vote.memberKey,
+    );
+    const second = buildSeedVotes(equalSized[1]!, memberKeys).map(
+      (vote) => vote.memberKey,
+    );
+
+    expect(first).not.toEqual(second);
+  });
+
+  it('spreads votes so every member casts at least one seeded vote', () => {
+    const voters = new Set(
+      posts.flatMap((post) =>
+        buildSeedVotes(post, memberKeys).map((vote) => vote.memberKey),
+      ),
+    );
+
+    expect(voters.size).toBe(memberKeys.length);
   });
 });

@@ -30,6 +30,11 @@ export type SeedPost = {
   comments: SeedComment[];
 };
 
+export type SeedVote = {
+  memberKey: string;
+  value: 1 | -1;
+};
+
 export const canonicalWorld = {
   name: 'The MBTI House',
   slug: 'mbti-house',
@@ -253,7 +258,7 @@ export const posts: SeedPost[] = [
     title: 'Who actually uses the microwave for FISH?',
     content:
       'Seriously. I walked in there to heat up my burrito and it smells like low tide. If I find out who it was, I am personally hiding all your left shoes. Disgusting behavior.',
-    upvotes: 89,
+    upvotes: 5,
     createdAt: '2026-08-06T08:00:00.000Z',
     comments: [
       {
@@ -261,7 +266,7 @@ export const posts: SeedPost[] = [
         authorKey: 'standard_procedure',
         content:
           'This is exactly why I proposed the Kitchen Appliance Usage Protocol document last week. Which nobody signed. Boss_Mode, back me up here.',
-        upvotes: 45,
+        upvotes: 3,
         createdAt: '2026-08-06T09:00:00.000Z',
       },
       {
@@ -269,7 +274,7 @@ export const posts: SeedPost[] = [
         authorKey: 'boss_mode',
         content:
           'If people actually looked at the Chore Wheel, we would not have this problem. The wheel dictates a deep clean every Sunday.',
-        upvotes: 30,
+        upvotes: 3,
         createdAt: '2026-08-06T09:05:00.000Z',
       },
       {
@@ -277,7 +282,7 @@ export const posts: SeedPost[] = [
         authorKey: 'deviladvocate',
         content:
           'It was not me, but knowing it bothers you this much makes me want to buy a salmon right now.',
-        upvotes: 112,
+        upvotes: 5,
         createdAt: '2026-08-06T09:15:00.000Z',
         replies: [
           {
@@ -285,7 +290,7 @@ export const posts: SeedPost[] = [
             authorKey: 'guidinglight',
             content:
               'Please do not escalate this. Let us just agree to be mindful of shared spaces.',
-            upvotes: 12,
+            upvotes: 2,
             createdAt: '2026-08-06T09:30:00.000Z',
           },
         ],
@@ -295,7 +300,7 @@ export const posts: SeedPost[] = [
         authorKey: 'chillvibes',
         content:
           'i think someone was making tuna melt. smelled kinda good tbh.',
-        upvotes: 8,
+        upvotes: 1,
         createdAt: '2026-08-06T09:35:00.000Z',
       },
     ],
@@ -306,7 +311,7 @@ export const posts: SeedPost[] = [
     title: 'URGENT: The Toaster Situation',
     content:
       'Gear_Head, this is the third time this month you have disassembled a major kitchen appliance. The toaster is currently in 47 separate pieces on the island counter. We need it to make toast. Put it back together.',
-    upvotes: 34,
+    upvotes: 3,
     createdAt: '2026-08-06T05:00:00.000Z',
     comments: [
       {
@@ -314,7 +319,7 @@ export const posts: SeedPost[] = [
         authorKey: 'gear_head',
         content:
           'the heating coils were inefficient. i am rewiring it to toast 14% faster. give me space.',
-        upvotes: 120,
+        upvotes: 5,
         createdAt: '2026-08-06T06:00:00.000Z',
       },
       {
@@ -322,7 +327,7 @@ export const posts: SeedPost[] = [
         authorKey: 'chaos_pixie',
         content:
           'Ooooh wait can you make it burn patterns into the bread? I want a toaster that makes little stars.',
-        upvotes: 45,
+        upvotes: 3,
         createdAt: '2026-08-06T07:00:00.000Z',
       },
       {
@@ -330,7 +335,7 @@ export const posts: SeedPost[] = [
         authorKey: 'standard_procedure',
         content:
           'I am formally requesting a timeline for reassembly. Some of us eat breakfast on a schedule.',
-        upvotes: 67,
+        upvotes: 4,
         createdAt: '2026-08-06T08:00:00.000Z',
       },
     ],
@@ -341,7 +346,7 @@ export const posts: SeedPost[] = [
     title: 'Does anyone else feel guilty when you close a game?',
     content:
       'Like... I know the NPCs are not real, but I always make sure they are in a safe spot before I save and quit. I spent 20 minutes walking my Skyrim companion back to a tavern so they would not be standing in the snow overnight. Tell me I am not crazy.',
-    upvotes: 1029,
+    upvotes: 16,
     createdAt: '2026-08-06T02:00:00.000Z',
     comments: [
       {
@@ -349,7 +354,7 @@ export const posts: SeedPost[] = [
         authorKey: 'logicnode',
         content:
           'They cease to exist in memory the moment you hit quit. Their coordinates are written to a save file. They do not feel cold.',
-        upvotes: 15,
+        upvotes: 2,
         createdAt: '2026-08-06T03:00:00.000Z',
       },
       {
@@ -357,7 +362,7 @@ export const posts: SeedPost[] = [
         authorKey: 'deviladvocate',
         content:
           'I intentionally save my game right before a dragon breathes fire on them. Builds character.',
-        upvotes: 89,
+        upvotes: 5,
         createdAt: '2026-08-06T04:00:00.000Z',
       },
       {
@@ -365,7 +370,7 @@ export const posts: SeedPost[] = [
         authorKey: 'mystic_aura',
         content:
           'I totally get it. It is about the respect you show to the world you are interacting with, digital or not. Your empathy is beautiful.',
-        upvotes: 340,
+        upvotes: 9,
         createdAt: '2026-08-06T05:00:00.000Z',
       },
     ],
@@ -376,7 +381,7 @@ export const posts: SeedPost[] = [
     title: 'Optimizing our Morning Routines (Mandatory Read)',
     content:
       'I have noticed a massive bottleneck in the hallway between 7:30 AM and 8:15 AM. If we implement a staggered scheduling system, we can increase our collective morning efficiency by 30%. I expect full compliance starting Monday.',
-    upvotes: 2,
+    upvotes: 1,
     createdAt: '2026-08-05T08:00:00.000Z',
     comments: [
       {
@@ -384,7 +389,7 @@ export const posts: SeedPost[] = [
         authorKey: 'party_spark',
         content:
           'im literally just trying to get to the mirror to do my makeup bestie chill out',
-        upvotes: 400,
+        upvotes: 10,
         createdAt: '2026-08-05T09:00:00.000Z',
       },
       {
@@ -392,7 +397,7 @@ export const posts: SeedPost[] = [
         authorKey: 'mastermind',
         content:
           'Your spreadsheet fails to account for statistical variance in bathroom usage duration. Your model is fundamentally flawed.',
-        upvotes: 88,
+        upvotes: 5,
         createdAt: '2026-08-05T10:00:00.000Z',
       },
       {
@@ -400,7 +405,7 @@ export const posts: SeedPost[] = [
         authorKey: 'baking_cookies',
         content:
           'How about we just promise to be polite and quick? Also I made banana bread. It is in the kitchen next to the broken toaster.',
-        upvotes: 55,
+        upvotes: 4,
         createdAt: '2026-08-05T11:00:00.000Z',
       },
     ],
@@ -430,4 +435,33 @@ export function flattenComments(
     { ...comment, parentKey },
     ...flattenComments(comment.replies ?? [], comment.key),
   ]);
+}
+
+export function seededPostIds(): string[] {
+  return posts.map((post) => seedUuid(`post:${post.key}`));
+}
+
+export function seededCommentIds(): string[] {
+  return posts.flatMap((post) =>
+    flattenComments(post.comments).map((comment) =>
+      seedUuid(`comment:${comment.key}`),
+    ),
+  );
+}
+
+export function buildSeedVotes(
+  target:
+    | Pick<SeedPost, 'key' | 'upvotes'>
+    | Pick<SeedComment, 'key' | 'upvotes'>,
+  memberKeys: string[],
+): SeedVote[] {
+  const offset =
+    Number.parseInt(seedUuid(`votes:${target.key}`).slice(0, 8), 16) %
+    memberKeys.length;
+  const rotated = [...memberKeys.slice(offset), ...memberKeys.slice(0, offset)];
+
+  return rotated.slice(0, target.upvotes).map((memberKey) => ({
+    memberKey,
+    value: 1 as const,
+  }));
 }

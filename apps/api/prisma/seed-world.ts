@@ -4,18 +4,20 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@/generated/prisma/client';
 
 import {
+  buildSeedVotes,
   canonicalWorld,
   characters,
   flattenComments,
   posts,
+  seededCommentIds,
+  seededPostIds,
   seedUuid,
   validateCommentDepth,
 } from './seed-data';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
 
-export async function seedWorld() {
+export async function seedWorld(prisma: PrismaClient) {
   for (const post of posts) {
     validateCommentDepth(post.comments);
   }
@@ -74,11 +76,13 @@ export async function seedWorld() {
           worldId: world.id,
           characterId,
           role: 'AI',
+          isActive: true,
         },
         update: {
           worldId: world.id,
           characterId,
           role: 'AI',
+          isActive: true,
         },
       });
       memberIds.set(character.key, member.id);
@@ -138,6 +142,36 @@ export async function seedWorld() {
       }
     }
 
+    const memberKeyList = characters.map((character) => character.key);
+    const voteRows = posts.flatMap((post) => [
+      ...buildSeedVotes(post, memberKeyList).map((vote) => ({
+        id: seedUuid(`vote:${post.key}:${vote.memberKey}`),
+        postId: seedUuid(`post:${post.key}`),
+        commentId: null,
+        authorMemberId: memberIdFor(vote.memberKey),
+        value: vote.value,
+      })),
+      ...flattenComments(post.comments).flatMap((comment) =>
+        buildSeedVotes(comment, memberKeyList).map((vote) => ({
+          id: seedUuid(`vote:${comment.key}:${vote.memberKey}`),
+          postId: null,
+          commentId: seedUuid(`comment:${comment.key}`),
+          authorMemberId: memberIdFor(vote.memberKey),
+          value: vote.value,
+        })),
+      ),
+    ]);
+
+    await tx.vote.deleteMany({
+      where: {
+        OR: [
+          { postId: { in: seededPostIds() } },
+          { commentId: { in: seededCommentIds() } },
+        ],
+      },
+    });
+    await tx.vote.createMany({ data: voteRows });
+
     await tx.worldSimulationConfig.upsert({
       where: { worldId: world.id },
       create: {
@@ -167,16 +201,18 @@ export async function seedWorld() {
 }
 
 async function main() {
-  const world = await seedWorld();
-  console.log(`Seeded ${world.name} (${world.slug}).`);
+  const prisma = new PrismaClient({ adapter });
+  try {
+    const world = await seedWorld(prisma);
+    console.log(`Seeded ${world.name} (${world.slug}).`);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-  .catch(async (error) => {
+if (require.main === module) {
+  main().catch(async (error) => {
     console.error(error);
-    await prisma.$disconnect();
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
+}

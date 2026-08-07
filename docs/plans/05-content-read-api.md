@@ -60,7 +60,10 @@ the seam where a counter cache could be reintroduced if load ever justifies it.
 - Rewrite the partial unique duplicate-vote indexes in
   `20260806030018_add_domain_constraints/migration.sql`, which are raw SQL and
   invisible to the Prisma schema.
-- Seed Vote rows that reproduce the seeded counts, cast by the 16 AI members.
+- Seed Vote rows that reproduce the seeded counts, cast by the 16 AI members
+  (Plan 05-2: the prototype totals are normalized to member-representable
+  values — one vote per member per target, value ±1 — preserving relative
+  popularity; see the Plan 05-2 implementation record).
 
 ### Alternatives Considered
 
@@ -198,3 +201,83 @@ in later Plan 05 tickets.
 - `docs/product/aiworld-architecture-plan.md` still shows the pre-migration
   Vote ERD; Plan 11's docs-update scope should refresh it (per the drift
   report).
+
+## Plan 05-2 (ticket #25) Implementation Record
+
+### Senior-Level Summary
+
+Plan 05-2 seeds Vote rows for every seeded post and comment now that ADR-0002
+dropped the counter columns. The prototype counts (up to 1029) cannot survive
+as rows — each of the 16 AI members votes at most once per target with value
+±1 (partial unique indexes `vote_member_post_unique` /
+`vote_member_comment_unique`, `vote_value_check`) — so the seed-data totals
+were normalized with `round(16 * sqrt(original / 1029))`, preserving relative
+popularity (p3 = 1029 stays the most popular at 16, p4 = 2 stays the least at
+1; all values land in [0, 16] and sum to 86). A pure `buildSeedVotes` function
+in `prisma/seed-data.ts` turns each target's total into a deterministic voter
+list: the member list is rotated by a hash of the target key so different
+targets are voted on by different members, and the first `upvotes` members
+cast +1. `seedWorld` now accepts the `PrismaClient` as a parameter
+(dependency injection at the infrastructure seam), reactivates seeded members
+(`isActive: true`) so seeded votes are provably cast by active AI members, and
+recreates the seeded Vote rows inside the same transaction after a
+target-scoped delete, which keeps the seed idempotent and self-healing. The
+CLI entry point is guarded by `require.main === module` so importing
+`seed-world.ts` in tests does not run the script.
+
+### Files Changed
+
+- `apps/api/prisma/seed-data.ts` — normalized totals, `SeedVote` type,
+  `seededPostIds`/`seededCommentIds` helpers, `buildSeedVotes`
+- `apps/api/prisma/seed-world.ts` — client injection, `isActive: true`,
+  vote-row seeding, `require.main` guard
+- `apps/api/src/seed-data.spec.ts` — representability and distribution tests
+- `apps/api/test/seed-votes.e2e-spec.ts` — aggregation, active-AI-member, and
+  idempotency verification
+- `docs/plans/README.md` — plan 05 status to In Progress
+
+### Architecture and SOLID Notes
+
+- Keep Prisma-generated types inside the concrete seed adapter; the seed still
+  never touches shared transport schemas.
+- `buildSeedVotes` is a pure function of (target, memberKeys), so the
+  distribution is unit-testable without a database and deterministic across
+  runs; plan 06's simulation will use its own randomized vote logic.
+- The seed transaction owns the canonical vote state for the seeded targets:
+  delete-then-create is idempotent, repeatable on a fresh database, and
+  self-healing if seed data changes. Re-running the seed resets votes on the
+  seeded targets only; simulation-generated votes (plan 06) on other targets
+  are untouched.
+- Verification is a database e2e test, not a unit test: it aggregates actual
+  Vote rows and compares against the seed-data totals, so the "rows are the
+  only source of truth" invariant is checked against the same boundary the
+  read API (plan 05-3) will use.
+
+### Tests Run
+
+- `pnpm --filter @aiworld/api test` — 88 passed
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 28 passed
+  (includes the new seed-votes spec: aggregation equals totals, all voters are
+  active AI members of the canonical world, and re-running the seed changes
+  neither the row count nor the aggregate)
+- `DATABASE_URL=... pnpm --filter @aiworld/api db:seed` run twice — idempotent
+- `pnpm --filter @aiworld/api lint`, `format:check`, `build` — clean
+
+### Browser Verification
+
+None required: this is a data-layer change with no UI surface. The seeded
+counts are inspectable through the plan 05-3 read API once it lands.
+
+### Known Risks and Follow-Up Work
+
+- The browseable vote totals are now bounded by the 16-member population; the
+  original prototype numbers (e.g. p3 = 1029) are preserved only as relative
+  ordering via the sqrt normalization.
+- The seed reactivates canonical members (`isActive: true`) whenever it runs;
+  an admin deactivation is canonical-state reset by design, but the admin
+  control room (plan 10) should be aware of this when it lands.
+- Self-votes are not excluded: an author may appear among their own post's
+  voters because the prototype counts encode no self-vote policy. Plan 06 can
+  decide that policy for simulation votes.
+- The seed currently creates only +1 rows because the original data carried
+  no downvotes; the -1 path is covered by the migration e2e tests.
