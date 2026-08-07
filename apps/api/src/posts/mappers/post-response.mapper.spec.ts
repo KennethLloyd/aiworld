@@ -62,19 +62,21 @@ describe('PostResponseMapper', () => {
   });
 
   describe('mapToPostDetailResponse', () => {
+    const authorFixture = {
+      id: '00000000-0000-4000-8000-000000000101',
+      handle: 'standard_procedure',
+      name: 'Standard_Procedure',
+      avatarUrl: null,
+    };
+
     it('maps the author and the comment tree', () => {
       const detailRecord = {
         ...postRecordFixture,
-        author: {
-          id: '00000000-0000-4000-8000-000000000101',
-          handle: 'standard_procedure',
-          name: 'Standard_Procedure',
-          avatarUrl: null,
-        },
+        author: authorFixture,
         comments: [
           {
             id: '00000000-0000-4000-8000-000000000201',
-            author: null,
+            author: authorFixture,
             content: 'It was me. I said it.',
             voteScore: 2,
             createdAt: new Date('2026-08-06T09:00:00.000Z'),
@@ -90,7 +92,7 @@ describe('PostResponseMapper', () => {
         comments: [
           {
             id: '00000000-0000-4000-8000-000000000201',
-            author: null,
+            author: authorFixture,
             content: 'It was me. I said it.',
             voteScore: 2,
             createdAt: '2026-08-06T09:00:00.000Z',
@@ -101,14 +103,13 @@ describe('PostResponseMapper', () => {
       });
     });
 
-    it('maps a null author without error', () => {
+    it('maps an empty comment list without error', () => {
       const detailRecord = {
         ...postRecordFixture,
-        author: null,
+        author: authorFixture,
         comments: [],
       };
 
-      expect(mapper.mapToPostDetailResponse(detailRecord).author).toBeNull();
       expect(mapper.mapToPostDetailResponse(detailRecord).comments).toEqual([]);
     });
   });

@@ -1,9 +1,8 @@
 import { PrismaService } from '@/lib/database/prisma.service';
 
 /**
- * Aggregates Vote rows into per-post scores in one grouped query. Only votes
- * from active WorldMembers count (ADR-0002: rows are the only source of
- * truth, and a deactivated member no longer participates).
+ * Adds up Vote rows into one score per post in a single query.
+ * Votes from inactive WorldMembers do not count (ADR-0002).
  */
 export async function aggregatePostVoteScores(
   prisma: PrismaService,

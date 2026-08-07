@@ -33,8 +33,8 @@ export function createOpenApiDocument(): OpenAPIObject {
 
   openApiRegistrars.forEach((register) => register(registry));
 
-  // Nest's OpenAPIObject requires `paths` while the V31 generator's output type
-  // declares it optional; the generated document always includes it.
+  // Nest's OpenAPIObject requires `paths`; the generator type marks it
+  // optional but always emits it.
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
     info: {
