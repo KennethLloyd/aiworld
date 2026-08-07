@@ -13,6 +13,7 @@ import {
   buildSeedVotes,
   canonicalWorld,
   characters,
+  flattenComments,
   posts,
   seedUuid,
 } from '../prisma/seed-data';
@@ -72,6 +73,16 @@ describe('World feed (seeded database)', () => {
       expect(item).toBeDefined();
       expect(item.voteScore).toBe(post.upvotes);
       expect(item.createdAt).toBe(new Date(post.createdAt).toISOString());
+      expect(item.commentCount).toBe(flattenComments(post.comments).length);
+      const authorCharacter = characters.find(
+        (character) => character.key === post.authorKey,
+      );
+      expect(item.author).toEqual({
+        id: seedUuid(`member:${post.authorKey}`),
+        handle: authorCharacter!.key,
+        name: authorCharacter!.name,
+        avatarUrl: authorCharacter!.avatarUrl,
+      });
     }
     expect(res.body.meta).toEqual({
       page: 1,
@@ -95,6 +106,7 @@ describe('World feed (seeded database)', () => {
         (candidate: { id: string }) => candidate.id === seededPostId(post.key),
       );
       expect(item.voteScore).toBe(post.upvotes);
+      expect(item.commentCount).toBe(flattenComments(post.comments).length);
     }
   });
 
@@ -242,6 +254,15 @@ describe('World feed (HTTP boundary)', () => {
     content: 'It smells like low tide.',
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
+    author: {
+      id: '00000000-0000-4000-8000-000000000201',
+      character: {
+        handle: 'thunder_struck',
+        name: 'Thunder_Struck',
+        avatarUrl: '/avatars/thunder_struck.svg',
+      },
+      user: null,
+    },
   };
   const postTwo = {
     id: '00000000-0000-4000-8000-000000000102',
@@ -249,6 +270,15 @@ describe('World feed (HTTP boundary)', () => {
     content: '47 pieces on the counter.',
     createdAt: new Date('2026-08-06T05:00:00.000Z'),
     updatedAt: new Date('2026-08-06T05:00:00.000Z'),
+    author: {
+      id: '00000000-0000-4000-8000-000000000202',
+      character: {
+        handle: 'boss_mode',
+        name: 'Boss_Mode',
+        avatarUrl: '/avatars/boss_mode.svg',
+      },
+      user: null,
+    },
   };
 
   const prismaStub = {
@@ -260,6 +290,9 @@ describe('World feed (HTTP boundary)', () => {
       count: jest.fn(),
     },
     vote: {
+      groupBy: jest.fn(),
+    },
+    comment: {
       groupBy: jest.fn(),
     },
   };
@@ -275,6 +308,7 @@ describe('World feed (HTTP boundary)', () => {
     prismaStub.post.findMany.mockResolvedValue([]);
     prismaStub.post.count.mockResolvedValue(0);
     prismaStub.vote.groupBy.mockResolvedValue([]);
+    prismaStub.comment.groupBy.mockResolvedValue([]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -334,6 +368,10 @@ describe('World feed (HTTP boundary)', () => {
       { postId: postOne.id, _sum: { value: 5 } },
       { postId: postTwo.id, _sum: { value: 3 } },
     ]);
+    prismaStub.comment.groupBy.mockResolvedValue([
+      { postId: postOne.id, _count: { _all: 7 } },
+      { postId: postTwo.id, _count: { _all: 2 } },
+    ]);
 
     const res = await request(app.getHttpServer())
       .get('/api/worlds/mbti-house/posts?sort=hot&page=1&limit=20')
@@ -345,8 +383,24 @@ describe('World feed (HTTP boundary)', () => {
       postTwo.id,
     ]);
     expect(res.body.items[0].voteScore).toBe(5);
+    expect(res.body.items[0].commentCount).toBe(7);
+    expect(res.body.items[0].author).toEqual({
+      id: postOne.author.id,
+      handle: 'thunder_struck',
+      name: 'Thunder_Struck',
+      avatarUrl: '/avatars/thunder_struck.svg',
+    });
     expect(Object.keys(res.body.items[0]).sort()).toEqual(
-      ['content', 'createdAt', 'id', 'title', 'updatedAt', 'voteScore'].sort(),
+      [
+        'author',
+        'commentCount',
+        'content',
+        'createdAt',
+        'id',
+        'title',
+        'updatedAt',
+        'voteScore',
+      ].sort(),
     );
 
     expect(prismaStub.post.findMany).toHaveBeenCalledWith(
@@ -370,6 +424,14 @@ describe('World feed (HTTP boundary)', () => {
         _sum: { value: true },
       }),
     );
+    expect(prismaStub.comment.groupBy).toHaveBeenCalledTimes(1);
+    expect(prismaStub.comment.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['postId'],
+        where: { postId: { in: [postTwo.id, postOne.id] } },
+        _count: { _all: true },
+      }),
+    );
   });
 
   it('pages the new sort in SQL and aggregates votes only for the page', async () => {
@@ -378,6 +440,10 @@ describe('World feed (HTTP boundary)', () => {
     prismaStub.vote.groupBy.mockResolvedValue([
       { postId: postOne.id, _sum: { value: 5 } },
       { postId: postTwo.id, _sum: { value: 3 } },
+    ]);
+    prismaStub.comment.groupBy.mockResolvedValue([
+      { postId: postOne.id, _count: { _all: 7 } },
+      { postId: postTwo.id, _count: { _all: 2 } },
     ]);
 
     const res = await request(app.getHttpServer())
@@ -388,6 +454,9 @@ describe('World feed (HTTP boundary)', () => {
       postOne.id,
       postTwo.id,
     ]);
+    expect(
+      res.body.items.map((post: { commentCount: number }) => post.commentCount),
+    ).toEqual([7, 2]);
     expect(res.body.meta).toEqual({
       page: 2,
       limit: 2,
@@ -410,6 +479,12 @@ describe('World feed (HTTP boundary)', () => {
           postId: { in: [postOne.id, postTwo.id] },
           author: { isActive: true },
         },
+      }),
+    );
+    expect(prismaStub.comment.groupBy).toHaveBeenCalledTimes(1);
+    expect(prismaStub.comment.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { postId: { in: [postOne.id, postTwo.id] } },
       }),
     );
   });

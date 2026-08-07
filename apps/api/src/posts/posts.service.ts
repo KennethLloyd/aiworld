@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 
 import { buildCommentTree } from '@/comments/domain/comment-tree';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostDetailRecord, PostRecord } from '@/posts/domain/post-record';
+import { PostDetailRecord, PostFeedRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { WorldService } from '@/world/world.service';
 
@@ -19,7 +19,7 @@ export class PostsService {
   async findFeed(
     worldSlug: string,
     query: ListPostsQuery,
-  ): Promise<Paginated<PostRecord> | null> {
+  ): Promise<Paginated<PostFeedRecord> | null> {
     const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       return null;

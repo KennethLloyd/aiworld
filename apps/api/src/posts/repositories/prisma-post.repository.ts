@@ -6,12 +6,17 @@ import {
   ContentAuthorRow,
   mapContentAuthor,
 } from '@/comments/domain/content-author';
+import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
 import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { escapeSearchText } from '@/lib/search-text';
 import { compareByHot } from '@/posts/domain/post-ranking';
-import { PostRecord, PostWithAuthorRecord } from '@/posts/domain/post-record';
+import {
+  PostFeedRecord,
+  PostRecord,
+  PostWithAuthorRecord,
+} from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { aggregatePostVoteScores } from '@/votes/vote-aggregation';
 
@@ -49,21 +54,24 @@ const searchOrderBy: Prisma.PostOrderByWithRelationInput[] = [
 
 @Injectable()
 export class PrismaPostRepository extends PostRepository {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commentRepository: CommentRepository,
+  ) {
     super();
   }
 
   async findFeed(
     worldId: string,
     query: ListPostsQuery,
-  ): Promise<Paginated<PostRecord>> {
+  ): Promise<Paginated<PostFeedRecord>> {
     const { sort, page, limit } = query;
 
     if (sort === 'new') {
       const [posts, total] = await Promise.all([
         this.prisma.post.findMany({
           where: { worldId },
-          select: postSelect,
+          select: postWithAuthorSelect,
           orderBy: newOrderBy,
           skip: (page - 1) * limit,
           take: limit,
@@ -74,24 +82,32 @@ export class PrismaPostRepository extends PostRepository {
         this.prisma,
         posts.map((post) => post.id),
       );
+      const commentCounts = await this.commentRepository.countByPostIds(
+        posts.map((post) => post.id),
+      );
 
       return {
-        items: posts.map((post) => this.mapToRecord(post, scores)),
+        items: posts.map((post) =>
+          this.mapToFeedRecord(post, scores, commentCounts),
+        ),
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       };
     }
 
     const posts = await this.prisma.post.findMany({
       where: { worldId },
-      select: postSelect,
+      select: postWithAuthorSelect,
       orderBy: newOrderBy,
     });
     const scores = await aggregatePostVoteScores(
       this.prisma,
       posts.map((post) => post.id),
     );
+    const commentCounts = await this.commentRepository.countByPostIds(
+      posts.map((post) => post.id),
+    );
     const ranked = posts
-      .map((post) => this.mapToRecord(post, scores))
+      .map((post) => this.mapToFeedRecord(post, scores, commentCounts))
       .sort(compareByHot);
     const pageItems = ranked.slice((page - 1) * limit, page * limit);
 
@@ -185,6 +201,17 @@ export class PrismaPostRepository extends PostRepository {
     return {
       ...this.mapToRecord(post, scores),
       author: mapContentAuthor(post.author),
+    };
+  }
+
+  private mapToFeedRecord(
+    post: PostWithAuthorRow,
+    scores: Map<string, number>,
+    commentCounts: Map<string, number>,
+  ): PostFeedRecord {
+    return {
+      ...this.mapToWithAuthorRecord(post, scores),
+      commentCount: commentCounts.get(post.id) ?? 0,
     };
   }
 }
