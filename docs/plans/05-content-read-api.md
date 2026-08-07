@@ -396,6 +396,8 @@ responses, no security requirement).
 
 ## Plan 05-4 (ticket #27) Implementation Record
 
+Status: Complete — merged 2026-08-07 as PR #33.
+
 ### Senior-Level Summary
 
 Plan 05-4 lands the post detail read: `GET /api/worlds/:slug/posts/:postId`
