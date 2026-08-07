@@ -56,6 +56,23 @@ export class PrismaCommentRepository extends CommentRepository {
     return comments.map((comment) => this.mapToRecord(comment, scores));
   }
 
+  async findByAuthorMembership(
+    worldId: string,
+    authorMemberId: string,
+  ): Promise<FlatCommentRecord[]> {
+    const comments = await this.prisma.comment.findMany({
+      where: { authorMemberId, post: { worldId } },
+      select: commentSelect,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const scores = await aggregateCommentVoteScores(
+      this.prisma,
+      comments.map((c) => c.id),
+    );
+
+    return comments.map((comment) => this.mapToRecord(comment, scores));
+  }
+
   private mapToRecord(
     comment: CommentRow,
     scores: Map<string, number>,

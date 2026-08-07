@@ -12,6 +12,10 @@ export abstract class WorldMemberRepository {
     query: ListWorldMembersQuery,
   ): Promise<Paginated<WorldMemberRecord>>;
   abstract findById(id: string): Promise<WorldMemberRecord | null>;
+  abstract findByWorldAndCharacter(
+    worldId: string,
+    characterId: string,
+  ): Promise<{ id: string } | null>;
   abstract create(input: CreateWorldMember): Promise<WorldMemberRecord>;
   abstract update(
     id: string,

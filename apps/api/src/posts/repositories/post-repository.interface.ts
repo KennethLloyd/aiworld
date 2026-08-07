@@ -12,4 +12,8 @@ export abstract class PostRepository {
     worldId: string,
     postId: string,
   ): Promise<PostWithAuthorRecord | null>;
+  abstract findByAuthorMembership(
+    worldId: string,
+    authorMemberId: string,
+  ): Promise<PostWithAuthorRecord[]>;
 }

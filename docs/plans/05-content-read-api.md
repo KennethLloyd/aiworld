@@ -516,3 +516,146 @@ responses.
   extending the feed contract is a possible follow-up for the plan 09 UI.
 - The e2e suite is now serial (`maxWorkers: 1`); if the suite grows large,
   a shared pre-seeded database fixture would let it parallelize again.
+
+## Plan 05-5 (ticket #28) Implementation Record
+
+### Senior-Level Summary
+
+Plan 05-5 lands the character activity read: `GET
+/api/characters/:characterId/activity?worldSlug=...` lists a character's
+posts and comments in one World with vote scores aggregated from Vote rows,
+reusing the vote helpers and author select from plan 05-3/05-4. A new
+`activity` module composes five existing boundaries — `WorldService`
+(active-World resolution, anonymous callers only ever see active Worlds),
+`CharacterRepository`, `WorldMemberRepository`, `PostRepository`, and
+`CommentRepository` — each extended with one new method. The response is
+**unpaginated** by decision: a single character's own content in one World
+is bounded, and the shared `characterActivityResponseSchema` carries both
+lists in full (`posts` as `postWithAuthorResponseSchema[]`, `comments` as
+`commentResponseSchema[]` with `replies: []`, since activity comments are
+always flat).
+
+The active state never blocks the read. The service resolves the character
+through `CharacterRepository.findById(characterId)` with **no active
+filter** (deliberately not `CharactersService.getById`, which forces
+`isActive: true`), and the membership lookup
+(`WorldMemberRepository.findByWorldAndCharacter`) carries no active filter
+either — inactive characters and inactive memberships keep their public
+content and identity intact, exactly the "missing authors, deleted targets,
+and inactive characters have safe behavior" guarantee from the plan's test
+list. A character with no membership in the requested World resolves to a
+well-defined empty activity (`{ posts: [], comments: [] }`, 200) rather
+than 404 or a leak of another World's content; only a missing World or a
+missing character returns the 404 envelope. The comment query is
+World-scoped **through the post relation** (`where: { authorMemberId,
+post: { worldId } }`), so the same reusable Character in two Worlds only
+ever surfaces the requested World's comments. `PostsModule` now exports
+`PostRepository` and `PostResponseMapper` (previously exported nothing);
+`CommentsModule` and `WorldMembersModule` already exported what activity
+needs. OpenAPI registration was added; as in 05-4, the document mirrors the
+flat activity comment shape because zod-to-openapi cannot transform the
+recursive shared `commentResponseSchema` (verified: registering the real
+schema overflows the generator with a stack overflow).
+
+### Files Changed
+
+- `packages/shared/src/schemas/activity.schema.ts` —
+  `activityQuerySchema` (`worldSlug`), `ActivityQuery`
+- `packages/shared/src/schemas/activity-response.schema.ts` —
+  `characterActivityResponseSchema`, `CharacterActivityResponse`
+  (unpaginated)
+- `apps/api/src/activity/` — new module: `domain/activity-record.ts`,
+  `mappers/activity-response.mapper.ts`, `activity.service.ts`,
+  `activity.controller.ts`, `activity.module.ts`, `activity.openapi.ts`;
+  unit specs for the service, controller, mapper, and OpenAPI document
+- `apps/api/src/posts/repositories/` — `findByAuthorMembership(worldId,
+  authorMemberId)` on the interface and Prisma implementation (posts scoped
+  by `worldId + authorMemberId`, one grouped post-vote query)
+- `apps/api/src/comments/repositories/` — `findByAuthorMembership(worldId,
+  authorMemberId)` on the interface and Prisma implementation (World-scoped
+  via the post relation, one grouped comment-vote query)
+- `apps/api/src/world-members/repositories/` — new
+  `findByWorldAndCharacter(worldId, characterId)` (selects only the member
+  id) on the interface and Prisma implementation
+- `apps/api/src/posts/posts.module.ts` — exports `PostRepository` and
+  `PostResponseMapper`
+- `apps/api/src/world-members/world-members.service.spec.ts` — mock gains
+  the new repository method
+- `apps/api/src/app.module.ts` — registered `ActivityModule`
+- `apps/api/src/lib/openapi/openapi.ts` — registered
+  `registerActivityOpenApi`
+- `apps/api/src/world/world.openapi.spec.ts` — expected path list now
+  includes `/characters/{characterId}/activity`
+- `apps/api/test/character-activity.e2e-spec.ts` — hermetic fixture-world
+  e2e (worlds `activity-fixture` and `activity-fixture-b`; author content
+  with vote scores, other-character content excluded, World-scoping for the
+  same reusable Character, inactive character and inactive membership still
+  listed with identity, no-membership empty activity, 404 envelopes for
+  missing character/world, anonymous access) plus stubbed-boundary HTTP
+  tests (contract-only fields, query shapes scoped through worldId +
+  authorMemberId and the post relation, one grouped vote query per entity,
+  empty membership activity, 404 envelopes, missing `worldSlug` 400)
+
+### Architecture and SOLID Notes
+
+- The activity service composes existing exported boundaries; it adds no
+  persistence of its own. The `characterId`-scoped lookup stays in the
+  character module, the world-existence check stays in the world module,
+  and the new repository methods own the persistence.
+- The response is unpaginated by recorded decision: a character's own
+  posts and comments in one World are bounded; the plan's API intent is
+  preserved without cursor machinery. If a World ever grows unbounded
+  author content, the repository seam is the place to add paging.
+- The active state is a *write-side* gate, not a read-side one: historical
+  public content of deactivated characters and memberships remains
+  readable with identity intact (consistent with 05-4's inactive-author
+  behavior). Votes on that content still aggregate from Vote rows (active
+  voter filter per ADR-0002).
+- The membership seam returns only `{ id }`: the activity read needs just
+  the member id to scope the content queries, and returning the full record
+  would carry world slug data the read model must not surface.
+- The comment query is World-scoped via `post: { worldId }` rather than a
+  join to the comment's own world: comments have no direct World reference,
+  so the relation filter is the single place the scope is enforced.
+- Ordering is deterministic (createdAt desc, id desc) for both lists; the
+  e2e fixtures pin the order.
+- As in 05-4, the recursive shared `commentResponseSchema` cannot be
+  transformed by zod-to-openapi (stack overflow), so the activity document
+  mirrors the flat contract: comments with `replies: z.array(z.any())`
+  (the API always returns `[]`). The shared schema remains the validation
+  contract.
+
+### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm exec tsc --noEmit -p apps/api/tsconfig.json` (run inside
+  `apps/api`) — clean
+- `pnpm --filter @aiworld/api test` — 135 unit tests pass (15 new)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 67 tests pass,
+  run twice consecutively (suite is deterministic under `maxWorkers: 1`);
+  14 new activity tests (8 real-database, 6 HTTP-boundary)
+- Seeded DB verified clean of residue after the activity e2e run (no
+  `activity-*` worlds or characters remain)
+
+### Browser Verification
+
+None required for the endpoint itself; the OpenAPI document assertions
+cover the new path (`/characters/{characterId}/activity`), its
+`characterId` path param, its `worldSlug` query param, and its 200/400/404
+responses.
+
+### Known Risks and Follow-Up Work
+
+- The characterId path parameter is validated only in the OpenAPI document
+  (`z.uuid()`); the runtime reads it as a plain string per the agreed
+  controller shape, so a malformed id surfaces as a 404 (no character
+  resolves) rather than a 400. If the control room ever needs a 400 for
+  malformed ids, add the shared Zod pipe to the path param.
+- Activity is unpaginated by design; a future "more content per author"
+  World should revisit paging at the repository seam.
+- Feed items (plan 05-3) still carry no author; extending the feed
+  contract to match the activity/detail author shape is still open for the
+  plan 09 UI.
+- The e2e suite remains serial (`maxWorkers: 1`); the shared pre-seeded
+  database fixture idea from the 05-4 record still applies if it grows.
+

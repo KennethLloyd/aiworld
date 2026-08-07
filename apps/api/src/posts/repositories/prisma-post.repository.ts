@@ -120,6 +120,23 @@ export class PrismaPostRepository extends PostRepository {
     return this.mapToWithAuthorRecord(post, scores);
   }
 
+  async findByAuthorMembership(
+    worldId: string,
+    authorMemberId: string,
+  ): Promise<PostWithAuthorRecord[]> {
+    const posts = await this.prisma.post.findMany({
+      where: { worldId, authorMemberId },
+      select: postWithAuthorSelect,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const scores = await aggregatePostVoteScores(
+      this.prisma,
+      posts.map((post) => post.id),
+    );
+
+    return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
+  }
+
   private mapToRecord(
     post: PostFeedRow,
     scores: Map<string, number>,

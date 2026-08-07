@@ -6,6 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
 import type { OpenAPIObject } from '@nestjs/swagger';
 
+import { registerActivityOpenApi } from '@/activity/activity.openapi';
 import { registerCharactersOpenApi } from '@/characters/characters.openapi';
 import { registerPostsOpenApi } from '@/posts/posts.openapi';
 import { registerWorldMembersOpenApi } from '@/world-members/world-members.openapi';
@@ -16,6 +17,7 @@ const openApiRegistrars: Array<(registry: OpenAPIRegistry) => void> = [
   registerCharactersOpenApi,
   registerWorldMembersOpenApi,
   registerPostsOpenApi,
+  registerActivityOpenApi,
 ];
 
 export function createOpenApiDocument(): OpenAPIObject {
