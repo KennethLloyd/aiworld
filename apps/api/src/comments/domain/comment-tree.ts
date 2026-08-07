@@ -4,8 +4,8 @@ import {
 } from '@/comments/domain/comment-record';
 
 /**
- * Read-side safety stop: replies are never nested deeper than three levels.
- * Write-side enforcement belongs to the simulation pipeline (Plan 06).
+ * Replies never nest deeper than three levels.
+ * Plan 06 enforces the same rule on writes.
  */
 export const MAX_COMMENT_DEPTH = 3;
 

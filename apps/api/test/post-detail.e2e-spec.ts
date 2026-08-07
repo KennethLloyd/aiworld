@@ -23,11 +23,8 @@ type CommentNode = {
   replies: CommentNode[];
 };
 
-/**
- * Synthetic fixture worlds keep this spec's posts and members out of the
- * seeded canonical world, so parallel e2e workers that assert the exact
- * seeded feed never observe them.
- */
+// Synthetic fixture worlds keep this spec's data out of the seeded world,
+// so parallel workers that assert the seeded feed never see it.
 async function createSyntheticWorld(
   prisma: PrismaClient,
   key: string,
@@ -46,11 +43,8 @@ async function createSyntheticWorld(
   return { id, slug: key };
 }
 
-/**
- * Deletes a synthetic fixture world. Vote rows reference the voting member
- * with onDelete: Restrict, so votes must be removed before the world can
- * cascade its members away.
- */
+// Deletes a synthetic fixture world. Votes use onDelete: Restrict, so
+// delete votes first, then the world cascades its members away.
 async function deleteSyntheticWorld(
   prisma: PrismaClient,
   slug: string,
