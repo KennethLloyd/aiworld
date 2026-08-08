@@ -902,3 +902,32 @@ requirement.
   (member-based identity, never null), ILIKE wildcards are escaped, the
   page/limit validation is shared, and e2e covers the inactive-World 404
   and the member-based author identity.
+
+## Plan 05-7 (ticket #36) Implementation Record
+
+### Senior-Level Summary
+
+The public post feed now returns two extra fields on every post item:
+`author` (the member-based author shape already used by post detail and
+activity) and `commentCount`. No other contract changed. The count comes
+from a new `CommentRepository.countByPostIds` seam (one grouped query per
+request, page-scoped for New sorting and World-scoped for Hot sorting,
+mirroring the vote-aggregation approach). Merged via PR #104.
+
+### Files Changed
+
+- `packages/shared/src/schemas/post-response.schema.ts` (feed item schema)
+- `apps/api/src/posts/` (repository, service, mapper, openapi, specs)
+- `apps/api/src/comments/` (`CommentRepository.countByPostIds` + Prisma impl)
+- `apps/api/test/posts.e2e-spec.ts`
+
+### Tests Run
+
+- format:check, lint, build — clean
+- API unit: 180 passed; API e2e: 96 passed (feed suite asserts `author`
+  and `commentCount` on every item for both sorts)
+
+### Known Risks and Follow-Up Work
+
+- Hot feed performance (full-table vote aggregation per request) tracked as
+  ticket #105 — see the 05-5 record's follow-up note.
