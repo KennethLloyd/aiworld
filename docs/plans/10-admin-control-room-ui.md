@@ -23,8 +23,8 @@ contracts and the shared simulation pipeline.
 - World configuration editor
 - Character registry and editor
 - World member management (list, assign, activate, and deactivate AI
-  memberships) — deferred to Plan 12 (#106) on 2026-08-08 while the
-  WorldMember join flow is under review; not part of the MVP demo
+  memberships) — the join flow for unassigned Characters is under review in
+  a follow-up grilling session; ticket 10-4 is provisional (`needs-triage`)
 - Character avatar URL editor with the shared default fallback from Plan 09
 - Filterable simulation log viewer
 - Log detail view with provider, model, latency, source, prompt, response,
