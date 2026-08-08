@@ -28,6 +28,11 @@ demonstration.
   and the starter repo upstream); update `docs/plans/README.md` source material
   to point at the new document. Post-MVP feature extensions get new documents,
   not edits to the MVP architecture.
+- In the consolidation, annotate the product plan's human-vote UI,
+  `VotesController`, and optimistic-update text as post-MVP human
+  participation rather than stale content: a human who gains a World
+  membership transitions from Observer to interactive participant (recorded
+  decision 2026-08-08; onboarding is a future plan).
 
 ## Demo Acceptance Criteria
 

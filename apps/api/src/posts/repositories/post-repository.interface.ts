@@ -1,6 +1,6 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
-
+import { ActivityCursor } from '@/activity/domain/activity-cursor';
 import {
   PostFeedRecord,
   PostWithAuthorRecord,
@@ -18,6 +18,8 @@ export abstract class PostRepository {
   abstract findByAuthorMembership(
     worldId: string,
     authorMemberId: string,
+    cursor: ActivityCursor | null,
+    limit: number,
   ): Promise<PostWithAuthorRecord[]>;
   abstract searchByText(
     worldId: string,

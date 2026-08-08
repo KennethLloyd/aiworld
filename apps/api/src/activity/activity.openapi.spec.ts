@@ -4,7 +4,7 @@ const activityOpenApiDocument = createOpenApiDocument();
 
 type ActivityOperation = {
   security?: unknown;
-  parameters?: Array<{ name: string; in: string }>;
+  parameters?: Array<{ name: string; in: string; required?: boolean }>;
   responses?: Record<string, unknown>;
 };
 
@@ -33,7 +33,7 @@ describe('activityOpenApiDocument', () => {
     );
   });
 
-  it('documents the characterId path param and the worldSlug query param', () => {
+  it('documents the path param and the worldSlug, cursor, and limit query params', () => {
     const paths = (activityOpenApiDocument.paths ?? {}) as Record<
       string,
       ActivityDocumentPath
@@ -46,6 +46,34 @@ describe('activityOpenApiDocument', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'characterId', in: 'path' }),
         expect.objectContaining({ name: 'worldSlug', in: 'query' }),
+        expect.objectContaining({ name: 'cursor', in: 'query' }),
+        expect.objectContaining({ name: 'limit', in: 'query' }),
+      ]),
+    );
+  });
+
+  it('documents the paginated response shape with discriminated items and nextCursor', () => {
+    const components = activityOpenApiDocument.components as {
+      schemas?: Record<string, unknown>;
+    };
+
+    const schema = components.schemas?.['CharacterActivityResponse'] as {
+      properties?: { items?: unknown; nextCursor?: unknown };
+    };
+    expect(schema.properties).toHaveProperty('items');
+    expect(schema.properties).toHaveProperty('nextCursor');
+
+    const itemsSchema = schema.properties?.items as {
+      items?: { anyOf?: Array<{ $ref?: string }> };
+    };
+    expect(itemsSchema.items?.anyOf).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          $ref: '#/components/schemas/PostActivityItem',
+        }),
+        expect.objectContaining({
+          $ref: '#/components/schemas/CommentActivityItem',
+        }),
       ]),
     );
   });

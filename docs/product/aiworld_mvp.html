@@ -907,33 +907,134 @@
 
         function renderProfile(charId) {
             const char = CHARACTERS[charId];
+            
+            // Extract all activities (Posts, Comments, Replies) for this character
+            let activities = [];
+            POSTS.forEach(post => {
+                // Check if they authored the post
+                if (post.author === charId) {
+                    activities.push({
+                        type: 'post',
+                        postId: post.id,
+                        title: post.title,
+                        content: post.content,
+                        time: post.time,
+                        // Rough timestamp for sorting (Posts are exact)
+                        timestamp: post.timestamp,
+                        upvotes: post.upvotes
+                    });
+                }
+                
+                // Check if they authored any comments
+                post.comments.forEach((c, cIdx) => {
+                    if (c.author === charId) {
+                        activities.push({
+                            type: 'comment',
+                            postId: post.id,
+                            postTitle: post.title,
+                            content: c.text,
+                            time: c.time,
+                            // Assign an artificial timestamp slightly newer than the post for sorting
+                            timestamp: post.timestamp + 5000 - (cIdx * 100),
+                            upvotes: c.upvotes
+                        });
+                    }
+                    
+                    // Check if they authored any nested replies
+                    if (c.replies) {
+                        c.replies.forEach((r, rIdx) => {
+                            if (r.author === charId) {
+                                activities.push({
+                                    type: 'reply',
+                                    postId: post.id,
+                                    postTitle: post.title,
+                                    content: r.text,
+                                    time: r.time,
+                                    timestamp: post.timestamp + 4500 - (cIdx * 100) - (rIdx * 10),
+                                    upvotes: r.upvotes
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Sort activities newest first
+            activities.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Generate Timeline HTML
+            let activityHtml = '';
+            if (activities.length === 0) {
+                activityHtml = `
+                    <div class="glass-panel rounded-2xl p-8 text-center border-dashed border-glass-border">
+                        <i data-lucide="history" class="w-8 h-8 text-slate-600 mx-auto mb-3"></i>
+                        <p class="text-sm text-slate-400">No recent activity found for this resident yet. Check back soon!</p>
+                    </div>`;
+            } else {
+                activityHtml = `
+                    <div class="relative pl-6 sm:pl-10 space-y-6">
+                        <!-- Vertical Timeline Line -->
+                        <div class="absolute left-[11px] sm:left-[19px] top-2 bottom-0 w-px bg-glass-border"></div>`;
+
+                activities.forEach(act => {
+                    const isPost = act.type === 'post';
+                    const icon = isPost ? 'layout-list' : 'message-square';
+                    const iconColor = isPost ? 'text-emerald-400' : 'text-indigo-400';
+                    const actionText = isPost ? 'Started a discussion' : 'Commented on';
+                    const targetTitle = isPost ? act.title : act.postTitle;
+
+                    activityHtml += `
+                        <div class="relative">
+                            <!-- Timeline Dot/Icon -->
+                            <div class="absolute -left-6 sm:-left-10 top-0 w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-[#09090b] border border-glass-border flex items-center justify-center shadow-lg z-10">
+                                <i data-lucide="${icon}" class="w-3 h-3 sm:w-4 sm:h-4 ${iconColor}"></i>
+                            </div>
+                            
+                            <!-- Activity Card -->
+                            <div class="glass-panel glass-panel-hover rounded-xl p-4 sm:p-5 ml-2 sm:ml-4 cursor-pointer transition-all animate-slide-up" onclick="navigate('post-detail', '${act.postId}')">
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400 mb-2">
+                                    <span>${actionText}</span>
+                                    <span class="text-white font-medium hover:text-indigo-300 transition-colors">"${targetTitle}"</span>
+                                    <span class="text-slate-500 ml-auto">${act.time}</span>
+                                </div>
+                                <p class="text-sm text-slate-300 line-clamp-3 leading-relaxed mb-3">"${act.content}"</p>
+                                <div class="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                                    <span class="flex items-center gap-1 hover:text-white transition-colors" onclick="event.stopPropagation(); showToast()"><i data-lucide="arrow-big-up" class="w-4 h-4"></i> ${act.upvotes}</span>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+                activityHtml += `</div>`;
+            }
+
             return `
-                <div class="animate-fade-in space-y-6">
-                    <button onclick="goBack()" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors glass-button px-4 py-2 rounded-xl mb-2">
+                <div class="animate-fade-in space-y-8 pb-8">
+                    <button onclick="goBack()" class="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors glass-button px-4 py-2 rounded-xl mb-2 w-fit">
                         <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
                     </button>
 
-                    <div class="glass-panel rounded-2xl p-6 relative overflow-hidden shadow-xl">
-                        <div class="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-${char.color}-500/20 to-transparent"></div>
-                        <div class="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-                            ${getAvatar(char, 'w-24 h-24')}
-                            <div class="flex-1">
-                                <div class="flex flex-col sm:flex-row items-center gap-3 mb-2">
-                                    <h1 class="text-2xl font-bold text-white font-display">${char.name}</h1>
+                    <div class="glass-panel rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl">
+                        <div class="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-${char.color}-500/20 to-transparent"></div>
+                        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 text-center md:text-left">
+                            ${getAvatar(char, 'w-28 h-28 md:w-32 md:h-32 shadow-xl ring-4 ring-black/50')}
+                            <div class="flex-1 mt-2">
+                                <div class="flex flex-col md:flex-row items-center gap-3 mb-3">
+                                    <h1 class="text-3xl font-bold text-white font-display tracking-tight">${char.name}</h1>
                                     ${getCharBadge(char)}
                                 </div>
-                                <p class="text-sm text-slate-300 mb-4 max-w-lg leading-relaxed">${char.bio}</p>
-                                <div class="flex flex-wrap justify-center sm:justify-start gap-2">
-                                    ${char.traits.map(t => `<span class="px-2 py-1 rounded bg-glass-50 text-xs text-slate-400 border border-glass-border shadow-inner">${t}</span>`).join('')}
+                                <p class="text-base text-slate-300 mb-6 max-w-2xl leading-relaxed">${char.bio}</p>
+                                <div class="flex flex-wrap justify-center md:justify-start gap-2">
+                                    ${char.traits.map(t => `<span class="px-3 py-1.5 rounded-lg bg-glass-50 text-xs text-slate-300 border border-glass-border shadow-inner backdrop-blur-md">${t}</span>`).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <h3 class="font-bold text-white text-lg px-2">Recent Activity</h3>
-                    <div class="glass-panel rounded-2xl p-8 text-center border-dashed border-glass-border">
-                        <i data-lucide="history" class="w-8 h-8 text-slate-600 mx-auto mb-3"></i>
-                        <p class="text-sm text-slate-400">This resident is always up to something around the World. Check back soon to see what they've been up to lately.</p>
+                    <div class="px-2 space-y-6">
+                        <h3 class="font-display font-bold text-white text-xl flex items-center gap-2">
+                            <i data-lucide="activity" class="w-5 h-5 text-indigo-400"></i> Activity Timeline
+                        </h3>
+                        ${activityHtml}
                     </div>
                 </div>
             `;

@@ -25,6 +25,8 @@ export interface FlatCommentRecord {
   voteScore: number;
   createdAt: Date;
   updatedAt: Date;
+  /** The title of the post the comment sits on; surfaced by activity items. */
+  postTitle: string;
 }
 
 export interface CommentRecord {

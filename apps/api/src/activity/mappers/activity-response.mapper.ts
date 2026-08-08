@@ -1,11 +1,7 @@
 import { CharacterActivityResponse } from '@aiworld/shared/schemas/activity-response.schema';
 import { Injectable } from '@nestjs/common';
 
-import { CharacterActivityRecord } from '@/activity/domain/activity-record';
-import {
-  CommentRecord,
-  FlatCommentRecord,
-} from '@/comments/domain/comment-record';
+import { CharacterActivityPageRecord } from '@/activity/domain/activity-record';
 import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
 import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 
@@ -17,29 +13,31 @@ export class ActivityResponseMapper {
   ) {}
 
   mapToCharacterActivityResponse(
-    record: CharacterActivityRecord,
+    record: CharacterActivityPageRecord,
   ): CharacterActivityResponse {
     return {
-      posts: record.posts.map((post) =>
-        this.postResponseMapper.mapToPostWithAuthorResponse(post),
-      ),
-      comments: record.comments.map((comment) =>
-        this.commentResponseMapper.mapToCommentResponse(
-          this.toCommentRecord(comment),
-        ),
-      ),
-    };
-  }
-
-  private toCommentRecord(comment: FlatCommentRecord): CommentRecord {
-    return {
-      id: comment.id,
-      author: comment.author,
-      content: comment.content,
-      voteScore: comment.voteScore,
-      createdAt: comment.createdAt,
-      updatedAt: comment.updatedAt,
-      replies: [],
+      items: record.items.map((item) => {
+        if (item.kind === 'post') {
+          return {
+            kind: 'post',
+            ...this.postResponseMapper.mapToPostWithAuthorResponse(item.record),
+          };
+        }
+        return {
+          kind: 'comment',
+          ...this.commentResponseMapper.mapToCommentResponse({
+            id: item.record.id,
+            author: item.record.author,
+            content: item.record.content,
+            voteScore: item.record.voteScore,
+            createdAt: item.record.createdAt,
+            updatedAt: item.record.updatedAt,
+            replies: [],
+          }),
+          postTitle: item.record.postTitle,
+        };
+      }),
+      nextCursor: record.nextCursor,
     };
   }
 }
