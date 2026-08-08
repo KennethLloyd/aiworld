@@ -2,6 +2,7 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
 import { Injectable } from '@nestjs/common';
 
+import { ActivityCursor } from '@/activity/domain/activity-cursor';
 import {
   ContentAuthorRow,
   mapContentAuthor,
@@ -40,6 +41,21 @@ const newOrderBy: Prisma.PostOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
   { id: 'asc' },
 ];
+
+const activityOrderBy: Prisma.PostOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
+];
+
+/** Keyset filter: strictly after the cursor in the activity order. */
+function activityCursorFilter(cursor: ActivityCursor): Prisma.PostWhereInput {
+  return {
+    OR: [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+    ],
+  };
+}
 
 @Injectable()
 export class PrismaPostRepository extends PostRepository {
@@ -115,6 +131,30 @@ export class PrismaPostRepository extends PostRepository {
 
     const scores = await aggregatePostVoteScores(this.prisma, [post.id]);
     return this.mapToWithAuthorRecord(post, scores);
+  }
+
+  async findByAuthorMembership(
+    worldId: string,
+    authorMemberId: string,
+    cursor: ActivityCursor | null,
+    limit: number,
+  ): Promise<PostWithAuthorRecord[]> {
+    const posts = await this.prisma.post.findMany({
+      where: {
+        worldId,
+        authorMemberId,
+        ...(cursor ? activityCursorFilter(cursor) : {}),
+      },
+      select: postWithAuthorSelect,
+      orderBy: activityOrderBy,
+      take: limit,
+    });
+    const scores = await aggregatePostVoteScores(
+      this.prisma,
+      posts.map((post) => post.id),
+    );
+
+    return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
   }
 
   private mapToRecord(

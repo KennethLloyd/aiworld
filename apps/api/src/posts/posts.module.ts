@@ -21,5 +21,6 @@ import { WorldModule } from '@/world/world.module';
     PostResponseMapper,
     PostsService,
   ],
+  exports: [PostRepository, PostResponseMapper],
 })
 export class PostsModule {}

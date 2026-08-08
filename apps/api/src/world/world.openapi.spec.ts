@@ -55,6 +55,7 @@ describe('worldOpenApiDocument', () => {
     expect(Object.keys(paths).sort()).toEqual([
       '/characters',
       '/characters/{characterId}',
+      '/characters/{characterId}/activity',
       '/world-members',
       '/world-members/{memberId}',
       '/worlds',

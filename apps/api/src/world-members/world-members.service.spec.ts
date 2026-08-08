@@ -9,6 +9,7 @@ describe('WorldMembersService', () => {
   const worldMemberRepository: jest.Mocked<WorldMemberRepository> = {
     findAll: jest.fn(),
     findById: jest.fn(),
+    findByWorldAndCharacter: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   };

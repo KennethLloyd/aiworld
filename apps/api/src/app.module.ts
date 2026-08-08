@@ -3,6 +3,7 @@ import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
 
+import { ActivityModule } from '@/activity/activity.module';
 import { CharactersModule } from '@/characters/characters.module';
 import { CommentsModule } from '@/comments/comments.module';
 import { PostsModule } from '@/posts/posts.module';
@@ -29,6 +30,7 @@ import { PrismaService } from './lib/database/prisma.service';
     WorldMembersModule,
     PostsModule,
     CommentsModule,
+    ActivityModule,
   ],
   controllers: [AppController],
   providers: [
