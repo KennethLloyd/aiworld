@@ -10,6 +10,7 @@ import {
 import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { escapeSearchText } from '@/lib/search-text';
 import { compareByHot } from '@/posts/domain/post-ranking';
 import { PostRecord, PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
@@ -40,6 +41,11 @@ type PostWithAuthorRow = PostFeedRow & {
 const newOrderBy: Prisma.PostOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
   { id: 'asc' },
+];
+
+const searchOrderBy: Prisma.PostOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
 ];
 
 const activityOrderBy: Prisma.PostOrderByWithRelationInput[] = [
@@ -148,6 +154,30 @@ export class PrismaPostRepository extends PostRepository {
       select: postWithAuthorSelect,
       orderBy: activityOrderBy,
       take: limit,
+    });
+    const scores = await aggregatePostVoteScores(
+      this.prisma,
+      posts.map((post) => post.id),
+    );
+
+    return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
+  }
+
+  async searchByText(
+    worldId: string,
+    q: string,
+  ): Promise<PostWithAuthorRecord[]> {
+    const pattern = escapeSearchText(q);
+    const posts = await this.prisma.post.findMany({
+      where: {
+        worldId,
+        OR: [
+          { title: { contains: pattern, mode: 'insensitive' } },
+          { content: { contains: pattern, mode: 'insensitive' } },
+        ],
+      },
+      select: postWithAuthorSelect,
+      orderBy: searchOrderBy,
     });
     const scores = await aggregatePostVoteScores(
       this.prisma,
