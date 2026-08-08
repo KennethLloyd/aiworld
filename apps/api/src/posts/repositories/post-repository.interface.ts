@@ -1,5 +1,6 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
+
 import { ActivityCursor } from '@/activity/domain/activity-cursor';
 import {
   PostFeedRecord,
