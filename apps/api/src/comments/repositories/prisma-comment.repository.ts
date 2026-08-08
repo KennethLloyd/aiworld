@@ -10,6 +10,7 @@ import { CommentRepository } from '@/comments/repositories/comment-repository.in
 import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Comment } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { escapeSearchText } from '@/lib/search-text';
 import { aggregateCommentVoteScores } from '@/votes/vote-aggregation';
 
 const commentSelect = {
@@ -20,6 +21,7 @@ const commentSelect = {
   createdAt: true,
   updatedAt: true,
   author: prismaContentAuthorSelect,
+  post: { select: { title: true } },
 } as const;
 
 const commentWithPostSelect = {
@@ -38,6 +40,11 @@ type CommentRow = Pick<
 const commentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
   { createdAt: 'asc' },
   { id: 'asc' },
+];
+
+const searchOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
 ];
 
 const activityCommentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
@@ -96,6 +103,26 @@ export class PrismaCommentRepository extends CommentRepository {
     const scores = await aggregateCommentVoteScores(
       this.prisma,
       comments.map((c) => c.id),
+    );
+
+    return comments.map((comment) => this.mapToRecord(comment, scores));
+  }
+
+  async searchByText(worldId: string, q: string): Promise<FlatCommentRecord[]> {
+    // World-scoped through the post relation: a comment belongs to a World
+    // exactly when its post does, which is the no-leak guarantee.
+    const pattern = escapeSearchText(q);
+    const comments = await this.prisma.comment.findMany({
+      where: {
+        content: { contains: pattern, mode: 'insensitive' },
+        post: { worldId },
+      },
+      select: commentSelect,
+      orderBy: searchOrderBy,
+    });
+    const scores = await aggregateCommentVoteScores(
+      this.prisma,
+      comments.map((comment) => comment.id),
     );
 
     return comments.map((comment) => this.mapToRecord(comment, scores));

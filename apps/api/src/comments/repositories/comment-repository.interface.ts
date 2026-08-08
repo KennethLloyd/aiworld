@@ -9,4 +9,8 @@ export abstract class CommentRepository {
     cursor: ActivityCursor | null,
     limit: number,
   ): Promise<FlatCommentRecord[]>;
+  abstract searchByText(
+    worldId: string,
+    q: string,
+  ): Promise<FlatCommentRecord[]>;
 }
