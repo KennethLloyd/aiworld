@@ -23,6 +23,7 @@ function flatComment(
     voteScore: 1,
     createdAt: new Date(createdAt),
     updatedAt: new Date(createdAt),
+    postTitle: 'A fixture post title',
   };
 }
 

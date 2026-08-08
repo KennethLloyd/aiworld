@@ -54,6 +54,7 @@ describe('PostsService', () => {
     voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
+    postTitle: postRecordFixture.title,
   };
 
   const commentTreeFixture: CommentRecord[] = [

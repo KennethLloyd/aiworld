@@ -624,6 +624,7 @@ describe('Post detail (HTTP boundary)', () => {
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     author: authorMemberRow,
+    post: { title: postRow.title },
   };
 
   const prismaStub = {

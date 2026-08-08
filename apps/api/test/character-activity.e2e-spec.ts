@@ -5,6 +5,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import request from 'supertest';
 import { App } from 'supertest/types';
 
+import { encodeActivityCursor } from '@/activity/domain/activity-cursor';
 import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
@@ -129,6 +130,17 @@ const characterIds = [
   dormant.id,
   outsider.id,
 ];
+
+// Explicit timestamps make the merged timeline deterministic: createdAt
+// desc, id desc tiebreak (the fixture rows otherwise share the insert
+// timestamp at millisecond resolution).
+const t = (iso: string): string => iso;
+
+const postAId = seedUuid('post:activity-post-a');
+const commentAId = seedUuid('comment:activity-comment-a');
+const postA2Id = seedUuid('post:activity-post-a2');
+const commentA2Id = seedUuid('comment:activity-comment-a2');
+const postA3Id = seedUuid('post:activity-post-a3');
 
 describe('Character activity (real database)', () => {
   let app: INestApplication<App>;
@@ -258,15 +270,17 @@ describe('Character activity (real database)', () => {
       },
     });
 
-    // World A posts: the author's own post, a commenter-owned post (must not
-    // appear in the author's activity), and the inactive/dormant content.
+    // World A posts: the author's own posts (three, at staggered
+    // timestamps), a commenter-owned post (must not appear in the author's
+    // activity), and the inactive/dormant content.
     await prisma.post.create({
       data: {
-        id: seedUuid('post:activity-post-a'),
+        id: postAId,
         worldId: worldA.id,
         authorMemberId: authorMemberIdA,
         title: 'The author post in world A',
         content: 'Authored by the fixture author.',
+        createdAt: t('2026-08-06T08:00:00.000Z'),
       },
     });
     await prisma.post.create({
@@ -276,6 +290,27 @@ describe('Character activity (real database)', () => {
         authorMemberId: commenterMemberIdA,
         title: 'Someone else\u2019s post',
         content: 'Authored by the commenter, not the author.',
+        createdAt: t('2026-08-06T08:03:00.000Z'),
+      },
+    });
+    await prisma.post.create({
+      data: {
+        id: postA2Id,
+        worldId: worldA.id,
+        authorMemberId: authorMemberIdA,
+        title: 'The author\u2019s second post',
+        content: 'Also authored by the fixture author.',
+        createdAt: t('2026-08-06T08:10:00.000Z'),
+      },
+    });
+    await prisma.post.create({
+      data: {
+        id: postA3Id,
+        worldId: worldA.id,
+        authorMemberId: authorMemberIdA,
+        title: 'The author\u2019s third post',
+        content: 'The newest author post in world A.',
+        createdAt: t('2026-08-06T08:20:00.000Z'),
       },
     });
     await prisma.post.create({
@@ -285,6 +320,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: seedUuid('member:activity-inactive'),
         title: 'An inactive character\u2019s post',
         content: 'Inactive content stays readable.',
+        createdAt: t('2026-08-06T08:30:00.000Z'),
       },
     });
     await prisma.post.create({
@@ -294,25 +330,38 @@ describe('Character activity (real database)', () => {
         authorMemberId: seedUuid('member:activity-dormant'),
         title: 'A dormant membership\u2019s post',
         content: 'Inactive memberships keep their public content.',
+        createdAt: t('2026-08-06T08:40:00.000Z'),
       },
     });
 
-    // World A comments: the author's own comment on their post, and the
-    // commenter's comment on the author's post (must not appear).
+    // World A comments: the author's own comments (one on their post, one
+    // on the commenter's post), the commenter's comment on the author's
+    // post (must not appear), and the inactive/dormant content.
     await prisma.comment.create({
       data: {
-        id: seedUuid('comment:activity-comment-a'),
-        postId: seedUuid('post:activity-post-a'),
+        id: commentAId,
+        postId: postAId,
         authorMemberId: authorMemberIdA,
         content: 'The author\u2019s comment in world A.',
+        createdAt: t('2026-08-06T08:05:00.000Z'),
+      },
+    });
+    await prisma.comment.create({
+      data: {
+        id: commentA2Id,
+        postId: seedUuid('post:activity-post-other'),
+        authorMemberId: authorMemberIdA,
+        content: 'The author\u2019s comment on the commenter\u2019s post.',
+        createdAt: t('2026-08-06T08:15:00.000Z'),
       },
     });
     await prisma.comment.create({
       data: {
         id: seedUuid('comment:activity-comment-other'),
-        postId: seedUuid('post:activity-post-a'),
+        postId: postAId,
         authorMemberId: commenterMemberIdA,
         content: 'The commenter\u2019s comment, not the author\u2019s.',
+        createdAt: t('2026-08-06T08:06:00.000Z'),
       },
     });
     await prisma.comment.create({
@@ -321,6 +370,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-inactive'),
         authorMemberId: seedUuid('member:activity-inactive'),
         content: 'An inactive character\u2019s comment.',
+        createdAt: t('2026-08-06T08:31:00.000Z'),
       },
     });
     await prisma.comment.create({
@@ -329,6 +379,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-dormant'),
         authorMemberId: seedUuid('member:activity-dormant'),
         content: 'A dormant membership\u2019s comment.',
+        createdAt: t('2026-08-06T08:41:00.000Z'),
       },
     });
 
@@ -340,6 +391,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: authorMemberIdB,
         title: 'The author post in world B',
         content: 'Must only appear when world B is queried.',
+        createdAt: t('2026-08-06T09:00:00.000Z'),
       },
     });
     await prisma.comment.create({
@@ -348,6 +400,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-b'),
         authorMemberId: authorMemberIdB,
         content: 'The author\u2019s comment in world B.',
+        createdAt: t('2026-08-06T09:01:00.000Z'),
       },
     });
 
@@ -360,6 +413,9 @@ describe('Character activity (real database)', () => {
       'comment:activity-comment-a',
       'post:activity-post-other',
       'comment:activity-comment-other',
+      'post:activity-post-a2',
+      'comment:activity-comment-a2',
+      'post:activity-post-a3',
       'post:activity-post-inactive',
       'comment:activity-comment-inactive',
       'post:activity-post-dormant',
@@ -402,7 +458,17 @@ describe('Character activity (real database)', () => {
     await prisma.$disconnect();
   });
 
-  it('serves the activity anonymously with the character\u2019s posts and comments and their vote scores', async () => {
+  // The author's merged timeline in world A, createdAt desc:
+  // post-a3, comment-a2, post-a2, comment-a, post-a.
+  const authorTimelineIds = [
+    postA3Id,
+    commentA2Id,
+    postA2Id,
+    commentAId,
+    postAId,
+  ];
+
+  it('serves the activity anonymously with the merged timeline and vote scores', async () => {
     const sessionHolder = app.get<MockAuthSessionHolder>(MOCK_AUTH_SESSION);
     sessionHolder.current = null;
 
@@ -413,17 +479,19 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(res.body.posts.map((post: { id: string }) => post.id)).toEqual([
-      seedUuid('post:activity-post-a'),
-    ]);
-    expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(authorIdentityA);
-    expect(
-      res.body.comments.map((comment: { id: string }) => comment.id),
-    ).toEqual([seedUuid('comment:activity-comment-a')]);
-    expect(res.body.comments[0].voteScore).toBe(2);
-    expect(res.body.comments[0].author).toEqual(authorIdentityA);
-    expect(res.body.comments[0].replies).toEqual([]);
+    expect(res.body.items.map((item: { id: string }) => item.id)).toEqual(
+      authorTimelineIds,
+    );
+    expect(res.body.nextCursor).toBeNull();
+    expect(res.body.items[0].kind).toBe('post');
+    expect(res.body.items[0].voteScore).toBe(2);
+    expect(res.body.items[0].author).toEqual(authorIdentityA);
+    expect(res.body.items[1].kind).toBe('comment');
+    expect(res.body.items[1].id).toBe(commentA2Id);
+    expect(res.body.items[1].postTitle).toBe('Someone else\u2019s post');
+    expect(res.body.items[1].replies).toEqual([]);
+    expect(res.body.items[1].voteScore).toBe(2);
+    expect(res.body.items[3].postTitle).toBe('The author post in world A');
   });
 
   it('excludes content authored by other characters in the same World', async () => {
@@ -431,14 +499,9 @@ describe('Character activity (real database)', () => {
       .get(`/api/characters/${author.id}/activity?worldSlug=${worldAKey}`)
       .expect(200);
 
-    const postIds = res.body.posts.map((post: { id: string }) => post.id);
-    const commentIds = res.body.comments.map(
-      (comment: { id: string }) => comment.id,
-    );
-    expect(postIds).not.toContain(seedUuid('post:activity-post-other'));
-    expect(commentIds).not.toContain(
-      seedUuid('comment:activity-comment-other'),
-    );
+    const itemIds = res.body.items.map((item: { id: string }) => item.id);
+    expect(itemIds).not.toContain(seedUuid('post:activity-post-other'));
+    expect(itemIds).not.toContain(seedUuid('comment:activity-comment-other'));
   });
 
   it('scopes the activity to the requested World', async () => {
@@ -449,24 +512,22 @@ describe('Character activity (real database)', () => {
       .get(`/api/characters/${author.id}/activity?worldSlug=${worldBKey}`)
       .expect(200);
 
-    expect(
-      worldA.body.posts.map((post: { id: string }) => post.id),
-    ).not.toContain(seedUuid('post:activity-post-b'));
-    expect(worldA.body.comments.map((c: { id: string }) => c.id)).not.toContain(
+    expect(worldA.body.items.map((i: { id: string }) => i.id)).not.toContain(
+      seedUuid('post:activity-post-b'),
+    );
+    expect(worldA.body.items.map((i: { id: string }) => i.id)).not.toContain(
       seedUuid('comment:activity-comment-b'),
     );
 
     expect(characterActivityResponseSchema.safeParse(worldB.body).success).toBe(
       true,
     );
-    expect(worldB.body.posts.map((post: { id: string }) => post.id)).toEqual([
+    expect(worldB.body.items.map((i: { id: string }) => i.id)).toEqual([
+      seedUuid('comment:activity-comment-b'),
       seedUuid('post:activity-post-b'),
     ]);
-    expect(worldB.body.posts[0].voteScore).toBe(2);
-    expect(worldB.body.comments.map((c: { id: string }) => c.id)).toEqual([
-      seedUuid('comment:activity-comment-b'),
-    ]);
-    expect(worldB.body.comments[0].voteScore).toBe(2);
+    expect(worldB.body.items[1].voteScore).toBe(2);
+    expect(worldB.body.items[0].voteScore).toBe(2);
   });
 
   it('lists an inactive character\u2019s content with its identity intact', async () => {
@@ -477,14 +538,12 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(res.body.posts.map((post: { id: string }) => post.id)).toEqual([
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([
+      seedUuid('comment:activity-comment-inactive'),
       seedUuid('post:activity-post-inactive'),
     ]);
-    expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(inactiveIdentity);
-    expect(res.body.comments.map((c: { id: string }) => c.id)).toEqual([
-      seedUuid('comment:activity-comment-inactive'),
-    ]);
+    expect(res.body.items[1].voteScore).toBe(2);
+    expect(res.body.items[1].author).toEqual(inactiveIdentity);
   });
 
   it('lists content authored through an inactive membership', async () => {
@@ -495,17 +554,15 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(res.body.posts.map((post: { id: string }) => post.id)).toEqual([
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([
+      seedUuid('comment:activity-comment-dormant'),
       seedUuid('post:activity-post-dormant'),
     ]);
-    expect(res.body.posts[0].voteScore).toBe(2);
-    expect(res.body.posts[0].author).toEqual(dormantIdentity);
-    expect(res.body.comments.map((c: { id: string }) => c.id)).toEqual([
-      seedUuid('comment:activity-comment-dormant'),
-    ]);
+    expect(res.body.items[1].voteScore).toBe(2);
+    expect(res.body.items[1].author).toEqual(dormantIdentity);
   });
 
-  it('returns an empty activity for a character without a membership in the World', async () => {
+  it('returns an empty page with a null cursor for a character without a membership in the World', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/characters/${outsider.id}/activity?worldSlug=${worldAKey}`)
       .expect(200);
@@ -513,7 +570,104 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(res.body).toEqual({ posts: [], comments: [] });
+    expect(res.body).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('returns no more than the requested limit on the first page', async () => {
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=2`,
+      )
+      .expect(200);
+
+    expect(res.body.items.map((i: { id: string }) => i.id)).toEqual([
+      postA3Id,
+      commentA2Id,
+    ]);
+    expect(res.body.nextCursor).not.toBeNull();
+  });
+
+  it('walks the keyset cursor to the end, returning every item exactly once', async () => {
+    let cursor: string | null = null;
+    const walked: Array<{ id: string; kind: string }> = [];
+
+    for (let page = 0; page < 10; page += 1) {
+      const url =
+        cursor === null
+          ? `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=2`
+          : `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=2&cursor=${encodeURIComponent(cursor)}`;
+      const res = await request(app.getHttpServer()).get(url).expect(200);
+
+      expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
+        true,
+      );
+      expect(res.body.items.length).toBeLessThanOrEqual(2);
+      walked.push(...res.body.items);
+      cursor = res.body.nextCursor;
+      if (cursor === null) {
+        break;
+      }
+    }
+
+    expect(cursor).toBeNull();
+    expect(walked.map((item) => item.id)).toEqual(authorTimelineIds);
+    expect(new Set(walked.map((item) => item.id)).size).toBe(
+      authorTimelineIds.length,
+    );
+  });
+
+  it('walks a limit-1 cursor to the end with a null nextCursor on the final page', async () => {
+    let cursor: string | null = null;
+    const walked: Array<{ id: string }> = [];
+
+    for (let page = 0; page < 10; page += 1) {
+      const suffix =
+        cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=1${suffix}`,
+        )
+        .expect(200);
+
+      walked.push(...res.body.items);
+      cursor = res.body.nextCursor;
+      if (cursor === null) {
+        break;
+      }
+    }
+
+    expect(walked.map((item: { id: string }) => item.id)).toEqual(
+      authorTimelineIds,
+    );
+    expect(cursor).toBeNull();
+  });
+
+  it('rejects a malformed cursor through the error envelope', async () => {
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&cursor=not-a-cursor`,
+      )
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['cursor'] }),
+    );
+  });
+
+  it('rejects an out-of-range limit through the error envelope', async () => {
+    for (const limit of ['0', '51']) {
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=${limit}`,
+        )
+        .expect(400);
+
+      expect(res.body.error).toBe('Validation Failed');
+      expect(res.body.message[0]).toEqual(
+        expect.objectContaining({ path: ['limit'] }),
+      );
+    }
   });
 
   it('returns the 404 envelope for a missing character', async () => {
@@ -654,6 +808,7 @@ describe('Character activity (HTTP boundary)', () => {
       },
       user: null,
     },
+    post: { title: postRow.title },
   };
 
   const prismaStub = {
@@ -724,34 +879,45 @@ describe('Character activity (HTTP boundary)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(Object.keys(res.body).sort()).toEqual(['comments', 'posts']);
-    expect(Object.keys(res.body.posts[0]).sort()).toEqual(
+    expect(Object.keys(res.body).sort()).toEqual(['items', 'nextCursor']);
+    expect(res.body.nextCursor).toBeNull();
+    const postItem = res.body.items.find(
+      (item: { kind: string }) => item.kind === 'post',
+    );
+    const commentItem = res.body.items.find(
+      (item: { kind: string }) => item.kind === 'comment',
+    );
+    expect(Object.keys(postItem).sort()).toEqual(
       [
         'author',
         'content',
         'createdAt',
         'id',
+        'kind',
         'title',
         'updatedAt',
         'voteScore',
       ].sort(),
     );
-    expect(Object.keys(res.body.comments[0]).sort()).toEqual(
+    expect(Object.keys(commentItem).sort()).toEqual(
       [
         'author',
         'content',
         'createdAt',
         'id',
+        'kind',
+        'postTitle',
         'replies',
         'updatedAt',
         'voteScore',
       ].sort(),
     );
-    expect(res.body.posts[0].voteScore).toBe(5);
-    expect(res.body.comments[0].voteScore).toBe(2);
+    expect(postItem.voteScore).toBe(5);
+    expect(commentItem.voteScore).toBe(2);
+    expect(commentItem.postTitle).toBe(postRow.title);
   });
 
-  it('queries the posts and comments scoped to the world and member, one grouped vote query per entity', async () => {
+  it('queries each stream after the cursor with the page size plus one, one grouped vote query per entity', async () => {
     await request(app.getHttpServer())
       .get(`/api/characters/${characterId}/activity?worldSlug=mbti-house`)
       .expect(200);
@@ -765,11 +931,17 @@ describe('Character activity (HTTP boundary)', () => {
           },
         }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 21,
       }),
     );
     expect(prismaStub.comment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { authorMemberId: memberId, post: { worldId } },
+        select: expect.objectContaining({
+          post: { select: { title: true } },
+        }),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 21,
       }),
     );
     expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(2);
@@ -790,17 +962,83 @@ describe('Character activity (HTTP boundary)', () => {
     );
   });
 
-  it('returns an empty activity without querying content when the membership is missing', async () => {
+  it('passes the decoded keyset cursor into both repository queries', async () => {
+    const cursor = encodeActivityCursor({
+      kind: 'post',
+      record: {
+        id: postRow.id,
+        title: postRow.title,
+        content: postRow.content,
+        voteScore: 5,
+        createdAt: postRow.createdAt,
+        updatedAt: postRow.updatedAt,
+        author: {
+          id: memberId,
+          handle: 'standard_procedure',
+          name: 'Standard_Procedure',
+          avatarUrl: null,
+        },
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get(
+        `/api/characters/${characterId}/activity?worldSlug=mbti-house&cursor=${encodeURIComponent(cursor)}`,
+      )
+      .expect(200);
+
+    expect(prismaStub.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          worldId,
+          authorMemberId: memberId,
+          OR: [
+            { createdAt: { lt: postRow.createdAt } },
+            { createdAt: postRow.createdAt, id: { lt: postRow.id } },
+          ],
+        },
+      }),
+    );
+    expect(prismaStub.comment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          authorMemberId: memberId,
+          post: { worldId },
+          OR: [
+            { createdAt: { lt: postRow.createdAt } },
+            { createdAt: postRow.createdAt, id: { lt: postRow.id } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('returns an empty page without querying content when the membership is missing', async () => {
     prismaStub.worldMember.findFirst.mockResolvedValue(null);
 
     const res = await request(app.getHttpServer())
       .get(`/api/characters/${characterId}/activity?worldSlug=mbti-house`)
       .expect(200);
 
-    expect(res.body).toEqual({ posts: [], comments: [] });
+    expect(res.body).toEqual({ items: [], nextCursor: null });
     expect(prismaStub.post.findMany).not.toHaveBeenCalled();
     expect(prismaStub.comment.findMany).not.toHaveBeenCalled();
     expect(prismaStub.vote.groupBy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed cursor through the error envelope without querying content', async () => {
+    const res = await request(app.getHttpServer())
+      .get(
+        `/api/characters/${characterId}/activity?worldSlug=mbti-house&cursor=not-a-cursor`,
+      )
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['cursor'] }),
+    );
+    expect(prismaStub.post.findMany).not.toHaveBeenCalled();
+    expect(prismaStub.comment.findMany).not.toHaveBeenCalled();
   });
 
   it('returns the 404 envelope for a missing character', async () => {

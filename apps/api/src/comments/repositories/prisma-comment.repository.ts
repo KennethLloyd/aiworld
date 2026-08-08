@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import { ActivityCursor } from '@/activity/domain/activity-cursor';
 import { FlatCommentRecord } from '@/comments/domain/comment-record';
 import {
   ContentAuthorRow,
@@ -20,6 +21,12 @@ const commentSelect = {
   createdAt: true,
   updatedAt: true,
   author: prismaContentAuthorSelect,
+  post: { select: { title: true } },
+} as const;
+
+const commentWithPostSelect = {
+  ...commentSelect,
+  post: { select: { title: true } },
 } as const;
 
 type CommentRow = Pick<
@@ -27,6 +34,7 @@ type CommentRow = Pick<
   'id' | 'postId' | 'parentCommentId' | 'content' | 'createdAt' | 'updatedAt'
 > & {
   author: ContentAuthorRow;
+  post: { title: string };
 };
 
 const commentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
@@ -39,6 +47,23 @@ const searchOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
   { id: 'desc' },
 ];
 
+const activityCommentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'desc' },
+];
+
+/** Keyset filter: strictly after the cursor in the activity order. */
+function activityCursorFilter(
+  cursor: ActivityCursor,
+): Prisma.CommentWhereInput {
+  return {
+    OR: [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+    ],
+  };
+}
+
 @Injectable()
 export class PrismaCommentRepository extends CommentRepository {
   constructor(private readonly prisma: PrismaService) {
@@ -48,7 +73,7 @@ export class PrismaCommentRepository extends CommentRepository {
   async findByPostId(postId: string): Promise<FlatCommentRecord[]> {
     const comments = await this.prisma.comment.findMany({
       where: { postId },
-      select: commentSelect,
+      select: commentWithPostSelect,
       orderBy: commentOrderBy,
     });
     const scores = await aggregateCommentVoteScores(
@@ -62,11 +87,18 @@ export class PrismaCommentRepository extends CommentRepository {
   async findByAuthorMembership(
     worldId: string,
     authorMemberId: string,
+    cursor: ActivityCursor | null,
+    limit: number,
   ): Promise<FlatCommentRecord[]> {
     const comments = await this.prisma.comment.findMany({
-      where: { authorMemberId, post: { worldId } },
-      select: commentSelect,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      where: {
+        authorMemberId,
+        post: { worldId },
+        ...(cursor ? activityCursorFilter(cursor) : {}),
+      },
+      select: commentWithPostSelect,
+      orderBy: activityCommentOrderBy,
+      take: limit,
     });
     const scores = await aggregateCommentVoteScores(
       this.prisma,
@@ -109,6 +141,7 @@ export class PrismaCommentRepository extends CommentRepository {
       voteScore: scores.get(comment.id) ?? 0,
       createdAt: comment.createdAt,
       updatedAt: comment.updatedAt,
+      postTitle: comment.post.title,
     };
   }
 }

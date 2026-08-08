@@ -1,3 +1,4 @@
+import { ActivityCursor } from '@/activity/domain/activity-cursor';
 import { FlatCommentRecord } from '@/comments/domain/comment-record';
 
 export abstract class CommentRepository {
@@ -5,6 +6,8 @@ export abstract class CommentRepository {
   abstract findByAuthorMembership(
     worldId: string,
     authorMemberId: string,
+    cursor: ActivityCursor | null,
+    limit: number,
   ): Promise<FlatCommentRecord[]>;
   abstract searchByText(
     worldId: string,

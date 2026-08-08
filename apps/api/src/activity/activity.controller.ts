@@ -37,6 +37,8 @@ export class ActivityController {
     const activity = await this.activityService.findActivity(
       params.characterId,
       query.worldSlug,
+      query.cursor,
+      query.limit,
     );
 
     if (!activity) {

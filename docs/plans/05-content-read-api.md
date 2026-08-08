@@ -535,6 +535,9 @@ responses.
 
 ## Plan 05-5 (ticket #28) Implementation Record
 
+Status: In Progress — open as PR #34; amended after planning-session decision
+to add merged keyset pagination for the plan 09 profile timeline.
+
 ### Senior-Level Summary
 
 Plan 05-5 lands the character activity read: `GET
@@ -548,12 +551,36 @@ members show their Character, and HUMAN members their User. A new
 `activity` module composes five existing boundaries — `WorldService`
 (active-World resolution, anonymous callers only ever see active Worlds),
 `CharacterRepository`, `WorldMemberRepository`, `PostRepository`, and
-`CommentRepository` — each extended with one new method. The response is
-**unpaginated** by decision: a single character's own content in one World
-is bounded, and the shared `characterActivityResponseSchema` carries both
-lists in full (`posts` as `postWithAuthorResponseSchema[]`, `comments` as
-`commentResponseSchema[]` with `replies: []`, since activity comments are
-always flat).
+`CommentRepository` — each extended with one new method.
+
+The response is a **merged, keyset-paginated timeline** decided in a
+planning session for the plan 09 resident profile: the UI renders one
+Activity Timeline with infinite scroll via TanStack Query `useInfiniteQuery`,
+so the page contract is `{ items, nextCursor }` — the client returns
+`nextCursor` from `getNextPageParam` and `hasNextPage` derives from a
+non-null cursor. Items are a shared `z.discriminatedUnion("kind", ...)`:
+post items are `postWithAuthorResponseSchema` plus `kind: "post"`; comment
+items are `commentResponseSchema` (flat, `replies: []`) plus
+`kind: "comment"` and `postTitle`, so the timeline can render "Commented on
+'<postTitle>'" exactly like the prototype. This supersedes the original
+"unpaginated, small by design" rationale (a single character's content in
+one World is bounded): the profile timeline's infinite scroll needs a cursor
+contract regardless of today's scale. The cursor is opaque (base64url of
+`{ createdAt, kind, id }` of the last emitted item); a malformed cursor
+returns the same 400 validation envelope as invalid query params.
+
+Per page the service over-fetches `limit + 1` posts and `limit + 1`
+comments after the cursor, linear-merges the two ordered streams (createdAt
+DESC, id DESC tiebreak), emits the first `limit`, and sets `nextCursor` to
+the last emitted item's cursor exactly when the merged result has more than
+`limit` items. Over-fetching by one makes that rule exact (a stream that
+still has more than `limit` items cannot masquerade as the end of the
+timeline). The repositories filter strictly after the cursor
+(`createdAt < cursor.createdAt OR (createdAt = cursor.createdAt AND
+id < cursor.id)`), so each page is a stable keyset slice with no duplicates
+or skips; the comment query additionally selects the post title
+(`post: { select: { title: true } }`), the single extra field comment items
+need. `limit` is validated 1..50 (default 20).
 
 The active state never blocks the read. The service resolves the character
 through `CharacterRepository.findById(characterId)` with **no active
@@ -581,20 +608,33 @@ schema overflows the generator with a stack overflow).
 
 - `packages/shared/src/schemas/activity.schema.ts` —
   `activityParamsSchema` (`characterId` uuid), `activityQuerySchema`
-  (`worldSlug`), `ActivityParams`, `ActivityQuery`
+  (`worldSlug`, `cursor` opaque optional, `limit` 1..50 default 20),
+  `ActivityParams`, `ActivityQuery`
 - `packages/shared/src/schemas/activity-response.schema.ts` —
-  `characterActivityResponseSchema`, `CharacterActivityResponse`
-  (unpaginated)
-- `apps/api/src/activity/` — new module: `domain/activity-record.ts`,
-  `mappers/activity-response.mapper.ts`, `activity.service.ts`,
-  `activity.controller.ts`, `activity.module.ts`, `activity.openapi.ts`;
-  unit specs for the service, controller, mapper, and OpenAPI document
+  `characterActivityResponseSchema` (`{ items, nextCursor }`),
+  `postActivityItemSchema`, `commentActivityItemSchema` (adds `postTitle`),
+  `activityItemSchema` (discriminated union on `kind`),
+  `CharacterActivityResponse`
+- `apps/api/src/activity/` — new module: `domain/activity-record.ts`
+  (item/page records), `domain/activity-cursor.ts` (base64url cursor
+  encode/parse), `domain/activity-timeline.ts` (pure order comparator and
+  linear merge), `mappers/activity-response.mapper.ts`,
+  `activity.service.ts` (over-fetch, merge, emit, cursor), the OpenAPI
+  document mirroring the union; unit specs for the cursor, timeline,
+  service, controller, mapper, and OpenAPI document
 - `apps/api/src/posts/repositories/` — `findByAuthorMembership(worldId,
-  authorMemberId)` on the interface and Prisma implementation (posts scoped
-  by `worldId + authorMemberId`, one grouped post-vote query)
-- `apps/api/src/comments/repositories/` — `findByAuthorMembership(worldId,
-  authorMemberId)` on the interface and Prisma implementation (World-scoped
-  via the post relation, one grouped comment-vote query)
+  authorMemberId, cursor, limit)` on the interface and Prisma
+  implementation (keyset filter `createdAt < c OR (= AND id < c.id)`,
+  `orderBy createdAt desc, id desc`, `take limit`, one grouped post-vote
+  query)
+- `apps/api/src/comments/repositories/` — same signature on the interface
+  and Prisma implementation (World-scoped via the post relation, keyset
+  filter, one grouped comment-vote query); the select now also fetches
+  `post: { select: { title: true } }` for `postTitle`
+- `apps/api/src/comments/domain/comment-record.ts` — `FlatCommentRecord`
+  gains `postTitle`
+- `apps/api/src/posts/posts.service.spec.ts`, `comments/domain/
+  comment-tree.spec.ts` — fixtures gain `postTitle`
 - `apps/api/src/world-members/repositories/` — new
   `findByWorldAndCharacter(worldId, characterId)` (selects only the member
   id) on the interface and Prisma implementation
@@ -608,15 +648,21 @@ schema overflows the generator with a stack overflow).
 - `apps/api/src/world/world.openapi.spec.ts` — expected path list now
   includes `/characters/{characterId}/activity`
 - `apps/api/test/character-activity.e2e-spec.ts` — hermetic fixture-world
-  e2e (worlds `activity-fixture` and `activity-fixture-b`; author content
-  with vote scores and member-based author ids, other-character content
-  excluded, World-scoping for the same reusable Character, inactive
-  character and inactive membership still listed with identity,
-  no-membership empty activity, 404 envelopes for missing
-  character/world, anonymous access) plus stubbed-boundary HTTP tests
-  (contract-only fields, query shapes scoped through worldId +
-  authorMemberId and the post relation, one grouped vote query per entity,
-  empty membership activity, 404 envelopes, missing `worldSlug` 400)
+  e2e (worlds `activity-fixture` and `activity-fixture-b`; the author now
+  owns three posts and two comments at explicit timestamps so the merged
+  timeline is deterministic) plus stubbed-boundary HTTP tests: merged
+  timeline with vote scores and member-based author ids, comment items
+  carry `postTitle`, other-character content excluded, World-scoping for
+  the same reusable Character, inactive character and inactive membership
+  still listed with identity, no-membership empty page, 404 envelopes for
+  missing character/world, keyset walking (limit 2 and limit 1) returns
+  every fixture item exactly once with `nextCursor: null` on the final
+  page, first page never exceeds the limit, malformed cursor and
+  out-of-range `limit` through the 400 envelope, cursor filter and
+  `take: limit + 1` query shapes, one grouped vote query per entity,
+  anonymous access, missing `worldSlug` 400
+- `apps/api/test/post-detail.e2e-spec.ts` — stubbed comment rows gain the
+  post-title relation the shared comment select now fetches
 
 ### Architecture and SOLID Notes
 
@@ -624,10 +670,24 @@ schema overflows the generator with a stack overflow).
   persistence of its own. The `characterId`-scoped lookup stays in the
   character module, the world-existence check stays in the world module,
   and the new repository methods own the persistence.
-- The response is unpaginated by recorded decision: a character's own
-  posts and comments in one World are bounded; the plan's API intent is
-  preserved without cursor machinery. If a World ever grows unbounded
-  author content, the repository seam is the place to add paging.
+- Keyset pagination lives at the service/repository seam: the repositories
+  accept a `{ createdAt, id }` cursor and `limit` and filter strictly after
+  the cursor in SQL (`createdAt < c OR (= AND id < c.id)`), so a page is a
+  stable slice even when new content arrives mid-walk; the service
+  over-fetches `limit + 1` per stream so `nextCursor` is non-null exactly
+  when more items remain. The cursor is opaque base64url; the domain
+  parser rejects malformed cursors and the service surfaces that as the
+  standard 400 validation envelope (path `['cursor']`), the same shape the
+  Zod pipe emits for bad query params.
+- The merged timeline's global order (createdAt desc, id desc) is a pure,
+  unit-tested domain comparator and linear merge; each repository stream
+  arrives already ordered by the same rule. The e2e fixtures pin the order
+  with explicit timestamps.
+- Comment items gain `postTitle` from the comment's post relation — the
+  only extra field the comment select needs — so the timeline can render
+  the prototype's "Commented on '<postTitle>'" without a second query.
+  The domain record (`FlatCommentRecord`) carries it; the shared response
+  contract validates it.
 - The active state is a *write-side* gate, not a read-side one: historical
   public content of deactivated characters and memberships remains
   readable with identity intact (consistent with 05-4's inactive-author
@@ -639,23 +699,26 @@ schema overflows the generator with a stack overflow).
 - The comment query is World-scoped via `post: { worldId }` rather than a
   join to the comment's own world: comments have no direct World reference,
   so the relation filter is the single place the scope is enforced.
-- Ordering is deterministic (createdAt desc, id desc) for both lists; the
-  e2e fixtures pin the order.
 - As in 05-4, the recursive shared `commentResponseSchema` cannot be
-  transformed by zod-to-openapi (stack overflow), so the activity document
-  mirrors the flat contract: comments with `replies: z.array(z.any())`
-  (the API always returns `[]`). The shared schema remains the validation
-  contract.
+  transformed by zod-to-openapi (stack overflow), and neither can the
+  `z.discriminatedUnion` (verified on 9.1.0, upstream issue #372), so the
+  activity document mirrors both: a plain `z.union` of the post and flat
+  comment items (`replies: z.array(z.any())`, the API always returns `[]`)
+  with `kind` enums and `postTitle`. The shared schema remains the
+  validation contract.
 
 ### Tests Run
 
 - `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
 - `pnpm exec tsc --noEmit -p apps/api/tsconfig.json` (run inside
   `apps/api`) — clean
-- `pnpm --filter @aiworld/api test` — 135 unit tests pass (15 new)
-- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 70 tests pass
-  (suite is deterministic under `maxWorkers: 1`); 17 new activity tests
-  (11 real-database, 6 HTTP-boundary)
+- `pnpm --filter @aiworld/api test` — 155 unit tests pass (18 new in this
+  amendment: cursor parse, timeline merge, service pagination, mapper,
+  controller forwarding)
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 77 tests pass,
+  run twice consecutively (suite is deterministic under `maxWorkers: 1`);
+  24 activity tests (14 real-database, 10 HTTP-boundary), including the
+  keyset walking, cursor filter, and validation-envelope cases
 - Seeded DB verified clean of residue after the activity e2e run (no
   `activity-*` worlds or characters remain)
 
@@ -663,13 +726,20 @@ schema overflows the generator with a stack overflow).
 
 None required for the endpoint itself; the OpenAPI document assertions
 cover the new path (`/characters/{characterId}/activity`), its
-`characterId` path param, its `worldSlug` query param, and its 200/400/404
-responses.
+`characterId` path param, its `worldSlug`/`cursor`/`limit` query params,
+the union item shapes, and its 200/400/404 responses.
 
 ### Known Risks and Follow-Up Work
 
-- Activity is unpaginated by design; a future "more content per author"
-  World should revisit paging at the repository seam.
+- The keyset cursor is exact while the fixture timestamps are stable;
+  content inserted between page requests with the same `createdAt` and a
+  larger id than the cursor item is skipped (standard keyset tradeoff,
+  accepted for the timeline; the id tiebreak keeps the order deterministic).
+- The OpenAPI document mirrors the discriminated union with a plain
+  `z.union` and the flat comment shape (`z.any()` replies) because the
+  generator cannot express either (verified against zod-to-openapi 9.1.0;
+  upstream issue #372); if the doc ever needs exact leaf typing, upgrade
+  the zod-to-openapi integration.
 - Feed items (plan 05-3) still carry no author; extending the feed
   contract to match the activity/detail author shape is still open for the
   plan 09 UI.
@@ -687,6 +757,10 @@ responses.
   the WorldMember (never null, `author.id` is the member id), the OpenAPI
   mirror dropped its stale `.nullable()` author, and the e2e fixtures
   assert member-based author identities.
+- Amendment note: the "unpaginated, small by design" rationale recorded
+  above is superseded by the planning-session decision to serve the merged
+  keyset-paginated timeline for the plan 09 profile's infinite scroll;
+  this record documents the new contract.
 ## Plan 05-6 (ticket #29) Implementation Record
 
 ### Senior-Level Summary
