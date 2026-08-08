@@ -761,4 +761,13 @@ the union item shapes, and its 200/400/404 responses.
   above is superseded by the planning-session decision to serve the merged
   keyset-paginated timeline for the plan 09 profile's infinite scroll;
   this record documents the new contract.
+- Review follow-up from PR #104 (05-7 feed review, non-blocking, tracked as
+  ticket #105): the Hot feed fetches all posts in a World, aggregates vote
+  scores, sorts, then slices the page — a bottleneck once a World holds
+  hundreds/thousands of posts. Proposed optimization for a later plan:
+  denormalize vote counts into the DB, updated asynchronously (event-driven
+  increments/decrements so a vote never waits on the write), making the
+  stored count the source of truth for Hot sorting instead of a full-table
+  aggregation per request.
+
 
