@@ -761,4 +761,135 @@ the union item shapes, and its 200/400/404 responses.
   above is superseded by the planning-session decision to serve the merged
   keyset-paginated timeline for the plan 09 profile's infinite scroll;
   this record documents the new contract.
+## Plan 05-6 (ticket #29) Implementation Record
 
+### Senior-Level Summary
+
+Plan 05-6 adds World-scoped discussion search. `GET
+/api/worlds/:slug/search?q=...` returns the posts and comments in that
+World that match the query. Posts match on title or content; comments
+match on content. Results merge into one paginated list, and each item is
+tagged with its type: `{ type: 'post', post }` or
+`{ type: 'comment', comment }`. The Plan 09 dropdown renders one row per
+item.
+
+`SearchService` resolves the World through `WorldService.getBySlug`.
+Missing or inactive Worlds get the 404 envelope. The service then asks
+the existing post and comment repository seams for matches. Both queries
+are scoped to the World id. Comments are scoped through the post
+relation, because a comment belongs to a World exactly when its post
+does. This is the no-leak guarantee; it is structural, not a filter.
+
+Vote scores come from the shared grouped-count helpers over all matches,
+so scores stay stable across pages of one query. A pure comparator sorts
+the merged list (createdAt desc, id desc), and the service slices it into
+pages. The existing post and comment response mappers build the response,
+so no admin-only fields can leak. Search comments are flat: `replies` is
+always `[]`.
+
+Absent, empty, whitespace, and one-character queries return an empty page
+with zero metadata, never an error. A query with no matches does the
+same. Query text is escaped before ILIKE matching, so `%`, `_`, and `\`
+match literally and a query like `%%` cannot match every row.
+
+The endpoint is anonymous, its response validates through the shared
+`searchResponseSchema`, and the OpenAPI document registers the path. The
+document mirrors the flat search comment because zod-to-openapi cannot
+transform the recursive `commentResponseSchema` (see the note in
+`posts.openapi.ts`).
+
+### Files Changed
+
+- `packages/shared/src/schemas/search.schema.ts` — `searchQuerySchema`
+  (`q` optional) and `SearchQuery`
+- `packages/shared/src/schemas/pagination.schema.ts` —
+  `paginationQueryFields`; the feed and search endpoints now share one
+  page/limit validation
+- `packages/shared/src/schemas/search-response.schema.ts` — the
+  discriminated-union search item and response schemas, reusing
+  `postWithAuthorResponseSchema`, `commentResponseSchema`, and
+  `paginationMetaSchema`
+- `apps/api/src/posts/` — `searchByText(worldId, q)` on the repository
+  interface and Prisma adapter: worldId + title/content OR match,
+  createdAt desc / id desc, one grouped vote query for all matches
+- `apps/api/src/comments/` — `searchByText(worldId, q)` on the repository
+  interface and Prisma adapter: content match scoped through
+  `post: { worldId }`, same ordering and vote aggregation
+- `apps/api/src/posts/posts.module.ts` — exports `PostRepository` and
+  `PostResponseMapper` for the search module
+- `apps/api/src/lib/search-text.ts` + spec — `escapeSearchText` escapes
+  `%`, `_`, and `\` before Prisma `contains` matching; both search
+  repositories apply it
+- `apps/api/src/search/` — new module: `domain/search-record.ts`
+  (`SearchResultRecord` union + pure `compareSearchResults`),
+  `search.service.ts`, `search.controller.ts` (GET, `@AllowAnonymous`),
+  `mappers/search-response.mapper.ts`, `search.module.ts`,
+  `search.openapi.ts`; unit specs for the service, controller, mapper,
+  and OpenAPI document
+- `apps/api/src/app.module.ts` — registered `SearchModule`
+- `apps/api/src/lib/openapi/openapi.ts` — registered
+  `registerSearchOpenApi`
+- `apps/api/src/world/world.openapi.spec.ts` — expected path list now
+  includes `/worlds/{slug}/search`
+- `apps/api/test/search.e2e-spec.ts` — fixture-world e2e (title, content,
+  and comment matches, vote scores, member-based author identity,
+  deterministic merge order, no other-World content, empty/short/
+  no-result safe responses, literal ILIKE-wildcard matching,
+  inactive-World 404, shared pagination metadata, anonymous access) plus
+  stubbed-boundary HTTP tests (contract-only fields with type tags, query
+  shapes, no repository calls for absent/short queries, 404 envelope,
+  validation 400s)
+
+### Architecture and SOLID Notes
+
+- The world check stays in the world module. The search service depends
+  on `WorldService` and the two repository seams. Merge, sort, and slice
+  rules live in the service and a pure comparator, not in the controller.
+- One merged list with type tags keeps one pagination contract for mixed
+  content. Two separate pages would force the Plan 09 dropdown to
+  reconcile two cursors.
+- Comments are World-scoped in SQL through the post relation. A comment
+  can only match when its post is in the World.
+- Vote scores are computed over all matches, not per page. Scores stay
+  stable across pages of one query.
+- Search fetches all matches and slices in memory, like the Hot path.
+  ILIKE substring matching cannot use a B-tree index. A future FTS or
+  trigram upgrade slots into the same repository seam.
+- The two-character minimum is a service decision, not query validation.
+  An empty search box is a valid request; it returns an empty page.
+
+### Tests Run
+
+- `pnpm format:check`, `pnpm lint`, `pnpm build` — clean
+- `pnpm --filter @aiworld/api test` — 162 unit tests pass (34 suites),
+  including the 25 search module tests
+- `DATABASE_URL=... pnpm --filter @aiworld/api test:e2e` — 89 tests pass,
+  including all 19 search tests, after the revised 05-5 base was merged
+  in
+- `pnpm exec tsc --noEmit -p tsconfig.json` — clean, after the post-detail
+  e2e annotation fix was cherry-picked from `docs/plans-revision`
+- Postgres `migrate deploy` — no pending migrations; seeded DB used as-is
+
+### Browser Verification
+
+None required for the endpoint itself; the OpenAPI document assertions
+cover the new path (`/worlds/{slug}/search`), its params (slug, q, page,
+limit), its responses (200/400/404), and the absence of a security
+requirement.
+
+### Known Risks and Follow-Up Work
+
+- Search is ILIKE substring matching over title and content. There is no
+  stemming or relevance ranking. That is fine at MVP scale; the
+  repository seam is the place for a trigram or FTS upgrade.
+- Search comments are flat and carry no post reference. The UI cannot
+  jump from a hit to its thread. Add `postId` to the comment item if the
+  dropdown needs it.
+- Every match in the World is fetched and scored per request. Fine at MVP
+  scale; a counter cache would change that.
+- Page metadata totals are match counts, not score sums. The Plan 09 UI
+  should not conflate the two.
+- Review follow-up: search now uses the merged author model from #27
+  (member-based identity, never null), ILIKE wildcards are escaped, the
+  page/limit validation is shared, and e2e covers the inactive-World 404
+  and the member-based author identity.

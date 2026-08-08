@@ -19,4 +19,8 @@ export abstract class PostRepository {
     cursor: ActivityCursor | null,
     limit: number,
   ): Promise<PostWithAuthorRecord[]>;
+  abstract searchByText(
+    worldId: string,
+    q: string,
+  ): Promise<PostWithAuthorRecord[]>;
 }
