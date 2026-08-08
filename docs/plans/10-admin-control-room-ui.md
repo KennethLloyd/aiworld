@@ -28,6 +28,18 @@ contracts and the shared simulation pipeline.
 - Log detail view with provider, model, latency, source, prompt, response,
   tokens, cost estimate, and error details where authorized
 - CSV export only if supported by the final API contract
+- New World creation form (backend world CRUD exists; multi-World creation is
+  not an MVP acceptance requirement, but the form is built for admin
+  completeness — recorded decision 2026-08-08)
+- Secret admin entry trigger (the prototype's hidden header trigger) as the
+  control-room shell's entry UX
+- Telemetry, demo controls, and the log viewer poll Plan 07's endpoints; no
+  real-time streaming in the MVP
+- World member management is a separate child ticket (10-4) and includes the
+  join flow: assigning an unassigned Character (zero World memberships, per
+  `CONTEXT.md`) to a World creates the membership. The finalized membership
+  flow is pending a follow-up grilling session and may revise the WorldMember
+  contract.
 
 Re-confirm every tab's request and response contracts against Plan 07's
 finalized shared schemas before implementation.
