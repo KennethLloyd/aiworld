@@ -611,6 +611,9 @@ describe('World discussion search (HTTP boundary)', () => {
     content: 'Never trust a quillfox with your microwave.',
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
+    post: {
+      title: postRow.title,
+    },
     author: {
       id: authorMemberId,
       character: {
