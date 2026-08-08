@@ -59,6 +59,8 @@ describe('worldOpenApiDocument', () => {
       '/world-members/{memberId}',
       '/worlds',
       '/worlds/{slug}',
+      '/worlds/{slug}/posts',
+      '/worlds/{slug}/posts/{postId}',
     ]);
     expect(paths['/worlds']?.get).toBeDefined();
     expect(paths['/worlds']?.post).toBeDefined();

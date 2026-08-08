@@ -4,8 +4,6 @@ model Comment {
   authorMemberId    String
   parentCommentId   String?
   content           String      @db.Text
-  upvotes           Int         @default(0)
-  downvotes         Int         @default(0)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
