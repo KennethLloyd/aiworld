@@ -12,9 +12,10 @@ deferred work is never lost and never blocks the demo-critical path.
 
 - Anything explicitly deferred during MVP planning (e.g., Hot feed
   performance, ticket #105).
+- World member management with the Character join flow (ticket #55, moved
+  from Plan 10 on 2026-08-08 while the WorldMember flow is under review).
 - Any ticket graduating from `needs-triage` after a review or grilling
-  session (e.g., the WorldMember join-flow review outcome, if deferred past
-  the MVP).
+  session.
 - Human participation (User to WorldMember onboarding) once planned.
 
 ## Rules
