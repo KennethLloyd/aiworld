@@ -10,6 +10,7 @@ import { Injectable } from '@nestjs/common';
 import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
 import {
   PostDetailRecord,
+  PostFeedRecord,
   PostRecord,
   PostWithAuthorRecord,
 } from '@/posts/domain/post-record';
@@ -48,10 +49,13 @@ export class PostResponseMapper {
   }
 
   mapToPaginatedPostResponse(
-    paginatedRecords: Paginated<PostRecord>,
+    paginatedRecords: Paginated<PostFeedRecord>,
   ): ListPostsResponse {
     return {
-      items: paginatedRecords.items.map((item) => this.mapToPostResponse(item)),
+      items: paginatedRecords.items.map((item) => ({
+        ...this.mapToPostWithAuthorResponse(item),
+        commentCount: item.commentCount,
+      })),
       meta: paginatedRecords.meta,
     };
   }

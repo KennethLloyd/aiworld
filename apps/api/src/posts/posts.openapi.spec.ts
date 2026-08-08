@@ -73,4 +73,32 @@ describe('postsOpenApiDocument', () => {
 
     expect(Object.keys(responses ?? {}).sort()).toEqual(['200', '400', '404']);
   });
+
+  it('documents the extended feed item shape with author and commentCount', () => {
+    const components = postsOpenApiDocument.components as
+      | {
+          schemas?: Record<string, unknown>;
+        }
+      | undefined;
+
+    const listResponse = components?.schemas?.['ListPostsResponse'] as
+      | {
+          properties?: {
+            items?: {
+              items?: {
+                properties?: Record<string, unknown>;
+              };
+            };
+          };
+        }
+      | undefined;
+
+    const itemProperties = listResponse?.properties?.items?.items?.properties;
+    expect(itemProperties).toBeDefined();
+    expect(itemProperties).toHaveProperty('author');
+    expect(itemProperties?.commentCount).toMatchObject({
+      type: 'integer',
+      minimum: 0,
+    });
+  });
 });

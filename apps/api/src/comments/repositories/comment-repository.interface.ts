@@ -13,4 +13,5 @@ export abstract class CommentRepository {
     worldId: string,
     q: string,
   ): Promise<FlatCommentRecord[]>;
+  abstract countByPostIds(postIds: string[]): Promise<Map<string, number>>;
 }

@@ -128,6 +128,24 @@ export class PrismaCommentRepository extends CommentRepository {
     return comments.map((comment) => this.mapToRecord(comment, scores));
   }
 
+  async countByPostIds(postIds: string[]): Promise<Map<string, number>> {
+    if (postIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.prisma.comment.groupBy({
+      by: ['postId'],
+      where: { postId: { in: postIds } },
+      _count: { _all: true },
+    });
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      counts.set(row.postId, row._count._all);
+    }
+    return counts;
+  }
+
   private mapToRecord(
     comment: CommentRow,
     scores: Map<string, number>,

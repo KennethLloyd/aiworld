@@ -13,6 +13,10 @@ export interface PostWithAuthorRecord extends PostRecord {
   author: AuthorRecord;
 }
 
+export interface PostFeedRecord extends PostWithAuthorRecord {
+  commentCount: number;
+}
+
 export interface PostDetailRecord extends PostWithAuthorRecord {
   comments: CommentRecord[];
 }

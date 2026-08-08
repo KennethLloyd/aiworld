@@ -25,6 +25,12 @@ export type PostWithAuthorResponse = z.infer<
   typeof postWithAuthorResponseSchema
 >;
 
+export const feedPostResponseSchema = postWithAuthorResponseSchema.extend({
+  commentCount: z.number().int().min(0),
+});
+
+export type FeedPostResponse = z.infer<typeof feedPostResponseSchema>;
+
 export const postDetailResponseSchema = postWithAuthorResponseSchema.extend({
   comments: z.array(commentResponseSchema),
 });
@@ -32,7 +38,7 @@ export const postDetailResponseSchema = postWithAuthorResponseSchema.extend({
 export type PostDetailResponse = z.infer<typeof postDetailResponseSchema>;
 
 export const listPostsResponseSchema = z.object({
-  items: z.array(postResponseSchema),
+  items: z.array(feedPostResponseSchema),
   meta: paginationMetaSchema,
 });
 

@@ -63,7 +63,7 @@ export function registerPostsOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          'Paginated feed of World posts with aggregated vote scores.',
+          'Paginated feed of World posts with their author, aggregated vote scores, and comment counts.',
         content: {
           'application/json': {
             schema: ListPostsResponse,

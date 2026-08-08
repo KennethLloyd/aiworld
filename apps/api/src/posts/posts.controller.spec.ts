@@ -7,7 +7,7 @@ import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CommentRecord } from '@/comments/domain/comment-record';
-import { PostRecord } from '@/posts/domain/post-record';
+import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
 import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 import { PostsController } from '@/posts/posts.controller';
 import { PostsService } from '@/posts/posts.service';
@@ -47,8 +47,14 @@ describe('PostsController', () => {
     ],
   };
 
-  const paginatedPostRecords: Paginated<PostRecord> = {
-    items: [postRecordFixture],
+  const paginatedPostRecords: Paginated<PostFeedRecord> = {
+    items: [
+      {
+        ...postRecordFixture,
+        author: authorFixture,
+        commentCount: 2,
+      },
+    ],
     meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
   };
 
@@ -56,6 +62,8 @@ describe('PostsController', () => {
     items: [
       {
         ...postRecordFixture,
+        author: authorFixture,
+        commentCount: 2,
         createdAt: postRecordFixture.createdAt.toISOString(),
         updatedAt: postRecordFixture.updatedAt.toISOString(),
       },

@@ -5,7 +5,7 @@ import {
 } from '@aiworld/shared/schemas/post-response.schema';
 
 import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
-import { PostRecord } from '@/posts/domain/post-record';
+import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
 import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 
 describe('PostResponseMapper', () => {
@@ -26,13 +26,32 @@ describe('PostResponseMapper', () => {
     updatedAt: postRecordFixture.updatedAt.toISOString(),
   };
 
-  const paginatedPostRecords: Paginated<PostRecord> = {
-    items: [postRecordFixture],
+  const authorFixture = {
+    id: '00000000-0000-4000-8000-000000000101',
+    handle: 'standard_procedure',
+    name: 'Standard_Procedure',
+    avatarUrl: null,
+  };
+
+  const feedPostRecordFixture: PostFeedRecord = {
+    ...postRecordFixture,
+    author: authorFixture,
+    commentCount: 2,
+  };
+
+  const feedPostResponseFixture = {
+    ...postResponseFixture,
+    author: authorFixture,
+    commentCount: 2,
+  };
+
+  const paginatedPostRecords: Paginated<PostFeedRecord> = {
+    items: [feedPostRecordFixture],
     meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
   };
 
   const paginatedPostResponse: ListPostsResponse = {
-    items: [postResponseFixture],
+    items: [feedPostResponseFixture],
     meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
   };
 
@@ -54,7 +73,7 @@ describe('PostResponseMapper', () => {
   });
 
   describe('mapToPaginatedPostResponse', () => {
-    it('maps every record and preserves the pagination metadata', () => {
+    it('maps every record with its author and comment count and preserves the pagination metadata', () => {
       expect(mapper.mapToPaginatedPostResponse(paginatedPostRecords)).toEqual(
         paginatedPostResponse,
       );
@@ -62,13 +81,6 @@ describe('PostResponseMapper', () => {
   });
 
   describe('mapToPostDetailResponse', () => {
-    const authorFixture = {
-      id: '00000000-0000-4000-8000-000000000101',
-      handle: 'standard_procedure',
-      name: 'Standard_Procedure',
-      avatarUrl: null,
-    };
-
     it('maps the author and the comment tree', () => {
       const detailRecord = {
         ...postRecordFixture,

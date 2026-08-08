@@ -8,7 +8,7 @@ import {
   FlatCommentRecord,
 } from '@/comments/domain/comment-record';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRecord } from '@/posts/domain/post-record';
+import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
 import { PostsService } from '@/posts/posts.service';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { WorldRecord } from '@/world/domain/world-record';
@@ -69,8 +69,14 @@ describe('PostsService', () => {
     },
   ];
 
-  const paginatedFeedFixture: Paginated<PostRecord> = {
-    items: [postRecordFixture],
+  const paginatedFeedFixture: Paginated<PostFeedRecord> = {
+    items: [
+      {
+        ...postRecordFixture,
+        author: authorFixture,
+        commentCount: 2,
+      },
+    ],
     meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
   };
 
