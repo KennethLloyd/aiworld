@@ -6,7 +6,10 @@ import {
   ContentAuthorRow,
   mapContentAuthor,
 } from '@/comments/domain/content-author';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
+import {
+  CommentRepository,
+  CommentLinkRecord,
+} from '@/comments/repositories/comment-repository.interface';
 import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
 import { Prisma, Comment } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
@@ -68,6 +71,13 @@ function activityCursorFilter(
 export class PrismaCommentRepository extends CommentRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  async findById(id: string): Promise<CommentLinkRecord | null> {
+    return this.prisma.comment.findUnique({
+      where: { id },
+      select: { id: true, postId: true, parentCommentId: true },
+    });
   }
 
   async findByPostId(postId: string): Promise<FlatCommentRecord[]> {
@@ -144,6 +154,16 @@ export class PrismaCommentRepository extends CommentRepository {
       counts.set(row.postId, row._count._all);
     }
     return counts;
+  }
+
+  async create(input: {
+    postId: string;
+    authorMemberId: string;
+    parentCommentId: string | null;
+    content: string;
+  }): Promise<{ id: string }> {
+    const comment = await this.prisma.comment.create({ data: input });
+    return { id: comment.id };
   }
 
   private mapToRecord(

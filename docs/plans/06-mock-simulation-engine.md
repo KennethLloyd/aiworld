@@ -252,3 +252,120 @@ flow.
 - Ticket 41 persists decisions, writes SimulationLog rows (including the
   SKIPPED status for a `skip` vote), and adds the configurable cost estimate.
 
+### Ticket 41 (Plan 06-3): Persistence, validation, and comment depth enforcement
+
+#### Senior-Level Summary
+
+Ticket 41 completed the engine: a full mock cycle now persists real content and
+writes a SimulationLog row for every provider call, and the write path rejects
+invalid or failed output instead of creating partial rows.
+
+Persistence lives in `SimulationContentWriter`, the only place generated content
+is written. It dispatches on the `SimulationDecision` union and goes through
+repository ports (`PostRepository.create`, `VoteRepository.create`, and
+`CommentRepository.create`/`findById`) so the Prisma boundary stays inside the
+adapters and tests inject doubles. Comment depth is enforced here, on the write
+path: a reply whose parent is missing, belongs to another post, or sits at the
+three-level limit is rejected with a `SimulationWriteError`
+(`COMMENT_PARENT_NOT_FOUND`, `COMMENT_PARENT_POST_MISMATCH`,
+`COMMENT_DEPTH_EXCEEDED`) that subclasses the existing action error so the shared
+failure mapper handles it — exactly what Plan 02 deferred and Plan 06 required.
+
+Logging is a separate concern. `SimulationLogService` translates every action
+outcome into one `SimulationLog` row through the `SimulationLogRepository` port:
+success and skip (SKIPPED) rows carry source, model, latency, token count, and a
+cost estimate; failed rows carry a `code: message` error and never partial
+content. Cost is estimated by `SimulationCostEstimator` from per-model token
+rates loaded from `LLM_INPUT_COST_PER_MILLION_USD` / `LLM_OUTPUT_COST_PER_MILLION_USD`
+and is only filled when the provider telemetry does not already report a cost.
+The `Vote` row for an upvote/downvote is a plain integer value; a skip persists
+no row.
+
+`SimulationCycleService` orchestrates a full mock cycle — POST, then VOTE, then
+COMMENT on the created post — and returns an observable `SimulationCycleResult`
+of steps. Every step that fails (a World that exists but is inactive, an
+inactive actor, provider error, invalid output, write rejection) becomes a
+logged FAILED step; a World that does not exist cannot be logged because the
+SimulationLog row requires the World foreign key, so the cycle fails fast with
+no steps. The cycle never crashes. Log types (`SimulationExecutionSource`,
+`SimulationLogStatus`) are plain unions in `simulation/domain` so the Prisma
+enums stay inside the adapter. The DI wiring in `SimulationModule` binds the
+mock provider, the cost config, the log repository adapter, and the new
+services, and registers the new `VotesModule` for the vote repository port.
+
+#### Files Changed
+
+- `apps/api/src/simulation/domain/simulation-log.ts` (new: log unions, no Prisma
+  imports)
+- `apps/api/src/simulation/cost/simulation-cost.ts` and
+  `simulation-cost-estimator.ts` (+ specs, new)
+- `apps/api/src/simulation/logging/simulation-log-record.ts`,
+  `simulation-log-repository.interface.ts`, `prisma-simulation-log.repository.ts`,
+  `simulation-log.service.ts` (+ spec, new)
+- `apps/api/src/simulation/writing/simulation-content-writer.ts` (+ spec, new)
+- `apps/api/src/simulation/cycle/simulation-cycle-result.ts`,
+  `simulation-cycle.service.ts` (+ spec, new)
+- `apps/api/src/votes/votes.module.ts`, `votes/repositories/vote-repository.interface.ts`,
+  `votes/repositories/prisma-vote.repository.ts` (new)
+- `apps/api/test/simulation-cycle.e2e-spec.ts` (new)
+- `apps/api/src/simulation/simulation.module.ts` (DI wiring)
+- `apps/api/src/app.module.ts` (register `VotesModule`)
+- `apps/api/src/simulation/actions/simulation-action.error.ts` (comment error
+  codes and `SimulationWriteError`)
+- `apps/api/src/comments/repositories/comment-repository.interface.ts` and
+  `prisma-comment.repository.ts` (`findById`, `create`)
+- `apps/api/src/posts/repositories/post-repository.interface.ts` and
+  `prisma-post.repository.ts` (`create`)
+- `apps/api/src/simulation/actions/simulation-context-provider.spec.ts` (mocks)
+
+#### Architecture and SOLID Notes
+
+The writer, logger, and cost estimator are separate injected services (the Plan
+06 standard: engine orchestrates, actions own action work, logging and cost stay
+separate). Persistence goes through repository ports with the Prisma adapters
+inside them; no action or service imports Prisma or the generated types. The
+write path is the single enforcement point for comment depth, so the read-side
+`buildCommentTree` truncation remains a UI/read concern only. `SimulationWriteError`
+reuses the existing failure taxonomy rather than introducing a parallel one.
+
+#### Tests Run
+
+- `pnpm --filter @aiworld/api test` — 50 suites, 271 tests passed (full suite;
+  14 simulation suites, 80 simulation tests)
+- `pnpm --filter @aiworld/api test:e2e` — 10 suites, 98 tests passed
+  (includes the new `simulation-cycle` suite: a full cycle persists a post,
+  vote, and comment with three SUCCESS logs carrying source/model/latency/tokens/
+  cost; an unresolvable actor logs a FAILED step and creates no content)
+- `pnpm --filter @aiworld/api exec tsc --noEmit` — only the pre-existing errors
+  in `src/search` and `test/character-activity.e2e-spec.ts` (present on `main`)
+- `pnpm --filter @aiworld/api lint`
+- `pnpm --filter @aiworld/api format:check`
+- `pnpm --filter @aiworld/api build`
+- Root: `pnpm test`, `pnpm lint`, `pnpm format:check`, `pnpm build`
+
+#### Browser Verification
+
+Backend-only ticket; the public API surface is unchanged and no browser flow
+applies. Plan 07 adds the admin command endpoint that will expose a browser
+flow for triggering a mock cycle.
+
+#### Known Risks and Follow-Up Work
+
+- The cost estimate is configurable but simulated; Plan 08 will replace it with
+  provider-reported cost when telemetry supplies one.
+- Content and its SimulationLog row are written as separate inserts, so an
+  infrastructure failure while writing the log would leave the content row
+  committed (the step still reports FAILED). This is outside the
+  invalid-provider-output guarantee and should be revisited when a transaction
+  seam across repository ports is justified.
+- Comment depth walks ancestors one hop at a time via `findById`; it is bounded
+  because the write path enforces the limit, but a future bulk depth query could
+  remove the N+1 if comment trees grow.
+- A World that does not exist cannot produce a SimulationLog row (required
+  foreign key), so that failure is returned without a step.
+- `SimulationCycleService` runs a fixed POST → VOTE → COMMENT order; the
+  scheduler in Plan 07 will drive action selection from the World simulation
+  config weights.
+- Plan 07 exposes the admin command endpoint (`RUN_ONE_CYCLE`) and a browser
+  flow; Plan 08 adds the provider registry/factory and the real adapter.
+

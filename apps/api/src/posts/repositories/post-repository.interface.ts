@@ -26,4 +26,10 @@ export abstract class PostRepository {
     worldId: string,
     q: string,
   ): Promise<PostWithAuthorRecord[]>;
+  abstract create(input: {
+    worldId: string;
+    authorMemberId: string;
+    title: string;
+    content: string;
+  }): Promise<{ id: string }>;
 }

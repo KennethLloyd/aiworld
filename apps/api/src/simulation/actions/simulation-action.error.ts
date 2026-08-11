@@ -5,6 +5,9 @@ export const simulationActionErrorCodes = [
   'CHARACTER_INACTIVE',
   'MEMBER_NOT_FOUND',
   'POST_NOT_FOUND',
+  'COMMENT_PARENT_NOT_FOUND',
+  'COMMENT_PARENT_POST_MISMATCH',
+  'COMMENT_DEPTH_EXCEEDED',
 ] as const;
 export type SimulationActionErrorCode =
   (typeof simulationActionErrorCodes)[number];
@@ -27,6 +30,10 @@ export class SimulationActionError extends Error {
     this.name = 'SimulationActionError';
   }
 }
+
+/** A write-path rejection (for example a comment deeper than three levels).
+ * Subclasses SimulationActionError so the shared failure mapper handles it. */
+export class SimulationWriteError extends SimulationActionError {}
 
 function toFailure(
   code: ActionFailureCode,

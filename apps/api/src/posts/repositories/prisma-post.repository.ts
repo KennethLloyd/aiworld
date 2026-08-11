@@ -203,6 +203,16 @@ export class PrismaPostRepository extends PostRepository {
     return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
   }
 
+  async create(input: {
+    worldId: string;
+    authorMemberId: string;
+    title: string;
+    content: string;
+  }): Promise<{ id: string }> {
+    const post = await this.prisma.post.create({ data: input });
+    return { id: post.id };
+  }
+
   private mapToRecord(
     post: PostFeedRow,
     scores: Map<string, number>,

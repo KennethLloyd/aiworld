@@ -1,0 +1,53 @@
+import { Injectable } from '@nestjs/common';
+
+import { PrismaService } from '@/lib/database/prisma.service';
+import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import {
+  SimulationLogCreateInput,
+  SimulationLogRepository,
+} from '@/simulation/logging/simulation-log-repository.interface';
+
+@Injectable()
+export class PrismaSimulationLogRepository extends SimulationLogRepository {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
+
+  async create(input: SimulationLogCreateInput): Promise<SimulationLogRecord> {
+    const row = await this.prisma.simulationLog.create({
+      data: {
+        worldId: input.worldId,
+        characterId: input.characterId,
+        action: input.action,
+        targetId: input.targetId ?? null,
+        reasoning: input.reasoning ?? null,
+        provider: input.provider,
+        model: input.model,
+        latencyMs: input.latencyMs ?? null,
+        executionSource: input.executionSource,
+        tokensUsed: input.tokensUsed ?? null,
+        costEstimate: input.costEstimate ?? null,
+        status: input.status,
+        errorMessage: input.errorMessage ?? null,
+      },
+    });
+
+    return {
+      id: row.id,
+      worldId: row.worldId,
+      characterId: row.characterId,
+      action: row.action,
+      targetId: row.targetId,
+      reasoning: row.reasoning,
+      provider: row.provider,
+      model: row.model,
+      latencyMs: row.latencyMs,
+      executionSource: row.executionSource,
+      tokensUsed: row.tokensUsed,
+      costEstimate: row.costEstimate === null ? null : Number(row.costEstimate),
+      status: row.status,
+      errorMessage: row.errorMessage,
+      executedAt: row.executedAt,
+    };
+  }
+}
