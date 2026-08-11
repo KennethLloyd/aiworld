@@ -50,6 +50,13 @@ const providerConfigInputSchema = z.object({
 
 type ProviderEnvironment = Record<string, string | undefined>;
 
+/** Empty environment strings are treated as absent, so a `.env` that sets
+ * `LLM_MODEL=` (for example) still falls back to defaults instead of failing
+ * validation. */
+function envValue(value: string | undefined): string | undefined {
+  return value !== undefined && value.trim() === '' ? undefined : value;
+}
+
 function getMissingProductionValues(
   providerId: ProviderId,
   config: z.infer<typeof providerConfigInputSchema>,
@@ -71,15 +78,15 @@ export function loadProviderConfig(
   env: ProviderEnvironment = process.env,
 ): ProviderConfig {
   const parsed = providerConfigInputSchema.safeParse({
-    providerId: env.LLM_PROVIDER,
-    baseUrl: env.LLM_BASE_URL,
-    apiKey: env.LLM_API_KEY,
-    model: env.LLM_MODEL,
-    timeoutMs: env.LLM_TIMEOUT_MS,
-    maxRetries: env.LLM_MAX_RETRIES,
-    maxConcurrency: env.LLM_MAX_CONCURRENCY,
-    structuredOutput: env.LLM_STRUCTURED_OUTPUT,
-    usageMetadata: env.LLM_USAGE_METADATA,
+    providerId: envValue(env.LLM_PROVIDER),
+    baseUrl: envValue(env.LLM_BASE_URL),
+    apiKey: envValue(env.LLM_API_KEY),
+    model: envValue(env.LLM_MODEL),
+    timeoutMs: envValue(env.LLM_TIMEOUT_MS),
+    maxRetries: envValue(env.LLM_MAX_RETRIES),
+    maxConcurrency: envValue(env.LLM_MAX_CONCURRENCY),
+    structuredOutput: envValue(env.LLM_STRUCTURED_OUTPUT),
+    usageMetadata: envValue(env.LLM_USAGE_METADATA),
   });
 
   if (!parsed.success) {

@@ -10,6 +10,7 @@ describe('WorldMembersService', () => {
     findAll: jest.fn(),
     findById: jest.fn(),
     findByWorldAndCharacter: jest.fn(),
+    findActiveByWorldAndCharacter: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   };

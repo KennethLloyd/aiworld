@@ -16,6 +16,11 @@ export abstract class WorldMemberRepository {
     worldId: string,
     characterId: string,
   ): Promise<{ id: string } | null>;
+  /** Active-membership lookup for the simulation pipeline (ADR-0002). */
+  abstract findActiveByWorldAndCharacter(
+    worldId: string,
+    characterId: string,
+  ): Promise<{ id: string } | null>;
   abstract create(input: CreateWorldMember): Promise<WorldMemberRecord>;
   abstract update(
     id: string,

@@ -35,7 +35,7 @@ export type LlmProviderResult<T> = {
 export abstract class LlmProvider {
   abstract readonly config: ProviderConfig;
 
-  abstract completeStructured<T>(
+  abstract generateStructured<T>(
     request: LlmProviderRequest<T>,
   ): Promise<LlmProviderResult<T>>;
 }

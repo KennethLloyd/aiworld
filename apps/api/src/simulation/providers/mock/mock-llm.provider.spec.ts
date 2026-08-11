@@ -31,11 +31,11 @@ describe('MockLlmProvider', () => {
       { id: 'vote', output: { decision: 'upvote' } },
     ]);
 
-    const first = await provider.completeStructured({
+    const first = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
-    const second = await provider.completeStructured({
+    const second = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -49,7 +49,7 @@ describe('MockLlmProvider', () => {
       [{ id: 'vote', output: { decision: 'downvote' } }],
     );
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -67,7 +67,7 @@ describe('MockLlmProvider', () => {
       [{ id: 'vote', output: { decision: 'skip' } }],
     );
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -82,7 +82,7 @@ describe('MockLlmProvider', () => {
     );
 
     await expect(
-      provider.completeStructured({ prompt: votePrompt, schema: voteSchema }),
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
     ).rejects.toBeInstanceOf(ProviderCapabilityError);
   });
 
@@ -98,7 +98,7 @@ describe('MockLlmProvider', () => {
       ],
     );
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -116,7 +116,7 @@ describe('MockLlmProvider', () => {
       [{ id: 'vote', output: { decision: 'upvote' } }],
     );
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -129,11 +129,11 @@ describe('MockLlmProvider', () => {
       { id: 'vote', output: { decision: 'upvote' } },
     ]);
 
-    const first = await provider.completeStructured({
+    const first = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
-    const second = await provider.completeStructured({
+    const second = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
@@ -152,7 +152,7 @@ describe('MockLlmProvider', () => {
     ]);
 
     await expect(
-      provider.completeStructured({ prompt: votePrompt, schema: voteSchema }),
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
     ).rejects.toMatchObject({
       code: 'TIMEOUT',
       message: 'Mock timeout',
@@ -166,7 +166,7 @@ describe('MockLlmProvider', () => {
     ]);
 
     await expect(
-      provider.completeStructured({ prompt: votePrompt, schema: voteSchema }),
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
     ).rejects.toMatchObject({ code: 'UNKNOWN', retryable: false });
   });
 
@@ -180,7 +180,7 @@ describe('MockLlmProvider', () => {
     };
 
     await expect(
-      provider.completeStructured({ prompt, schema: voteSchema }),
+      provider.generateStructured({ prompt, schema: voteSchema }),
     ).rejects.toMatchObject({ code: 'UNKNOWN' });
   });
 
@@ -190,7 +190,7 @@ describe('MockLlmProvider', () => {
     ]);
 
     await expect(
-      provider.completeStructured({ prompt: votePrompt, schema: voteSchema }),
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
     ).rejects.toBeInstanceOf(ProviderMalformedResponseError);
   });
 
@@ -203,11 +203,11 @@ describe('MockLlmProvider', () => {
       { id: 'vote', output: { decision: 'upvote' } },
     ]);
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
-    const fastResult = await fastProvider.completeStructured({
+    const fastResult = await fastProvider.generateStructured({
       prompt: votePrompt,
       schema: voteSchema,
     });
