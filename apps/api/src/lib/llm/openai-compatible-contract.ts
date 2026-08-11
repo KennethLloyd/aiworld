@@ -90,7 +90,13 @@ export function parseStructuredAssistantContent<T>(
   response: OpenAiCompatibleChatCompletion,
   schema: z.ZodType<T>,
 ): T {
-  const content = extractAssistantContent(response);
+  return parseStructuredJsonContent(extractAssistantContent(response), schema);
+}
+
+function parseStructuredJsonContent<T>(
+  content: string,
+  schema: z.ZodType<T>,
+): T {
   let json: unknown;
 
   try {
@@ -109,4 +115,25 @@ export function parseStructuredAssistantContent<T>(
   }
 
   return parsed.data;
+}
+
+export function extractStructuredJsonText(content: string): string {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/```[^\n]*\n?([\s\S]*?)```/);
+  const candidate = (fenced?.[1] ?? trimmed).trim();
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+
+  if (start === -1 || end === -1 || end <= start) {
+    return '';
+  }
+
+  return candidate.slice(start, end + 1);
+}
+
+export function parseStructuredTextContent<T>(
+  content: string,
+  schema: z.ZodType<T>,
+): T {
+  return parseStructuredJsonContent(extractStructuredJsonText(content), schema);
 }

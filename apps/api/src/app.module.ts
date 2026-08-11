@@ -8,6 +8,7 @@ import { CharactersModule } from '@/characters/characters.module';
 import { CommentsModule } from '@/comments/comments.module';
 import { PostsModule } from '@/posts/posts.module';
 import { SearchModule } from '@/search/search.module';
+import { SimulationModule } from '@/simulation/simulation.module';
 import { WorldMembersModule } from '@/world-members/world-members.module';
 import { WorldModule } from '@/world/world.module';
 
@@ -33,6 +34,7 @@ import { PrismaService } from './lib/database/prisma.service';
     CommentsModule,
     ActivityModule,
     SearchModule,
+    SimulationModule,
   ],
   controllers: [AppController],
   providers: [

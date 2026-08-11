@@ -87,16 +87,67 @@ reuse it, do not reimplement it.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress
 
 ### Senior-Level Summary
 
+Ticket 39 shipped the provider seam of the simulation engine. The `LlmProvider`
+port (an abstract class used as a Nest DI token) lives in
+`apps/api/src/simulation/providers` and reuses the Plan 03 `lib/llm`
+foundation: `ProviderConfig`, `ProviderError`, and the OpenAI-compatible
+contract parsers. The port carries typed requests (system/user prompt plus
+target schema), typed results, and telemetry (source, model, latency, tokens,
+optional cost estimate). `MockLlmProvider` implements the port
+deterministically: it selects the fixture whose id appears in the prompt text
+as a whole word, so the same prompt always produces the same output, latency,
+and token counts.
+Capability modes are explicit: `json-object` and `json-schema` return raw JSON,
+`text-json-fallback` wraps the JSON in a markdown code fence and parses it
+through the new `parseStructuredTextContent` extractor, and `unsupported`
+rejects structured requests with `ProviderCapabilityError`. Usage metadata
+`unavailable` omits tokens; `required` and `optional` report fixture tokens or
+a deterministic estimate. A fixture can simulate a provider failure (for
+example a timeout) so failure paths are testable offline.
+`SimulationModule` binds the port to the mock with a default fixture registry
+and exports the port for the ticket 40 actions.
+
 ### Files Changed
+
+- `apps/api/src/simulation/providers/llm-provider.port.ts` (new)
+- `apps/api/src/simulation/providers/mock/mock-llm.provider.ts` (new)
+- `apps/api/src/simulation/providers/mock/mock-llm.provider.spec.ts` (new)
+- `apps/api/src/simulation/providers/mock/fixtures/mock-llm-fixtures.ts` (new)
+- `apps/api/src/simulation/simulation.module.ts` (new)
+- `apps/api/src/lib/llm/openai-compatible-contract.ts` (text-to-JSON fallback)
+- `apps/api/src/lib/llm/openai-compatible-contract.spec.ts`
+- `apps/api/src/app.module.ts`
 
 ### Architecture and SOLID Notes
 
+The port is an abstract class so NestJS binds implementations through one DI
+token, matching the repository-port convention. The mock is an adapter behind
+that port; simulation code never sees mock or vendor details. The fallback
+extractor lives in `lib/llm` so the Plan 8 adapter reuses it instead of
+re-deriving it. No generated Prisma types and no network access appear in this
+ticket.
+
 ### Tests Run
+
+- `pnpm --filter @aiworld/api test` — 37 suites, 201 tests passed
+- `pnpm --filter @aiworld/api exec tsc --noEmit` — only pre-existing errors in
+  `src/search` and `test/character-activity.e2e-spec.ts` (present on `main`)
+- `pnpm --filter @aiworld/api lint`
+- `pnpm --filter @aiworld/api format:check`
+- `pnpm --filter @aiworld/api build`
 
 ### Browser Verification
 
+Backend-only ticket; API behavior is unchanged and no browser flow applies.
+
 ### Known Risks and Follow-Up Work
+
+- The mock matches a fixture when its id appears in the prompt text as a whole
+  word; ticket 40 prompt builders must include the fixture id.
+- `costEstimateUsd` is typed but not filled; ticket 41 adds the configurable
+  cost estimate.
+- Plan 8 adds the provider registry/factory and the real adapter.
