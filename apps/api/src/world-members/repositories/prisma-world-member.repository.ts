@@ -95,6 +95,18 @@ export class PrismaWorldMemberRepository extends WorldMemberRepository {
     return member;
   }
 
+  async findActiveByWorldAndCharacter(
+    worldId: string,
+    characterId: string,
+  ): Promise<{ id: string } | null> {
+    const member = await this.prisma.worldMember.findFirst({
+      where: { worldId, characterId, isActive: true },
+      select: { id: true },
+    });
+
+    return member;
+  }
+
   async create(input: CreateWorldMember): Promise<WorldMemberRecord> {
     const { worldSlug, characterId, userId, isActive } = input;
     const world = await this.prisma.world.findUnique({

@@ -16,6 +16,6 @@ import { WorldService } from '@/world/world.service';
     WorldResponseMapper,
     WorldService,
   ],
-  exports: [WorldService],
+  exports: [WorldService, WorldRepository],
 })
 export class WorldModule {}

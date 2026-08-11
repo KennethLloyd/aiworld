@@ -19,6 +19,26 @@ describe('loadProviderConfig', () => {
     });
   });
 
+  it('treats empty-string settings as absent', () => {
+    expect(
+      loadProviderConfig({
+        LLM_PROVIDER: '',
+        LLM_MODEL: '',
+        LLM_STRUCTURED_OUTPUT: '',
+      }),
+    ).toEqual({
+      providerId: 'mock',
+      model: 'mock',
+      timeoutMs: 30_000,
+      maxRetries: 2,
+      maxConcurrency: 1,
+      capabilities: {
+        structuredOutput: 'text-json-fallback',
+        usageMetadata: 'optional',
+      },
+    });
+  });
+
   it('requires connection settings for non-mock providers', () => {
     expect(() =>
       loadProviderConfig({ LLM_PROVIDER: 'openai-compatible' }),
