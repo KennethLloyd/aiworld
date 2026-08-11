@@ -51,7 +51,7 @@ export class MockLlmProvider extends LlmProvider {
     super();
   }
 
-  async completeStructured<T>(
+  async generateStructured<T>(
     request: LlmProviderRequest<T>,
   ): Promise<LlmProviderResult<T>> {
     // text-json-fallback still returns JSON through the text parser, so only

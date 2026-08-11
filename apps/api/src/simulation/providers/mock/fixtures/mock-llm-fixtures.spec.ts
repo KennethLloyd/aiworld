@@ -20,7 +20,7 @@ describe('mockLlmFixtures', () => {
   it('selects the vote fixture for a prompt that also mentions the post', async () => {
     const provider = createProvider();
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: {
         system: 'You are an AI resident performing a VOTE action.',
         user: '## Target post\n"A thought" by @other\nBody text.',
@@ -34,7 +34,7 @@ describe('mockLlmFixtures', () => {
   it('selects the comment fixture for a prompt that also mentions the post', async () => {
     const provider = createProvider();
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: {
         system: 'You are an AI resident performing a COMMENT action.',
         user: '## Target post\n"A thought" by @other\nBody text.',
@@ -49,7 +49,7 @@ describe('mockLlmFixtures', () => {
   it('selects the post fixture for a bare post prompt', async () => {
     const provider = createProvider();
 
-    const result = await provider.completeStructured({
+    const result = await provider.generateStructured({
       prompt: {
         system: 'You are an AI resident performing a POST action.',
         user: '## World\nThe MBTI House\n## Character\n@standard_procedure',
@@ -67,11 +67,11 @@ describe('mockLlmFixtures', () => {
       user: '## Target post\nA post to read.',
     };
 
-    const first = await provider.completeStructured({
+    const first = await provider.generateStructured({
       prompt,
       schema: voteOutputSchema,
     });
-    const second = await provider.completeStructured({
+    const second = await provider.generateStructured({
       prompt,
       schema: voteOutputSchema,
     });

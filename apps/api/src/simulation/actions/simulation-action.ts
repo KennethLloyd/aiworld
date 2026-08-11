@@ -50,7 +50,7 @@ export abstract class SimulationAction<
     try {
       const context = await this.fetchContext(command);
       const prompt = this.buildPrompt(context, command);
-      const { output, telemetry } = await this.provider.completeStructured({
+      const { output, telemetry } = await this.provider.generateStructured({
         prompt,
         schema: this.outputSchema,
       });

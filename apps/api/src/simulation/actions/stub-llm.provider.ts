@@ -18,7 +18,7 @@ export class StubLlmProvider extends LlmProvider {
     super();
   }
 
-  async completeStructured<T>(
+  async generateStructured<T>(
     request: LlmProviderRequest<T>,
   ): Promise<LlmProviderResult<T>> {
     this.requests.push(request);
