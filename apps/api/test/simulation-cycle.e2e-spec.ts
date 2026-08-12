@@ -6,21 +6,150 @@ import { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { SimulationCycleService } from '@/simulation/cycle/simulation-cycle.service';
+import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
+import { ActionFailure } from '@/simulation/actions/simulation-action.error';
+import {
+  SimulationActionOutcome,
+  SimulationDecision,
+} from '@/simulation/actions/simulation-decision';
+import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
+import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
+import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 
 import { canonicalWorld, seedUuid } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
 
 const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgres://postgres:postgres@localhost:5432/aiworld';
+  process.env.DATABASE_URL ?? 'postgres://postgres:***@localhost:5432/aiworld';
+
+/** A full mock cycle — POST, then VOTE, then COMMENT on the created post —
+ * driven through the real DI graph (executor → writer → log service). The
+ * former SimulationCycleService orchestrated this in production code; with no
+ * product caller for a fixed triple (Plan 07's Run One Cycle is a single
+ * scheduler iteration), the orchestration now lives here as a test helper. */
+type FullCycleStep =
+  | {
+      step: 'POST' | 'VOTE' | 'COMMENT';
+      status: 'success';
+      targetId: string;
+      log: SimulationLogRecord;
+    }
+  | {
+      step: 'VOTE';
+      status: 'skipped';
+      targetId: null;
+      log: SimulationLogRecord;
+    }
+  | {
+      step: 'POST' | 'VOTE' | 'COMMENT';
+      status: 'failed';
+      targetId: null;
+      failure: ActionFailure;
+      log: SimulationLogRecord;
+    };
+
+async function runFullCycle(
+  app: INestApplication<App>,
+  input: {
+    worldId: string;
+    worldSlug: string;
+    characterId: string;
+    executionSource: SimulationExecutionSource;
+  },
+): Promise<FullCycleStep[]> {
+  const executor = app.get(SimulationActionExecutor);
+  const writer = app.get(SimulationContentWriter);
+  const logService = app.get(SimulationLogService);
+  const provider = app.get(LlmProvider);
+
+  const runStep = async (
+    outcome: SimulationActionOutcome,
+    action: SimulationDecision['action'],
+    targetId: string | null,
+  ): Promise<FullCycleStep> => {
+    if (outcome.status === 'failed') {
+      const log = await logService.writeFailure({
+        worldId: input.worldId,
+        characterId: input.characterId,
+        action,
+        targetId,
+        executionSource: input.executionSource,
+        provider: provider.config.providerId,
+        model: provider.config.model,
+        failure: outcome.failure,
+      });
+      return {
+        step: action,
+        status: 'failed',
+        targetId: null,
+        failure: outcome.failure,
+        log,
+      };
+    }
+
+    const decision = outcome.decision;
+    const persisted = await writer.persist(decision);
+    const skipped = decision.action === 'VOTE' && decision.decision === 'skip';
+    const log = await logService.writeSuccess(
+      decision,
+      outcome.telemetry,
+      input.executionSource,
+    );
+
+    if (skipped) {
+      return { step: 'VOTE', status: 'skipped', targetId: null, log };
+    }
+    if (persisted === null) {
+      throw new Error('Persisting a non-skipped decision produced no row');
+    }
+    return {
+      step: decision.action,
+      status: 'success',
+      targetId: persisted.id,
+      log,
+    };
+  };
+
+  const steps: FullCycleStep[] = [];
+
+  const postOutcome = await executor.execute({
+    action: 'POST',
+    worldSlug: input.worldSlug,
+    characterId: input.characterId,
+  });
+  const postStep = await runStep(postOutcome, 'POST', null);
+  steps.push(postStep);
+  if (postStep.status !== 'success') {
+    return steps;
+  }
+
+  const postId = postStep.targetId;
+  const voteOutcome = await executor.execute({
+    action: 'VOTE',
+    worldSlug: input.worldSlug,
+    characterId: input.characterId,
+    postId,
+  });
+  steps.push(await runStep(voteOutcome, 'VOTE', postId));
+
+  const commentOutcome = await executor.execute({
+    action: 'COMMENT',
+    worldSlug: input.worldSlug,
+    characterId: input.characterId,
+    postId,
+  });
+  steps.push(await runStep(commentOutcome, 'COMMENT', postId));
+
+  return steps;
+}
 
 describe('Simulation cycle (seeded database)', () => {
   let app: INestApplication<App>;
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: databaseUrl }),
   });
-  let cycleService: SimulationCycleService;
   let worldId: string;
   const createdLogIds: string[] = [];
   const createdPostIds: string[] = [];
@@ -38,7 +167,6 @@ describe('Simulation cycle (seeded database)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    cycleService = app.get(SimulationCycleService);
     const world = await prisma.world.findUniqueOrThrow({
       where: { slug: canonicalWorld.slug },
     });
@@ -64,31 +192,26 @@ describe('Simulation cycle (seeded database)', () => {
     const beforePosts = await prisma.post.count({ where: { worldId } });
     const beforeLogs = await prisma.simulationLog.count({ where: { worldId } });
 
-    const result = await cycleService.runCycle({
+    const steps = await runFullCycle(app, {
+      worldId,
       worldSlug: canonicalWorld.slug,
       characterId: actorCharacterId,
       executionSource: 'RUN_ONE_CYCLE',
     });
 
-    expect(result.status).toBe('success');
-    expect(result.failure).toBeNull();
-    expect(result.steps.map((step) => step.step)).toEqual([
-      'POST',
-      'VOTE',
-      'COMMENT',
-    ]);
-    expect(result.steps.map((step) => step.status)).toEqual([
+    expect(steps.map((step) => step.step)).toEqual(['POST', 'VOTE', 'COMMENT']);
+    expect(steps.map((step) => step.status)).toEqual([
       'success',
       'success',
       'success',
     ]);
 
-    const postStep = result.steps[0];
+    const postStep = steps[0];
     if (postStep.status !== 'success' || postStep.step !== 'POST') {
       throw new Error('A successful POST step must report a target id');
     }
     const postId = postStep.targetId;
-    createdLogIds.push(...result.steps.map((step) => step.log.id));
+    createdLogIds.push(...steps.map((step) => step.log.id));
     createdPostIds.push(postId);
 
     const post = await prisma.post.findUniqueOrThrow({
@@ -159,22 +282,24 @@ describe('Simulation cycle (seeded database)', () => {
         where: { worldId },
       });
 
-      const result = await cycleService.runCycle({
+      const steps = await runFullCycle(app, {
+        worldId,
         worldSlug: canonicalWorld.slug,
         characterId: inactiveCharacterId,
         executionSource: 'RUN_ONE_CYCLE',
       });
 
-      expect(result.status).toBe('failed');
-      expect(result.failure).toMatchObject({ code: 'CHARACTER_INACTIVE' });
-      expect(result.steps).toHaveLength(1);
-      expect(result.steps[0]).toMatchObject({
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
         step: 'POST',
         status: 'failed',
       });
+      expect(steps[0].status === 'failed' && steps[0].failure).toMatchObject({
+        code: 'CHARACTER_INACTIVE',
+      });
 
       const log = await prisma.simulationLog.findUniqueOrThrow({
-        where: { id: result.steps[0].log.id },
+        where: { id: steps[0].log.id },
       });
       expect(log.status).toBe('FAILED');
       expect(log.errorMessage).toContain('CHARACTER_INACTIVE');
