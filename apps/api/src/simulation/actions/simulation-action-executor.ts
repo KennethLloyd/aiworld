@@ -6,8 +6,11 @@ import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationActionOutcome } from '@/simulation/actions/simulation-decision';
 import { VoteAction } from '@/simulation/actions/vote.action';
 
-/** Dispatches a serializable command to the matching action strategy. The
- * command is the only thing the scheduler and admin API need to know. */
+/** Dispatches a serializable command to the matching action strategy — the
+ * Command pattern's invoker. It triggers commands but never performs them:
+ * the action strategies and their injected providers (the receivers) do the
+ * work. The command is the only thing the scheduler and admin API need to
+ * know. */
 @Injectable()
 export class SimulationActionExecutor {
   constructor(
