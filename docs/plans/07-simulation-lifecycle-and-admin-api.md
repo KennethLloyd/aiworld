@@ -1,6 +1,6 @@
 # Plan 07: Simulation Lifecycle and Admin API
 
-Status: Planned
+Status: In Progress
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`, ADR-0001.
 
 ## Goal
@@ -114,16 +114,75 @@ success.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress (07-1 lifecycle state and state machine; 07-2 scheduler and
+07-3 admin API remain)
 
 ### Senior-Level Summary
 
+07-1 delivers the persisted simulation lifecycle: a
+`WorldSimulationConfigRepository` port backed by a Prisma adapter, a pure state
+machine for the RUNNING/PAUSED/HALTED lifecycle, and a
+`SimulationLifecycleService` that enforces the rules against persisted state.
+The lifecycle vocabulary (`SimulationState`) is a plain union in the domain so
+ports and services never depend on the generated Prisma enum; only the Prisma
+adapter maps to and from the database enum. The state machine owns the rules:
+scheduled ticks run only while RUNNING, manual work (Run One Cycle / Manual
+Trigger Job) is allowed in RUNNING and PAUSED and rejected in HALTED, and
+HALTED is terminal for the MVP. The service always reads configuration from the
+repository — never from process memory — validates a transition against the
+persisted state, and persists the new state before success is reported; the
+repository's `transitionState` update is conditional on the persisted state, so
+a concurrent change surfaces as an error instead of silently landing a
+stale-validated write. This slots in ahead of the scheduler port (07-2) and
+admin API (07-3), which will consume `assertScheduledWorkAllowed`,
+`assertManualWorkAllowed`, and the transition methods.
+
 ### Files Changed
+
+- `apps/api/src/simulation/lifecycle/domain/simulation-state.ts` — lifecycle vocabulary
+- `apps/api/src/simulation/lifecycle/domain/world-simulation-config-record.ts` — domain record
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle-rules.ts` — state machine (allowed transitions, work gates)
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle.error.ts` — not-found, invalid-transition, concurrent-change, malformed-config, and work-rejection errors
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle.service.ts` — rule enforcement
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle-rules.spec.ts` — state-machine tests
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle.service.spec.ts` — service tests
+- `apps/api/src/simulation/lifecycle/world-simulation-config-repository.interface.ts` — repository port
+- `apps/api/src/simulation/lifecycle/prisma-world-simulation-config.repository.ts` — Prisma adapter (atomic state transition)
+- `apps/api/src/simulation/lifecycle/prisma-world-simulation-config.repository.spec.ts` — adapter tests
+- `apps/api/src/simulation/simulation.module.ts` — wired and exported lifecycle providers
 
 ### Architecture and SOLID Notes
 
+- State machine: lifecycle rules are centralized in pure functions and the
+  service delegates to them — no scattered if/else in services or controllers.
+- Repository boundary: services depend on the abstract
+  `WorldSimulationConfigRepository`; generated Prisma types stay inside the
+  adapter, matching the existing world/simulation-log repository pattern.
+- Persisted state: no in-memory state; every gate and transition reads the
+  persisted `WorldSimulationConfig`, and transitions are persisted before
+  success is returned. The adapter transitions atomically (`updateMany` keyed
+  on the expected state), so read-then-write races fail loudly.
+- Strict reads: malformed persisted `actionWeights` surface as an error rather
+  than being silently replaced with defaults.
+
 ### Tests Run
+
+- `pnpm --filter @aiworld/api test` — 52 suites, 299 tests (35 new)
+- `pnpm --filter @aiworld/api build`
+- `pnpm --filter @aiworld/api lint`
+- `pnpm format:check`
 
 ### Browser Verification
 
+Not applicable to 07-1 (no HTTP surface yet; the admin API lands in 07-3).
+
 ### Known Risks and Follow-Up Work
+
+- The scheduler (07-2) must gate ticks with `assertScheduledWorkAllowed` and
+  manual commands with `assertManualWorkAllowed`.
+- The admin API (07-3) should map lifecycle errors (not-found, invalid
+  transition, manual-work rejected) to HTTP responses and add e2e coverage for
+  the repository adapter.
+- HALTED is modeled as terminal for the MVP; if product later requires
+  re-enabling a halted simulation, the allowed-transitions table is the single
+  place to change.

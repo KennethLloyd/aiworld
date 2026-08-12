@@ -11,6 +11,9 @@ import { SimulationContextProvider } from '@/simulation/actions/simulation-conte
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { loadSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
+import { PrismaWorldSimulationConfigRepository } from '@/simulation/lifecycle/prisma-world-simulation-config.repository';
+import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
 import { PrismaSimulationLogRepository } from '@/simulation/logging/prisma-simulation-log.repository';
 import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
@@ -45,14 +48,24 @@ import { WorldModule } from '@/world/world.module';
       provide: SimulationLogRepository,
       useClass: PrismaSimulationLogRepository,
     },
+    {
+      provide: WorldSimulationConfigRepository,
+      useClass: PrismaWorldSimulationConfigRepository,
+    },
     SimulationContextProvider,
     PostAction,
     VoteAction,
     CommentAction,
     SimulationActionExecutor,
+    SimulationLifecycleService,
     SimulationLogService,
     SimulationContentWriter,
   ],
-  exports: [LlmProvider, SimulationActionExecutor],
+  exports: [
+    LlmProvider,
+    SimulationActionExecutor,
+    SimulationLifecycleService,
+    WorldSimulationConfigRepository,
+  ],
 })
 export class SimulationModule {}
