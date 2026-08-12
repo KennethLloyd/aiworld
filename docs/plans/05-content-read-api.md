@@ -277,8 +277,9 @@ counts are inspectable through the plan 05-3 read API once it lands.
   an admin deactivation is canonical-state reset by design, but the admin
   control room (plan 10) should be aware of this when it lands.
 - Self-votes are not excluded: an author may appear among their own post's
-  voters because the prototype counts encode no self-vote policy. Plan 06 can
-  decide that policy for simulation votes.
+  voters because the prototype counts encode no self-vote policy. Plan 06
+  decided that policy for simulation votes: self-votes stay allowed (a human
+  author can vote on their own post), so no exclusion rule is planned.
 - The seed currently creates only +1 rows because the original data carried
   no downvotes; the -1 path is covered by the migration e2e tests.
 
