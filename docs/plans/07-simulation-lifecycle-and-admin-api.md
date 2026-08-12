@@ -39,6 +39,12 @@ adapter runs a timer derived from `intervalMs`/`jitterMs`/`speedMultiplier`;
 the BullMQ adapter maps the same commands onto queue jobs. Adapters never call
 an LLM provider directly.
 
+Run One Cycle executes exactly one scheduler iteration — one character, one
+weighted action — through the same executor path as a scheduled tick. It does
+NOT run the fixed POST → VOTE → COMMENT triple that Plan 06's e2e helper
+performs; that triple is test-only and has no product caller (see
+`docs/plans/06-mock-simulation-engine.md`, Ticket 41 Known Risks).
+
 ## Lifecycle Rules
 
 - RUNNING allows scheduled work, Run One Cycle, and Manual Trigger Job.

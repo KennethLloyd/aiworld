@@ -98,8 +98,10 @@ function createProvider(
       .mockResolvedValue(overrides.post === undefined ? post : overrides.post),
     findByAuthorMembership: jest.fn(),
     searchByText: jest.fn(),
+    create: jest.fn(),
   };
   const commentRepository: jest.Mocked<CommentRepository> = {
+    findById: jest.fn(),
     findByPostId: jest
       .fn()
       .mockResolvedValue(
@@ -108,6 +110,7 @@ function createProvider(
     findByAuthorMembership: jest.fn(),
     searchByText: jest.fn(),
     countByPostIds: jest.fn(),
+    create: jest.fn(),
   };
 
   const provider = new SimulationContextProvider(
