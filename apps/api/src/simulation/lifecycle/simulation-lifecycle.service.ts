@@ -26,6 +26,12 @@ export class SimulationLifecycleService {
   constructor(
     @Inject(WorldSimulationConfigRepository)
     private readonly configRepository: WorldSimulationConfigRepository,
+    // Deliberate cycle, not an accident: the lifecycle drives the scheduler
+    // (start on RUNNING, stop on PAUSED/HALTED) while the scheduler consults
+    // the lifecycle for gates (assertScheduledWorkAllowed /
+    // assertManualWorkAllowed) and per-world config. Both directions are
+    // runtime-necessary, so forwardRef is the standard Nest mechanism for this
+    // genuine bidirectional DI graph.
     @Inject(forwardRef(() => SimulationScheduler))
     private readonly scheduler: SimulationScheduler,
   ) {}

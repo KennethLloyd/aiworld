@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { Queue, Worker } from 'bullmq';
-import { Redis as IORedis } from 'ioredis';
 
 import { CharactersModule } from '@/characters/characters.module';
 import { CommentsModule } from '@/comments/comments.module';
@@ -22,12 +20,6 @@ import { SimulationLogService } from '@/simulation/logging/simulation-log.servic
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { mockLlmFixtures } from '@/simulation/providers/mock/fixtures/mock-llm-fixtures';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
-import {
-  BullMqSchedulerAdapter,
-  SIMULATION_TICKS_DLQ,
-  SIMULATION_TICKS_QUEUE,
-} from '@/simulation/scheduler/bullmq-scheduler.adapter';
-import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-scheduler.adapter';
 import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -38,6 +30,7 @@ import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
 } from '@/simulation/scheduler/simulation-scheduler-config';
+import { createSimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.factory';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
@@ -98,42 +91,15 @@ import { WorldModule } from '@/world/world.module';
         picker: SimulationIterationPicker,
         randomSource: SimulationRandomSource,
         tickRunner: SimulationTickRunner,
-      ) => {
-        if (config.adapterId === 'in-process') {
-          return new InProcessSchedulerAdapter(
-            lifecycleService,
-            worldRepository,
-            picker,
-            tickRunner,
-            randomSource,
-            config,
-          );
-        }
-
-        const connection = new IORedis(config.redisUrl, {
-          maxRetriesPerRequest: null,
-        });
-        const queue = new Queue(SIMULATION_TICKS_QUEUE, { connection });
-        const dlq = new Queue(SIMULATION_TICKS_DLQ, { connection });
-        const adapter = new BullMqSchedulerAdapter(
+      ) =>
+        createSimulationScheduler(
           config,
           lifecycleService,
           worldRepository,
           picker,
           randomSource,
           tickRunner,
-          queue,
-          dlq,
-          connection,
-        );
-        const worker = new Worker(
-          SIMULATION_TICKS_QUEUE,
-          (job) => adapter.process(job),
-          { connection, concurrency: 1 },
-        );
-        adapter.attachWorker(worker);
-        return adapter;
-      },
+        ),
     },
     SimulationContextProvider,
     PostAction,
