@@ -22,8 +22,8 @@ work.
 - RUNNING, PAUSED, and HALTED lifecycle
 - Speed multiplier range validation (0.1-100) in the shared contract; the
   presets shown in the admin UI are vocabulary, not schema values
-- Run One Cycle command
-- Manual Trigger Job command
+- Run One Action command
+- Custom Action command
 - Telemetry endpoint
 - Filtered simulation log endpoint
 - Server-side ADMIN authorization
@@ -31,7 +31,7 @@ work.
 ## Scheduler Port
 
 The port exposes lifecycle and command operations — `start`, `stop`,
-`runOneCycle`, `triggerJob` — and every operation builds the same serializable
+`runOneAction`, `runCustomAction` — and every operation builds the same serializable
 Command objects that the scheduled tick builds. Lifecycle rules (manual work
 allowed in RUNNING/PAUSED, rejected in HALTED) are enforced by the state
 machine reading `WorldSimulationConfig`, never by the adapter. The in-process
@@ -39,7 +39,7 @@ adapter runs a timer derived from `intervalMs`/`jitterMs`/`speedMultiplier`;
 the BullMQ adapter maps the same commands onto queue jobs. Adapters never call
 an LLM provider directly.
 
-Run One Cycle executes exactly one scheduler iteration — one character, one
+Run One Action executes exactly one scheduler iteration — one character, one
 weighted action — through the same executor path as a scheduled tick. It does
 NOT run the fixed POST → VOTE → COMMENT triple that Plan 06's e2e helper
 performs; that triple is test-only and has no product caller (see
@@ -47,12 +47,12 @@ performs; that triple is test-only and has no product caller (see
 
 ## Lifecycle Rules
 
-- RUNNING allows scheduled work, Run One Cycle, and Manual Trigger Job.
-- PAUSED stops scheduled work but allows Run One Cycle and Manual Trigger Job.
+- RUNNING allows scheduled work, Run One Action, and Custom Action.
+- PAUSED stops scheduled work but allows Run One Action and Custom Action.
 - HALTED rejects all manual work and stops scheduled work.
 - Lifecycle state is read from persisted WorldSimulationConfig, not process
   memory.
-- Scheduled, one-cycle, and manual work create the same serializable command
+- Scheduled, one-action, and custom work create the same serializable command
   shape and use the same executor.
 
 ## API Intent
@@ -63,8 +63,8 @@ Follow the existing admin convention — resource paths with `@Roles(['ADMIN'])`
 - `GET /api/worlds/:slug/simulation`
 - `PATCH /api/worlds/:slug/simulation/state`
 - `PATCH /api/worlds/:slug/simulation/speed`
-- `POST /api/worlds/:slug/simulation/run-one-cycle`
-- `POST /api/worlds/:slug/simulation/trigger`
+- `POST /api/worlds/:slug/simulation/run-one-action`
+- `POST /api/worlds/:slug/simulation/custom-action`
 - `GET /api/worlds/:slug/simulation/telemetry`
 - `GET /api/worlds/:slug/simulation/logs`
 
@@ -101,7 +101,7 @@ agent-browser --session aiworld-admin-api close
 
 The authenticated control-room interaction is implemented and automated in
 Plan 10. Its browser assertions must cover state feedback, HALTED refusal,
-Run One Cycle, manual target/action selection, and log refresh.
+Run One Action, manual target/action selection, and log refresh.
 
 ## Senior-Level Implementation Standard
 
@@ -112,10 +112,56 @@ under test: the port owns the contract, the adapters own transport, and the
 state machine owns the rules. Persist state transitions before reporting
 success.
 
+## Triage Decisions (2026-08-13)
+
+Issue #43 was triaged in a grill-with-docs session; the decisions below are the
+engineering contract for 07-2 (also recorded in the ticket body).
+
+- **Demo/runtime path**: the BullMQ adapter is the default for dev, demo, and
+  runtime; Redis is added to `apps/api/docker-compose.yml`. `SCHEDULER_ADAPTER`
+  env selects the adapter (zod-validated, empty-as-absent, fail-fast on
+  invalid), mirroring `provider-config.ts`. The in-process adapter is the
+  test/offline override.
+- **Contracts**: command schema in `packages/shared/src/schemas/`
+  (`simulation-command.schema.ts`): `worldSlug`, `characterId`, `actionType`,
+  `executionSource` (`scheduled|one-action|custom`), `issuedAt`.
+  Speed-multiplier validation (0.1-100) and the interval/jitter derivation
+  math live in shared, consumed by both adapters.
+- **Mechanism**: self-rescheduling delayed job (BullMQ) / chained `setTimeout`
+  (in-process); completion-to-start cadence; worker concurrency 1; never
+  `setInterval` or BullMQ repeatable jobs.
+- **Lifecycle integration**: transitions drive the port (`stop()` on
+  PAUSED/HALTED, `start()` on →RUNNING; boot resumes persisted RUNNING).
+  `stop()` removes the single pending delayed tick — never `queue.pause()`.
+  In-flight ticks complete; the executor gate (`assertScheduledWorkAllowed`)
+  rejects the transition race window; rejected ticks are logged (a REJECTED
+  SimulationLog status), never retried. PAUSED keeps manual controls live;
+  only HALTED rejects them (`assertManualWorkAllowed`).
+- **Operations**: `runOneAction` (`POST /run-one-action`) = the scheduler's
+  task run manually — same random pick/roll, no overrides, awaits the result,
+  source `one-action`. `runCustomAction` (`POST /custom-action`) = the composed
+  job — character (specific or Any Resident) × action (forced or Automatic),
+  awaits the result, source `custom`. "cycle" is removed from the vocabulary.
+- **Retries**: transient (LLM timeout/5xx/rate-limit) → exponential backoff, 3
+  attempts (tunable); permanent (validation, unknown world/character, provider
+  4xx) → no retry → DLQ; rejection ≠ failure. Every attempt logged with status
+  + BullMQ jobId.
+- **e2e/CI**: Redis service in docker-compose (local) and as a CI service
+  container (CI uses GitHub Actions service containers, not the compose file).
+  e2e drives the BullMQ adapter; unit tests inject the in-process adapter.
+- **Pacing**: seed `intervalMs: 1800000`, `jitterMs: 300000`,
+  `speedMultiplier: 1` (~48 actions/day/world; demo uses the speed multiplier
+  and the manual controls).
+- **Failure escalation**: manual-only HALT for MVP; auto-HALT is a Known Risk
+  (07-1 models HALTED as terminal, so it touches the allowed-transitions
+  table).
+- **Naming**: UI labels "Run One Action" / "Custom Action"; executionSource
+  `scheduled | one-action | custom`; glossary gains **Iteration** and **Tick**.
+
 ## Implementation Record
 
-Status: In Progress (07-1 lifecycle state and state machine; 07-2 scheduler and
-07-3 admin API remain)
+Status: In Progress (07-1 delivered; 07-2 triaged 2026-08-13 — see Triage
+Decisions below; scheduler implementation and 07-3 admin API remain)
 
 ### Senior-Level Summary
 
@@ -126,8 +172,8 @@ machine for the RUNNING/PAUSED/HALTED lifecycle, and a
 The lifecycle vocabulary (`SimulationState`) is a plain union in the domain so
 ports and services never depend on the generated Prisma enum; only the Prisma
 adapter maps to and from the database enum. The state machine owns the rules:
-scheduled ticks run only while RUNNING, manual work (Run One Cycle / Manual
-Trigger Job) is allowed in RUNNING and PAUSED and rejected in HALTED, and
+scheduled ticks run only while RUNNING, manual work (Run One Action / Custom
+Action) is allowed in RUNNING and PAUSED and rejected in HALTED, and
 HALTED is terminal for the MVP. The service always reads configuration from the
 repository — never from process memory — validates a transition against the
 persisted state, and persists the new state before success is reported; the

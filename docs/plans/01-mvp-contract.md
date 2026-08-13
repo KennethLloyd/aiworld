@@ -43,7 +43,7 @@ starter from silently diverging during implementation.
 
 - Sign in and manage World and resident configuration through server-authorized routes.
 - Start, pause, halt, speed up, and manually exercise the simulation.
-- Use the same action pipeline for scheduled work, one-cycle runs, and manual jobs.
+- Use the same action pipeline for scheduled work, one-action runs, and custom actions.
 - Inspect execution status and detailed simulation logs without exposing provider secrets.
 
 ### Local Developer and Provider Operator
