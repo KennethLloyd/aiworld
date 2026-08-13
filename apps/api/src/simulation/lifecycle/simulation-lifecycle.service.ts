@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
@@ -21,6 +21,8 @@ import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler
  * scheduled ticks, leaving it stops them. */
 @Injectable()
 export class SimulationLifecycleService {
+  private readonly logger = new Logger(SimulationLifecycleService.name);
+
   constructor(
     @Inject(WorldSimulationConfigRepository)
     private readonly configRepository: WorldSimulationConfigRepository,
@@ -56,7 +58,17 @@ export class SimulationLifecycleService {
       config.state,
       next,
     );
-    await this.driveScheduler(worldId, next);
+
+    try {
+      await this.driveScheduler(worldId, next);
+    } catch (error) {
+      // The state was persisted before the scheduler was driven. If the drive
+      // fails (for example the queue is unreachable), restore the previous
+      // state so the database never claims RUNNING while no tick is scheduled
+      // (stuck-RUNNING). A concurrent change during the restore is best-effort.
+      await this.restoreState(worldId, next, config.state);
+      throw error;
+    }
 
     return updated;
   }
@@ -97,6 +109,22 @@ export class SimulationLifecycleService {
       await this.scheduler.start(worldId);
     } else {
       await this.scheduler.stop(worldId);
+    }
+  }
+
+  private async restoreState(
+    worldId: string,
+    from: SimulationState,
+    to: SimulationState,
+  ): Promise<void> {
+    try {
+      await this.configRepository.transitionState(worldId, from, to);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to restore simulation state for world ${worldId} after scheduler drive failed: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
     }
   }
 

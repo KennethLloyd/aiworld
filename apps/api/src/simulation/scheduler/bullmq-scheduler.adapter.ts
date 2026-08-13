@@ -9,8 +9,6 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 
-import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
@@ -18,16 +16,9 @@ import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
 } from '@/simulation/scheduler/simulation-scheduler-config';
-import {
-  RunCustomActionInput,
-  SimulationScheduler,
-} from '@/simulation/scheduler/simulation-scheduler.port';
-import {
-  IterationRunResult,
-  ScheduledTickRunResult,
-  SimulationTickRunner,
-} from '@/simulation/scheduler/simulation-tick-runner';
-import { WorldRecord } from '@/world/domain/world-record';
+import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
+import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
+import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 export const SIMULATION_TICKS_QUEUE = 'simulation-ticks';
@@ -51,24 +42,28 @@ function tickJobId(worldId: string): string {
  * never calls an LLM provider — it only enqueues and processes commands. */
 @Injectable()
 export class BullMqSchedulerAdapter
-  extends SimulationScheduler
+  extends SimulationSchedulerBase
   implements OnModuleDestroy
 {
   private worker: Worker | null = null;
+  /** The single pending delayed job per World, tracked so `stop` removes it by
+   * id instead of scanning the whole queue. Boot resume still scans once,
+   * because a previous process left no in-memory record. */
+  private readonly pendingTickJobIds = new Map<string, string>();
 
   constructor(
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
-    private readonly lifecycleService: SimulationLifecycleService,
-    private readonly worldRepository: WorldRepository,
-    private readonly picker: SimulationIterationPicker,
+    lifecycleService: SimulationLifecycleService,
+    worldRepository: WorldRepository,
+    picker: SimulationIterationPicker,
     private readonly randomSource: SimulationRandomSource,
-    private readonly tickRunner: SimulationTickRunner,
+    tickRunner: SimulationTickRunner,
     private readonly queue: Queue,
     private readonly dlq: Queue,
     private readonly connection: IORedis,
   ) {
-    super();
+    super(lifecycleService, worldRepository, picker, tickRunner);
   }
 
   /** Wires the worker after construction so the processor can reference the
@@ -88,35 +83,19 @@ export class BullMqSchedulerAdapter
       return;
     }
     await this.removePendingTicks(worldId);
+    this.pendingTickJobIds.delete(worldId);
     await this.enqueueTick(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
-    await this.removePendingTicks(worldId);
+    await this.removeTrackedTick(worldId);
   }
 
-  async runOneAction(worldSlug: string): Promise<IterationRunResult> {
-    return this.tickRunner.runManualIteration({
-      worldSlug,
-      executionSource: 'one-action',
-    });
-  }
-
-  async runCustomAction(
-    input: RunCustomActionInput,
-  ): Promise<IterationRunResult> {
-    return this.tickRunner.runManualIteration({
-      worldSlug: input.worldSlug,
-      characterId: input.characterId,
-      actionType: input.actionType,
-      executionSource: 'custom',
-    });
-  }
-
-  /** Worker processor: runs the tick and decides the job's fate. Throwing a
-   * retryable error lets BullMQ back off and retry the same job (same id);
-   * throwing UnrecoverableError fails the job immediately. Success and
-   * lifecycle rejection schedule the next tick (completion-to-start). */
+  /** Worker processor: runs the tick and decides the job's fate. A transient
+   * failure throws a plain error so BullMQ backs off and retries the same job
+   * (same id); a permanent failure or a lifecycle rejection fails the job
+   * immediately. Success and rejection schedule the next tick
+   * (completion-to-start). */
   async process(job: Job<SimulationCommand>): Promise<void> {
     let command: SimulationCommand;
     try {
@@ -125,16 +104,16 @@ export class BullMqSchedulerAdapter
       throw new UnrecoverableError('Invalid simulation tick command');
     }
 
-    let result: ScheduledTickRunResult;
+    let result: Awaited<ReturnType<SimulationTickRunner['runScheduledTick']>>;
     try {
-      result = await this.tickRunner.runScheduledTick({
-        worldSlug: command.worldSlug,
-        characterId: command.characterId,
-        actionType: command.actionType,
-        executionSource: command.executionSource,
-        jobId: job.id,
-      });
+      result = await this.tickRunner.runScheduledTick(command, job.id);
     } catch (error) {
+      // The runner only throws when logging the attempt itself failed (for
+      // example the database is down); retry transient errors, dead-letter
+      // permanent ones.
+      if (isTransientSchedulerError(error)) {
+        throw error;
+      }
       throw new UnrecoverableError(
         error instanceof Error ? error.message : 'Simulation tick failed',
       );
@@ -149,7 +128,7 @@ export class BullMqSchedulerAdapter
       );
     }
 
-    await this.enqueueTick(result.log.worldId);
+    await this.scheduleNextTick(result.log.worldId);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -159,32 +138,35 @@ export class BullMqSchedulerAdapter
     await this.connection.quit();
   }
 
+  private async scheduleNextTick(worldId: string): Promise<void> {
+    try {
+      await this.enqueueTick(worldId);
+    } catch (error) {
+      // A completed tick must never be retried — retrying re-runs the identical
+      // command and duplicates content. A scheduling failure dead-letters
+      // instead; the World's cadence resumes on the next start or boot.
+      throw new UnrecoverableError(
+        error instanceof Error ? error.message : 'Failed to schedule next tick',
+      );
+    }
+  }
+
   private async enqueueTick(worldId: string): Promise<void> {
-    const config = await this.requireConfig(worldId);
-    if (config.state !== 'RUNNING') {
+    const composed = await this.composeScheduledCommand(worldId);
+    if (!composed) {
       return;
     }
-    const world = await this.requireWorld(worldId);
 
-    const { characterId } = await this.picker.pickCharacter(worldId);
-    const actionType = this.picker.pickAction(config.actionWeights);
     const delay = deriveScheduledDelayMs({
-      intervalMs: config.intervalMs,
-      jitterMs: config.jitterMs,
-      speedMultiplier: config.speedMultiplier,
+      intervalMs: composed.config.intervalMs,
+      jitterMs: composed.config.jitterMs,
+      speedMultiplier: composed.config.speedMultiplier,
       random: () => this.randomSource.next(),
     });
 
-    const command = simulationCommandSchema.parse({
-      worldSlug: world.slug,
-      characterId,
-      actionType,
-      executionSource: 'scheduled',
-      issuedAt: new Date().toISOString(),
-    });
-
-    await this.queue.add(tickJobName(worldId), command, {
-      jobId: tickJobId(worldId),
+    const jobId = tickJobId(worldId);
+    await this.queue.add(tickJobName(worldId), composed.command, {
+      jobId,
       delay,
       attempts: this.schedulerConfig.maxAttempts,
       backoff: {
@@ -194,12 +176,25 @@ export class BullMqSchedulerAdapter
       removeOnComplete: true,
       removeOnFail: false,
     });
+    this.pendingTickJobIds.set(worldId, jobId);
   }
 
-  /** Removes the single pending delayed tick for a World. Never pauses the
-   * queue — there is no burst on resume, only a fresh delayed job. A tick the
-   * worker already locked for processing cannot be removed; it is left to
-   * complete in-flight, and the executor gate rejects that race window. */
+  /** Removes the single pending delayed tick for a World by its tracked id —
+   * O(1) per World, no queue scan on the hot path. Never pauses the queue —
+   * there is no burst on resume, only a fresh delayed job. A tick the worker
+   * already locked for processing cannot be removed; it is left to complete
+   * in-flight, and the executor gate rejects that race window. */
+  private async removeTrackedTick(worldId: string): Promise<void> {
+    const jobId = this.pendingTickJobIds.get(worldId);
+    if (jobId === undefined) {
+      return;
+    }
+    await this.queue.remove(jobId).catch(() => undefined);
+    this.pendingTickJobIds.delete(worldId);
+  }
+
+  /** Boot resume (and an explicit re-start) cleans up any pending tick left by
+   * a previous process, whose job ids this instance cannot know in memory. */
   private async removePendingTicks(worldId: string): Promise<void> {
     const pending = await this.queue.getJobs(['delayed', 'waiting']);
     const jobs = pending.filter((job) => job.name === tickJobName(worldId));
@@ -217,29 +212,5 @@ export class BullMqSchedulerAdapter
       },
       { removeOnComplete: true },
     );
-  }
-
-  private async requireWorld(worldId: string): Promise<WorldRecord> {
-    const world = await this.worldRepository.findById(worldId);
-    if (!world) {
-      throw new SimulationActionError(
-        'WORLD_NOT_FOUND',
-        `World "${worldId}" was not found`,
-      );
-    }
-    return world;
-  }
-
-  private async requireConfig(
-    worldId: string,
-  ): Promise<WorldSimulationConfigRecord> {
-    const config = await this.lifecycleService.getByWorldId(worldId);
-    if (!config) {
-      throw new SimulationActionError(
-        'WORLD_NOT_FOUND',
-        `No simulation configuration for world "${worldId}"`,
-      );
-    }
-    return config;
   }
 }

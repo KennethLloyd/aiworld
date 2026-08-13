@@ -1,7 +1,9 @@
 import { UnrecoverableError } from 'bullmq';
 
+import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.adapter';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
@@ -64,13 +66,11 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
 
   const worldRepository = {
     findById: jest.fn().mockResolvedValue(world),
+    findBySlug: jest.fn().mockResolvedValue(world),
   } as unknown as jest.Mocked<WorldRepository>;
 
   const picker = {
-    pickCharacter: jest.fn().mockResolvedValue({
-      characterId: 'character-1',
-      memberId: 'member-1',
-    }),
+    pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
@@ -94,6 +94,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const queue = {
     add: jest.fn().mockResolvedValue(undefined),
     getJobs: jest.fn().mockResolvedValue([]),
+    remove: jest.fn().mockResolvedValue(undefined),
     close: jest.fn().mockResolvedValue(undefined),
   };
   const dlq = {
@@ -134,10 +135,44 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   };
 }
 
+function logRecord(
+  overrides: Partial<SimulationLogRecord> = {},
+): SimulationLogRecord {
+  return {
+    id: 'log-1',
+    worldId: 'world-1',
+    characterId: 'character-1',
+    action: 'POST',
+    targetId: null,
+    reasoning: null,
+    provider: 'mock',
+    model: 'fixture-model',
+    latencyMs: null,
+    jobId: null,
+    executionSource: 'scheduled',
+    tokensUsed: null,
+    costEstimate: null,
+    status: 'SUCCESS',
+    errorMessage: null,
+    executedAt: new Date('2026-08-13T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+const postDecision: PostDecision = {
+  action: 'POST',
+  worldId: 'world-1',
+  memberId: 'member-1',
+  characterId: 'character-1',
+  title: 'A new post',
+  content: 'Body.',
+  reasoning: 'Reasoning.',
+};
+
 const successResult = {
   status: 'success' as const,
-  decision: { action: 'POST' as const },
-  log: { id: 'log-1', worldId: 'world-1' },
+  decision: postDecision,
+  log: logRecord(),
 };
 
 describe('BullMqSchedulerAdapter', () => {
@@ -182,16 +217,25 @@ describe('BullMqSchedulerAdapter', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('stop removes the pending delayed tick', async () => {
+  it('stop removes the tracked pending tick without scanning the queue', async () => {
     const { adapter, queue } = createAdapter();
-    const pending = fakeJob({ id: 'pending' });
-    queue.getJobs.mockResolvedValue([pending]);
+
+    await adapter.start('world-1');
+    expect(queue.add).toHaveBeenCalledTimes(1);
+    queue.getJobs.mockClear();
 
     await adapter.stop('world-1');
 
-    expect(queue.getJobs).toHaveBeenCalledWith(['delayed', 'waiting']);
-    expect(pending.remove).toHaveBeenCalled();
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(queue.remove).toHaveBeenCalledWith(expect.any(String));
+    expect(queue.getJobs).not.toHaveBeenCalled();
+  });
+
+  it('stop is a no-op when nothing is pending for the world', async () => {
+    const { adapter, queue } = createAdapter();
+
+    await adapter.stop('world-1');
+
+    expect(queue.remove).not.toHaveBeenCalled();
   });
 
   describe('process', () => {
@@ -203,13 +247,16 @@ describe('BullMqSchedulerAdapter', () => {
         adapter.process(fakeJob() as never),
       ).resolves.toBeUndefined();
 
-      expect(tickRunner.runScheduledTick).toHaveBeenCalledWith({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'scheduled',
-        jobId: 'job-1',
-      });
+      expect(tickRunner.runScheduledTick).toHaveBeenCalledWith(
+        {
+          worldSlug: 'mbti-house',
+          characterId: 'character-1',
+          actionType: 'POST',
+          executionSource: 'scheduled',
+          issuedAt: '2026-08-13T00:00:00.000Z',
+        },
+        'job-1',
+      );
       expect(queue.add).toHaveBeenCalledTimes(1);
       expect(queue.add.mock.calls[0][0]).toBe('tick_world-1');
     });
@@ -219,7 +266,7 @@ describe('BullMqSchedulerAdapter', () => {
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'rejected',
         reason: 'rejected',
-        log: { id: 'log-9', worldId: 'world-1' },
+        log: logRecord({ status: 'REJECTED' }),
       });
 
       await expect(
@@ -234,7 +281,7 @@ describe('BullMqSchedulerAdapter', () => {
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
-        log: { id: 'log-1', worldId: 'world-1' },
+        log: logRecord({ status: 'FAILED' }),
       });
 
       await expect(adapter.process(fakeJob() as never)).rejects.toThrow(
@@ -252,7 +299,7 @@ describe('BullMqSchedulerAdapter', () => {
           message: 'inactive',
           retryable: false,
         },
-        log: { id: 'log-1', worldId: 'world-1' },
+        log: logRecord({ status: 'FAILED' }),
       });
 
       await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
@@ -260,7 +307,7 @@ describe('BullMqSchedulerAdapter', () => {
       );
     });
 
-    it('dead-letters malformed commands', async () => {
+    it('dead-letters malformed commands without running them', async () => {
       const { adapter, tickRunner } = createAdapter();
 
       await expect(
@@ -278,6 +325,17 @@ describe('BullMqSchedulerAdapter', () => {
       await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
         UnrecoverableError,
       );
+    });
+
+    it('never retries a completed tick whose next-tick scheduling failed', async () => {
+      const { adapter, tickRunner, queue } = createAdapter();
+      tickRunner.runScheduledTick.mockResolvedValue(successResult);
+      queue.add.mockRejectedValue(new Error('Redis unreachable'));
+
+      await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
+        UnrecoverableError,
+      );
+      expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -306,26 +364,39 @@ describe('BullMqSchedulerAdapter', () => {
     );
   });
 
-  it('delegates runOneAction and runCustomAction to the manual iteration path', async () => {
+  it('composes runOneAction into a scheduled-style command and runs it manually', async () => {
     const { adapter, tickRunner } = createAdapter();
     tickRunner.runManualIteration.mockResolvedValue(successResult);
 
     await adapter.runOneAction('mbti-house');
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith({
-      worldSlug: 'mbti-house',
-      executionSource: 'one-action',
-    });
+
+    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        worldSlug: 'mbti-house',
+        characterId: 'character-1',
+        actionType: 'POST',
+        executionSource: 'one-action',
+      }),
+    );
+  });
+
+  it('composes runCustomAction with character and action overrides', async () => {
+    const { adapter, tickRunner } = createAdapter();
+    tickRunner.runManualIteration.mockResolvedValue(successResult);
 
     await adapter.runCustomAction({
       worldSlug: 'mbti-house',
       characterId: 'character-2',
       actionType: 'VOTE',
     });
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith({
-      worldSlug: 'mbti-house',
-      characterId: 'character-2',
-      actionType: 'VOTE',
-      executionSource: 'custom',
-    });
+
+    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        worldSlug: 'mbti-house',
+        characterId: 'character-2',
+        actionType: 'VOTE',
+        executionSource: 'custom',
+      }),
+    );
   });
 });

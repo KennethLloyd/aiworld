@@ -10,7 +10,6 @@ const RECENT_POSTS_LIMIT = 20;
 
 export type PickedActor = {
   characterId: string;
-  memberId: string;
 };
 
 /** Composes the random decisions behind an iteration: which character acts,
@@ -73,7 +72,6 @@ export class SimulationIterationPicker {
 
     return {
       characterId: picked.characterId,
-      memberId: picked.memberId,
     };
   }
 

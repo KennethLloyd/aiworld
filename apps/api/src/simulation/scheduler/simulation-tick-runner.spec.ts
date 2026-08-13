@@ -1,8 +1,12 @@
 import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
 import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
+import {
+  SimulationConfigNotFoundError,
+  SimulationWorkRejectedError,
+} from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -47,6 +51,47 @@ const postDecision: PostDecision = {
   reasoning: 'Reasoning.',
 };
 
+function scheduledCommand(
+  overrides: Partial<{
+    characterId: string;
+    actionType: 'POST' | 'VOTE' | 'COMMENT';
+    executionSource: 'scheduled' | 'one-action' | 'custom';
+  }> = {},
+) {
+  return {
+    worldSlug: 'mbti-house',
+    characterId: 'character-1',
+    actionType: 'POST' as const,
+    executionSource: 'scheduled' as const,
+    issuedAt: '2026-08-13T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function logRecord(
+  overrides: Partial<SimulationLogRecord> = {},
+): SimulationLogRecord {
+  return {
+    id: 'log-1',
+    worldId: 'world-1',
+    characterId: 'character-1',
+    action: 'POST',
+    targetId: null,
+    reasoning: null,
+    provider: 'mock',
+    model: 'fixture-model',
+    latencyMs: null,
+    jobId: null,
+    executionSource: 'scheduled',
+    tokensUsed: null,
+    costEstimate: null,
+    status: 'SUCCESS',
+    errorMessage: null,
+    executedAt: new Date('2026-08-13T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
 function createRunner(
   overrides: {
     gateState?: 'scheduled' | 'manual' | 'halted';
@@ -80,10 +125,7 @@ function createRunner(
   }
 
   const picker = {
-    pickCharacter: jest.fn().mockResolvedValue({
-      characterId: 'character-1',
-      memberId: 'member-1',
-    }),
+    pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
     pickTargetPost: jest.fn().mockResolvedValue('post-1'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
@@ -97,9 +139,11 @@ function createRunner(
   } as unknown as jest.Mocked<SimulationContentWriter>;
 
   const logService = {
-    writeSuccess: jest.fn(),
-    writeFailure: jest.fn(),
-    writeRejected: jest.fn(),
+    writeSuccess: jest.fn().mockResolvedValue(logRecord()),
+    writeFailure: jest.fn().mockResolvedValue(logRecord({ status: 'FAILED' })),
+    writeRejected: jest
+      .fn()
+      .mockResolvedValue(logRecord({ status: 'REJECTED' })),
   } as unknown as jest.Mocked<SimulationLogService>;
 
   const provider = {
@@ -144,15 +188,8 @@ describe('SimulationTickRunner', () => {
       const { runner, lifecycleService, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      logService.writeSuccess.mockResolvedValue({ id: 'log-1' });
 
-      const result = await runner.runScheduledTick({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'scheduled',
-        jobId: 'job-1',
-      });
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-1');
 
       expect(lifecycleService.assertScheduledWorkAllowed).toHaveBeenCalledWith(
         'world-1',
@@ -173,17 +210,11 @@ describe('SimulationTickRunner', () => {
     });
 
     it('targets a picked post for a VOTE command', async () => {
-      const { runner, picker, executor, logService } = createRunner();
+      const { runner, picker, executor } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      logService.writeSuccess.mockResolvedValue({ id: 'log-1' });
       picker.pickTargetPost.mockResolvedValue('post-3');
 
-      await runner.runScheduledTick({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'VOTE',
-        executionSource: 'scheduled',
-      });
+      await runner.runScheduledTick(scheduledCommand({ actionType: 'VOTE' }));
 
       expect(picker.pickTargetPost).toHaveBeenCalledWith('world-1');
       expect(executor.execute).toHaveBeenCalledWith({
@@ -196,15 +227,8 @@ describe('SimulationTickRunner', () => {
 
     it('logs a lifecycle rejection as REJECTED and never retries', async () => {
       const { runner, logService } = createRunner({ gateState: 'halted' });
-      logService.writeRejected.mockResolvedValue({ id: 'log-9' });
 
-      const result = await runner.runScheduledTick({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'scheduled',
-        jobId: 'job-4',
-      });
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-4');
 
       expect(logService.writeRejected).toHaveBeenCalledWith({
         worldId: 'world-1',
@@ -219,7 +243,7 @@ describe('SimulationTickRunner', () => {
       expect(result).toEqual({
         status: 'rejected',
         reason: 'Simulation scheduled work is rejected in state HALTED',
-        log: { id: 'log-9' },
+        log: logRecord({ status: 'REJECTED' }),
       });
     });
 
@@ -233,15 +257,8 @@ describe('SimulationTickRunner', () => {
           retryable: true,
         },
       });
-      logService.writeFailure.mockResolvedValue({ id: 'log-2' });
 
-      const result = await runner.runScheduledTick({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'scheduled',
-        jobId: 'job-2',
-      });
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-2');
 
       expect(contentWriter.persist).not.toHaveBeenCalled();
       expect(logService.writeFailure).toHaveBeenCalledWith(
@@ -257,12 +274,9 @@ describe('SimulationTickRunner', () => {
       const { runner, picker, executor } = createRunner();
       picker.pickTargetPost.mockResolvedValue(null);
 
-      const result = await runner.runScheduledTick({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'VOTE',
-        executionSource: 'scheduled',
-      });
+      const result = await runner.runScheduledTick(
+        scheduledCommand({ actionType: 'VOTE' }),
+      );
 
       expect(executor.execute).not.toHaveBeenCalled();
       expect(result).toMatchObject({
@@ -270,64 +284,84 @@ describe('SimulationTickRunner', () => {
         failure: { code: 'NO_ACTIVE_TARGET', retryable: false },
       });
     });
+
+    it('writes a FAILED log for a permanent error before the executor path', async () => {
+      const { runner, lifecycleService, logService } = createRunner();
+      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
+        new SimulationConfigNotFoundError('world-1'),
+      );
+
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-5');
+
+      expect(logService.writeFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: 'job-5',
+          worldId: 'world-1',
+          failure: expect.objectContaining({ retryable: false }),
+        }),
+      );
+      expect(result).toMatchObject({ status: 'failed' });
+    });
+
+    it('logs a transient write-path error as a retryable failed result', async () => {
+      const { runner, executor, contentWriter, logService } = createRunner();
+      executor.execute.mockResolvedValue(successOutcome);
+      contentWriter.persist.mockRejectedValue({
+        name: 'PrismaClientKnownRequestError',
+        code: 'P1001',
+        message: "Can't reach database",
+      });
+
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-6');
+
+      expect(logService.writeFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: 'job-6',
+          failure: expect.objectContaining({ retryable: true }),
+        }),
+      );
+      expect(result).toMatchObject({
+        status: 'failed',
+        failure: { retryable: true },
+      });
+    });
+
+    it('throws when the World itself is unresolvable (DLQ records it)', async () => {
+      const { runner, worldRepository } = createRunner();
+      worldRepository.findBySlug.mockResolvedValue(null);
+
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-7'),
+      ).rejects.toThrow('World "mbti-house" was not found');
+    });
   });
 
   describe('runManualIteration', () => {
-    it('uses a specific character and forced action', async () => {
-      const { runner, lifecycleService, picker, executor, logService } =
-        createRunner();
+    it('uses the composed command and gates manual work', async () => {
+      const { runner, lifecycleService, executor, logService } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      logService.writeSuccess.mockResolvedValue({ id: 'log-1' });
 
-      const result = await runner.runManualIteration({
-        worldSlug: 'mbti-house',
-        characterId: 'character-2',
-        actionType: 'COMMENT',
-        executionSource: 'custom',
-      });
+      const result = await runner.runManualIteration(
+        scheduledCommand({
+          characterId: 'character-2',
+          actionType: 'COMMENT',
+          executionSource: 'custom',
+        }),
+      );
 
       expect(lifecycleService.assertManualWorkAllowed).toHaveBeenCalledWith(
         'world-1',
       );
-      expect(picker.pickCharacter).not.toHaveBeenCalled();
-      expect(picker.pickAction).not.toHaveBeenCalled();
       expect(executor.execute).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'COMMENT',
           characterId: 'character-2',
         }),
       );
-      expect(result).toMatchObject({ status: 'success' });
-    });
-
-    it('composes Any Resident and Automatic via the picker', async () => {
-      const { runner, picker, executor, logService } = createRunner();
-      executor.execute.mockResolvedValue(successOutcome);
-      logService.writeSuccess.mockResolvedValue({ id: 'log-1' });
-      picker.pickCharacter.mockResolvedValue({
-        characterId: 'character-3',
-        memberId: 'member-3',
-      });
-      picker.pickAction.mockReturnValue('VOTE');
-      picker.pickTargetPost.mockResolvedValue('post-5');
-
-      const result = await runner.runManualIteration({
-        worldSlug: 'mbti-house',
-        executionSource: 'one-action',
-      });
-
-      expect(picker.pickCharacter).toHaveBeenCalledWith('world-1');
-      expect(picker.pickAction).toHaveBeenCalledWith(config.actionWeights);
-      expect(executor.execute).toHaveBeenCalledWith({
-        action: 'VOTE',
-        worldSlug: 'mbti-house',
-        characterId: 'character-3',
-        postId: 'post-5',
-      });
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,
         expect.anything(),
-        'one-action',
+        'custom',
         undefined,
       );
       expect(result).toMatchObject({ status: 'success' });
@@ -337,12 +371,9 @@ describe('SimulationTickRunner', () => {
       const { runner } = createRunner({ gateState: 'halted' });
 
       await expect(
-        runner.runManualIteration({
-          worldSlug: 'mbti-house',
-          characterId: 'character-1',
-          actionType: 'POST',
-          executionSource: 'custom',
-        }),
+        runner.runManualIteration(
+          scheduledCommand({ executionSource: 'custom' }),
+        ),
       ).rejects.toBeInstanceOf(SimulationWorkRejectedError);
     });
 
@@ -357,12 +388,9 @@ describe('SimulationTickRunner', () => {
         },
       });
 
-      const result = await runner.runManualIteration({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'custom',
-      });
+      const result = await runner.runManualIteration(
+        scheduledCommand({ executionSource: 'custom' }),
+      );
 
       expect(result).toMatchObject({
         status: 'failed',

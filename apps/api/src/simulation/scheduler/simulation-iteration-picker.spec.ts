@@ -1,5 +1,6 @@
 import { ActiveActorCandidate } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 
 function actor(
@@ -14,7 +15,13 @@ function createPicker(candidates: ActiveActorCandidate[] = []) {
     findActiveActors: jest.fn().mockResolvedValue(candidates),
     findRecentPostIds: jest.fn().mockResolvedValue([]),
   };
-  const picker = new SimulationIterationPicker(castingRepository as never);
+  const randomSource = {
+    next: jest.fn().mockReturnValue(0.5),
+  } as unknown as SimulationRandomSource;
+  const picker = new SimulationIterationPicker(
+    castingRepository as never,
+    randomSource,
+  );
   return { picker, castingRepository };
 }
 
@@ -51,7 +58,7 @@ describe('SimulationIterationPicker', () => {
 
       await expect(
         picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b', memberId: 'member-b' });
+      ).resolves.toEqual({ characterId: 'b' });
       expect(castingRepository.findActiveActors).toHaveBeenCalledWith(
         'world-1',
       );
@@ -66,7 +73,7 @@ describe('SimulationIterationPicker', () => {
 
       await expect(
         picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b', memberId: 'member-b' });
+      ).resolves.toEqual({ characterId: 'b' });
     });
 
     it('breaks ties among equally active residents at random', async () => {
@@ -77,11 +84,11 @@ describe('SimulationIterationPicker', () => {
       ]);
 
       await expect(picker.pickCharacter('world-1', () => 0.0)).resolves.toEqual(
-        { characterId: 'a', memberId: 'member-a' },
+        { characterId: 'a' },
       );
       await expect(
         picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b', memberId: 'member-b' });
+      ).resolves.toEqual({ characterId: 'b' });
     });
 
     it('throws when the world has no active residents', async () => {

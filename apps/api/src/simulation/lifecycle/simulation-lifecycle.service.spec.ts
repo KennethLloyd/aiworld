@@ -206,6 +206,48 @@ describe('SimulationLifecycleService', () => {
       expect(scheduler.start).not.toHaveBeenCalled();
       expect(scheduler.stop).not.toHaveBeenCalled();
     });
+
+    it('restores the previous state when start fails, never leaving stuck-RUNNING', async () => {
+      const { service, repository, scheduler, persisted } =
+        createService('PAUSED');
+      repository.findByWorldId.mockResolvedValue(persisted);
+      repository.transitionState.mockResolvedValueOnce(
+        configRecord({ state: 'RUNNING' }),
+      );
+      scheduler.start.mockRejectedValue(new Error('Redis unreachable'));
+
+      await expect(service.start('world-1')).rejects.toThrow(
+        'Redis unreachable',
+      );
+
+      // Persisted RUNNING, then a compensating transition back to PAUSED.
+      expect(repository.transitionState).toHaveBeenCalledTimes(2);
+      expect(repository.transitionState).toHaveBeenLastCalledWith(
+        'world-1',
+        'RUNNING',
+        'PAUSED',
+      );
+    });
+
+    it('restores the previous state when stop fails', async () => {
+      const { service, repository, scheduler, persisted } =
+        createService('RUNNING');
+      repository.findByWorldId.mockResolvedValue(persisted);
+      repository.transitionState.mockResolvedValueOnce(
+        configRecord({ state: 'PAUSED' }),
+      );
+      scheduler.stop.mockRejectedValue(new Error('Redis unreachable'));
+
+      await expect(service.pause('world-1')).rejects.toThrow(
+        'Redis unreachable',
+      );
+
+      expect(repository.transitionState).toHaveBeenLastCalledWith(
+        'world-1',
+        'PAUSED',
+        'RUNNING',
+      );
+    });
   });
 
   describe('assertManualWorkAllowed', () => {

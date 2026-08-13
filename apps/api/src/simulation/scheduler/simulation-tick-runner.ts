@@ -1,3 +1,4 @@
+import { SimulationCommand as ScheduledCommand } from '@aiworld/shared/schemas/simulation-command.schema';
 import { Injectable } from '@nestjs/common';
 
 import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
@@ -5,6 +6,7 @@ import { SimulationActionType } from '@/simulation/actions/simulation-action-typ
 import {
   ActionFailure,
   SimulationActionError,
+  toActionFailure,
 } from '@/simulation/actions/simulation-action.error';
 import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationDecision } from '@/simulation/actions/simulation-decision';
@@ -15,6 +17,7 @@ import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record'
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
@@ -31,28 +34,24 @@ export type ScheduledTickRunResult =
   | IterationRunResult
   | { status: 'rejected'; reason: string; log: SimulationLogRecord };
 
-export type ScheduledTickInput = {
-  worldSlug: string;
+type LogContext = {
+  worldId: string;
   characterId: string;
-  actionType: SimulationActionType;
-  executionSource: SimulationExecutionSource;
-  jobId?: string | null;
-};
-
-export type ManualIterationInput = {
-  worldSlug: string;
-  characterId?: string;
-  actionType?: SimulationActionType;
+  action: SimulationActionType;
   executionSource: SimulationExecutionSource;
   jobId?: string | null;
 };
 
 /** Executes one iteration of simulated work — the shared body of scheduled
- * ticks, Run One Action, and Custom Action. The runner enforces the lifecycle
- * gates (scheduled work only while RUNNING, manual work rejected in HALTED),
- * composes the same serializable command shape as every other source, and
- * funnels every outcome through the action executor → content writer → log
- * service pipeline. It never talks to a queue or an LLM provider directly. */
+ * ticks, Run One Action, and Custom Action. Every operation hands the runner a
+ * serializable `SimulationCommand` (the same shape both queue adapters
+ * transport) and receives a result: success, a logged failure, or a lifecycle
+ * rejection. The runner enforces the lifecycle gates (scheduled work only
+ * while RUNNING, manual work rejected in HALTED), resolves VOTE/COMMENT target
+ * posts, and funnels every outcome through the action executor → content
+ * writer → log service pipeline. Thrown errors are turned into logged failures
+ * here — transient ones stay retryable so the adapter's policy applies — and
+ * the runner never talks to a queue or an LLM provider directly. */
 @Injectable()
 export class SimulationTickRunner {
   constructor(
@@ -66,9 +65,13 @@ export class SimulationTickRunner {
   ) {}
 
   async runScheduledTick(
-    input: ScheduledTickInput,
+    command: ScheduledCommand,
+    jobId?: string | null,
   ): Promise<ScheduledTickRunResult> {
-    const world = await this.requireWorld(input.worldSlug);
+    // A tick whose World vanished (deleted between enqueue and processing)
+    // throws here: there is no worldId to attach a SimulationLog row to, so
+    // the DLQ is the record and the job never retries the identical command.
+    const world = await this.requireWorld(command.worldSlug);
 
     try {
       await this.lifecycleService.assertScheduledWorkAllowed(world.id);
@@ -76,104 +79,105 @@ export class SimulationTickRunner {
       if (error instanceof SimulationWorkRejectedError) {
         const log = await this.logService.writeRejected({
           worldId: world.id,
-          characterId: input.characterId,
-          action: input.actionType,
-          executionSource: input.executionSource,
+          characterId: command.characterId,
+          action: command.actionType,
+          executionSource: command.executionSource,
           provider: this.provider.config.providerId,
           model: this.provider.config.model,
           reason: error.message,
-          jobId: input.jobId,
+          jobId,
         });
         return { status: 'rejected', reason: error.message, log };
       }
-      throw error;
+      return this.failScheduled(command, world.id, jobId, error);
     }
 
-    return this.executeIteration({
-      world,
-      characterId: input.characterId,
-      actionType: input.actionType,
-      executionSource: input.executionSource,
-      jobId: input.jobId,
-    });
+    try {
+      return await this.executeIteration({ world, command, jobId });
+    } catch (error) {
+      return this.failScheduled(command, world.id, jobId, error);
+    }
   }
 
-  /** Manual work (Run One Action / Custom Action) awaits the result. Missing
-   * character (Any Resident) and missing action (Automatic) are composed
-   * through the picker; a HALTED world throws instead of executing. */
+  /** Manual work (Run One Action / Custom Action) awaits the result. The
+   * command is already fully composed (specific character and action, or
+   * Any Resident / Automatic resolved by the caller); a HALTED World throws
+   * instead of executing. */
   async runManualIteration(
-    input: ManualIterationInput,
+    command: ScheduledCommand,
+    jobId?: string | null,
   ): Promise<IterationRunResult> {
-    const world = await this.requireWorld(input.worldSlug);
-    const config = await this.lifecycleService.assertManualWorkAllowed(
-      world.id,
-    );
-
-    const characterId =
-      input.characterId ??
-      (await this.picker.pickCharacter(world.id)).characterId;
-    const actionType =
-      input.actionType ?? this.picker.pickAction(config.actionWeights);
-
-    return this.executeIteration({
-      world,
-      characterId,
-      actionType,
-      executionSource: input.executionSource,
-      jobId: input.jobId,
-    });
+    const world = await this.requireWorld(command.worldSlug);
+    await this.lifecycleService.assertManualWorkAllowed(world.id);
+    return this.executeIteration({ world, command, jobId });
   }
 
   private async executeIteration(input: {
     world: WorldRecord;
-    characterId: string;
-    actionType: SimulationActionType;
-    executionSource: SimulationExecutionSource;
+    command: ScheduledCommand;
     jobId?: string | null;
   }): Promise<IterationRunResult> {
-    const targetPostId =
-      input.actionType === 'POST'
-        ? null
-        : await this.picker.pickTargetPost(input.world.id);
+    const { world, command, jobId } = input;
+    const logContext: LogContext = {
+      worldId: world.id,
+      characterId: command.characterId,
+      action: command.actionType,
+      executionSource: command.executionSource,
+      jobId,
+    };
 
-    if (targetPostId === null && input.actionType !== 'POST') {
+    if (command.actionType === 'POST') {
+      return this.executeExecutorCommand({
+        logContext,
+        executorCommand: {
+          action: 'POST',
+          worldSlug: command.worldSlug,
+          characterId: command.characterId,
+        },
+      });
+    }
+
+    // VOTE/COMMENT need a target post; without one the action cannot proceed
+    // and fails permanently (never retried). A forced action on an empty World
+    // is the one path that legitimately reaches this.
+    const targetPostId = await this.picker.pickTargetPost(world.id);
+    if (targetPostId === null) {
       const failure: ActionFailure = {
         code: 'NO_ACTIVE_TARGET',
-        message: `No posts to ${input.actionType.toLowerCase()} in World "${input.world.slug}"`,
+        message: `No posts to ${command.actionType.toLowerCase()} in World "${world.slug}"`,
         retryable: false,
       };
       const log = await this.logService.writeFailure({
-        worldId: input.world.id,
-        characterId: input.characterId,
-        action: input.actionType,
-        executionSource: input.executionSource,
+        ...logContext,
         provider: this.provider.config.providerId,
         model: this.provider.config.model,
         failure,
-        jobId: input.jobId,
       });
       return { status: 'failed', failure, log };
     }
 
-    const command = this.toExecutorCommand({
-      worldSlug: input.world.slug,
-      characterId: input.characterId,
-      actionType: input.actionType,
-      // The guard above guarantees a target for VOTE/COMMENT.
-      targetPostId: targetPostId as string,
+    return this.executeExecutorCommand({
+      logContext,
+      executorCommand: {
+        action: command.actionType,
+        worldSlug: command.worldSlug,
+        characterId: command.characterId,
+        postId: targetPostId,
+      },
     });
+  }
 
-    const outcome = await this.executor.execute(command);
+  private async executeExecutorCommand(input: {
+    logContext: LogContext;
+    executorCommand: SimulationCommand;
+  }): Promise<IterationRunResult> {
+    const outcome = await this.executor.execute(input.executorCommand);
     if (outcome.status === 'failed') {
       const log = await this.logService.writeFailure({
-        worldId: input.world.id,
-        characterId: input.characterId,
-        action: input.actionType,
-        executionSource: input.executionSource,
+        ...input.logContext,
         provider: this.provider.config.providerId,
         model: this.provider.config.model,
         failure: outcome.failure,
-        jobId: input.jobId,
       });
       return { status: 'failed', failure: outcome.failure, log };
     }
@@ -183,40 +187,37 @@ export class SimulationTickRunner {
     const log = await this.logService.writeSuccess(
       decision,
       outcome.telemetry,
-      input.executionSource,
-      input.jobId,
+      input.logContext.executionSource,
+      input.logContext.jobId,
     );
     return { status: 'success', decision, log };
   }
 
-  private toExecutorCommand(input: {
-    worldSlug: string;
-    characterId: string;
-    actionType: SimulationActionType;
-    targetPostId: string | null;
-  }): SimulationCommand {
-    switch (input.actionType) {
-      case 'POST':
-        return {
-          action: 'POST',
-          worldSlug: input.worldSlug,
-          characterId: input.characterId,
-        };
-      case 'VOTE':
-        return {
-          action: 'VOTE',
-          worldSlug: input.worldSlug,
-          characterId: input.characterId,
-          postId: input.targetPostId ?? '',
-        };
-      case 'COMMENT':
-        return {
-          action: 'COMMENT',
-          worldSlug: input.worldSlug,
-          characterId: input.characterId,
-          postId: input.targetPostId ?? '',
-        };
-    }
+  /** Converts a thrown error into a logged failed result so every attempt
+   * lands in SimulationLog. Transient errors (LLM timeouts, 5xx, rate limits,
+   * database connection blips) keep `retryable: true` so the adapter applies
+   * its backoff policy; permanent errors never retry. */
+  private async failScheduled(
+    command: ScheduledCommand,
+    worldId: string,
+    jobId: string | null | undefined,
+    error: unknown,
+  ): Promise<ScheduledTickRunResult> {
+    const failure = toActionFailure(error);
+    const retryableFailure = isTransientSchedulerError(error)
+      ? { ...failure, retryable: true }
+      : failure;
+    const log = await this.logService.writeFailure({
+      worldId,
+      characterId: command.characterId,
+      action: command.actionType,
+      executionSource: command.executionSource,
+      provider: this.provider.config.providerId,
+      model: this.provider.config.model,
+      failure: retryableFailure,
+      jobId,
+    });
+    return { status: 'failed', failure: retryableFailure, log };
   }
 
   private async requireWorld(worldSlug: string): Promise<WorldRecord> {
