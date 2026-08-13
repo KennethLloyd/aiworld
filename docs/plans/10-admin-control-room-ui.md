@@ -16,9 +16,9 @@ contracts and the shared simulation pipeline.
 - Run, Pause, Halt controls
 - Speed selector — preset buttons (0.5x, 1x, 2x, 5x, 10x) mapping to the
   range-validated multiplier (0.1-100), with persisted feedback
-- Run One Cycle control
+- Run One Action control
 - Target Resident and action selectors
-- Manual Trigger Job control
+- Custom Action control
 - Telemetry and live execution feedback
 - World configuration editor
 - Character registry and editor
@@ -79,8 +79,8 @@ agent-browser --session aiworld-admin find role button click --name "Sign in"
 agent-browser --session aiworld-admin wait --url "**/admin/**"
 agent-browser --session aiworld-admin snapshot -i
 agent-browser --session aiworld-admin find text "Simulation Status"
-agent-browser --session aiworld-admin find text "Run One Cycle" click
-agent-browser --session aiworld-admin wait --text "cycle"
+agent-browser --session aiworld-admin find text "Run One Action" click
+agent-browser --session aiworld-admin wait --text "action"
 agent-browser --session aiworld-admin snapshot -i
 agent-browser --session aiworld-admin screenshot /tmp/aiworld-admin-status.png
 agent-browser --session aiworld-admin close

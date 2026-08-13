@@ -68,9 +68,9 @@ A Reddit-clone where AI characters — each with a defined personality — auton
 7. **Admin-only simulation demo/testing controls** — available on the admin simulation panel and driving the **same simulation engine/action pipeline as scheduled jobs** (they are not a separate production behavior):
    - **Run/Pause/Halt lifecycle** — start, pause, and halt the simulation engine
    - **Speed/clock multiplier presets** — 0.5x / 1x / 2x / 5x / 10x presets persisted in `WorldSimulationConfig` and reflected in telemetry
-   - **Run One Cycle** — execute exactly one scheduler cycle immediately
-   - **Manually trigger a job** — pick "Any Resident" or a specific character and force an Automatic / Post / Vote / Comment action
-   - Manual jobs and Run One Cycle are allowed while the simulation is **RUNNING** or **PAUSED** and are rejected while **HALTED** (admin-only; never exposed to public/observer users)
+   - **Run One Action** — execute exactly one scheduler iteration immediately
+   - **Custom Action** — pick "Any Resident" or a specific character and force an Automatic / Post / Vote / Comment action
+   - Manual jobs and Run One Action are allowed while the simulation is **RUNNING** or **PAUSED** and are rejected while **HALTED** (admin-only; never exposed to public/observer users)
 
 ### Out of Scope (Do Not Build)
 
@@ -199,12 +199,13 @@ make OpenCode Go the unconditional local default.
 │ model (text)             │
 │ latencyMs (int)          │
 │ executionSource (enum:   │
-│   SCHEDULED/MANUAL/      │
-│   RUN_ONE_CYCLE)         │
+│   SCHEDULED/ONE_ACTION/  │
+│   CUSTOM)                │
 │ tokensUsed (int)         │
 │ costEstimate (decimal)   │
 │ status (enum: SUCCESS/   │
-│   FAILED/SKIPPED)        │
+│   FAILED/SKIPPED/        │
+│   REJECTED)             │
 │ errorMessage (nullable)  │
 │ executedAt (datetime)    │
 └──────────────────────────┘
@@ -271,7 +272,7 @@ packages/shared/src/                      # ⭐ Contract-first: sole owner of cr
 └── schemas/
     ├── world.schema.ts                   # request schemas (create / update / list query)
     ├── world-response.schema.ts          # response schemas (WorldResponse, ListWorldsResponse)
-    ├── simulation.schema.ts              # simulation state/speed, run-one-cycle, manual-trigger, telemetry, filtered-log contracts
+    ├── simulation.schema.ts              # simulation state/speed, run-one-action, custom-action, telemetry, filtered-log contracts
     ├── llm-provider.schema.ts            # provider id/model/capability config contracts
     └── pagination.schema.ts              # paginationMetaSchema, PaginationMeta, Paginated<T>
 
@@ -380,7 +381,7 @@ src/
 │       └── simulation-events.handler.ts  # Observer pattern
 └── admin/
     ├── admin.module.ts
-    ├── admin.controller.ts               # Simulation controls: state, speed, run-one-cycle, manual trigger, telemetry, filtered logs
+    ├── admin.controller.ts               # Simulation controls: state, speed, run-one-action, custom-action, telemetry, filtered logs
     └── admin.service.ts
 ```
 
@@ -394,7 +395,7 @@ src/
 
 4. **Shared transport contracts via Zod** — `packages/shared` owns request AND response Zod schemas (including pagination). Transport contracts are explicitly distinct from persistence/domain models: controllers return shared `WorldResponse`/`ListWorldsResponse` (mapped from records at the HTTP boundary), and the frontend parses raw responses with the shared schemas at the API/queryFn boundary. Persistence types never cross the wire.
 
-5. **Admin demo controls are not a separate code path** — Run One Cycle and manual Trigger Job build the same serializable Command objects the BullMQ scheduler enqueues, so they execute through the identical engine/action-executor pipeline. Admin controllers never call an LLM provider directly; they only mutate `WorldSimulationConfig` state and enqueue commands. Lifecycle rules (manual work allowed in RUNNING/PAUSED, rejected in HALTED) are enforced by the state machine (Section 7).
+5. **Admin demo controls are not a separate code path** — Run One Action and Custom Action build the same serializable Command objects the BullMQ scheduler enqueues, so they execute through the identical engine/action-executor pipeline. Admin controllers never call an LLM provider directly; they only mutate `WorldSimulationConfig` state and enqueue commands. Lifecycle rules (manual work allowed in RUNNING/PAUSED, rejected in HALTED) are enforced by the state machine (Section 7).
 
 ---
 
@@ -445,7 +446,7 @@ src/
 │   ├── use-votes.ts                      # Optimistic mutation for instant feedback
 │   ├── use-worlds.ts
 │   ├── use-characters.ts
-│   └── use-simulation.ts                 # Admin: state, speed, run-one-cycle, manual trigger, telemetry, logs
+│   └── use-simulation.ts                 # Admin: state, speed, run-one-action, custom-action, telemetry, logs
 └── lib/
     ├── api.ts                            # API client/query layer: imports @aiworld/shared, fetches,
     │                                     # parses unknown JSON with the relevant response schema,
@@ -476,12 +477,12 @@ src/
 The admin simulation panel (`admin/simulation.tsx`) exposes the MVP demo/testing controls from Section 2, mirroring the vanilla-JS prototype:
 
 - **Speed selector** — 0.5x / 1x / 2x / 5x / 10x presets; mutates the shared speed field in `WorldSimulationConfig` and shows the applied multiplier in the telemetry header
-- **Run One Cycle** — calls the admin one-cycle mutation; rejected (with feedback) while `HALTED`
+- **Run One Action** — calls the admin one-action mutation; rejected (with feedback) while `HALTED`
 - **Target/action selectors** — "Any Resident" or a specific character, plus Automatic / Post / Vote / Comment
-- **Trigger Job** — calls the admin manual-trigger mutation; rejected (with feedback) while `HALTED`; in the production MVP it enqueues a command through the shared simulation pipeline. The standalone HTML prototype simulates this interaction in memory and does not create real posts; that behavior is visual reference only.
+- **Custom Action** — calls the admin custom-action mutation; rejected (with feedback) while `HALTED`; in the production MVP it enqueues a command through the shared simulation pipeline. The standalone HTML prototype simulates this interaction in memory and does not create real posts; that behavior is visual reference only.
 - **State/feedback** — every control surfaces success/refusal feedback through the admin toast and the live stdout log
 
-Backed by shared Zod contracts in `packages/shared` — `simulation.schema.ts` for the state/speed/run-one-cycle/manual-trigger/telemetry/filtered-log requests and responses, and `llm-provider.schema.ts` for the provider/model configuration the endpoints read and return — plus the admin endpoints/mutations: simulation state, simulation speed, run-one-cycle, manual trigger, telemetry, and filtered logs. No public (observer) UI exposes these controls.
+Backed by shared Zod contracts in `packages/shared` — `simulation.schema.ts` for the state/speed/run-one-action/custom-action/telemetry/filtered-log requests and responses, and `llm-provider.schema.ts` for the provider/model configuration the endpoints read and return — plus the admin endpoints/mutations: simulation state, simulation speed, run-one-action, custom-action, telemetry, and filtered logs. No public (observer) UI exposes these controls.
 
 ---
 
@@ -510,13 +511,13 @@ Backed by shared Zod contracts in `packages/shared` — `simulation.schema.ts` f
 └─────────────────────────────────────────────────────────┘
 ```
 
-### One Pipeline for Scheduled, Manual, and One-Cycle Work
+### One Pipeline for Scheduled, One-Action, and Custom Work
 
 Three entry points all produce the same serializable **Command** and execute in the same engine/action-executor pipeline:
 
 1. **Scheduled (BullMQ)** — the repeatable scheduler job picks a character, rolls an action, and enqueues the Command
-2. **Run One Cycle** — admin endpoint executes one scheduler iteration immediately (same pick/roll/enqueue path, no repeat schedule)
-3. **Manual Trigger Job** — admin endpoint enqueues a Command for a specific character (or "Any Resident") with a forced or Automatic action
+2. **Run One Action** — admin endpoint executes one scheduler iteration immediately (same pick/roll/enqueue path, no repeat schedule)
+3. **Custom Action** — admin endpoint enqueues a Command for a specific character (or "Any Resident") with a forced or Automatic action
 
 `WorldSimulationConfig` governs all of them: state (RUNNING/PAUSED/HALTED), speed multiplier, interval/jitter, action weights, provider id, and model. Manual demo controls are admin-only and use the same engine/action pipeline as scheduled jobs — they are not a separate production behavior.
 
@@ -612,11 +613,11 @@ interface LLMProvider {
 
 Lifecycle rules are enforced by a **State pattern / explicit state machine** (`SimulationState`), not scattered if/else in controllers:
 
-- **RUNNING** — scheduled jobs run; Run One Cycle and manual Trigger Job allowed
-- **PAUSED** — scheduled jobs stop; Run One Cycle and manual Trigger Job allowed
-- **HALTED** — everything stops; Run One Cycle and manual Trigger Job rejected (admin-only)
+- **RUNNING** — scheduled jobs run; Run One Action and Custom Action allowed
+- **PAUSED** — scheduled jobs stop; Run One Action and Custom Action allowed
+- **HALTED** — everything stops; Run One Action and Custom Action rejected (admin-only)
 
-Design patterns used by the simulation: **State** for lifecycle, **Command** for Run One Cycle / manual Trigger Job / BullMQ queue jobs, **Template Method** for action execution (`BaseAction`), **Repository** for config/state persistence, and **Observer/events** for telemetry and log updates.
+Design patterns used by the simulation: **State** for lifecycle, **Command** for Run One Action / Custom Action / BullMQ queue jobs, **Template Method** for action execution (`BaseAction`), **Repository** for config/state persistence, and **Observer/events** for telemetry and log updates.
 
 ---
 
@@ -639,7 +640,7 @@ Design patterns used by the simulation: **State** for lifecycle, **Command** for
 | **Adapter / Mapper**        | `WorldResponseMapper` maps `WorldRecord` → shared `WorldResponse`/`ListWorldsResponse` at the HTTP boundary | Persistence/domain types never leak onto the wire; controllers return transport contracts |
 | **Observer**                | `SimulationEvents` via NestJS `EventEmitter`                                    | Engine emits events; subscribers (cache, notifications, analytics) react independently |
 | **State**                   | `SimulationState` machine (RUNNING/PAUSED/HALTED)                             | Lifecycle rules centralized; manual work rejected in HALTED                           |
-| **Command**                 | BullMQ jobs + admin Run One Cycle / manual Trigger Job as serializable command objects | Jobs and manual actions are queueable, retryable, loggable, and share one pipeline |
+| **Command**                 | BullMQ jobs + admin Run One Action / Custom Action as serializable command objects | Jobs and manual actions are queueable, retryable, loggable, and share one pipeline |
 
 > Guardrail: patterns earn their place only at real variability or boundary seams (LLM providers, action steps, prompt chain, the repository/DIP boundary, the response mapper). Do not add patterns ceremonially — a plain service with no second variant and no cross-boundary type change needs no pattern.
 
@@ -657,7 +658,7 @@ Design patterns used by the simulation: **State** for lifecycle, **Command** for
 
 When asked "walk me through your architecture":
 
-> _"The simulation engine uses Template Method for the action lifecycle — the flow (fetch context, build prompt, call LLM, parse, persist, log) is fixed, but each action type overrides the steps. LLM access goes through an internal `LLMProvider` port: the MVP uses an OpenCode Go adapter selected via the provider registry, and future providers (OpenAI, Gemini, Anthropic, local) are added as registered adapters without touching the engine. Prompts are composed via Chain of Responsibility — each layer (system, world, character, action, format) is an independent link. All data access goes through the Repository pattern so Prisma is an implementation detail. Lifecycle state (RUNNING/PAUSED/HALTED) is a State machine, and scheduled jobs, Run One Cycle, and manual Trigger Job all share the same Command pipeline. New character types, new LLM providers, and new action types are all added by creating new classes — never modifying existing ones. That's the Open/Closed Principle in practice."_
+> _"The simulation engine uses Template Method for the action lifecycle — the flow (fetch context, build prompt, call LLM, parse, persist, log) is fixed, but each action type overrides the steps. LLM access goes through an internal `LLMProvider` port: the MVP uses an OpenCode Go adapter selected via the provider registry, and future providers (OpenAI, Gemini, Anthropic, local) are added as registered adapters without touching the engine. Prompts are composed via Chain of Responsibility — each layer (system, world, character, action, format) is an independent link. All data access goes through the Repository pattern so Prisma is an implementation detail. Lifecycle state (RUNNING/PAUSED/HALTED) is a State machine, and scheduled jobs, Run One Action, and Custom Action all share the same Command pipeline. New character types, new LLM providers, and new action types are all added by creating new classes — never modifying existing ones. That's the Open/Closed Principle in practice."_
 
 ---
 
@@ -873,7 +874,7 @@ If you can't whiteboard it, you vibe coded it.
 | 3.14 | Simulation events + event handlers                                          | Observer                     |
 | 3.15 | Scheduler service (BullMQ jobs + randomization)                             | Command                      |
 | 3.16 | Simulation engine (orchestrator)                                            | SRP                          |
-| 3.17 | Admin endpoints: state, speed, run-one-cycle, manual trigger, telemetry, filtered logs | Command              |
+| 3.17 | Admin endpoints: state, speed, run-one-action, custom-action, telemetry, filtered logs | Command              |
 | 3.18 | Write 16 MBTI character system prompts                                      | —                            |
 | 3.19 | Test simulation end-to-end (watch characters interact)                      | —                            |
 
@@ -899,7 +900,7 @@ If you can't whiteboard it, you vibe coded it.
 | 5.1 | Admin route guard (auth check)                                  | —                 |
 | 5.2 | World editor (create/edit world details + rules)                | —                 |
 | 5.3 | Character editor (create/edit personality + system prompt)      | —                 |
-| 5.4 | Simulation panel: speed presets, Run One Cycle, target/action selectors, Trigger Job, state feedback | —                 |
+| 5.4 | Simulation panel: speed presets, Run One Action, target/action selectors, Trigger Job, state feedback | —                 |
 | 5.5 | Simulation log viewer (browse logs, filter by character/action/status, provider/model/latency/source columns) | —     |
 
 ### Phase 6: Polish & Demo Prep (Week 6)

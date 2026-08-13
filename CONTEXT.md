@@ -50,6 +50,16 @@ One unit of simulated behavior — POST, VOTE, or COMMENT — produced by the
 simulation pipeline and executed by a resident through their World membership.
 _Avoid_: Job, task
 
+**Iteration**:
+One character performing one Action through the simulation pipeline — the unit
+of scheduled and manual work.
+_Avoid_: cycle (removed from the vocabulary; in the Plan 06 mock it meant a
+fixed POST → VOTE → COMMENT triple), round
+
+**Tick**:
+A scheduled Iteration fired by the Scheduler.
+_Avoid_: cycle, cron
+
 **Simulation lifecycle**:
 The RUNNING / PAUSED / HALTED state machine of a World's simulation, persisted
 in WorldSimulationConfig — the single source of truth for lifecycle, speed,
@@ -68,6 +78,8 @@ _Avoid_: Viewer, public user
 
 **Scheduler**:
 The seam that drives simulation ticks. A `SimulationScheduler` port exposes
-lifecycle and command operations; the BullMQ adapter is the runtime
-implementation and the in-process adapter serves tests and offline use.
+lifecycle and command operations — `start`, `stop`, `runOneAction`,
+`runCustomAction`; the BullMQ adapter is the default runtime implementation
+(Redis via docker-compose) and the in-process adapter serves tests and
+offline use.
 _Avoid_: Cron, timer (implementation detail)
