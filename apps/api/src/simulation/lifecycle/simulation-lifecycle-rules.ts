@@ -14,7 +14,7 @@ export function canSchedule(state: SimulationState): boolean {
   return state === 'RUNNING';
 }
 
-/** Manual work (Run One Cycle, Manual Trigger Job) is allowed in RUNNING and
+/** Manual work (Run One Action, Custom Action) is allowed in RUNNING and
  * PAUSED and rejected in HALTED. */
 export function canRunManualWork(state: SimulationState): boolean {
   return state !== 'HALTED';

@@ -5,6 +5,11 @@ export abstract class WorldSimulationConfigRepository {
   abstract findByWorldId(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord | null>;
+  /** All persisted configurations in the given lifecycle state (used by boot
+   * resume to restart RUNNING worlds). */
+  abstract findAllByState(
+    state: SimulationState,
+  ): Promise<WorldSimulationConfigRecord[]>;
   /** Atomically move a config from one persisted state to another. Throws if
    * the persisted state no longer matches `from` (concurrent change). */
   abstract transitionState(

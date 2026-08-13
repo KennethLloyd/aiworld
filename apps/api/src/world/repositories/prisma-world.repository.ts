@@ -93,6 +93,14 @@ export class PrismaWorldRepository extends WorldRepository {
     return this.mapToWorldRecord(item);
   }
 
+  async findById(id: string): Promise<WorldRecord | null> {
+    const item = await this.prisma.world.findUnique({
+      where: { id },
+    });
+
+    return item ? this.mapToWorldRecord(item) : null;
+  }
+
   async create(data: CreateWorld): Promise<WorldRecord> {
     const item = await this.prisma.world.create({
       data: {

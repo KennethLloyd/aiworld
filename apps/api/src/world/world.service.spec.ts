@@ -39,6 +39,7 @@ describe('WorldService', () => {
   const mockRepository: jest.Mocked<WorldRepository> = {
     findAll: jest.fn(),
     findBySlug: jest.fn(),
+    findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),

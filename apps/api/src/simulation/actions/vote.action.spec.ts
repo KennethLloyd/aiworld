@@ -3,6 +3,7 @@ import { CommentRepository } from '@/comments/repositories/comment-repository.in
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
+import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -64,6 +65,7 @@ function createAction(
     post?: typeof post | null;
     provider?: MockLlmProvider | StubLlmProvider;
     output?: { decision: string; reasoning: string };
+    alreadyVoted?: boolean;
   } = {},
 ) {
   const worldRepository = {
@@ -92,6 +94,12 @@ function createAction(
     commentRepository,
   );
 
+  const voteRepository = {
+    existsByMemberAndPost: jest
+      .fn()
+      .mockResolvedValue(overrides.alreadyVoted ?? false),
+  } as unknown as jest.Mocked<VoteRepository>;
+
   const provider =
     overrides.provider ??
     new MockLlmProvider(mockConfig(), [
@@ -104,7 +112,10 @@ function createAction(
       },
     ]);
 
-  return new VoteAction(contextProvider, provider);
+  return {
+    action: new VoteAction(contextProvider, provider, voteRepository),
+    voteRepository,
+  };
 }
 
 const command = {
@@ -118,7 +129,7 @@ describe('VoteAction', () => {
   it.each(['upvote', 'downvote', 'skip'] as const)(
     'parses a %s decision into a VoteDecision',
     async (decision) => {
-      const action = createAction({
+      const { action } = createAction({
         output: { decision, reasoning: 'Because.' },
       });
 
@@ -144,7 +155,7 @@ describe('VoteAction', () => {
       decision: 'skip',
       reasoning: 'R',
     });
-    const action = createAction({ provider });
+    const { action } = createAction({ provider });
 
     await action.execute(command);
 
@@ -158,8 +169,26 @@ describe('VoteAction', () => {
     expect(prompt.user).toContain('Body text.');
   });
 
+  it('treats an already-voted target as a skip instead of a repeat vote', async () => {
+    const { action, voteRepository } = createAction({
+      alreadyVoted: true,
+      output: { decision: 'upvote', reasoning: 'Clear point.' },
+    });
+
+    const result = await action.execute(command);
+
+    expect(voteRepository.existsByMemberAndPost).toHaveBeenCalledWith(
+      'member-1',
+      'post-1',
+    );
+    expect(result).toMatchObject({
+      status: 'success',
+      decision: { decision: 'skip' },
+    });
+  });
+
   it('fails when the target post is missing in the World', async () => {
-    const action = createAction({ post: null });
+    const { action } = createAction({ post: null });
 
     const result = await action.execute(command);
 
@@ -170,7 +199,7 @@ describe('VoteAction', () => {
   });
 
   it('fails when the provider returns an invalid decision', async () => {
-    const action = createAction({
+    const { action } = createAction({
       output: { decision: 'bogus', reasoning: 'R' },
     });
 

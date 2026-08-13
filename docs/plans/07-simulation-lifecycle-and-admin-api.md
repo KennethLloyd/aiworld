@@ -160,8 +160,8 @@ engineering contract for 07-2 (also recorded in the ticket body).
 
 ## Implementation Record
 
-Status: In Progress (07-1 delivered; 07-2 triaged 2026-08-13 — see Triage
-Decisions below; scheduler implementation and 07-3 admin API remain)
+Status: In Progress (07-1 delivered; 07-2 implemented 2026-08-13 — review PR
+open; 07-3 admin API remains)
 
 ### Senior-Level Summary
 
@@ -232,3 +232,73 @@ Not applicable to 07-1 (no HTTP surface yet; the admin API lands in 07-3).
 - HALTED is modeled as terminal for the MVP; if product later requires
   re-enabling a halted simulation, the allowed-transitions table is the single
   place to change.
+
+### 07-2 Scheduler Port Implementation (2026-08-13)
+
+Implements triage decisions 1–10 above. The `SimulationScheduler` port
+(`start`/`stop`/`runOneAction`/`runCustomAction`) is backed by two
+interchangeable adapters selected via `SCHEDULER_ADAPTER` (zod-validated,
+empty-string-as-absent, fail-fast on invalid values — mirrors
+`apps/api/src/lib/llm/provider-config.ts`): the BullMQ adapter (runtime
+default; self-rescheduling delayed job, completion-to-start cadence, worker
+concurrency 1, exponential backoff with 3 attempts, permanent errors to a
+dead-letter queue, `removeOnFail: false` for at-least-once awareness) and the
+in-process adapter (chained `setTimeout`, the test/offline override). Both
+build the same serializable `SimulationCommand` (shared schema in
+`packages/shared/src/schemas/simulation-command.schema.ts`: `worldSlug`,
+`characterId`, `actionType`, `executionSource` `scheduled|one-action|custom`,
+`issuedAt`) and run ticks through the same `SimulationTickRunner`, which
+delegates to the executor — adapters never call an LLM provider directly.
+Randomization (interval + jitter derivation, weighted action selection,
+activity-balanced character selection) lives behind an injected
+`SimulationRandomSource` so tests are deterministic. Lifecycle integration:
+`SimulationLifecycleService` now drives the port (`start` on →RUNNING, `stop`
+on PAUSED/HALTED; `stop` removes the single pending delayed tick, never
+`queue.pause()`), boot resume uses the new `findAllByState` repository method,
+and the executor gates ticks through `assertScheduledWorkAllowed` /
+`assertManualWorkAllowed`. `SimulationLog` gains a REJECTED status
+(rejection ≠ failure, never retried) and `jobId` so retried/stalled
+duplicates are visibly the same job; the persisted enum stays SCREAMING_SNAKE
+with a lowercase domain transport mapping in the adapter.
+
+#### Files Changed
+
+- `packages/shared/src/schemas/simulation-command.schema.ts` — command schema, speed-multiplier validation (0.1–100), interval/jitter derivation
+- `apps/api/src/simulation/scheduler/simulation-scheduler.port.ts` — port
+- `apps/api/src/simulation/scheduler/bullmq-scheduler.adapter.ts` (+spec) — runtime adapter, retries, DLQ, pending-tick removal
+- `apps/api/src/simulation/scheduler/in-process-scheduler.adapter.ts` (+spec) — test/offline adapter
+- `apps/api/src/simulation/scheduler/simulation-scheduler-config.ts` (+spec) — `SCHEDULER_ADAPTER` env, `REDIS_URL`, attempts, retry delay
+- `apps/api/src/simulation/scheduler/simulation-iteration-picker.ts` (+spec) — weighted action + activity-balanced character selection
+- `apps/api/src/simulation/scheduler/simulation-random-source.ts` — injected randomness seam
+- `apps/api/src/simulation/scheduler/simulation-tick-runner.ts` (+spec) — shared tick execution path
+- `apps/api/src/simulation/scheduler/simulation-scheduler-bootstrap.ts` — adapter selection/wiring
+- `apps/api/src/simulation/scheduler/simulation-scheduler.error.ts`, `simulation-casting-repository.interface.ts`, `prisma-simulation-casting.repository.ts`
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle.service.ts` (+spec) — scheduler driving on transitions
+- `apps/api/src/simulation/lifecycle/world-simulation-config-repository.interface.ts` (+Prisma adapter) — `findAllByState` for boot resume
+- `apps/api/src/simulation/logging/*` — REJECTED status, `jobId`, source mapping
+- `apps/api/prisma/models/simulation-log.prisma` + `migrations/20260813100000_scheduler_execution_sources/` — enum + `jobId`
+- `apps/api/prisma/seed-world.ts` — pacing `intervalMs: 1800000`, `jitterMs: 300000`, `speedMultiplier: 1`
+- `apps/api/docker-compose.yml` — redis service (local e2e + demo)
+- `.github/workflows/ci.yml` — redis service container for the e2e job
+- `apps/api/test/simulation-scheduler.e2e-spec.ts` — BullMQ e2e against real Redis
+- `apps/api/.env.example` — scheduler env documentation
+
+#### Tests Run
+
+- `pnpm --filter @aiworld/api test` — unit suites incl. new scheduler specs (64 scheduler tests)
+- `pnpm --filter @aiworld/api exec jest --config ./test/jest-e2e.json` — 11 suites, 101 tests (BullMQ adapter against real Redis)
+- `pnpm --filter @aiworld/web test` — 22 files, 118 tests
+- `pnpm build` (api + web), `pnpm --filter @aiworld/api lint`
+
+#### Known Risks and Follow-Up Work
+
+- The Jest e2e run warns "did not exit cleanly" (BullMQ/ioredis handle left
+  open); `--detectOpenHandles` found nothing in the scheduler suites — worth a
+  follow-up to close the worker/queue connection cleanly.
+- Auto-HALT after consecutive failures remains a follow-up (triage decision 9;
+  touches the allowed-transitions table because 07-1 models HALTED as terminal).
+- `runOneAction`/`runCustomAction` controllers and HTTP surfaces land in 07-3
+  (the port methods exist and are awaited through the same executor).
+- Local dev on the OCI box: honcho's redis owns 127.0.0.1:6379, so aiworld's
+  redis runs on 6380 via `~/aiworld-compose.override.yml` and
+  `REDIS_URL=redis://localhost:6380` (repo default stays 6379).

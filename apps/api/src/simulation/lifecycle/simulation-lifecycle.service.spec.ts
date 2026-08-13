@@ -7,6 +7,7 @@ import {
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 
 function configRecord(
   overrides: Partial<WorldSimulationConfigRecord> = {},
@@ -30,10 +31,15 @@ function configRecord(
 function createService(state: SimulationState = 'PAUSED') {
   const repository = {
     findByWorldId: jest.fn(),
+    findAllByState: jest.fn(),
     transitionState: jest.fn(),
   } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
-  const service = new SimulationLifecycleService(repository);
-  return { service, repository, persisted: configRecord({ state }) };
+  const scheduler = {
+    start: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<SimulationScheduler>;
+  const service = new SimulationLifecycleService(repository, scheduler);
+  return { service, repository, scheduler, persisted: configRecord({ state }) };
 }
 
 describe('SimulationLifecycleService', () => {
@@ -153,6 +159,52 @@ describe('SimulationLifecycleService', () => {
           'HALTED',
         );
       }
+    });
+  });
+
+  describe('scheduler drive', () => {
+    it('starts the scheduler after persisting RUNNING', async () => {
+      const { service, repository, scheduler, persisted } =
+        createService('PAUSED');
+      repository.findByWorldId.mockResolvedValue(persisted);
+      repository.transitionState.mockResolvedValue(
+        configRecord({ state: 'RUNNING' }),
+      );
+
+      await service.start('world-1');
+
+      expect(scheduler.start).toHaveBeenCalledWith('world-1');
+      expect(scheduler.stop).not.toHaveBeenCalled();
+    });
+
+    it.each(['PAUSED', 'HALTED'] as const)(
+      'stops the scheduler after persisting %s',
+      async (target) => {
+        const { service, repository, scheduler, persisted } =
+          createService('RUNNING');
+        repository.findByWorldId.mockResolvedValue(persisted);
+        repository.transitionState.mockResolvedValue(
+          configRecord({ state: target }),
+        );
+
+        await service.transitionTo('world-1', target);
+
+        expect(scheduler.stop).toHaveBeenCalledWith('world-1');
+        expect(scheduler.start).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not drive the scheduler on an invalid transition', async () => {
+      const { service, repository, scheduler, persisted } =
+        createService('HALTED');
+      repository.findByWorldId.mockResolvedValue(persisted);
+
+      await expect(service.transitionTo('world-1', 'RUNNING')).rejects.toThrow(
+        'Invalid simulation state transition',
+      );
+
+      expect(scheduler.start).not.toHaveBeenCalled();
+      expect(scheduler.stop).not.toHaveBeenCalled();
     });
   });
 
