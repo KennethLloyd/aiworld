@@ -160,7 +160,8 @@ engineering contract for 07-2 (also recorded in the ticket body).
 
 ## Implementation Record
 
-Status: Complete (07-1, 07-2, and 07-3 delivered — PRs #111, #113, #114 merged)
+Status: In Progress (07-1 and 07-2 delivered — PRs #111, #113 merged
+2026-08-13; 07-3 admin API implemented — PR #114 open pending review)
 
 ### Senior-Level Summary
 
