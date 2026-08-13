@@ -62,6 +62,7 @@ function fakeJob(overrides: Record<string, unknown> = {}) {
 function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const lifecycleService = {
     getByWorldId: jest.fn().mockResolvedValue(configRecord()),
+    assertManualWorkAllowed: jest.fn().mockResolvedValue(configRecord()),
   } as unknown as jest.Mocked<SimulationLifecycleService>;
 
   const worldRepository = {

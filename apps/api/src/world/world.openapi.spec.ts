@@ -63,6 +63,13 @@ describe('worldOpenApiDocument', () => {
       '/worlds/{slug}/posts',
       '/worlds/{slug}/posts/{postId}',
       '/worlds/{slug}/search',
+      '/worlds/{slug}/simulation',
+      '/worlds/{slug}/simulation/custom-action',
+      '/worlds/{slug}/simulation/logs',
+      '/worlds/{slug}/simulation/run-one-action',
+      '/worlds/{slug}/simulation/speed',
+      '/worlds/{slug}/simulation/state',
+      '/worlds/{slug}/simulation/telemetry',
     ]);
     expect(paths['/worlds']?.get).toBeDefined();
     expect(paths['/worlds']?.post).toBeDefined();

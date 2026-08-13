@@ -138,15 +138,18 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   }
 
   /** Composes a manual operation (Run One Action / Custom Action) into the same
-   * serializable command a scheduled tick builds. Any Resident and Automatic
-   * are resolved through the picker; a HALTED World is rejected downstream by
-   * the runner's manual-work gate, never here. */
+   * serializable command a scheduled tick builds. The manual-work gate runs
+   * before composition so a HALTED World rejects here (409 at the HTTP
+   * boundary) even when the picker could not find a resident to act. Any
+   * Resident and Automatic are resolved through the picker; the runner's
+   * manual-work gate stays as the second line of defense for race windows. */
   private async composeManualCommand(
     worldSlug: string,
     executionSource: 'one-action' | 'custom',
     input: { characterId?: string; actionType?: SimulationActionType },
   ): Promise<SimulationCommand> {
     const world = await this.requireWorldBySlug(worldSlug);
+    await this.lifecycleService.assertManualWorkAllowed(world.id);
     const config = await this.requireConfig(world.id);
 
     const characterId =

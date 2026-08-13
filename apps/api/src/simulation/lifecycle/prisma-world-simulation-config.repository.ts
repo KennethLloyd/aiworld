@@ -121,4 +121,28 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
     // the conditional update and the read-back must not leak into the result.
     return this.mapToRecord({ ...row, state: to });
   }
+
+  async updateSpeedMultiplier(
+    worldId: string,
+    speedMultiplier: number,
+  ): Promise<WorldSimulationConfigRecord> {
+    const result = await this.prisma.worldSimulationConfig.updateMany({
+      where: { worldId },
+      data: { speedMultiplier },
+    });
+
+    if (result.count === 0) {
+      throw new SimulationConfigNotFoundError(worldId);
+    }
+
+    const row = await this.prisma.worldSimulationConfig.findUnique({
+      where: { worldId },
+    });
+
+    if (!row) {
+      throw new SimulationConfigNotFoundError(worldId);
+    }
+
+    return this.mapToRecord(row);
+  }
 }

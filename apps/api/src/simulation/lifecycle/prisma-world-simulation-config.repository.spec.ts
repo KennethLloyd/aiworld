@@ -152,4 +152,29 @@ describe('PrismaWorldSimulationConfigRepository', () => {
       repository.transitionState('world-1', 'PAUSED', 'RUNNING'),
     ).rejects.toThrow(SimulationConfigNotFoundError);
   });
+
+  it('persists a speed multiplier and returns the updated record', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.updateMany.mockResolvedValue({ count: 1 });
+    prisma.worldSimulationConfig.findUnique.mockResolvedValue(
+      row({ speedMultiplier: 2 }),
+    );
+
+    const result = await repository.updateSpeedMultiplier('world-1', 2);
+
+    expect(prisma.worldSimulationConfig.updateMany).toHaveBeenCalledWith({
+      where: { worldId: 'world-1' },
+      data: { speedMultiplier: 2 },
+    });
+    expect(result.speedMultiplier).toBe(2);
+  });
+
+  it('throws not-found when updating the speed of a missing config', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      repository.updateSpeedMultiplier('missing', 2),
+    ).rejects.toThrow(SimulationConfigNotFoundError);
+  });
 });

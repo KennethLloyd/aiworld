@@ -33,6 +33,7 @@ function createService(state: SimulationState = 'PAUSED') {
     findByWorldId: jest.fn(),
     findAllByState: jest.fn(),
     transitionState: jest.fn(),
+    updateSpeedMultiplier: jest.fn(),
   } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
   const scheduler = {
     start: jest.fn().mockResolvedValue(undefined),
@@ -159,6 +160,35 @@ describe('SimulationLifecycleService', () => {
           'HALTED',
         );
       }
+    });
+  });
+
+  describe('updateSpeed', () => {
+    it('delegates the multiplier to the repository after confirming the config', async () => {
+      const { service, repository, persisted } = createService('PAUSED');
+      repository.findByWorldId.mockResolvedValue(persisted);
+      repository.updateSpeedMultiplier.mockResolvedValue({
+        ...persisted,
+        speedMultiplier: 2,
+      });
+
+      await expect(service.updateSpeed('world-1', 2)).resolves.toMatchObject({
+        speedMultiplier: 2,
+      });
+      expect(repository.updateSpeedMultiplier).toHaveBeenCalledWith(
+        'world-1',
+        2,
+      );
+    });
+
+    it('throws when the world has no persisted configuration', async () => {
+      const { service, repository } = createService();
+      repository.findByWorldId.mockResolvedValue(null);
+
+      await expect(service.updateSpeed('missing', 2)).rejects.toThrow(
+        SimulationConfigNotFoundError,
+      );
+      expect(repository.updateSpeedMultiplier).not.toHaveBeenCalled();
     });
   });
 

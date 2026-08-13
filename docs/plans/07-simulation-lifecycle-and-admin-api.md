@@ -160,8 +160,7 @@ engineering contract for 07-2 (also recorded in the ticket body).
 
 ## Implementation Record
 
-Status: In Progress (07-1 and 07-2 delivered — PRs #111, #113 merged
-2026-08-13; 07-3 admin API remains)
+Status: Complete (07-1, 07-2, and 07-3 delivered — PRs #111, #113, #114 merged)
 
 ### Senior-Level Summary
 
@@ -352,8 +351,113 @@ Review findings were resolved before merge; each finding and its resolution:
   follow-up to close the worker/queue connection cleanly.
 - Auto-HALT after consecutive failures remains a follow-up (triage decision 9;
   touches the allowed-transitions table because 07-1 models HALTED as terminal).
-- `runOneAction`/`runCustomAction` controllers and HTTP surfaces land in 07-3
-  (the port methods exist and are awaited through the same executor).
+- Local dev on the OCI box: honcho's redis owns 127.0.0.1:6379, so aiworld's
+  redis runs on 6380 via `~/aiworld-compose.override.yml` and
+  `REDIS_URL=redis://localhost:6380` (repo default stays 6379).
+
+### 07-3 Admin Simulation API (2026-08-13, issue #44)
+
+The admin control surface for simulation: read lifecycle state, change state
+and speed, run one scheduler iteration or a custom action by hand, and read
+telemetry and filtered logs — every endpoint behind `@Roles(['ADMIN'])` with
+server-side authorization. Contracts were finalized in `packages/shared` before
+the controllers were written, and controllers only read/mutate persisted
+configuration or enqueue commands through the scheduler port — they never call
+an LLM provider directly.
+
+#### Senior-Level Summary
+
+A thin `SimulationAdminController` (`worlds/:slug/simulation/*`) delegates to a
+`SimulationAdminService` that owns world-by-slug resolution and forwards to the
+existing boundaries: `SimulationLifecycleService` (state transitions and speed
+updates), `SimulationScheduler` (Run One Action / Custom Action, awaited through
+the same tick runner as scheduled work), and `SimulationLogRepository` (filtered
+logs and telemetry aggregates). The response mapper drops raw decisions and
+provider payloads, and the log/telemetry contracts deliberately exclude
+`promptUsed`/`responseRaw` so telemetry exposes no provider secrets. A small
+`mapSimulationAdminError` helper converts lifecycle domain errors to HTTP
+statuses at the controller boundary — missing world/config to 404; invalid or
+concurrent transitions, HALTED manual-work refusal, and picker failures to 409 —
+keeping services free of HTTP vocabulary.
+
+The speed multiplier is range-validated (0.1-100) at the shared contract
+boundary (`simulationSpeedMultiplierSchema`, already owned by
+`simulation-command.schema`), consumed by the PATCH body and OpenAPI alike. Log
+filters (character, action, status, execution source) run inside the Prisma
+adapter against the persisted enum, with the lowercase transport vocabulary
+mapped at the adapter as 07-2 established. HALTED refusal is enforced at the
+service boundary by the lifecycle's `assertManualWorkAllowed` — now invoked in
+the scheduler base before command composition so a HALTED world rejects with
+409 even when the picker could not find a resident — and again by the tick
+runner's gate as the second line of defense.
+
+#### Files Changed
+
+- `packages/shared/src/schemas/simulation-state.schema.ts` — state/config response + update state/speed contracts
+- `packages/shared/src/schemas/simulation-log.schema.ts` — log response (no provider secrets), list query, list response, status vocabulary
+- `packages/shared/src/schemas/simulation-run.schema.ts` — custom-action body + run result response
+- `packages/shared/src/schemas/simulation-telemetry.schema.ts` — telemetry aggregates response
+- `apps/api/src/simulation/domain/simulation-telemetry.ts` — operator-facing telemetry record + empty helper
+- `apps/api/src/simulation/domain/simulation-log.ts`, `lifecycle/domain/simulation-state.ts` — vocabulary re-exported from shared (single source of truth)
+- `apps/api/src/simulation/admin/simulation-admin.controller.ts` (+spec) — 7 ADMIN endpoints
+- `apps/api/src/simulation/admin/simulation-admin.service.ts` (+spec) — orchestration
+- `apps/api/src/simulation/admin/simulation-admin-response.mapper.ts` (+spec) — domain → transport
+- `apps/api/src/simulation/admin/simulation-admin.errors.ts` (+spec) — domain → HTTP status mapping
+- `apps/api/src/simulation/admin/simulation-admin.openapi.ts` (+spec) — OpenAPI registration
+- `apps/api/src/simulation/admin/simulation-admin.schema.spec.ts` — shared contract tests
+- `apps/api/src/simulation/lifecycle/world-simulation-config-repository.interface.ts` + Prisma adapter (+spec) — `updateSpeedMultiplier`
+- `apps/api/src/simulation/lifecycle/simulation-lifecycle.service.ts` (+spec) — `updateSpeed`
+- `apps/api/src/simulation/logging/simulation-log-repository.interface.ts` + Prisma adapter — `findMany` (filters) and `getTelemetry`
+- `apps/api/src/simulation/scheduler/simulation-scheduler.base.ts` — manual-work gate before composition
+- `apps/api/src/simulation/simulation.module.ts` — controller + admin providers wired
+- `apps/api/src/lib/openapi/openapi.ts` + `world.openapi.spec.ts` — simulation paths registered
+- `apps/api/test/simulation-admin.e2e-spec.ts` — 21 HTTP e2e tests against real Postgres
+
+#### Architecture and SOLID Notes
+
+- Thin controllers: no controller calls a provider, repository, or scheduler
+  directly — everything routes through `SimulationAdminService`, matching the
+  existing world/character controller→service→repository shape.
+- Contracts finalized in shared first: the controller, the mapper, and the
+  OpenAPI document all consume the same Zod schemas, so names and shapes cannot
+  drift. `simulationStates` and the log statuses are re-exported by the API
+  domain files, making shared the single vocabulary owner.
+- Repository boundary: filters and telemetry aggregation live in the Prisma
+  adapter; the port exposes domain-shaped inputs and records, and generated
+  Prisma types stay inside the adapter.
+- Error mapping is one pure function at the controller seam; domain services
+  never import `@nestjs/common`.
+- HALTED rejection is enforced by the state machine, not the transport: the
+  base's `assertManualWorkAllowed` (service boundary) and the tick runner's
+  gate (race window) both delegate to the lifecycle rules.
+
+#### Tests Run
+
+- `pnpm --filter @aiworld/api test` — 64 suites, 457 tests (incl. 33 shared-contract, admin service/controller/mapper/errors, scheduler gate)
+- `pnpm --filter @aiworld/api test:e2e` — 12 suites, 122 tests (incl. 21 admin API e2e)
+- `pnpm --filter @aiworld/web test` — 22 files, 118 tests
+- `pnpm build` (api + web), `pnpm lint`, `pnpm format:check`
+
+#### Browser Verification
+
+Not applicable to 07-3: the API checkpoint is the OpenAPI page, and the
+authenticated control-room interaction is implemented and automated in Plan 10.
+The 7 simulation paths are registered in the OpenAPI document
+(`worlds/{slug}/simulation` and children), asserted by the openapi spec.
+
+#### Known Risks and Follow-Up Work
+
+- The controller repeats a try/catch `mapSimulationAdminError` wrapper per
+  handler; a controller-scoped domain→HTTP exception filter would remove the
+  repetition if this pattern grows beyond one controller.
+- A world with no active AI residents rejects Run One / Custom Action with 409
+  (picker failure mapped at the HTTP boundary); a future UX could explain this
+  state more explicitly.
+- The Plan 10 admin control room consumes these endpoints; its browser
+  assertions must cover state feedback, HALTED refusal, Run One Action, manual
+  target/action selection, and log refresh.
+- The known "did not exit cleanly" e2e warning (BullMQ/ioredis handle) is
+  tracked separately.
 - Local dev on the OCI box: honcho's redis owns 127.0.0.1:6379, so aiworld's
   redis runs on 6380 via `~/aiworld-compose.override.yml` and
   `REDIS_URL=redis://localhost:6380` (repo default stays 6379).

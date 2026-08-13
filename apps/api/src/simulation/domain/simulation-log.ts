@@ -2,14 +2,10 @@ export {
   simulationExecutionSources,
   type SimulationExecutionSource,
 } from '@aiworld/shared/schemas/simulation-command.schema';
-
-/** Simulation log vocabulary as plain unions, so ports and services never
- * depend on generated Prisma enum types. The Prisma adapter maps these to and
- * from the database enums. */
-export const simulationLogStatuses = [
-  'SUCCESS',
-  'FAILED',
-  'SKIPPED',
-  'REJECTED',
-] as const;
-export type SimulationLogStatus = (typeof simulationLogStatuses)[number];
+// Log status vocabulary as plain unions, so ports and services never depend on
+// generated Prisma enum types. The shared schema owns the vocabulary; the
+// Prisma adapter maps these to and from the database enum.
+export {
+  simulationLogStatuses,
+  type SimulationLogStatus,
+} from '@aiworld/shared/schemas/simulation-log.schema';

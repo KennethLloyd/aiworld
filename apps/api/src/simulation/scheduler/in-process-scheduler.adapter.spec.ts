@@ -1,5 +1,6 @@
 import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-scheduler.adapter';
@@ -69,6 +70,7 @@ function logRecord(
 function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const lifecycleService = {
     getByWorldId: jest.fn().mockResolvedValue(configRecord()),
+    assertManualWorkAllowed: jest.fn().mockResolvedValue(configRecord()),
   } as unknown as jest.Mocked<SimulationLifecycleService>;
 
   const worldRepository = {
@@ -287,5 +289,17 @@ describe('InProcessSchedulerAdapter', () => {
         executionSource: 'custom',
       }),
     );
+  });
+
+  it('rejects manual work at the service gate before composing when HALTED', async () => {
+    const { adapter, lifecycleService, picker } = createAdapter();
+    lifecycleService.assertManualWorkAllowed.mockRejectedValue(
+      new SimulationWorkRejectedError('MANUAL', 'HALTED'),
+    );
+
+    await expect(adapter.runOneAction('mbti-house')).rejects.toThrow(
+      'rejected in state HALTED',
+    );
+    expect(picker.pickCharacter).not.toHaveBeenCalled();
   });
 });
