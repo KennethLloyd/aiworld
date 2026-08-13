@@ -8,6 +8,7 @@ export const simulationActionErrorCodes = [
   'COMMENT_PARENT_NOT_FOUND',
   'COMMENT_PARENT_POST_MISMATCH',
   'COMMENT_DEPTH_EXCEEDED',
+  'NO_ACTIVE_TARGET',
 ] as const;
 export type SimulationActionErrorCode =
   (typeof simulationActionErrorCodes)[number];

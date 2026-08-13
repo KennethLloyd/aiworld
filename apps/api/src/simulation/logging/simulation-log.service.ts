@@ -25,6 +25,7 @@ export class SimulationLogService {
     decision: SimulationDecision,
     telemetry: LlmProviderTelemetry,
     executionSource: SimulationExecutionSource,
+    jobId?: string | null,
   ): Promise<SimulationLogRecord> {
     return this.repository.create({
       worldId: decision.worldId,
@@ -35,6 +36,7 @@ export class SimulationLogService {
       provider: telemetry.source,
       model: telemetry.model,
       latencyMs: telemetry.latencyMs,
+      jobId: jobId ?? null,
       executionSource,
       tokensUsed: telemetry.tokens?.total ?? null,
       costEstimate:
@@ -53,6 +55,7 @@ export class SimulationLogService {
     provider: string;
     model: string;
     failure: ActionFailure;
+    jobId?: string | null;
   }): Promise<SimulationLogRecord> {
     return this.repository.create({
       worldId: input.worldId,
@@ -62,8 +65,35 @@ export class SimulationLogService {
       provider: input.provider,
       model: input.model,
       executionSource: input.executionSource,
+      jobId: input.jobId ?? null,
       status: 'FAILED',
       errorMessage: `${input.failure.code}: ${input.failure.message}`,
+    });
+  }
+
+  /** A lifecycle-gated tick that was refused (for example a scheduled tick
+   * landing after the world left RUNNING). Rejection is not a failure — the
+   * error is never retried — so it gets its own status. */
+  async writeRejected(input: {
+    worldId: string;
+    characterId: string;
+    action: SimulationDecision['action'];
+    executionSource: SimulationExecutionSource;
+    provider: string;
+    model: string;
+    reason: string;
+    jobId?: string | null;
+  }): Promise<SimulationLogRecord> {
+    return this.repository.create({
+      worldId: input.worldId,
+      characterId: input.characterId,
+      action: input.action,
+      provider: input.provider,
+      model: input.model,
+      executionSource: input.executionSource,
+      jobId: input.jobId ?? null,
+      status: 'REJECTED',
+      errorMessage: input.reason,
     });
   }
 

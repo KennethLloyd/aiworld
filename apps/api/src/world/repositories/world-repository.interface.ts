@@ -13,6 +13,7 @@ export abstract class WorldRepository {
     slug: string,
     isActive?: boolean,
   ): Promise<WorldRecord | null>;
+  abstract findById(id: string): Promise<WorldRecord | null>;
   abstract create(data: CreateWorld): Promise<WorldRecord>;
   abstract update(slug: string, data: UpdateWorld): Promise<WorldRecord | null>;
   abstract delete(slug: string): Promise<void>;

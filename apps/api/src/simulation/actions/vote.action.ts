@@ -19,6 +19,7 @@ import {
   LlmProvider,
   LlmProviderPrompt,
 } from '@/simulation/providers/llm-provider.port';
+import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
 
 @Injectable()
 export class VoteAction extends SimulationAction<
@@ -30,6 +31,7 @@ export class VoteAction extends SimulationAction<
   constructor(
     contextProvider: SimulationContextProvider,
     provider: LlmProvider,
+    private readonly voteRepository: VoteRepository,
   ) {
     super(contextProvider, provider);
   }
@@ -47,7 +49,11 @@ export class VoteAction extends SimulationAction<
       actor.world.id,
       command.postId,
     );
-    return { ...actor, post };
+    const alreadyVoted = await this.voteRepository.existsByMemberAndPost(
+      actor.memberId,
+      post.id,
+    );
+    return { ...actor, post, alreadyVoted };
   }
 
   protected buildPrompt(
@@ -73,14 +79,19 @@ export class VoteAction extends SimulationAction<
     output: VoteOutput,
     _command: VoteSimulationCommand,
   ): VoteDecision {
+    // A resident casts one vote per post; an already-voted target is a no-op
+    // (skip), never a duplicate write.
+    const decision = context.alreadyVoted ? 'skip' : output.decision;
     return {
       action: 'VOTE',
       worldId: context.world.id,
       memberId: context.memberId,
       characterId: context.character.id,
       postId: context.post.id,
-      decision: output.decision,
-      reasoning: output.reasoning,
+      decision,
+      reasoning: context.alreadyVoted
+        ? 'Already voted on this post.'
+        : output.reasoning,
     };
   }
 }

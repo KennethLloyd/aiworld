@@ -27,7 +27,7 @@ const databaseUrl =
 /** A full mock cycle — POST, then VOTE, then COMMENT on the created post —
  * driven through the real DI graph (executor → writer → log service). The
  * former SimulationCycleService orchestrated this in production code; with no
- * product caller for a fixed triple (Plan 07's Run One Cycle is a single
+ * product caller for a fixed triple (Plan 07's Run One Action is a single
  * scheduler iteration), the orchestration now lives here as a test helper. */
 type FullCycleStep =
   | {
@@ -196,7 +196,7 @@ describe('Simulation cycle (seeded database)', () => {
       worldId,
       worldSlug: canonicalWorld.slug,
       characterId: actorCharacterId,
-      executionSource: 'RUN_ONE_CYCLE',
+      executionSource: 'one-action',
     });
 
     expect(steps.map((step) => step.step)).toEqual(['POST', 'VOTE', 'COMMENT']);
@@ -246,7 +246,7 @@ describe('Simulation cycle (seeded database)', () => {
     for (const log of logs) {
       expect(log.worldId).toBe(worldId);
       expect(log.characterId).toBe(actorCharacterId);
-      expect(log.executionSource).toBe('RUN_ONE_CYCLE');
+      expect(log.executionSource).toBe('ONE_ACTION');
       expect(log.status).toBe('SUCCESS');
       expect(log.provider).toBe('mock');
       expect(log.model).toBeTruthy();
@@ -286,7 +286,7 @@ describe('Simulation cycle (seeded database)', () => {
         worldId,
         worldSlug: canonicalWorld.slug,
         characterId: inactiveCharacterId,
-        executionSource: 'RUN_ONE_CYCLE',
+        executionSource: 'one-action',
       });
 
       expect(steps).toHaveLength(1);

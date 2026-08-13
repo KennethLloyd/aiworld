@@ -26,6 +26,7 @@ function createRepository() {
   const prisma = {
     worldSimulationConfig: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       updateMany: jest.fn(),
     },
   };
@@ -56,6 +57,21 @@ describe('PrismaWorldSimulationConfigRepository', () => {
     prisma.worldSimulationConfig.findUnique.mockResolvedValue(null);
 
     await expect(repository.findByWorldId('missing')).resolves.toBeNull();
+  });
+
+  it('finds all persisted configs in a given state', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.findMany.mockResolvedValue([
+      row({ id: 'config-1' }),
+      row({ id: 'config-2' }),
+    ]);
+
+    const result = await repository.findAllByState('RUNNING');
+
+    expect(prisma.worldSimulationConfig.findMany).toHaveBeenCalledWith({
+      where: { state: 'RUNNING' },
+    });
+    expect(result.map((record) => record.id)).toEqual(['config-1', 'config-2']);
   });
 
   it('surfaces malformed persisted weights instead of fabricating them', async () => {

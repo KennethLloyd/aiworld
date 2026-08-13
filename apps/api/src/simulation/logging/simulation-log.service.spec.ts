@@ -66,7 +66,7 @@ describe('SimulationLogService', () => {
       executedAt: new Date(),
     }));
 
-    await service.writeSuccess(postDecision, telemetry, 'RUN_ONE_CYCLE');
+    await service.writeSuccess(postDecision, telemetry, 'one-action');
 
     expect(repository.create).toHaveBeenCalledWith({
       worldId: 'world-1',
@@ -77,12 +77,23 @@ describe('SimulationLogService', () => {
       provider: 'mock',
       model: 'fixture-model',
       latencyMs: 7,
-      executionSource: 'RUN_ONE_CYCLE',
+      jobId: null,
+      executionSource: 'one-action',
       tokensUsed: 15,
       costEstimate: 0.00003,
       status: 'SUCCESS',
       errorMessage: undefined,
     });
+  });
+
+  it('records the queue job id when provided', async () => {
+    const { service, repository } = createService();
+
+    await service.writeSuccess(postDecision, telemetry, 'scheduled', 'job-1');
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'job-1', executionSource: 'scheduled' }),
+    );
   });
 
   it('logs a vote target and a skip decision as SKIPPED', async () => {
@@ -91,7 +102,7 @@ describe('SimulationLogService', () => {
     await service.writeSuccess(
       { ...voteDecision, decision: 'skip' },
       telemetry,
-      'MANUAL',
+      'custom',
     );
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -99,7 +110,7 @@ describe('SimulationLogService', () => {
         action: 'VOTE',
         targetId: 'post-1',
         status: 'SKIPPED',
-        executionSource: 'MANUAL',
+        executionSource: 'custom',
       }),
     );
   });
@@ -110,7 +121,7 @@ describe('SimulationLogService', () => {
     await service.writeSuccess(
       { ...commentDecision, parentCommentId: 'comment-2' },
       telemetry,
-      'SCHEDULED',
+      'scheduled',
     );
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -124,7 +135,7 @@ describe('SimulationLogService', () => {
   it('logs a top-level comment against its post id', async () => {
     const { service, repository } = createService();
 
-    await service.writeSuccess(commentDecision, telemetry, 'SCHEDULED');
+    await service.writeSuccess(commentDecision, telemetry, 'scheduled');
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -140,7 +151,7 @@ describe('SimulationLogService', () => {
     await service.writeSuccess(
       postDecision,
       { ...telemetry, tokens: undefined },
-      'RUN_ONE_CYCLE',
+      'one-action',
     );
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -154,7 +165,7 @@ describe('SimulationLogService', () => {
     await service.writeSuccess(
       postDecision,
       { ...telemetry, costEstimateUsd: 0.999999 },
-      'RUN_ONE_CYCLE',
+      'one-action',
     );
 
     expect(repository.create).toHaveBeenCalledWith(
@@ -170,7 +181,7 @@ describe('SimulationLogService', () => {
       characterId: 'character-1',
       action: 'COMMENT',
       targetId: 'post-1',
-      executionSource: 'RUN_ONE_CYCLE',
+      executionSource: 'one-action',
       provider: 'mock',
       model: 'fixture-model',
       failure: {
@@ -187,7 +198,8 @@ describe('SimulationLogService', () => {
       targetId: 'post-1',
       provider: 'mock',
       model: 'fixture-model',
-      executionSource: 'RUN_ONE_CYCLE',
+      executionSource: 'one-action',
+      jobId: null,
       status: 'FAILED',
       errorMessage:
         'COMMENT_DEPTH_EXCEEDED: Comments cannot be nested deeper than 3 levels',
@@ -195,6 +207,56 @@ describe('SimulationLogService', () => {
       latencyMs: undefined,
       tokensUsed: undefined,
       costEstimate: undefined,
+    });
+  });
+
+  it('records the queue job id on a failed attempt', async () => {
+    const { service, repository } = createService();
+
+    await service.writeFailure({
+      worldId: 'world-1',
+      characterId: 'character-1',
+      action: 'POST',
+      executionSource: 'scheduled',
+      provider: 'mock',
+      model: 'fixture-model',
+      failure: {
+        code: 'TIMEOUT',
+        message: 'Provider request timed out',
+        retryable: true,
+      },
+      jobId: 'job-7',
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: 'job-7', status: 'FAILED' }),
+    );
+  });
+
+  it('logs a lifecycle rejection as REJECTED with the reason', async () => {
+    const { service, repository } = createService();
+
+    await service.writeRejected({
+      worldId: 'world-1',
+      characterId: 'character-1',
+      action: 'VOTE',
+      executionSource: 'scheduled',
+      provider: 'mock',
+      model: 'fixture-model',
+      reason: 'Scheduled work is not allowed while PAUSED',
+      jobId: 'job-9',
+    });
+
+    expect(repository.create).toHaveBeenCalledWith({
+      worldId: 'world-1',
+      characterId: 'character-1',
+      action: 'VOTE',
+      provider: 'mock',
+      model: 'fixture-model',
+      executionSource: 'scheduled',
+      jobId: 'job-9',
+      status: 'REJECTED',
+      errorMessage: 'Scheduled work is not allowed while PAUSED',
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
@@ -12,16 +12,28 @@ import {
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 
 /** Enforces the RUNNING/PAUSED/HALTED lifecycle against persisted
  * WorldSimulationConfig state. State is always read from the repository,
  * never from process memory, and transitions are persisted before success is
- * reported. */
+ * reported. Transitions drive the scheduler port: entering RUNNING starts
+ * scheduled ticks, leaving it stops them. */
 @Injectable()
 export class SimulationLifecycleService {
+  private readonly logger = new Logger(SimulationLifecycleService.name);
+
   constructor(
     @Inject(WorldSimulationConfigRepository)
     private readonly configRepository: WorldSimulationConfigRepository,
+    // Deliberate cycle, not an accident: the lifecycle drives the scheduler
+    // (start on RUNNING, stop on PAUSED/HALTED) while the scheduler consults
+    // the lifecycle for gates (assertScheduledWorkAllowed /
+    // assertManualWorkAllowed) and per-world config. Both directions are
+    // runtime-necessary, so forwardRef is the standard Nest mechanism for this
+    // genuine bidirectional DI graph.
+    @Inject(forwardRef(() => SimulationScheduler))
+    private readonly scheduler: SimulationScheduler,
   ) {}
 
   getByWorldId(worldId: string): Promise<WorldSimulationConfigRecord | null> {
@@ -47,12 +59,29 @@ export class SimulationLifecycleService {
     const config = await this.requireConfig(worldId);
     const next = transitionSimulationState(config.state, target);
 
-    return this.configRepository.transitionState(worldId, config.state, next);
+    const updated = await this.configRepository.transitionState(
+      worldId,
+      config.state,
+      next,
+    );
+
+    try {
+      await this.driveScheduler(worldId, next);
+    } catch (error) {
+      // The state was persisted before the scheduler was driven. If the drive
+      // fails (for example the queue is unreachable), restore the previous
+      // state so the database never claims RUNNING while no tick is scheduled
+      // (stuck-RUNNING). A concurrent change during the restore is best-effort.
+      await this.restoreState(worldId, next, config.state);
+      throw error;
+    }
+
+    return updated;
   }
 
-  /** Manual work (Run One Cycle, Manual Trigger Job) requires RUNNING or
-   * PAUSED; HALTED rejects it. Returns the persisted config that passed the
-   * check so callers act against the same persisted state. */
+  /** Manual work (Run One Action, Custom Action) requires RUNNING or PAUSED;
+   * HALTED rejects it. Returns the persisted config that passed the check so
+   * callers act against the same persisted state. */
   async assertManualWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {
@@ -76,6 +105,33 @@ export class SimulationLifecycleService {
     }
 
     return config;
+  }
+
+  private async driveScheduler(
+    worldId: string,
+    state: SimulationState,
+  ): Promise<void> {
+    if (state === 'RUNNING') {
+      await this.scheduler.start(worldId);
+    } else {
+      await this.scheduler.stop(worldId);
+    }
+  }
+
+  private async restoreState(
+    worldId: string,
+    from: SimulationState,
+    to: SimulationState,
+  ): Promise<void> {
+    try {
+      await this.configRepository.transitionState(worldId, from, to);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to restore simulation state for world ${worldId} after scheduler drive failed: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
+    }
   }
 
   private async requireConfig(

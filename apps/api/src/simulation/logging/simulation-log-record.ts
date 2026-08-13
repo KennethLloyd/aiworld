@@ -15,6 +15,7 @@ export interface SimulationLogRecord {
   provider: string;
   model: string;
   latencyMs: number | null;
+  jobId: string | null;
   executionSource: SimulationExecutionSource;
   tokensUsed: number | null;
   costEstimate: number | null;

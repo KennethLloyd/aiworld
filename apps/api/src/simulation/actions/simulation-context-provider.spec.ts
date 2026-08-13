@@ -64,6 +64,7 @@ function createProvider(
       .mockResolvedValue(
         overrides.world === undefined ? world : overrides.world,
       ),
+    findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),

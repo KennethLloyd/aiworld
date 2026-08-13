@@ -1,11 +1,37 @@
 import { Injectable } from '@nestjs/common';
 
+import {
+  SimulationExecutionSource,
+  SimulationLog,
+} from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { SimulationExecutionSource as DomainExecutionSource } from '@/simulation/domain/simulation-log';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import {
   SimulationLogCreateInput,
   SimulationLogRepository,
 } from '@/simulation/logging/simulation-log-repository.interface';
+
+/** The persisted enum stores the scheduler vocabulary in SCREAMING_SNAKE
+ * (Prisma enum identifiers cannot carry hyphens); the domain carries the
+ * lowercase transport values. */
+const executionSourceToDb: Record<
+  DomainExecutionSource,
+  SimulationExecutionSource
+> = {
+  scheduled: 'SCHEDULED',
+  'one-action': 'ONE_ACTION',
+  custom: 'CUSTOM',
+};
+
+const executionSourceFromDb: Record<
+  SimulationExecutionSource,
+  DomainExecutionSource
+> = {
+  SCHEDULED: 'scheduled',
+  ONE_ACTION: 'one-action',
+  CUSTOM: 'custom',
+};
 
 @Injectable()
 export class PrismaSimulationLogRepository extends SimulationLogRepository {
@@ -24,7 +50,8 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
         provider: input.provider,
         model: input.model,
         latencyMs: input.latencyMs ?? null,
-        executionSource: input.executionSource,
+        jobId: input.jobId ?? null,
+        executionSource: executionSourceToDb[input.executionSource],
         tokensUsed: input.tokensUsed ?? null,
         costEstimate: input.costEstimate ?? null,
         status: input.status,
@@ -32,6 +59,10 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
       },
     });
 
+    return this.mapToRecord(row);
+  }
+
+  private mapToRecord(row: SimulationLog): SimulationLogRecord {
     return {
       id: row.id,
       worldId: row.worldId,
@@ -42,7 +73,8 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
       provider: row.provider,
       model: row.model,
       latencyMs: row.latencyMs,
-      executionSource: row.executionSource,
+      jobId: row.jobId,
+      executionSource: executionSourceFromDb[row.executionSource],
       tokensUsed: row.tokensUsed,
       costEstimate: row.costEstimate === null ? null : Number(row.costEstimate),
       status: row.status,

@@ -16,6 +16,9 @@ export type PostActionContext = ResolvedActor;
 
 export type VoteActionContext = ResolvedActor & {
   post: PostWithAuthorRecord;
+  /** True when the actor has already voted on the post; a repeat vote is a
+   * no-op and is decided as a skip. */
+  alreadyVoted: boolean;
 };
 
 export type CommentActionContext = ResolvedActor & {

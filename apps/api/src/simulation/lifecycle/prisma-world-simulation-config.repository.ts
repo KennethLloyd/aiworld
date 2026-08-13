@@ -73,6 +73,16 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
     return row ? this.mapToRecord(row) : null;
   }
 
+  async findAllByState(
+    state: SimulationState,
+  ): Promise<WorldSimulationConfigRecord[]> {
+    const rows = await this.prisma.worldSimulationConfig.findMany({
+      where: { state },
+    });
+
+    return rows.map((row) => this.mapToRecord(row));
+  }
+
   async transitionState(
     worldId: string,
     from: SimulationState,

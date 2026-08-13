@@ -20,9 +20,23 @@ import { SimulationLogService } from '@/simulation/logging/simulation-log.servic
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { mockLlmFixtures } from '@/simulation/providers/mock/fixtures/mock-llm-fixtures';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
+import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
+import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
+import {
+  loadSchedulerConfig,
+  SCHEDULER_CONFIG,
+  type SchedulerConfig,
+} from '@/simulation/scheduler/simulation-scheduler-config';
+import { createSimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.factory';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { VotesModule } from '@/votes/votes.module';
 import { WorldMembersModule } from '@/world-members/world-members.module';
+import { WorldRepository } from '@/world/repositories/world-repository.interface';
 import { WorldModule } from '@/world/world.module';
 
 @Module({
@@ -52,6 +66,41 @@ import { WorldModule } from '@/world/world.module';
       provide: WorldSimulationConfigRepository,
       useClass: PrismaWorldSimulationConfigRepository,
     },
+    {
+      provide: SCHEDULER_CONFIG,
+      useFactory: () => loadSchedulerConfig(),
+    },
+    {
+      provide: SimulationCastingRepository,
+      useClass: PrismaSimulationCastingRepository,
+    },
+    {
+      provide: SimulationScheduler,
+      inject: [
+        SCHEDULER_CONFIG,
+        SimulationLifecycleService,
+        WorldRepository,
+        SimulationIterationPicker,
+        SimulationRandomSource,
+        SimulationTickRunner,
+      ],
+      useFactory: (
+        config: SchedulerConfig,
+        lifecycleService: SimulationLifecycleService,
+        worldRepository: WorldRepository,
+        picker: SimulationIterationPicker,
+        randomSource: SimulationRandomSource,
+        tickRunner: SimulationTickRunner,
+      ) =>
+        createSimulationScheduler(
+          config,
+          lifecycleService,
+          worldRepository,
+          picker,
+          randomSource,
+          tickRunner,
+        ),
+    },
     SimulationContextProvider,
     PostAction,
     VoteAction,
@@ -60,12 +109,18 @@ import { WorldModule } from '@/world/world.module';
     SimulationLifecycleService,
     SimulationLogService,
     SimulationContentWriter,
+    SimulationRandomSource,
+    SimulationIterationPicker,
+    SimulationTickRunner,
+    SimulationSchedulerBootstrap,
   ],
   exports: [
     LlmProvider,
     SimulationActionExecutor,
     SimulationLifecycleService,
     WorldSimulationConfigRepository,
+    SimulationScheduler,
+    SimulationTickRunner,
   ],
 })
 export class SimulationModule {}

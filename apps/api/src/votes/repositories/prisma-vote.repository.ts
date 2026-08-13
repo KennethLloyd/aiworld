@@ -17,4 +17,15 @@ export class PrismaVoteRepository extends VoteRepository {
     const vote = await this.prisma.vote.create({ data: input });
     return { id: vote.id };
   }
+
+  async existsByMemberAndPost(
+    memberId: string,
+    postId: string,
+  ): Promise<boolean> {
+    const vote = await this.prisma.vote.findFirst({
+      where: { authorMemberId: memberId, postId },
+      select: { id: true },
+    });
+    return vote !== null;
+  }
 }
