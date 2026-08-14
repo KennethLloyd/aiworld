@@ -140,7 +140,7 @@ engineering contract for 07-2 (also recorded in the ticket body).
 - **Operations**: `runOneAction` (`POST /run-one-action`) = the scheduler's
   task run manually — same random pick/roll, no overrides, awaits the result,
   source `one-action`. `runCustomAction` (`POST /custom-action`) = the composed
-  job — character (specific or Any Resident) × action (forced or Automatic),
+  job — character (specific or Any Character) × action (forced or Automatic),
   awaits the result, source `custom`. "cycle" is removed from the vocabulary.
 - **Retries**: transient (LLM timeout/5xx/rate-limit) → exponential backoff, 3
   attempts (tunable); permanent (validation, unknown world/character, provider
@@ -481,3 +481,9 @@ covered by that automated spec.
 - Local dev on the OCI box: honcho's redis owns 127.0.0.1:6379, so aiworld's
   redis runs on 6380 via `~/aiworld-compose.override.yml` and
   `REDIS_URL=redis://localhost:6380` (repo default stays 6379).
+
+#### Product Decisions (PR #114 review, confirmed by Kenneth 2026-08-14)
+
+- Manual runs bypass the scheduler retry policy — confirmed by Kenneth
+  2026-08-14 (manual runs await the caller).
+- Log responses keep provider/model — confirmed by Kenneth 2026-08-14.

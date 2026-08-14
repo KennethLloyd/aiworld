@@ -1628,7 +1628,7 @@
             const sel = document.getElementById('manual-char-select');
             if (!sel) return;
             const current = sel.value;
-            let html = '<option value="any">Any Resident</option>';
+            let html = '<option value="any">Any Character</option>';
             Object.values(CHARACTERS).forEach(c => {
                 html += `<option value="${c.id}">${c.name} (${c.type})</option>`;
             });
