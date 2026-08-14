@@ -7,8 +7,12 @@ import { SimulationActionType } from '@/simulation/actions/simulation-action-typ
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
-import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
+import {
+  SimulationCharacterNotActiveError,
+  SimulationIterationPickError,
+} from '@/simulation/scheduler/simulation-scheduler.error';
 import {
   RunCustomActionInput,
   SimulationScheduler,
@@ -31,6 +35,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     protected readonly lifecycleService: SimulationLifecycleService,
     protected readonly worldRepository: WorldRepository,
     protected readonly picker: SimulationIterationPicker,
+    protected readonly castingRepository: SimulationCastingRepository,
     protected readonly tickRunner: SimulationTickRunner,
   ) {
     super();
@@ -58,7 +63,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
 
   /** Composes the next scheduled tick for a World along with its pacing
    * config, or returns null when the World is not RUNNING, was deleted, or
-   * cannot act (no active residents) — in all of these the cadence simply
+   * cannot act (no active characters) — in all of these the cadence simply
    * stops and is resumed by the next `start` or boot. Permanent composition
    * conditions never throw: a throw here would be a job retry and a duplicate
    * run of the identical command. */
@@ -140,9 +145,12 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   /** Composes a manual operation (Run One Action / Custom Action) into the same
    * serializable command a scheduled tick builds. The manual-work gate runs
    * before composition so a HALTED World rejects here (409 at the HTTP
-   * boundary) even when the picker could not find a resident to act. Any
-   * Resident and Automatic are resolved through the picker; the runner's
-   * manual-work gate stays as the second line of defense for race windows. */
+   * boundary) even when the picker could not find a character to act. A custom
+   * action's explicit character pick is checked against the World's active
+   * members before composition, so a foreign character rejects here (400 at
+   * the HTTP boundary) instead of silently logging a failed run. Any Character
+   * and Automatic are resolved through the picker; the runner's manual-work
+   * gate stays as the second line of defense for race windows. */
   private async composeManualCommand(
     worldSlug: string,
     executionSource: 'one-action' | 'custom',
@@ -151,6 +159,19 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     const world = await this.requireWorldBySlug(worldSlug);
     await this.lifecycleService.assertManualWorkAllowed(world.id);
     const config = await this.requireConfig(world.id);
+
+    if (input.characterId) {
+      const isActiveMember = await this.castingRepository.findActiveActor(
+        world.id,
+        input.characterId,
+      );
+      if (!isActiveMember) {
+        throw new SimulationCharacterNotActiveError(
+          input.characterId,
+          world.slug,
+        );
+      }
+    }
 
     const characterId =
       input.characterId ??

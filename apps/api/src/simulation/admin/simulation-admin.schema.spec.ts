@@ -154,7 +154,7 @@ describe('shared simulation admin contracts', () => {
   describe('runCustomActionSchema', () => {
     const characterId = '00000000-0000-4000-8000-000000000002';
 
-    it('accepts an empty body (Any Resident, Automatic)', () => {
+    it('accepts an empty body (Any Character, Automatic)', () => {
       expect(runCustomActionSchema.safeParse({}).success).toBe(true);
     });
 

@@ -21,6 +21,7 @@ import { canonicalWorld } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
 import { MOCK_AUTH_SESSION } from './__mocks__/nestjs-better-auth';
 import type { MockAuthSessionHolder } from './__mocks__/nestjs-better-auth';
+import { withEnv } from './test-utils';
 
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://postgres:***@localhost:5432/aiworld';
@@ -55,25 +56,34 @@ describe('Simulation admin API (e2e)', () => {
     await app.get(SimulationLifecycleService).halt(worldId);
   };
 
-  beforeAll(async () => {
-    process.env.SCHEDULER_ADAPTER = 'in-process';
+  beforeAll(
+    withEnv(
+      {
+        SCHEDULER_ADAPTER: 'bullmq',
+        REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
+      },
+      async () => {
+        await seedWorld(prisma);
 
-    await seedWorld(prisma);
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+          imports: [AppModule],
+        }).compile();
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+        app = moduleFixture.createNestApplication();
+        app.setGlobalPrefix('api');
+        await app.init();
 
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api');
-    await app.init();
-
-    const world = await prisma.world.findUniqueOrThrow({
-      where: { slug: canonicalWorld.slug },
-    });
-    worldId = world.id;
-    worldSlug = world.slug;
-  });
+        const world = await prisma.world.findUniqueOrThrow({
+          where: { slug: canonicalWorld.slug },
+        });
+        worldId = world.id;
+        worldSlug = world.slug;
+        // The destructive cleanup in afterEach only removes rows created after
+        // seeding, so seeded content survives the whole suite.
+        testStart = new Date();
+      },
+    ),
+  );
 
   afterAll(async () => {
     await app
@@ -288,6 +298,19 @@ describe('Simulation admin API (e2e)', () => {
         .post(`/api/worlds/${worldSlug}/simulation/custom-action`)
         .send({ actionType: 'DELETE' })
         .expect(400);
+    });
+
+    it('returns 400 for a character that is not in the world', async () => {
+      return request(app.getHttpServer())
+        .post(`/api/worlds/${worldSlug}/simulation/custom-action`)
+        .send({
+          characterId: '00000000-0000-4000-8000-0000000000ff',
+          actionType: 'POST',
+        })
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toContain('not an active member');
+        });
     });
   });
 

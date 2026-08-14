@@ -21,7 +21,7 @@ export abstract class SimulationScheduler {
   /** Run the scheduler's task once by hand: identical random pick and roll,
    * no overrides, awaits the result. */
   abstract runOneAction(worldSlug: string): Promise<IterationRunResult>;
-  /** Compose one manual iteration: a specific character or Any Resident, an
+  /** Compose one manual iteration: a specific character or Any Character, an
    * action forced to POST/VOTE/COMMENT or Automatic. Awaits the result. */
   abstract runCustomAction(
     input: RunCustomActionInput,

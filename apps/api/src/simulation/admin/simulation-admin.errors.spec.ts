@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import { mapSimulationAdminError } from '@/simulation/admin/simulation-admin.errors';
@@ -8,6 +12,7 @@ import {
   SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
+import { SimulationCharacterNotActiveError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 
 describe('mapSimulationAdminError', () => {
@@ -43,15 +48,23 @@ describe('mapSimulationAdminError', () => {
     ).toThrow(ConflictException);
   });
 
-  it('maps a picker failure (no active residents) to 409', () => {
+  it('maps a picker failure (no active characters) to 409', () => {
     expect(() =>
       mapSimulationAdminError(
         new SimulationIterationPickError(
-          'NO_ACTIVE_RESIDENTS',
-          'World "world-1" has no active AI residents to act',
+          'NO_ACTIVE_CHARACTERS',
+          'World "world-1" has no active AI characters to act',
         ),
       ),
     ).toThrow(ConflictException);
+  });
+
+  it('maps a custom-action character outside the world to 400', () => {
+    expect(() =>
+      mapSimulationAdminError(
+        new SimulationCharacterNotActiveError('character-9', 'mbti-house'),
+      ),
+    ).toThrow(BadRequestException);
   });
 
   it('re-throws unmapped errors', () => {

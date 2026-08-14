@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
@@ -7,7 +11,10 @@ import {
   SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
-import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
+import {
+  SimulationCharacterNotActiveError,
+  SimulationIterationPickError,
+} from '@/simulation/scheduler/simulation-scheduler.error';
 
 /** Maps the simulation domain errors that cross the HTTP boundary onto Nest
  * HTTP exceptions, keeping services free of HTTP vocabulary. Anything unmapped
@@ -18,6 +25,10 @@ export function mapSimulationAdminError(error: unknown): never {
     (error instanceof SimulationActionError && error.code === 'WORLD_NOT_FOUND')
   ) {
     throw new NotFoundException();
+  }
+
+  if (error instanceof SimulationCharacterNotActiveError) {
+    throw new BadRequestException(error.message);
   }
 
   if (

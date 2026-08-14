@@ -100,4 +100,13 @@ describe('simulationAdminOpenApiDocument', () => {
       ],
     ).toBeDefined();
   });
+
+  it('declares 400 for validation and foreign-character rejections on custom action', () => {
+    const customActionResponse = paths[
+      '/worlds/{slug}/simulation/custom-action'
+    ]?.post?.responses?.['400'] as SimulationDocumentResponse | undefined;
+
+    expect(customActionResponse).toBeDefined();
+    expect(customActionResponse?.description).toContain('not an active member');
+  });
 });

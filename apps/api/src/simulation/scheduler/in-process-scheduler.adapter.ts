@@ -2,6 +2,7 @@ import { deriveScheduledDelayMs } from '@aiworld/shared/schemas/simulation-comma
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
@@ -31,12 +32,19 @@ export class InProcessSchedulerAdapter
     lifecycleService: SimulationLifecycleService,
     worldRepository: WorldRepository,
     picker: SimulationIterationPicker,
+    castingRepository: SimulationCastingRepository,
     tickRunner: SimulationTickRunner,
     private readonly randomSource: SimulationRandomSource,
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
   ) {
-    super(lifecycleService, worldRepository, picker, tickRunner);
+    super(
+      lifecycleService,
+      worldRepository,
+      picker,
+      castingRepository,
+      tickRunner,
+    );
   }
 
   async start(worldId: string): Promise<void> {

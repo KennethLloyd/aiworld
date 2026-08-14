@@ -3,7 +3,7 @@ import { simulationActionTypes } from './simulation-command.schema.ts';
 import { simulationLogResponseSchema } from './simulation-log.schema.ts';
 
 // The manual-run contract: the Custom Action body (character and action are
-// optional — Any Resident / Automatic) and the shared Run One Action / Custom
+// optional — Any Character / Automatic) and the shared Run One Action / Custom
 // Action result. The result reflects exactly what the scheduler returned: a
 // completed iteration with its logged outcome, or a logged failure.
 

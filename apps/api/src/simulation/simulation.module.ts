@@ -85,6 +85,7 @@ import { WorldModule } from '@/world/world.module';
         SimulationLifecycleService,
         WorldRepository,
         SimulationIterationPicker,
+        SimulationCastingRepository,
         SimulationRandomSource,
         SimulationTickRunner,
       ],
@@ -93,6 +94,7 @@ import { WorldModule } from '@/world/world.module';
         lifecycleService: SimulationLifecycleService,
         worldRepository: WorldRepository,
         picker: SimulationIterationPicker,
+        castingRepository: SimulationCastingRepository,
         randomSource: SimulationRandomSource,
         tickRunner: SimulationTickRunner,
       ) =>
@@ -101,6 +103,7 @@ import { WorldModule } from '@/world/world.module';
           lifecycleService,
           worldRepository,
           picker,
+          castingRepository,
           randomSource,
           tickRunner,
         ),

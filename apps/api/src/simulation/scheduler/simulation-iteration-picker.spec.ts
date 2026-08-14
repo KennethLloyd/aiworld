@@ -91,7 +91,7 @@ describe('SimulationIterationPicker', () => {
       ).resolves.toEqual({ characterId: 'b' });
     });
 
-    it('throws when the world has no active residents', async () => {
+    it('throws when the world has no active characters', async () => {
       const { picker } = createPicker([]);
 
       await expect(

@@ -1,6 +1,7 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
+import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
@@ -9,6 +10,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -68,6 +70,16 @@ const telemetryRecord: SimulationTelemetryRecord = {
   totalCostEstimateUsd: 0.001,
   averageLatencyMs: 25,
   lastRunAt: new Date('2026-08-13T00:00:00.000Z'),
+};
+
+const postDecision: PostDecision = {
+  action: 'POST',
+  worldId: worldRecord.id,
+  memberId: '00000000-0000-4000-8000-000000000004',
+  characterId: logRecord.characterId,
+  title: 'A title',
+  content: 'Body.',
+  reasoning: 'Thought it through.',
 };
 
 function createService() {
@@ -187,11 +199,11 @@ describe('SimulationAdminService', () => {
   describe('runOneAction', () => {
     it('delegates to the scheduler with the world slug', async () => {
       const { service, scheduler } = createService();
-      const result = {
+      const result: IterationRunResult = {
         status: 'success',
-        decision: {},
+        decision: postDecision,
         log: logRecord,
-      } as const;
+      };
       scheduler.runOneAction.mockResolvedValue(result);
 
       await expect(service.runOneAction('mbti-house')).resolves.toBe(result);
@@ -202,11 +214,11 @@ describe('SimulationAdminService', () => {
   describe('runCustomAction', () => {
     it('maps the slug onto the scheduler worldSlug input', async () => {
       const { service, scheduler } = createService();
-      const result = {
+      const result: IterationRunResult = {
         status: 'success',
-        decision: {},
+        decision: postDecision,
         log: logRecord,
-      } as const;
+      };
       scheduler.runCustomAction.mockResolvedValue(result);
 
       await expect(

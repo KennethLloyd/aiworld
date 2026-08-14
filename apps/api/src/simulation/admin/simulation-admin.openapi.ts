@@ -145,7 +145,7 @@ export function registerSimulationAdminOpenApi(
       params: z.object({ slug: slugParam }),
       body: {
         description:
-          'A specific character or Any Resident, and an action forced to POST/VOTE/COMMENT or Automatic.',
+          'A specific character or Any Character, and an action forced to POST/VOTE/COMMENT or Automatic.',
         content: {
           'application/json': { schema: runCustomActionSchema },
         },
@@ -160,7 +160,10 @@ export function registerSimulationAdminOpenApi(
           },
         },
       },
-      400: { description: 'The request body failed validation.' },
+      400: {
+        description:
+          'The request body failed validation or the character is not an active member of the world.',
+      },
       409: {
         description: 'The world is HALTED and rejects manual work.',
       },

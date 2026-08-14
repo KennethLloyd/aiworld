@@ -5,6 +5,7 @@ import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.adapter';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
@@ -75,6 +76,10 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     pickAction: jest.fn().mockReturnValue('POST'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
+  const castingRepository = {
+    findActiveActor: jest.fn().mockResolvedValue(true),
+  } as unknown as jest.Mocked<SimulationCastingRepository>;
+
   const tickRunner = {
     runScheduledTick: jest.fn(),
     runManualIteration: jest.fn(),
@@ -111,6 +116,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     lifecycleService,
     worldRepository,
     picker,
+    castingRepository,
     randomSource,
     tickRunner,
     queue as never,
@@ -129,6 +135,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     lifecycleService,
     worldRepository,
     picker,
+    castingRepository,
     tickRunner,
     queue,
     dlq,
@@ -399,5 +406,24 @@ describe('BullMqSchedulerAdapter', () => {
         executionSource: 'custom',
       }),
     );
+  });
+
+  it('rejects a custom action naming a character outside the world before composing', async () => {
+    const { adapter, castingRepository, tickRunner } = createAdapter();
+    castingRepository.findActiveActor.mockResolvedValue(false);
+
+    await expect(
+      adapter.runCustomAction({
+        worldSlug: 'mbti-house',
+        characterId: 'foreign-character',
+        actionType: 'POST',
+      }),
+    ).rejects.toThrow('not an active member of World');
+
+    expect(castingRepository.findActiveActor).toHaveBeenCalledWith(
+      'world-1',
+      'foreign-character',
+    );
+    expect(tickRunner.runManualIteration).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ import { Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import {
@@ -57,13 +58,20 @@ export class BullMqSchedulerAdapter
     lifecycleService: SimulationLifecycleService,
     worldRepository: WorldRepository,
     picker: SimulationIterationPicker,
+    castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
     tickRunner: SimulationTickRunner,
     private readonly queue: Queue,
     private readonly dlq: Queue,
     private readonly connection: IORedis,
   ) {
-    super(lifecycleService, worldRepository, picker, tickRunner);
+    super(
+      lifecycleService,
+      worldRepository,
+      picker,
+      castingRepository,
+      tickRunner,
+    );
   }
 
   /** Wires the worker after construction so the processor can reference the

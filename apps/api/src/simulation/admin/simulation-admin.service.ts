@@ -1,7 +1,6 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { Injectable } from '@nestjs/common';
 
-import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
   emptySimulationTelemetry,
