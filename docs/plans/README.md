@@ -65,7 +65,7 @@ integration, public observer screens, and the admin control room.
 | [04](./04-character-management.md) | Character and World membership API | 02 | Complete |
 | [05](./05-content-read-api.md) | Public content read API | 02, 04 | Complete |
 | [06](./06-mock-simulation-engine.md) | Mock simulation action pipeline | 02, 04, 05 | Planned |
-| [07](./07-simulation-lifecycle-and-admin-api.md) | Scheduler and admin simulation API | 06 | Complete |
+| [07](./07-simulation-lifecycle-and-admin-api.md) | Scheduler and admin simulation API | 06 | In Progress |
 | [08](./08-opencode-go-adapter.md) | OpenCode Go provider adapter | 03, 06 | Planned |
 | [09](./09-public-observer-ui.md) | Public observer experience | 05 | Planned |
 | [10](./10-admin-control-room-ui.md) | Admin control room | 04, 07 | Planned |

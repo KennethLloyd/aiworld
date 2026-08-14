@@ -410,6 +410,8 @@ runner's gate as the second line of defense.
 - `apps/api/src/simulation/lifecycle/simulation-lifecycle.service.ts` (+spec) — `updateSpeed`
 - `apps/api/src/simulation/logging/simulation-log-repository.interface.ts` + Prisma adapter — `findMany` (filters) and `getTelemetry`
 - `apps/api/src/simulation/scheduler/simulation-scheduler.base.ts` — manual-work gate before composition
+- `apps/api/src/simulation/scheduler/simulation-casting-repository.interface.ts` + Prisma adapter — `findActiveActor` world-membership check
+- `apps/api/src/simulation/scheduler/simulation-scheduler.error.ts` — `SimulationCharacterNotActiveError` (foreign character in a custom action)
 - `apps/api/src/simulation/simulation.module.ts` — controller + admin providers wired
 - `apps/api/src/lib/openapi/openapi.ts` + `world.openapi.spec.ts` — simulation paths registered
 - `apps/api/test/simulation-admin.e2e-spec.ts` — 21 HTTP e2e tests against real Postgres
@@ -431,11 +433,17 @@ runner's gate as the second line of defense.
 - HALTED rejection is enforced by the state machine, not the transport: the
   base's `assertManualWorkAllowed` (service boundary) and the tick runner's
   gate (race window) both delegate to the lifecycle rules.
+- Custom-action character picks are world-scoped at the composition seam: the
+  scheduler base validates an explicit `characterId` against the World's active
+  AI members (`findActiveActor`) before any command is built, so a foreign
+  character rejects with a 400 (via `SimulationCharacterNotActiveError`) instead
+  of silently logging a `failed` run. Any Character / Automatic resolution is
+  unchanged.
 
 #### Tests Run
 
-- `pnpm --filter @aiworld/api test` — 64 suites, 457 tests (incl. 33 shared-contract, admin service/controller/mapper/errors, scheduler gate)
-- `pnpm --filter @aiworld/api test:e2e` — 12 suites, 122 tests (incl. 21 admin API e2e)
+- `pnpm --filter @aiworld/api test` — 64 suites, 461 tests (incl. 37 shared-contract, admin service/controller/mapper/errors/openapi, scheduler gate and custom-action world-scope)
+- `pnpm --filter @aiworld/api test:e2e` — 12 suites, 123 tests (incl. 22 admin API e2e, driving the BullMQ adapter against real Redis/Postgres)
 - `pnpm --filter @aiworld/web test` — 22 files, 118 tests
 - `pnpm build` (api + web), `pnpm lint`, `pnpm format:check`
 
@@ -444,14 +452,25 @@ runner's gate as the second line of defense.
 Not applicable to 07-3: the API checkpoint is the OpenAPI page, and the
 authenticated control-room interaction is implemented and automated in Plan 10.
 The 7 simulation paths are registered in the OpenAPI document
-(`worlds/{slug}/simulation` and children), asserted by the openapi spec.
+(`worlds/{slug}/simulation` and children) via `createOpenApiDocument` — the
+same document served at `/api/docs` — and asserted by the scripted
+`simulation-admin.openapi.spec.ts` (paths, ADMIN security, and the 401/403/404
+and 400/409 responses), so the plan's OpenAPI-page browser checkpoint is
+covered by that automated spec.
 
 #### Known Risks and Follow-Up Work
 
+- Manual runs (Run One Action / Custom Action) deliberately bypass the
+  scheduler retry policy (triage decision 6). They await the caller, so a
+  transient failure (LLM timeout / 5xx / rate limit) surfaces immediately in
+  the run result with `failure.retryable: true` rather than backing off inside
+  the HTTP request; the retry/DLQ policy governs scheduled queue work only. The
+  caller owns the retry — the admin can re-issue the action. Recorded as a
+  deliberate deviation from decision 6, not an oversight.
 - The controller repeats a try/catch `mapSimulationAdminError` wrapper per
   handler; a controller-scoped domain→HTTP exception filter would remove the
   repetition if this pattern grows beyond one controller.
-- A world with no active AI residents rejects Run One / Custom Action with 409
+- A world with no active AI characters rejects Run One / Custom Action with 409
   (picker failure mapped at the HTTP boundary); a future UX could explain this
   state more explicitly.
 - The Plan 10 admin control room consumes these endpoints; its browser
