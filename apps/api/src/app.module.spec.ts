@@ -14,6 +14,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 import { AppModule } from './app.module';
 import { PrismaModule } from './lib/database/prisma.module';
+import { LlmProvider } from './simulation/providers/llm-provider.port';
+import { MockLlmProvider } from './simulation/providers/mock/mock-llm.provider';
 
 describe('AppModule', () => {
   let module: TestingModule;
@@ -29,6 +31,12 @@ describe('AppModule', () => {
 
   it('should be defined', () => {
     expect(module).toBeDefined();
+  });
+
+  describe('LLM provider selection', () => {
+    it('resolves the mock provider through the registry by default', () => {
+      expect(module.get(LlmProvider)).toBeInstanceOf(MockLlmProvider);
+    });
   });
 
   describe('ThrottlerModule configuration', () => {

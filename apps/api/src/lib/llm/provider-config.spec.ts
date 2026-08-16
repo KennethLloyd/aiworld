@@ -1,8 +1,10 @@
 import {
   assertStructuredOutputCapability,
+  assertStructuredOutputEnabled,
   loadProviderConfig,
   toSafeProviderConfig,
 } from './provider-config.js';
+import { ProviderCapabilityError } from './provider-error.js';
 
 describe('loadProviderConfig', () => {
   it('defaults to a network-free mock configuration', () => {
@@ -126,5 +128,48 @@ describe('loadProviderConfig', () => {
     expect(() =>
       assertStructuredOutputCapability(config, 'json-schema'),
     ).toThrow('native json-schema structured output');
+  });
+});
+
+describe('assertStructuredOutputEnabled', () => {
+  it('allows json-object generation', () => {
+    const config = loadProviderConfig({
+      LLM_PROVIDER: 'mock',
+      LLM_STRUCTURED_OUTPUT: 'json-object',
+    });
+
+    expect(() => assertStructuredOutputEnabled(config)).not.toThrow();
+  });
+
+  it('rejects the unverified json-schema mode explicitly', () => {
+    const config = loadProviderConfig({
+      LLM_PROVIDER: 'mock',
+      LLM_STRUCTURED_OUTPUT: 'json-schema',
+    });
+
+    expect(() => assertStructuredOutputEnabled(config)).toThrow(
+      ProviderCapabilityError,
+    );
+    expect(() => assertStructuredOutputEnabled(config)).toThrow('json-schema');
+  });
+
+  it('allows text-json-fallback generation', () => {
+    const config = loadProviderConfig({
+      LLM_PROVIDER: 'mock',
+      LLM_STRUCTURED_OUTPUT: 'text-json-fallback',
+    });
+
+    expect(() => assertStructuredOutputEnabled(config)).not.toThrow();
+  });
+
+  it('rejects generation when structured output is unsupported', () => {
+    const config = loadProviderConfig({
+      LLM_PROVIDER: 'mock',
+      LLM_STRUCTURED_OUTPUT: 'unsupported',
+    });
+
+    expect(() => assertStructuredOutputEnabled(config)).toThrow(
+      ProviderCapabilityError,
+    );
   });
 });

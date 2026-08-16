@@ -76,7 +76,94 @@ behind unsafe assumptions or broad casts.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress (08-1 OpenCode Go adapter and provider registry implemented —
+PR open pending review; 08-2 retry/timeout/telemetry and SimulationLog error
+mapping remain, tracked as #46)
+
+### 08-1 OpenCode Go Adapter and Provider Registry (2026-08-16)
+
+#### Senior-Level Summary
+
+The engine can now select OpenCode Go as its provider from configuration. The
+`OpenAiCompatibleLlmProvider` adapter keeps all vendor code in one file behind
+the existing `LlmProvider` port: it maps a request to the OpenAI-compatible
+`/chat/completions` wire contract, applies the configured structured-output
+mode explicitly (native `json_object` request format vs. the shared text-to-JSON
+fallback parser), surfaces a single-attempt timeout via `AbortController`, maps
+failures through the existing Plan 03 `mapProviderError` helper (credentials
+never enter telemetry, results, request bodies, or mapped errors), and reports
+token/latency telemetry. A `createLlmProvider` registry selects Mock or the
+OpenCode Go adapter from `LLM_PROVIDER`, and `simulation.module.ts` now wires
+the provider through it — actions, prompts, repositories, and controllers are
+untouched. The mock and the real adapter share the same capability gate and
+response normalizer, so "Mock and real adapters satisfy the same port contract"
+holds; a `VoteAction` spec proves the same decision is produced when the
+provider switches.
+
+The Plan 03 json-schema hand-off is resolved as an explicit Plan 08 decision:
+`json-schema` mode is **not supported** (the verified OpenCode Go profile only
+returns JSON objects, and native schema output was not live-verified), so both
+providers reject it with a clear `ProviderCapabilityError` instead of silently
+sending an unverified request. The `json-schema` config vocabulary remains so a
+provider that is later verified to support it can enable it then.
+
+#### Files Changed
+
+- `apps/api/src/simulation/providers/openai-compatible/openai-compatible-llm.provider.ts` (+spec) — OpenCode Go/OpenAI-compatible adapter
+- `apps/api/src/simulation/providers/llm-provider.registry.ts` (+spec) — provider registry/factory
+- `apps/api/src/simulation/providers/llm-provider.output.ts` — shared structured-output response normalizer
+- `apps/api/src/lib/llm/provider-config.ts` (+spec) — `assertStructuredOutputEnabled` capability gate
+- `apps/api/src/simulation/providers/mock/mock-llm.provider.ts` (+spec) — shared gate + consistent json-schema rejection
+- `apps/api/src/simulation/simulation.module.ts` — provider resolved via registry
+- `apps/api/src/simulation/actions/vote.action.spec.ts` — provider-switch proof
+- `apps/api/src/app.module.spec.ts` — registry resolves mock by default
+
+#### Architecture and SOLID Notes
+
+- Vendor code is confined to the single adapter; the simulation domain depends
+  only on the abstract `LlmProvider` port, so simulation actions are unchanged
+  when the provider switches.
+- Registry/factory selects the concrete provider from runtime configuration;
+  the module binds it with `useFactory` and never constructs a provider inside
+  domain services.
+- Capability differences are explicit: `assertStructuredOutputEnabled` gates
+  generation (rejecting `unsupported` and the unverified `json-schema` mode),
+  `responseFormat` maps the mode to an explicit wire request, and the shared
+  `parseStructuredOutputByMode` normalizes responses. No broad casts or silent
+  degradation.
+- Credentials are server-side only; `toSafeProviderConfig` and the adapter's
+  telemetry/errors never include the key, and error payloads deliberately
+  ignore the response body.
+
+#### Tests Run
+
+- `SCHEDULER_ADAPTER=in-process pnpm --filter @aiworld/api exec jest --runInBand`
+  — 66 suites, 484 tests passed (adapter request mapping, response
+  normalization from sanitized fixtures, error mapping, timeout, capability
+  errors, credential hygiene, registry selection, module wiring, provider-switch
+  action proof)
+- `pnpm --filter @aiworld/api lint`
+- `pnpm --filter @aiworld/api format:check`
+- `pnpm --filter @aiworld/api build`
+- `pnpm --filter @aiworld/api exec tsc --noEmit` — no new errors (6 pre-existing
+  type errors in search/e2e specs exist on `main` independently of this change)
+
+#### Browser Verification
+
+Not applicable to 08-1 (server-side adapter only; no UI surface). Live provider
+verification is a credential-dependent follow-up, not an automated check.
+
+#### Known Risks and Follow-Up Work
+
+- `json-schema` structured output remains explicitly unsupported until native
+  schema output is verified against a live provider; enabling it later is a
+  one-file change in the capability gate.
+- Live OpenCode Go request verification (including `Retry-After`/backoff
+  behavior) still needs credentials and is tracked as a manual
+  `provider:smoke`-style step.
+- Retry/backoff decorator, timeout service, token/latency/cost telemetry into
+  `SimulationLog`, and safe error mapping into log entries are the scope of
+  ticket #46 (08-2), which is blocked by this ticket.
 
 ### Senior-Level Summary
 

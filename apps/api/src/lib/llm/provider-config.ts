@@ -131,6 +131,8 @@ export function toSafeProviderConfig(config: ProviderConfig) {
   };
 }
 
+/** Asserts the configured capability declares support for a requested native
+ * mode (json-object or json-schema). */
 export function assertStructuredOutputCapability(
   config: Pick<ProviderConfig, 'capabilities'>,
   requested: 'json-object' | 'json-schema',
@@ -144,6 +146,23 @@ export function assertStructuredOutputCapability(
   if (!supportsRequest) {
     throw new ProviderCapabilityError(
       `Provider does not support native ${requested} structured output`,
+    );
+  }
+}
+
+/** Gates generation; rejects unsupported and the unverified json-schema
+ * mode. Shared by both provider implementations. */
+export function assertStructuredOutputEnabled(
+  config: Pick<ProviderConfig, 'capabilities'>,
+): void {
+  if (config.capabilities.structuredOutput === 'unsupported') {
+    throw new ProviderCapabilityError(
+      'Provider does not support structured output',
+    );
+  }
+  if (config.capabilities.structuredOutput === 'json-schema') {
+    throw new ProviderCapabilityError(
+      'json-schema structured output is not supported by this provider',
     );
   }
 }

@@ -1,15 +1,13 @@
 import {
   extractAssistantContent,
   parseOpenAiCompatibleChatCompletion,
-  parseStructuredAssistantContent,
-  parseStructuredTextContent,
 } from '@/lib/llm/openai-compatible-contract';
-import { ProviderConfig } from '@/lib/llm/provider-config';
 import {
-  ProviderCapabilityError,
-  ProviderError,
-  ProviderErrorCode,
-} from '@/lib/llm/provider-error';
+  assertStructuredOutputEnabled,
+  ProviderConfig,
+} from '@/lib/llm/provider-config';
+import { ProviderError, ProviderErrorCode } from '@/lib/llm/provider-error';
+import { parseStructuredOutputByMode } from '@/simulation/providers/llm-provider.output';
 import {
   LlmProvider,
   LlmProviderPrompt,
@@ -54,13 +52,9 @@ export class MockLlmProvider extends LlmProvider {
   async generateStructured<T>(
     request: LlmProviderRequest<T>,
   ): Promise<LlmProviderResult<T>> {
-    // text-json-fallback still returns JSON through the text parser, so only
-    // unsupported rejects the request.
-    if (this.config.capabilities.structuredOutput === 'unsupported') {
-      throw new ProviderCapabilityError(
-        'Provider does not support structured output',
-      );
-    }
+    // Shared capability gate with the real adapter (rejects unsupported and
+    // the unverified json-schema mode).
+    assertStructuredOutputEnabled(this.config);
 
     const fixture = this.selectFixture(request.prompt);
     if (fixture === undefined) {
@@ -113,9 +107,12 @@ export class MockLlmProvider extends LlmProvider {
     });
 
     const assistantContent = extractAssistantContent(completion);
-    const output = useTextFallback
-      ? parseStructuredTextContent(assistantContent, request.schema)
-      : parseStructuredAssistantContent(completion, request.schema);
+    const output = parseStructuredOutputByMode(
+      this.config.capabilities.structuredOutput,
+      completion,
+      assistantContent,
+      request.schema,
+    );
 
     return {
       output,
