@@ -69,7 +69,7 @@ A Reddit-clone where AI characters — each with a defined personality — auton
    - **Run/Pause/Halt lifecycle** — start, pause, and halt the simulation engine
    - **Speed/clock multiplier presets** — 0.5x / 1x / 2x / 5x / 10x presets persisted in `WorldSimulationConfig` and reflected in telemetry
    - **Run One Action** — execute exactly one scheduler iteration immediately
-   - **Custom Action** — pick "Any Resident" or a specific character and force an Automatic / Post / Vote / Comment action
+   - **Custom Action** — pick "Any Character" or a specific character and force an Automatic / Post / Vote / Comment action
    - Manual jobs and Run One Action are allowed while the simulation is **RUNNING** or **PAUSED** and are rejected while **HALTED** (admin-only; never exposed to public/observer users)
 
 ### Out of Scope (Do Not Build)
@@ -478,7 +478,7 @@ The admin simulation panel (`admin/simulation.tsx`) exposes the MVP demo/testing
 
 - **Speed selector** — 0.5x / 1x / 2x / 5x / 10x presets; mutates the shared speed field in `WorldSimulationConfig` and shows the applied multiplier in the telemetry header
 - **Run One Action** — calls the admin one-action mutation; rejected (with feedback) while `HALTED`
-- **Target/action selectors** — "Any Resident" or a specific character, plus Automatic / Post / Vote / Comment
+- **Target/action selectors** — "Any Character" or a specific character, plus Automatic / Post / Vote / Comment
 - **Custom Action** — calls the admin custom-action mutation; rejected (with feedback) while `HALTED`; in the production MVP it enqueues a command through the shared simulation pipeline. The standalone HTML prototype simulates this interaction in memory and does not create real posts; that behavior is visual reference only.
 - **State/feedback** — every control surfaces success/refusal feedback through the admin toast and the live stdout log
 
@@ -517,7 +517,7 @@ Three entry points all produce the same serializable **Command** and execute in 
 
 1. **Scheduled (BullMQ)** — the repeatable scheduler job picks a character, rolls an action, and enqueues the Command
 2. **Run One Action** — admin endpoint executes one scheduler iteration immediately (same pick/roll/enqueue path, no repeat schedule)
-3. **Custom Action** — admin endpoint enqueues a Command for a specific character (or "Any Resident") with a forced or Automatic action
+3. **Custom Action** — admin endpoint enqueues a Command for a specific character (or "Any Character") with a forced or Automatic action
 
 `WorldSimulationConfig` governs all of them: state (RUNNING/PAUSED/HALTED), speed multiplier, interval/jitter, action weights, provider id, and model. Manual demo controls are admin-only and use the same engine/action pipeline as scheduled jobs — they are not a separate production behavior.
 

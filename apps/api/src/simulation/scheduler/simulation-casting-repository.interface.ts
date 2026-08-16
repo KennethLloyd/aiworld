@@ -14,4 +14,10 @@ export abstract class SimulationCastingRepository {
   abstract findActiveActors(worldId: string): Promise<ActiveActorCandidate[]>;
   /** The most recent post ids of a World, newest first. */
   abstract findRecentPostIds(worldId: string, limit: number): Promise<string[]>;
+  /** Whether a Character is an active AI member of a World — the membership
+   * check for a custom action's explicit character pick. */
+  abstract findActiveActor(
+    worldId: string,
+    characterId: string,
+  ): Promise<boolean>;
 }

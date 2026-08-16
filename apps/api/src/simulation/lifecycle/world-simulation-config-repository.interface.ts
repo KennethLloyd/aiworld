@@ -17,4 +17,11 @@ export abstract class WorldSimulationConfigRepository {
     from: SimulationState,
     to: SimulationState,
   ): Promise<WorldSimulationConfigRecord>;
+  /** Persist a new speed multiplier. Throws when no config exists for the
+   * world. The multiplier is validated at the shared contract boundary before
+   * it reaches here. */
+  abstract updateSpeedMultiplier(
+    worldId: string,
+    speedMultiplier: number,
+  ): Promise<WorldSimulationConfigRecord>;
 }

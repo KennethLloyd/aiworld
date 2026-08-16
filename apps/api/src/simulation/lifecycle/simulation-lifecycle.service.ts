@@ -94,6 +94,20 @@ export class SimulationLifecycleService {
     return config;
   }
 
+  /** Persist a new speed multiplier after confirming the world has a config.
+   * Pacing is read at scheduling time, so the pending tick keeps its cadence
+   * and the new multiplier applies to the next scheduled delay. */
+  async updateSpeed(
+    worldId: string,
+    speedMultiplier: number,
+  ): Promise<WorldSimulationConfigRecord> {
+    await this.requireConfig(worldId);
+    return this.configRepository.updateSpeedMultiplier(
+      worldId,
+      speedMultiplier,
+    );
+  }
+
   /** Scheduled ticks require RUNNING; PAUSED and HALTED stop scheduled work. */
   async assertScheduledWorkAllowed(
     worldId: string,

@@ -9,6 +9,9 @@ import { PostAction } from '@/simulation/actions/post.action';
 import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
 import { VoteAction } from '@/simulation/actions/vote.action';
+import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
+import { SimulationAdminController } from '@/simulation/admin/simulation-admin.controller';
+import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { loadSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
 import { PrismaWorldSimulationConfigRepository } from '@/simulation/lifecycle/prisma-world-simulation-config.repository';
@@ -48,6 +51,7 @@ import { WorldModule } from '@/world/world.module';
     CommentsModule,
     VotesModule,
   ],
+  controllers: [SimulationAdminController],
   providers: [
     {
       provide: LlmProvider,
@@ -81,6 +85,7 @@ import { WorldModule } from '@/world/world.module';
         SimulationLifecycleService,
         WorldRepository,
         SimulationIterationPicker,
+        SimulationCastingRepository,
         SimulationRandomSource,
         SimulationTickRunner,
       ],
@@ -89,6 +94,7 @@ import { WorldModule } from '@/world/world.module';
         lifecycleService: SimulationLifecycleService,
         worldRepository: WorldRepository,
         picker: SimulationIterationPicker,
+        castingRepository: SimulationCastingRepository,
         randomSource: SimulationRandomSource,
         tickRunner: SimulationTickRunner,
       ) =>
@@ -97,6 +103,7 @@ import { WorldModule } from '@/world/world.module';
           lifecycleService,
           worldRepository,
           picker,
+          castingRepository,
           randomSource,
           tickRunner,
         ),
@@ -113,6 +120,8 @@ import { WorldModule } from '@/world/world.module';
     SimulationIterationPicker,
     SimulationTickRunner,
     SimulationSchedulerBootstrap,
+    SimulationAdminService,
+    SimulationAdminResponseMapper,
   ],
   exports: [
     LlmProvider,

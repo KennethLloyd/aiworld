@@ -101,7 +101,7 @@ export class SimulationTickRunner {
 
   /** Manual work (Run One Action / Custom Action) awaits the result. The
    * command is already fully composed (specific character and action, or
-   * Any Resident / Automatic resolved by the caller); a HALTED World throws
+   * Any Character / Automatic resolved by the caller); a HALTED World throws
    * instead of executing. */
   async runManualIteration(
     command: ScheduledCommand,

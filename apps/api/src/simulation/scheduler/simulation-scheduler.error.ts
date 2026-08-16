@@ -4,11 +4,23 @@ import { SimulationActionError } from '@/simulation/actions/simulation-action.er
 /** Errors specific to composing a simulation iteration. */
 export class SimulationIterationPickError extends Error {
   constructor(
-    public readonly code: 'NO_ACTIVE_RESIDENTS',
+    public readonly code: 'NO_ACTIVE_CHARACTERS',
     message: string,
   ) {
     super(message);
     this.name = 'SimulationIterationPickError';
+  }
+}
+
+/** A custom action named a Character that is not an active AI member of the
+ * target World. A client input error: the request must be rejected before any
+ * command is composed, never silently logged as a failed run. */
+export class SimulationCharacterNotActiveError extends Error {
+  constructor(characterId: string, worldSlug: string) {
+    super(
+      `Character "${characterId}" is not an active member of World "${worldSlug}"`,
+    );
+    this.name = 'SimulationCharacterNotActiveError';
   }
 }
 

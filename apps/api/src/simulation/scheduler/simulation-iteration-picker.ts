@@ -15,7 +15,7 @@ export type PickedActor = {
 /** Composes the random decisions behind an iteration: which character acts,
  * which weighted action they take, and (for VOTE/COMMENT) which post they
  * target. Character selection is activity-balanced — the least-recently-active
- * resident is picked first, ties broken at random — so no resident is left
+ * character is picked first, ties broken at random — so no character is left
  * silent while others act repeatedly. All randomness flows through an injected
  * source, so the weighting is deterministic under test. */
 @Injectable()
@@ -56,8 +56,8 @@ export class SimulationIterationPicker {
     const candidates = await this.castingRepository.findActiveActors(worldId);
     if (candidates.length === 0) {
       throw new SimulationIterationPickError(
-        'NO_ACTIVE_RESIDENTS',
-        `World "${worldId}" has no active AI residents to act`,
+        'NO_ACTIVE_CHARACTERS',
+        `World "${worldId}" has no active AI characters to act`,
       );
     }
 

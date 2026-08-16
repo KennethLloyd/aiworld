@@ -8,6 +8,7 @@ import {
   SIMULATION_TICKS_QUEUE,
 } from '@/simulation/scheduler/bullmq-scheduler.adapter';
 import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-scheduler.adapter';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
@@ -24,6 +25,7 @@ export function createSimulationScheduler(
   lifecycleService: SimulationLifecycleService,
   worldRepository: WorldRepository,
   picker: SimulationIterationPicker,
+  castingRepository: SimulationCastingRepository,
   randomSource: SimulationRandomSource,
   tickRunner: SimulationTickRunner,
 ): SimulationScheduler {
@@ -32,6 +34,7 @@ export function createSimulationScheduler(
       lifecycleService,
       worldRepository,
       picker,
+      castingRepository,
       tickRunner,
       randomSource,
       config,
@@ -48,6 +51,7 @@ export function createSimulationScheduler(
     lifecycleService,
     worldRepository,
     picker,
+    castingRepository,
     randomSource,
     tickRunner,
     queue,

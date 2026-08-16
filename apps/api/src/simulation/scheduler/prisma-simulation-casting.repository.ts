@@ -58,6 +58,23 @@ export class PrismaSimulationCastingRepository extends SimulationCastingReposito
     return rows.map((row) => row.id);
   }
 
+  async findActiveActor(
+    worldId: string,
+    characterId: string,
+  ): Promise<boolean> {
+    const member = await this.prisma.worldMember.findFirst({
+      where: {
+        worldId,
+        characterId,
+        role: 'AI',
+        isActive: true,
+        character: { isActive: true },
+      },
+      select: { id: true },
+    });
+    return member !== null;
+  }
+
   /** Most recent action timestamp per member across posts, comments, and
    * votes (on posts or comments) — the "least recently active" signal for
    * activity-balanced character selection. */
