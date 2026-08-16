@@ -61,6 +61,20 @@ describe('MockLlmProvider', () => {
     });
   });
 
+  it('explicitly rejects the unverified json-schema mode', async () => {
+    const provider = new MockLlmProvider(
+      mockConfig({ LLM_STRUCTURED_OUTPUT: 'json-schema' }),
+      [{ id: 'vote', output: { decision: 'upvote' } }],
+    );
+
+    await expect(
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
+    ).rejects.toBeInstanceOf(ProviderCapabilityError);
+    await expect(
+      provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
+    ).rejects.toThrow('json-schema');
+  });
+
   it('parses fenced JSON when structured output is text-json-fallback', async () => {
     const provider = new MockLlmProvider(
       mockConfig({ LLM_STRUCTURED_OUTPUT: 'text-json-fallback' }),

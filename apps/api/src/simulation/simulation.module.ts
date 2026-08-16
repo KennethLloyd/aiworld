@@ -21,8 +21,7 @@ import { PrismaSimulationLogRepository } from '@/simulation/logging/prisma-simul
 import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
-import { mockLlmFixtures } from '@/simulation/providers/mock/fixtures/mock-llm-fixtures';
-import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
+import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
 import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -55,8 +54,7 @@ import { WorldModule } from '@/world/world.module';
   providers: [
     {
       provide: LlmProvider,
-      useFactory: () =>
-        new MockLlmProvider(loadProviderConfig(), mockLlmFixtures),
+      useFactory: () => createLlmProvider(loadProviderConfig()),
     },
     {
       provide: SimulationCostEstimator,

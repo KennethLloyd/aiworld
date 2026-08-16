@@ -2,7 +2,12 @@ import { CharacterRepository } from '@/characters/repositories/character-reposit
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
+import {
+  FetchLike,
+  OpenAiCompatibleLlmProvider,
+} from '@/simulation/providers/openai-compatible/openai-compatible-llm.provider';
 import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
@@ -63,7 +68,7 @@ function mockConfig() {
 function createAction(
   overrides: {
     post?: typeof post | null;
-    provider?: MockLlmProvider | StubLlmProvider;
+    provider?: LlmProvider;
     output?: { decision: string; reasoning: string };
     alreadyVoted?: boolean;
   } = {},
@@ -208,6 +213,51 @@ describe('VoteAction', () => {
     expect(result).toMatchObject({
       status: 'failed',
       failure: { code: 'MALFORMED_RESPONSE' },
+    });
+  });
+
+  it('produces the same decision when the provider switches to the OpenCode Go adapter', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'fixture-completion-id',
+        object: 'chat.completion',
+        model: 'deepseek-v4-flash',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: '{"decision":"upvote","reasoning":"Clear point."}',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 124, completion_tokens: 51, total_tokens: 175 },
+      }),
+    });
+    const provider = new OpenAiCompatibleLlmProvider(
+      loadProviderConfig({
+        LLM_PROVIDER: 'openai-compatible',
+        LLM_BASE_URL: 'https://opencode.ai/zen/go/v1',
+        LLM_API_KEY: 'fixture-api-key',
+        LLM_MODEL: 'deepseek-v4-flash',
+        LLM_STRUCTURED_OUTPUT: 'json-object',
+      }),
+      fetchMock as unknown as FetchLike,
+    );
+    const { action } = createAction({ provider });
+
+    const result = await action.execute(command);
+
+    expect(result).toMatchObject({
+      status: 'success',
+      decision: {
+        action: 'VOTE',
+        decision: 'upvote',
+        reasoning: 'Clear point.',
+      },
     });
   });
 });
