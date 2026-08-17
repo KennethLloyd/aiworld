@@ -119,20 +119,22 @@ Status: In Progress (09-1 implemented on the ticket branch; PR pending)
 The public observer now has a prototype-aligned entry point and world frame.
 The directory presents active simulations with Live status, while the world
 screen composes the existing world gateway/query boundary with a responsive
-three-column shell, observer-only context, and mobile Feed/Residents/About
-navigation. A shared presentation-only `Avatar` owns the missing or broken
-image fallback so later resident and admin surfaces can reuse the same visual
-contract. Public world list/detail queries refetch every 30 seconds so the
-observer can receive updated snapshots without introducing a second client
-state store.
+three-column shell, observer-only context, and working Feed/Residents/About
+section navigation. A shared presentation-only `Avatar` owns the missing or
+broken image fallback so later resident and admin surfaces can reuse the same
+visual contract. Public world list/detail queries refetch every 30 seconds so
+the observer can receive updated snapshots without introducing a second client
+state store. The world screen also mounts a validated latest-conversation
+snapshot with the same cadence; the full feed experience remains in 09-2.
 
 ### Files Changed
 
-- `apps/web/src/features/worlds/components/world-card.tsx` — prototype-aligned Live cards and observer metadata
-- `apps/web/src/features/worlds/components/world-detail.tsx` — world detail mounted inside the observer shell
-- `apps/web/src/features/worlds/components/world-layout.tsx` — responsive three-column and mobile navigation frame
+- `apps/web/src/features/worlds/components/world-card.tsx` — prototype-aligned Live cards using API-backed world fields
+- `apps/web/src/features/worlds/components/world-detail.tsx` — world detail and section targets mounted inside the observer shell
+- `apps/web/src/features/worlds/components/world-layout.tsx` — responsive three-column frame with active section navigation
 - `apps/web/src/features/worlds/components/world-list.tsx` — Active Simulations landing copy
 - `apps/web/src/features/worlds/query/use-world.ts` and `use-worlds.ts` — 30-second public polling
+- `apps/web/src/features/posts/` — validated latest-conversation gateway, query, and snapshot panel
 - `apps/web/src/shared/ui/avatar.tsx` — reusable default avatar fallback
 - Focused route, query, and avatar specs
 
@@ -143,15 +145,17 @@ layout and avatar are presentation-only components; they do not import API
 clients or transport schemas beyond the world response consumed by the
 existing feature boundary. Polling is configured at the TanStack Query seam,
 so later feed and resident queries can adopt the same cadence without putting
-timers in route components. The Residents and About links are anchors for the
-screens delivered by later Plan 09 tickets.
+timers in route components; admin lists explicitly remain manual. The current
+shell exposes real section targets, while later Plan 09 tickets replace the
+resident placeholder and latest-feed snapshot with their full screens.
 
 ### Tests Run
 
-- `apps/web`: `vitest run` — 23 files, 121 tests passed
+- `apps/web`: `vitest run` — 23 files, 123 tests passed
 - `apps/web`: `tsc --noEmit` — passed
-- `apps/web`: `oxlint src` — passed
-- `apps/web`: `oxfmt --check src` — passed
+- `apps/web`: `oxlint .` — passed
+- `apps/web`: `oxfmt --check .` — passed
+- `apps/web`: `vite build` — passed
 - `git diff --check` — passed
 
 ### Browser Verification
@@ -164,8 +168,8 @@ to `/tmp/aiworld-public-mobile.png`.
 
 ### Known Risks and Follow-Up Work
 
-- The 30-second polling currently refreshes world list/detail snapshots because
-  the feed and resident query slices are delivered by later Plan 09 tickets;
-  those queries should use the same cadence when introduced.
+- The full Hot/New feed, post detail, and resident query slices are delivered
+  by later Plan 09 tickets; they should reuse the public 30-second cadence.
+  Admin world lists explicitly remain manual and do not inherit public polling.
 - GitHub Project status could not be changed because the local `gh` token lacks
   the `read:project` scope; issue #47 remains assigned and open for PR review.

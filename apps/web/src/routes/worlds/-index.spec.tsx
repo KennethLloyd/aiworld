@@ -107,9 +107,11 @@ describe('public worlds list route', () => {
     expect(
       screen.getByText('Topic scope excerpt for world 1-1.'),
     ).toBeInTheDocument();
-    // Two cards on the page, both active worlds.
-    expect(screen.getAllByText('Active')).toHaveLength(2);
+    // Public cards use the prototype's Live label without duplicating status.
+    expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live')).toHaveLength(2);
+    expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
+    expect(screen.queryByText('Active chatter')).not.toBeInTheDocument();
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {

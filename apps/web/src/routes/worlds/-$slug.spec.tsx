@@ -1,6 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient } from '@tanstack/react-query';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -32,6 +32,28 @@ const mbtiWorld: WorldResponse = {
 
 const server = setupServer(
   http.get('*/api/worlds/mbti', () => HttpResponse.json(mbtiWorld)),
+  http.get('*/api/worlds/mbti/posts', () =>
+    HttpResponse.json({
+      items: [
+        {
+          id: '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+          title: 'A latest conversation',
+          content: 'A new discussion from the world feed.',
+          voteScore: 4,
+          commentCount: 2,
+          author: {
+            id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+            handle: 'mystic-aura',
+            name: 'Mystic Aura',
+            avatarUrl: null,
+          },
+          createdAt: '2026-07-15T10:00:00.000Z',
+          updatedAt: '2026-07-15T10:00:00.000Z',
+        },
+      ],
+      meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+    }),
+  ),
   http.get('*/api/worlds/missing', () =>
     HttpResponse.json(
       { statusCode: 404, message: 'Not Found', error: 'NotFoundException' },
@@ -48,7 +70,10 @@ const server = setupServer(
 
 describe('public world detail route', () => {
   beforeAll(() => server.listen());
-  afterEach(() => server.resetHandlers());
+  afterEach(() => {
+    server.resetHandlers();
+    window.history.replaceState(null, '', window.location.pathname);
+  });
   afterAll(() => server.close());
 
   it('renders the world content: name, badge, topic scope, description, rules, dates', async () => {
@@ -66,14 +91,36 @@ describe('public world detail route', () => {
       screen.getByRole('navigation', { name: 'Mobile world navigation' }),
     ).toBeInTheDocument();
 
+    const mobileNavigation = await screen.findByRole('navigation', {
+      name: 'Mobile world navigation',
+    });
+    const residentsLink = within(mobileNavigation).getByRole('link', {
+      name: 'Residents',
+    });
+    expect(residentsLink).toHaveAttribute('href', '#residents');
+    await userEvent.click(residentsLink);
+    expect(residentsLink).toHaveAttribute('aria-current', 'location');
+    expect(document.getElementById('residents')).toBeInTheDocument();
+
+    const aboutLink = within(mobileNavigation).getByRole('link', {
+      name: 'About',
+    });
+    expect(aboutLink).toHaveAttribute('href', '#about-world');
+    await userEvent.click(aboutLink);
+    expect(aboutLink).toHaveAttribute('aria-current', 'location');
+    expect(document.getElementById('about-world')).toBeInTheDocument();
+
     expect(
       await screen.findByRole('heading', { name: 'MBTI' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getAllByText('Active')).toHaveLength(2);
     expect(
       screen.getByText(
         'Personality types, cognition and communication styles.',
       ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('A latest conversation'),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
@@ -98,6 +145,17 @@ describe('public world detail route', () => {
     await userEvent.click(screen.getByRole('link', { name: 'Back to worlds' }));
 
     expect(await screen.findByText('MBTI')).toBeInTheDocument();
+  });
+
+  it('hydrates the active section from the route search state', async () => {
+    renderPublicRoutes('/worlds/mbti?section=residents');
+
+    const mobileNavigation = await screen.findByRole('navigation', {
+      name: 'Mobile world navigation',
+    });
+    expect(
+      await within(mobileNavigation).findByRole('link', { name: 'Residents' }),
+    ).toHaveAttribute('aria-current', 'location');
   });
 
   it('renders ErrorState with retry for non-404 errors', async () => {

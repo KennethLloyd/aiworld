@@ -21,10 +21,7 @@ export interface AvatarProps {
   className?: string;
 }
 
-/**
- * Presentation-only avatar with one consistent fallback across observer and
- * admin surfaces. It deliberately accepts transport-neutral primitives.
- */
+/** Presentation-only avatar with a shared fallback for observer and admin surfaces. */
 export function Avatar({
   src,
   alt,

@@ -98,7 +98,7 @@ describe('useWorld', () => {
     expect(detailRequests).toBe(2);
   });
 
-  it('configures the public polling cadence for new activity', async () => {
+  it('configures the public world snapshot polling cadence', async () => {
     const client = createQueryClient();
     function clientWrapper({ children }: { children: React.ReactNode }) {
       return (

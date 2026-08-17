@@ -6,18 +6,26 @@ import { useGateways } from '@/providers/gateways-provider';
 import { PUBLIC_POLL_INTERVAL_MS } from './use-world';
 import { worldKeys } from './world-keys';
 
-/**
- * Public list query. placeholderData keeps the previous grid visible while
- * search/pagination changes load (v5 keepPreviousData), so the UI never
- * flashes a blank state when the query key changes.
- */
-export function useWorlds(query: ListWorldsQuery) {
+/** World list query; public routes opt into polling, admin lists remain manual. */
+export interface UseWorldsOptions {
+  /** Enable the public observer refresh cadence; admin lists stay manual. */
+  polling?: boolean;
+}
+
+export function useWorlds(
+  query: ListWorldsQuery,
+  { polling = false }: UseWorldsOptions = {},
+) {
   const { worldGateway } = useGateways();
   return useQuery({
     queryKey: worldKeys.list(query),
     queryFn: () => worldGateway.list(query),
     placeholderData: keepPreviousData,
-    refetchInterval: PUBLIC_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...(polling
+      ? {
+          refetchInterval: PUBLIC_POLL_INTERVAL_MS,
+          refetchIntervalInBackground: true,
+        }
+      : {}),
   });
 }

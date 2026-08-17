@@ -11,17 +11,23 @@ import type { ReactNode } from 'react';
 
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
+import { WorldStatusBadge } from './world-status-badge';
+
+export type WorldSection = 'feed' | 'residents' | 'about-world';
+
 export interface WorldLayoutProps {
   world: WorldResponse;
   children: ReactNode;
+  activeSection: WorldSection;
+  onSectionChange: (section: WorldSection) => void;
 }
 
-/**
- * Public observer frame shared by the world feed, resident, and about views.
- * Navigation is intentionally anchor-based until the later feature tickets
- * add their route screens; the frame itself stays independent of those APIs.
- */
-export function WorldLayout({ world, children }: WorldLayoutProps) {
+export function WorldLayout({
+  world,
+  children,
+  activeSection,
+  onSectionChange,
+}: WorldLayoutProps) {
   return (
     <div
       data-testid="world-layout"
@@ -29,7 +35,10 @@ export function WorldLayout({ world, children }: WorldLayoutProps) {
     >
       <aside className="hidden md:col-span-3 md:block lg:col-span-3">
         <GlassPanel className="sticky top-24 p-3">
-          <WorldNavigation />
+          <WorldNavigation
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+          />
         </GlassPanel>
       </aside>
 
@@ -46,40 +55,91 @@ export function WorldLayout({ world, children }: WorldLayoutProps) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-surface/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl md:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around p-2">
-          <WorldNavLink href="#feed" icon={LayoutList} label="Feed" active />
-          <WorldNavLink href="#residents" icon={Users} label="Residents" />
-          <WorldNavLink href="#about-world" icon={BookOpen} label="About" />
+          <WorldNavLink
+            section="feed"
+            icon={LayoutList}
+            label="Feed"
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+          />
+          <WorldNavLink
+            section="residents"
+            icon={Users}
+            label="Residents"
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+          />
+          <WorldNavLink
+            section="about-world"
+            icon={BookOpen}
+            label="About"
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+          />
         </div>
       </nav>
     </div>
   );
 }
 
-function WorldNavigation() {
+function WorldNavigation({
+  activeSection,
+  onNavigate,
+}: {
+  activeSection: WorldSection;
+  onNavigate: (section: WorldSection) => void;
+}) {
   return (
     <nav aria-label="World navigation" className="flex flex-col gap-1">
-      <WorldNavLink href="#feed" icon={LayoutList} label="The Feed" active />
-      <WorldNavLink href="#residents" icon={Users} label="Residents" />
-      <WorldNavLink href="#about-world" icon={BookOpen} label="About World" />
+      <WorldNavLink
+        section="feed"
+        icon={LayoutList}
+        label="The Feed"
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+      />
+      <WorldNavLink
+        section="residents"
+        icon={Users}
+        label="Residents"
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+      />
+      <WorldNavLink
+        section="about-world"
+        icon={BookOpen}
+        label="About World"
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+      />
     </nav>
   );
 }
 
 function WorldNavLink({
-  href,
+  section,
   icon: Icon,
   label,
-  active = false,
+  activeSection,
+  onNavigate,
 }: {
-  href: string;
+  section: WorldSection;
   icon: LucideIcon;
   label: string;
-  active?: boolean;
+  activeSection: WorldSection;
+  onNavigate: (section: WorldSection) => void;
 }) {
+  const active = activeSection === section;
+
   return (
     <a
-      href={href}
-      aria-current={active ? 'page' : undefined}
+      href={`#${section}`}
+      aria-current={active ? 'location' : undefined}
+      onClick={(event) => {
+        event.preventDefault();
+        onNavigate(section);
+        document.getElementById(section)?.scrollIntoView?.({ block: 'start' });
+      }}
       className={
         active
           ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
@@ -116,12 +176,8 @@ function WorldContext({ world }: { world: WorldResponse }) {
       <dl className="my-5 flex flex-col gap-3 border-y border-glass-border py-4 text-sm">
         <div className="flex items-center justify-between gap-3">
           <dt className="text-ink/50">Status</dt>
-          <dd className="flex items-center gap-1.5 text-ink/80">
-            <span
-              aria-hidden="true"
-              className={`h-1.5 w-1.5 rounded-full ${world.isActive ? 'bg-brand-diplomat' : 'bg-ink/50'}`}
-            />
-            {world.isActive ? 'Live' : 'Inactive'}
+          <dd className="text-ink/80">
+            <WorldStatusBadge isActive={world.isActive} />
           </dd>
         </div>
         <div className="flex items-center justify-between gap-3">

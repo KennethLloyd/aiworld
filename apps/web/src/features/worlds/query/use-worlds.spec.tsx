@@ -77,6 +77,31 @@ describe('useWorlds', () => {
     expect(listRequests).toBe(1);
   });
 
+  it('enables polling only when the public observer opts in', async () => {
+    const client = createQueryClient();
+    function clientWrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>
+          <GatewaysProvider>{children}</GatewaysProvider>
+        </QueryClientProvider>
+      );
+    }
+
+    const { result } = renderHook(
+      () =>
+        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      { wrapper: clientWrapper },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const query = client.getQueryCache().find({
+      queryKey: ['worlds', 'list', { page: 1, limit: 20 }],
+    });
+
+    const pollingOptions = query?.options as { refetchInterval?: number };
+    expect(pollingOptions.refetchInterval).toBe(30_000);
+  });
+
   it('keeps previous data visible while a page change is in flight', async () => {
     const { result, rerender } = renderHook(
       ({ page }: { page: number }) =>
