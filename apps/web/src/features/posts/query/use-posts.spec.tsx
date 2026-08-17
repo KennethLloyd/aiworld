@@ -3,8 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { WorldGateway } from '@/features/worlds/api/world-gateway';
+import {
+  GatewaysProvider,
+  type AppGateways,
+} from '@/providers/gateways-provider';
+
 import type { PostGateway } from '../api/post-gateway';
-import { PostGatewayProvider } from '../api/post-gateway-context';
 import { usePosts } from './use-posts';
 
 const response: ListPostsResponse = {
@@ -33,14 +38,16 @@ describe('usePosts', () => {
     const gateway: PostGateway = {
       list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
     };
+    const gateways: AppGateways = {
+      worldGateway: unusedWorldGateway,
+      postGateway: gateway,
+    };
     const client = new QueryClient();
 
     const { result } = renderHook(() => usePosts('mbti'), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={client}>
-          <PostGatewayProvider gateway={gateway}>
-            {children}
-          </PostGatewayProvider>
+          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
         </QueryClientProvider>
       ),
     });
@@ -59,14 +66,16 @@ describe('usePosts', () => {
     const gateway: PostGateway = {
       list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
     };
+    const gateways: AppGateways = {
+      worldGateway: unusedWorldGateway,
+      postGateway: gateway,
+    };
     const client = new QueryClient();
 
     const { result } = renderHook(() => usePosts('mbti'), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={client}>
-          <PostGatewayProvider gateway={gateway}>
-            {children}
-          </PostGatewayProvider>
+          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
         </QueryClientProvider>
       ),
     });
@@ -80,3 +89,21 @@ describe('usePosts', () => {
     expect(queryOptions.refetchInterval).toBe(30_000);
   });
 });
+
+const unusedWorldGateway: WorldGateway = {
+  list: async () => {
+    throw new Error('unused test adapter');
+  },
+  getBySlug: async () => {
+    throw new Error('unused test adapter');
+  },
+  create: async () => {
+    throw new Error('unused test adapter');
+  },
+  update: async () => {
+    throw new Error('unused test adapter');
+  },
+  delete: async () => {
+    throw new Error('unused test adapter');
+  },
+};

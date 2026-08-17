@@ -136,6 +136,7 @@ feed experience remains in 09-2.
 - `apps/web/src/features/worlds/components/world-list.tsx` — Active Simulations landing copy
 - `apps/web/src/features/worlds/query/use-world.ts` and `use-worlds.ts` — 30-second public polling
 - `apps/web/src/features/posts/` — feature-owned latest-conversation gateway, query, and snapshot panel
+- `apps/web/src/providers/gateways-provider.tsx` and `apps/web/src/router/router.tsx` — one application-level adapter object shared by React and router composition
 - `apps/web/src/shared/ui/avatar.tsx` — reusable default avatar fallback
 - Focused route, query, and avatar specs
 
@@ -148,12 +149,14 @@ existing feature boundary. Polling is configured at the TanStack Query seam
 and explicitly opted into by the public route, so admin detail and list
 queries remain manual. The route composes the Posts snapshot at the feature
 boundary, while Posts owns its endpoint, gateway, and query; core remains
-feature-agnostic. Later Plan 09 tickets replace the Character placeholder and
-latest-feed snapshot with their full screens.
+feature-agnostic. The composition root exposes all adapters through one
+application-level `AppGateways` context so future feature gateways do not add
+one provider per feature. Later Plan 09 tickets replace the Character
+placeholder and latest-feed snapshot with their full screens.
 
 ### Tests Run
 
-- `apps/web`: `vitest run` — 23 files, 124 tests passed
+- `apps/web`: `vitest run` — 24 files, 127 tests passed
 - `apps/web`: `tsc --noEmit` — passed
 - `apps/web`: `oxlint .` — passed
 - `apps/web`: `oxfmt --check .` — passed
