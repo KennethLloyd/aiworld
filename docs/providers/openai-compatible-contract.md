@@ -85,17 +85,20 @@ it separately before advertising `json-schema` capability.
 
 The API uses these server-side environment variables:
 
-| Variable | Required for non-mock providers | Purpose |
-| --- | --- | --- |
-| `LLM_PROVIDER` | Yes | `mock` or `openai-compatible` |
-| `LLM_BASE_URL` | Yes | Provider base URL without `/chat/completions` |
-| `LLM_API_KEY` | Yes | Server-side bearer credential |
-| `LLM_MODEL` | Yes | Runtime model selection |
-| `LLM_TIMEOUT_MS` | No | Request timeout, default `30000` |
-| `LLM_MAX_RETRIES` | No | Retry budget, default `2` |
-| `LLM_MAX_CONCURRENCY` | No | Provider concurrency limit, default `1` |
-| `LLM_STRUCTURED_OUTPUT` | No | Capability declaration, default `text-json-fallback` |
-| `LLM_USAGE_METADATA` | No | `required`, `optional`, or `unavailable` |
+| Variable                  | Required for non-mock providers | Purpose                                              |
+| ------------------------- | ------------------------------- | ---------------------------------------------------- |
+| `LLM_PROVIDER`            | Yes                             | `mock` or `openai-compatible`                        |
+| `LLM_BASE_URL`            | Yes                             | Provider base URL without `/chat/completions`        |
+| `LLM_API_KEY`             | Yes                             | Server-side bearer credential                        |
+| `LLM_MODEL`               | Yes                             | Runtime model selection                              |
+| `LLM_TIMEOUT_MS`          | No                              | Request timeout, default `30000`                     |
+| `LLM_MAX_RETRIES`         | No                              | Retry budget, default `2`                            |
+| `LLM_MAX_CONCURRENCY`     | No                              | Provider concurrency limit, default `1`              |
+| `LLM_RETRY_BASE_DELAY_MS` | No                              | Initial backoff delay, default `250`                 |
+| `LLM_RETRY_MAX_DELAY_MS`  | No                              | Backoff ceiling, default `8000`                      |
+| `LLM_RETRY_JITTER_RATIO`  | No                              | Backoff jitter ratio, default `0.25`                 |
+| `LLM_STRUCTURED_OUTPUT`   | No                              | Capability declaration, default `text-json-fallback` |
+| `LLM_USAGE_METADATA`      | No                              | `required`, `optional`, or `unavailable`             |
 
 The local default is `mock`, which requires no network or credentials. The same
 OpenAI-compatible adapter can later target another compatible provider by
@@ -110,26 +113,27 @@ capabilities plus a boolean `hasApiKey`; it never exposes the key itself.
 
 The generic mapping used by the contract tests is:
 
-| Condition | Code | Retryable |
-| --- | --- | --- |
-| HTTP 401 or 403 | `AUTHENTICATION` | No |
-| HTTP 408, abort, or timeout | `TIMEOUT` | Yes |
-| HTTP 429 | `RATE_LIMIT` | Yes |
-| HTTP 5xx | `NETWORK` | Yes |
-| Connection reset/refused/not found | `NETWORK` | Yes |
-| Invalid response or invalid structured content | `MALFORMED_RESPONSE` | No |
-| Unsupported configured capability | `CAPABILITY` | No |
-| Other errors | `UNKNOWN` | No |
+| Condition                                      | Code                 | Retryable |
+| ---------------------------------------------- | -------------------- | --------- |
+| HTTP 401 or 403                                | `AUTHENTICATION`     | No        |
+| HTTP 408, abort, or timeout                    | `TIMEOUT`            | Yes       |
+| HTTP 429                                       | `RATE_LIMIT`         | Yes       |
+| HTTP 5xx                                       | `NETWORK`            | Yes       |
+| Connection reset/refused/not found             | `NETWORK`            | Yes       |
+| Invalid response or invalid structured content | `MALFORMED_RESPONSE` | No        |
+| Unsupported configured capability              | `CAPABILITY`         | No        |
+| Other errors                                   | `UNKNOWN`            | No        |
 
 The live smoke request verified successful authentication, model selection,
 request mapping, JSON-object output, response parsing, and usage metadata. It did
 not intentionally exercise rate limits or failure responses. Plan 8 should verify
 provider-specific retry headers and backoff behavior before production traffic.
-The planned retry policy is bounded exponential backoff with jitter, honoring a
-provider `Retry-After` value when present. Retries are limited by
-`LLM_MAX_RETRIES` and the request timeout, and apply only to timeout, network,
-408, 429, and 5xx failures. Authentication, malformed-response, capability, and
-other client errors fail immediately.
+The implemented retry policy is bounded exponential backoff with jitter, honoring
+a provider `Retry-After` value when present. Retries are limited by
+`LLM_MAX_RETRIES`; each attempt is bounded by `LLM_TIMEOUT_MS` (enforced by the
+adapter), and retries apply only to timeout, network, 408, 429, and 5xx
+failures. Authentication, malformed-response, capability, and other client
+errors fail immediately.
 
 ## Local Verification
 

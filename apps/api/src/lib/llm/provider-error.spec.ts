@@ -65,4 +65,27 @@ describe('mapProviderError', () => {
       message: 'provider detail',
     });
   });
+
+  it('carries a server-provided retry delay onto retryable errors', () => {
+    expect(
+      mapProviderError({
+        statusCode: 429,
+        retryAfterMs: 5000,
+        message: 'slow down',
+      }),
+    ).toMatchObject({
+      code: 'RATE_LIMIT',
+      retryable: true,
+      retryAfterMs: 5000,
+    });
+  });
+
+  it('ignores an invalid retry delay', () => {
+    expect(
+      mapProviderError({ statusCode: 429, retryAfterMs: -1 }),
+    ).toMatchObject({
+      code: 'RATE_LIMIT',
+      retryAfterMs: undefined,
+    });
+  });
 });

@@ -7,6 +7,7 @@ import { ProviderCapabilityError } from '@/lib/llm/provider-error';
 import {
   FetchLike,
   OpenAiCompatibleLlmProvider,
+  parseRetryAfterMs,
 } from './openai-compatible-llm.provider';
 
 const okSchema = z.object({ ok: z.literal(true) });
@@ -202,6 +203,36 @@ describe('OpenAiCompatibleLlmProvider', () => {
     await expect(
       provider.generateStructured({ prompt: okPrompt, schema: okSchema }),
     ).rejects.toMatchObject({ code: 'RATE_LIMIT', retryable: true });
+  });
+
+  it('carries a Retry-After header onto the mapped rate-limit error', async () => {
+    const config = openAiConfig({ LLM_STRUCTURED_OUTPUT: 'json-object' });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: { get: (name: string) => (name === 'Retry-After' ? '5' : null) },
+      json: async () => ({ error: 'slow down' }),
+    });
+    const provider = new OpenAiCompatibleLlmProvider(
+      config,
+      fetchMock as unknown as FetchLike,
+    );
+
+    await expect(
+      provider.generateStructured({ prompt: okPrompt, schema: okSchema }),
+    ).rejects.toMatchObject({
+      code: 'RATE_LIMIT',
+      retryable: true,
+      retryAfterMs: 5000,
+    });
+  });
+
+  it('parses Retry-After delta-seconds into milliseconds', () => {
+    expect(parseRetryAfterMs('5')).toBe(5000);
+    expect(parseRetryAfterMs('0')).toBe(0);
+    expect(parseRetryAfterMs('')).toBeUndefined();
+    expect(parseRetryAfterMs(null)).toBeUndefined();
+    expect(parseRetryAfterMs('Wed, 21 Oct 2015 07:28:00 GMT')).toBeUndefined();
   });
 
   it('maps a provider outage to a retryable network error', async () => {

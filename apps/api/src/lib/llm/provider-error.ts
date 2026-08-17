@@ -16,6 +16,9 @@ export class ProviderError extends Error {
     message: string,
     public readonly retryable: boolean,
     public readonly statusCode?: number,
+    /** Server-provided retry delay (from a Retry-After header) in
+     * milliseconds, when the provider told us when to retry. */
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'ProviderError';
@@ -49,6 +52,7 @@ type ErrorLike = {
   name?: unknown;
   status?: unknown;
   statusCode?: unknown;
+  retryAfterMs?: unknown;
 };
 
 function toErrorLike(value: unknown): ErrorLike {
@@ -64,6 +68,15 @@ function getStatusCode(error: ErrorLike): number | undefined {
   return typeof candidate === 'number' ? candidate : undefined;
 }
 
+function getRetryAfterMs(error: ErrorLike): number | undefined {
+  const candidate = error.retryAfterMs;
+  return typeof candidate === 'number' &&
+    Number.isFinite(candidate) &&
+    candidate >= 0
+    ? candidate
+    : undefined;
+}
+
 export function mapProviderError(error: unknown): ProviderError {
   if (error instanceof ProviderError) {
     return error;
@@ -77,6 +90,7 @@ export function mapProviderError(error: unknown): ProviderError {
   const name = typeof details.name === 'string' ? details.name : '';
   const code = typeof details.code === 'string' ? details.code : '';
   const statusCode = getStatusCode(details);
+  const retryAfterMs = getRetryAfterMs(details);
 
   if (statusCode === 401 || statusCode === 403) {
     return new ProviderError(
@@ -98,6 +112,7 @@ export function mapProviderError(error: unknown): ProviderError {
       'Provider request timed out',
       true,
       statusCode,
+      retryAfterMs,
     );
   }
 
@@ -107,6 +122,7 @@ export function mapProviderError(error: unknown): ProviderError {
       'Provider rate limit exceeded',
       true,
       statusCode,
+      retryAfterMs,
     );
   }
 
@@ -116,6 +132,7 @@ export function mapProviderError(error: unknown): ProviderError {
       'Provider service is unavailable',
       true,
       statusCode,
+      retryAfterMs,
     );
   }
 
@@ -128,6 +145,8 @@ export function mapProviderError(error: unknown): ProviderError {
       'NETWORK',
       'Provider network request failed',
       true,
+      undefined,
+      retryAfterMs,
     );
   }
 

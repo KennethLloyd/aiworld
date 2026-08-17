@@ -1,6 +1,6 @@
 # Plan 08: OpenCode Go Adapter
 
-Status: Planned
+Status: In Progress
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
@@ -77,8 +77,83 @@ behind unsafe assumptions or broad casts.
 ## Implementation Record
 
 Status: In Progress (08-1 OpenCode Go adapter and provider registry implemented —
-PR open pending review; 08-2 retry/timeout/telemetry and SimulationLog error
-mapping remain, tracked as #46)
+PR #115 merged; 08-2 retry/timeout/telemetry and SimulationLog error mapping
+implemented — PR open pending review, tracked as #46)
+
+### 08-2 Retry, Timeout, Telemetry, and Error Mapping (2026-08-17)
+
+#### Senior-Level Summary
+
+Provider calls are now wrapped in a `RetryingLlmProvider` decorator that applies
+bounded exponential backoff with jitter, honoring a server `Retry-After` value
+when present, and retries only transient failures (timeout, network, 408, 429,
+5xx) up to the configured `LLM_MAX_RETRIES` budget. Permanent failures
+(authentication, malformed response, capability, unknown) fail immediately. The
+retry policy (base delay, ceiling, jitter ratio) is configuration-driven
+(`LLM_RETRY_BASE_DELAY_MS`, `LLM_RETRY_MAX_DELAY_MS`, `LLM_RETRY_JITTER_RATIO`)
+and reported through `toSafeProviderConfig` without secrets. The adapter now
+captures the `Retry-After` header and carries it on the mapped `ProviderError`
+(`retryAfterMs`), so the decorator can honor the provider's instruction. All
+error mapping reuses the Plan 03 `mapProviderError` helper — nothing is
+duplicated.
+
+The remaining acceptance criteria were already satisfied by earlier plans and
+are covered by existing focused tests, not re-implemented here: token, latency,
+and configurable cost telemetry flows into `SimulationLog` via
+`SimulationLogService` and the configurable `SimulationCostEstimator`
+(`simulation-log.service.spec.ts`), and the admin log detail reports
+provider/model/latency/tokens/cost while omitting keys, auth headers, and raw
+prompts/responses (`simulation-admin-response.mapper.spec.ts`). This ticket adds
+the retry layer, `Retry-After` handling, and the retry policy configuration, and
+proves the stable error mapping and secret-free log surface with focused tests.
+
+#### Files Changed
+
+- `apps/api/src/simulation/providers/retry/retrying-llm.provider.ts` (+spec) — retry/backoff decorator
+- `apps/api/src/simulation/providers/llm-provider.registry.ts` (+spec) — `createBaseLlmProvider` + retry-wrapped `createLlmProvider`
+- `apps/api/src/lib/llm/provider-error.ts` (+spec) — `retryAfterMs` on `ProviderError` and `mapProviderError`
+- `apps/api/src/lib/llm/provider-config.ts` (+spec) — retry policy config + validation
+- `apps/api/src/simulation/providers/openai-compatible/openai-compatible-llm.provider.ts` (+spec) — `Retry-After` header capture
+- `apps/api/src/app.module.spec.ts` — registry resolves retry-wrapped mock
+- `apps/api/.env.example` — retry policy keys
+- `docs/providers/openai-compatible-contract.md` — retry policy documented
+
+#### Architecture and SOLID Notes
+
+- Retry is a decorator over the `LlmProvider` port, provider-agnostic and
+  applied uniformly by the registry; the module wiring is unchanged.
+- The retry policy lives in `ProviderConfig` alongside the other limits, so
+  safe config reporting covers it and no pricing/endpoint assumption is
+  hardcoded.
+- `Retry-After` travels as metadata on the mapped `ProviderError`; the adapter
+  never leaks the response body, and the decorator only reads the delay.
+- Error mapping stays in the Plan 03 helper; the decorator and adapter reuse it
+  rather than re-deriving codes.
+
+#### Tests Run
+
+- `SCHEDULER_ADAPTER=in-process pnpm --filter @aiworld/api exec jest --runInBand`
+  — 67 suites, 501 tests passed (retry budget, backoff/jitter bounds,
+  Retry-After honoring, permanent-failure no-retry, config validation,
+  adapter header capture, registry wrapping, module wiring)
+- `pnpm --filter @aiworld/api lint`
+- `pnpm --filter @aiworld/api format:check`
+- `pnpm --filter @aiworld/api build`
+- `pnpm --filter @aiworld/api exec tsc --noEmit` — no new errors (6 pre-existing
+  type errors in search/e2e specs exist on `main` independently of this change)
+
+#### Browser Verification
+
+Not applicable to 08-2 (server-side retry/telemetry only; no UI surface). The
+admin log surface already reports provider/model/latency/tokens/cost without
+secrets (covered by the admin response mapper spec).
+
+#### Known Risks and Follow-Up Work
+
+- Live OpenCode Go `Retry-After`/backoff behavior still needs credentials and
+  is tracked as a manual `provider:smoke`-style step.
+- `json-schema` structured output remains explicitly unsupported until native
+  schema output is verified against a live provider.
 
 ### 08-1 OpenCode Go Adapter and Provider Registry (2026-08-16)
 
