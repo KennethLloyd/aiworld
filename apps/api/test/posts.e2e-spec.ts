@@ -82,6 +82,8 @@ describe('World feed (seeded database)', () => {
         handle: authorCharacter!.key,
         name: authorCharacter!.name,
         avatarUrl: authorCharacter!.avatarUrl,
+        classification: authorCharacter!.classification,
+        classificationGroup: authorCharacter!.classificationGroup,
       });
     }
     expect(res.body.meta).toEqual({

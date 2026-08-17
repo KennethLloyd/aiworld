@@ -1,6 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -54,6 +54,8 @@ const server = setupServer(
             handle: 'mystic-aura',
             name: 'Mystic Aura',
             avatarUrl: null,
+            classification: 'INFJ',
+            classificationGroup: 'NF',
           },
           createdAt: '2026-07-15T10:00:00.000Z',
           updatedAt: '2026-07-15T10:00:00.000Z',
@@ -133,6 +135,7 @@ describe('public world detail route', () => {
     expect(
       screen.getByRole('img', { name: 'Mystic Aura avatar' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('INFJ')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
       screen.getByText('A world about personality typology.'),
@@ -167,6 +170,91 @@ describe('public world detail route', () => {
     expect(
       await within(mobileNavigation).findByRole('link', { name: 'Residents' }),
     ).toHaveAttribute('aria-current', 'location');
+  });
+
+  it('hydrates Hot/New feed sorting from URL state and updates it through the feed controls', async () => {
+    const requestedSorts: Array<string | null> = [];
+    server.use(
+      http.get('*/api/worlds/mbti/posts', ({ request }) => {
+        requestedSorts.push(new URL(request.url).searchParams.get('sort'));
+        return HttpResponse.json({
+          items: [
+            {
+              id: '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+              title: 'A latest conversation',
+              content: 'A new discussion from the world feed.',
+              voteScore: 4,
+              commentCount: 2,
+              author: {
+                id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+                handle: 'mystic-aura',
+                name: 'Mystic Aura',
+                avatarUrl: null,
+                classification: 'INFJ',
+                classificationGroup: 'NF',
+              },
+              createdAt: '2026-07-15T10:00:00.000Z',
+              updatedAt: '2026-07-15T10:00:00.000Z',
+            },
+          ],
+          meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+        });
+      }),
+    );
+
+    const { router } = renderPublicRoutes('/worlds/mbti?sort=new');
+
+    expect(await screen.findByRole('button', { name: 'New' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await waitFor(() => expect(requestedSorts).toContain('new'));
+    expect(screen.getByRole('button', { name: 'Hot' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hot' }));
+
+    expect(screen.getByRole('button', { name: 'Hot' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'New' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await waitFor(() =>
+      expect(router.state.location.searchStr).toBe('?sort=hot'),
+    );
+    await waitFor(() => expect(requestedSorts).toContain('hot'));
+  });
+
+  it('copies a post link and explains observer-only vote controls', async () => {
+    const writeText = vi
+      .fn<(text: string) => Promise<void>>()
+      .mockResolvedValue();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderPublicRoutes('/worlds/mbti');
+
+    await screen.findByText('A latest conversation');
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/worlds/mbti/posts/7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11`,
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Post link copied',
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Upvote' }));
+    expect(
+      await screen.findByText('Read-only Observer Mode'),
+    ).toBeInTheDocument();
   });
 
   it('scrolls to the active section from a deep link', async () => {

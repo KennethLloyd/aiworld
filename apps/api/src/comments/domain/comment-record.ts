@@ -8,6 +8,8 @@ export interface AuthorRecord {
   handle: string;
   name: string;
   avatarUrl: string | null;
+  classification?: string | null;
+  classificationGroup?: string | null;
 }
 
 /**

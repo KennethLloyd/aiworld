@@ -112,7 +112,7 @@ semantic HTML, focus management, responsive behavior, and error handling.
 
 ## Implementation Record
 
-Status: In Progress (09-1 implemented on the ticket branch; PR #117 open)
+Status: In Progress (09-1 merged; 09-2 implementation in progress)
 
 ### Senior-Level Summary
 
@@ -173,8 +173,71 @@ to `/tmp/aiworld-public-mobile.png`.
 
 ### Known Risks and Follow-Up Work
 
-- The full Hot/New feed, post detail, and Character query slices are delivered
-  by later Plan 09 tickets; they should reuse the public 30-second cadence.
-  Admin world lists explicitly remain manual and do not inherit public polling.
+- The post detail and Character query slices are delivered by later Plan 09
+  tickets; they should reuse the public 30-second cadence. Admin world lists
+  explicitly remain manual and do not inherit public polling.
 - GitHub Project status could not be changed because the local `gh` token lacks
   the `read:project` scope; issue #47 remains assigned and open for PR review.
+
+### 09-2 Feed with sorting and share
+
+Status: In Progress (issue #48; implementation branch)
+
+#### Senior-Level Summary
+
+The public feed now owns its full post-card presentation: author identity,
+optional Character classification, avatar fallback, vote score, comment count,
+Hot/New controls, and share action. Sorting is validated by the shared post
+query contract and persisted in the World route's URL search state, so a feed
+view can be refreshed or shared without losing its ordering. The read-only
+vote controls remain keyboard-accessible with `aria-disabled` semantics and
+surface the shared Observer Mode feedback. Share uses the canonical nested
+post URL and the Clipboard API with a small browser fallback.
+
+#### Files Changed
+
+- `apps/web/src/features/posts/components/world-feed.tsx` — feed controls, cards, voting feedback, and share
+- `apps/web/src/features/posts/query/use-posts.ts` and `post-keys.ts` — sort-aware feed requests and cache keys
+- `apps/web/src/routes/worlds/$slug.tsx` — validated URL sort state and route-owned navigation
+- `apps/web/src/routes/worlds/-$slug.spec.tsx` and `apps/web/src/features/posts/query/use-posts.spec.tsx` — feed interaction and query tests
+- `apps/web/src/test/router-harness.tsx` — public route toast host for interaction tests
+- `apps/web/src/features/worlds/components/world-card.tsx` — typed default sort for world links
+- `packages/shared/src/schemas/post.schema.ts` — shared `PostSort` contract
+- `packages/shared/src/schemas/author-response.schema.ts` — optional classification fields on public authors
+- `apps/api/src/comments/domain/` and `apps/api/src/comments/repositories/prisma-content-author-select.ts` — Character classification projection
+- `apps/api/test/posts.e2e-spec.ts` and `apps/api/src/comments/domain/content-author.spec.ts` — classification response coverage
+
+#### Architecture and SOLID Notes
+
+The route owns URL state, the Posts query owns TanStack Query cache and polling,
+the gateway remains the only HTTP boundary, and the feed components remain
+presentation/interaction code. Classification travels through the existing
+shared author response rather than a web-only schema or a second client-side
+lookup; HUMAN authors continue to omit Character-only fields. No mutations or
+authorization decisions are added to the browser.
+
+#### Tests Run
+
+- Web targeted query and route specs — passed
+- Web full suite with `--no-file-parallelism` — 24 files, 129 tests passed
+- API full unit suite — 67 suites, 503 tests passed
+- `pnpm install --frozen-lockfile` and API Prisma generation — passed
+- Repository lint, format checks, and build — passed
+
+#### Browser Verification
+
+The live public flow verified `/worlds/mbti-house?sort=new`, Hot/New ordering,
+Share feedback, Observer Mode feedback, and the 390×844 responsive feed. A
+mobile screenshot was saved to `/tmp/aiworld-feed-mobile.png`.
+
+#### Known Risks and Follow-Up Work
+
+- The canonical post detail route is delivered by issue #49; this ticket
+  copies its intended nested URL so the share links become live when #49 lands.
+- The default `pnpm test` Turbo run is sensitive to parallel MSW/router test
+  contention: the API suite passed, while five unrelated web tests timed out
+  under concurrent package load. The web suite passes serially with
+  `vitest run --no-file-parallelism`; this is recorded as verification context,
+  not a product failure.
+- GitHub Project status could not be changed because the local `gh` token lacks
+  the `read:project` scope.

@@ -103,7 +103,7 @@ describe('public worlds list route', () => {
     ).toBeInTheDocument();
 
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
-    expect(card).toHaveAttribute('href', '/worlds/world-1-1');
+    expect(card).toHaveAttribute('href', '/worlds/world-1-1?sort=hot');
     expect(
       screen.getByText('Topic scope excerpt for world 1-1.'),
     ).toBeInTheDocument();

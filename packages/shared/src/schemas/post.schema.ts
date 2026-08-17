@@ -4,8 +4,11 @@ import { paginationQueryFields } from "./pagination.schema.ts";
 
 // Request DTOs
 
+export const postSortSchema = z.enum(["hot", "new"]);
+export type PostSort = z.infer<typeof postSortSchema>;
+
 export const listPostsQuerySchema = z.object({
-  sort: z.enum(["hot", "new"]).default("hot"),
+  sort: postSortSchema.default("hot"),
   ...paginationQueryFields,
 });
 

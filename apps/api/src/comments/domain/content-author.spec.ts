@@ -28,6 +28,28 @@ describe('mapContentAuthor', () => {
     });
   });
 
+  it('preserves optional Character classification fields for public badges', () => {
+    expect(
+      mapContentAuthor({
+        ...memberRow,
+        character: {
+          handle: 'mystic_aura',
+          name: 'Mystic Aura',
+          avatarUrl: null,
+          classification: 'INFJ',
+          classificationGroup: 'NF',
+        },
+      }),
+    ).toEqual({
+      id: memberRow.id,
+      handle: 'mystic_aura',
+      name: 'Mystic Aura',
+      avatarUrl: null,
+      classification: 'INFJ',
+      classificationGroup: 'NF',
+    });
+  });
+
   it('maps a HUMAN member to its User identity with the member id', () => {
     expect(
       mapContentAuthor({

@@ -10,6 +10,8 @@ export interface ContentAuthorRow {
     handle: string;
     name: string;
     avatarUrl: string | null;
+    classification?: string | null;
+    classificationGroup?: string | null;
   } | null;
   user: {
     username: string;
@@ -25,12 +27,21 @@ export interface ContentAuthorRow {
  */
 export function mapContentAuthor(member: ContentAuthorRow): AuthorRecord {
   if (member.character) {
-    return {
+    const author: AuthorRecord = {
       id: member.id,
       handle: member.character.handle,
       name: member.character.name,
       avatarUrl: member.character.avatarUrl,
     };
+
+    if (member.character.classification !== undefined) {
+      author.classification = member.character.classification;
+    }
+    if (member.character.classificationGroup !== undefined) {
+      author.classificationGroup = member.character.classificationGroup;
+    }
+
+    return author;
   }
 
   const user = member.user;

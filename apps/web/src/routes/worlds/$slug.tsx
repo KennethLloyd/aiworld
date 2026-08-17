@@ -1,3 +1,7 @@
+import {
+  postSortSchema,
+  type PostSort,
+} from '@aiworld/shared/schemas/post.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Globe } from 'lucide-react';
@@ -16,6 +20,7 @@ import { Skeleton } from '@/shared/ui/skeleton';
 
 const worldDetailSearchSchema = z.object({
   section: z.enum(['feed', 'residents', 'about-world']).optional(),
+  sort: postSortSchema.default('hot'),
 });
 
 export const Route = createFileRoute('/worlds/$slug')({
@@ -25,15 +30,23 @@ export const Route = createFileRoute('/worlds/$slug')({
 
 function WorldDetailRoute() {
   const { slug } = Route.useParams();
-  const { section } = Route.useSearch();
+  const { section, sort } = Route.useSearch();
   const navigate = Route.useNavigate();
   const worldQuery = useWorld(slug, { polling: true });
   return (
     <WorldDetailScreen
       slug={slug}
+      sort={sort}
       activeSection={section ?? 'feed'}
       onSectionChange={(nextSection) =>
-        void navigate({ search: { section: nextSection } })
+        void navigate({
+          search: (previous) => ({ ...previous, section: nextSection }),
+        })
+      }
+      onSortChange={(nextSort) =>
+        void navigate({
+          search: (previous) => ({ ...previous, sort: nextSort }),
+        })
       }
       data={worldQuery.data}
       isPending={worldQuery.isPending}
@@ -46,8 +59,10 @@ function WorldDetailRoute() {
 
 export interface WorldDetailScreenProps {
   slug: string;
+  sort: PostSort;
   activeSection: WorldSection;
   onSectionChange: (section: WorldSection) => void;
+  onSortChange: (sort: PostSort) => void;
   data: WorldResponse | undefined;
   isPending: boolean;
   isError: boolean;
@@ -63,8 +78,10 @@ export interface WorldDetailScreenProps {
  */
 export function WorldDetailScreen({
   slug,
+  sort,
   activeSection,
   onSectionChange,
+  onSortChange,
   data,
   isPending,
   isError,
@@ -96,7 +113,9 @@ export function WorldDetailScreen({
       world={data}
       activeSection={activeSection}
       onSectionChange={onSectionChange}
-      feed={<WorldFeed slug={data.slug} />}
+      feed={
+        <WorldFeed slug={data.slug} sort={sort} onSortChange={onSortChange} />
+      }
     />
   );
 }

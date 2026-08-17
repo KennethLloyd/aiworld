@@ -13,6 +13,7 @@ import { createQueryClient } from '@/providers/query-client';
 import { Route as IndexRoute } from '@/routes/index';
 import { Route as WorldsIndexRoute } from '@/routes/worlds';
 import { Route as WorldDetailRoute } from '@/routes/worlds/$slug';
+import { Toaster } from '@/shared/feedback/toaster';
 
 export interface RenderPublicRoutesOptions {
   /** Override the default app query client (e.g. retry: false in error tests). */
@@ -67,14 +68,19 @@ export function renderPublicRoutes(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={options.queryClient ?? createQueryClient()}>
-        <GatewaysProvider>{children}</GatewaysProvider>
+        <GatewaysProvider>
+          <Toaster>{children}</Toaster>
+        </GatewaysProvider>
       </QueryClientProvider>
     );
   }
 
-  return render(
-    <Wrapper>
-      <RouterProvider router={router} />
-    </Wrapper>,
-  );
+  return {
+    ...render(
+      <Wrapper>
+        <RouterProvider router={router} />
+      </Wrapper>,
+    ),
+    router,
+  };
 }
