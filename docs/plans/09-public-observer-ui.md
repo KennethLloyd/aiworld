@@ -112,7 +112,7 @@ semantic HTML, focus management, responsive behavior, and error handling.
 
 ## Implementation Record
 
-Status: In Progress (09-1 merged; 09-2 implementation in progress)
+Status: In Progress (09-1 and 09-2 merged; later tickets pending)
 
 ### Senior-Level Summary
 
@@ -176,12 +176,12 @@ to `/tmp/aiworld-public-mobile.png`.
 - The post detail and Character query slices are delivered by later Plan 09
   tickets; they should reuse the public 30-second cadence. Admin world lists
   explicitly remain manual and do not inherit public polling.
-- GitHub Project status is tracked on the board; Plan 09 and issue #48 remain
-  In Progress pending pull-request review and merge.
+- GitHub Project status is tracked on the board; Plan 09 remains In Progress
+  while issues #49-#51 are pending. Issue #48 is complete and merged.
 
 ### 09-2 Feed with sorting and share
 
-Status: In Progress (issue #48; implementation branch)
+Status: Complete (issue #48; merged in PR #119)
 
 #### Senior-Level Summary
 
