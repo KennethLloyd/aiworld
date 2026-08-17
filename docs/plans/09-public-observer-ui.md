@@ -1,6 +1,6 @@
 # Plan 09: Public Observer UI
 
-Status: Planned
+Status: In Progress
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
@@ -112,16 +112,69 @@ semantic HTML, focus management, responsive behavior, and error handling.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress (09-1 implemented on the ticket branch; PR #117 open)
 
 ### Senior-Level Summary
 
+The public observer now has a prototype-aligned entry point and world frame.
+The directory presents active simulations with Live status, while the world
+screen composes the existing world gateway/query boundary with a responsive
+three-column shell, observer-only context, and working Feed/Residents/About
+section navigation. A shared presentation-only `Avatar` owns the missing or
+broken image fallback so later Character and admin surfaces can reuse the same
+visual contract. Public world list/detail queries refetch every 30 seconds so
+the observer can receive updated snapshots without introducing a second client
+state store. The route composes a validated latest-conversation snapshot from
+the Posts feature so new content is observed on the same cadence; the full
+feed experience remains in 09-2.
+
 ### Files Changed
+
+- `apps/web/src/features/worlds/components/world-card.tsx` — prototype-aligned Live cards using API-backed world fields
+- `apps/web/src/features/worlds/components/world-detail.tsx` — world detail and section targets mounted inside the observer shell
+- `apps/web/src/features/worlds/components/world-layout.tsx` — responsive three-column frame with active section navigation
+- `apps/web/src/features/worlds/components/world-list.tsx` — Active Simulations landing copy
+- `apps/web/src/features/worlds/query/use-world.ts` and `use-worlds.ts` — 30-second public polling
+- `apps/web/src/features/posts/` — feature-owned latest-conversation gateway, query, and snapshot panel
+- `apps/web/src/providers/gateways-provider.tsx` and `apps/web/src/router/router.tsx` — one application-level adapter object shared by React and router composition
+- `apps/web/src/shared/ui/avatar.tsx` — reusable default avatar fallback
+- Focused route, query, and avatar specs
 
 ### Architecture and SOLID Notes
 
+The change preserves the route → query → gateway → HTTP direction. The new
+layout and avatar are presentation-only components; they do not import API
+clients or transport schemas beyond the world response consumed by the
+existing feature boundary. Polling is configured at the TanStack Query seam
+and explicitly opted into by the public route, so admin detail and list
+queries remain manual. The route composes the Posts snapshot at the feature
+boundary, while Posts owns its endpoint, gateway, and query; core remains
+feature-agnostic. The composition root exposes all adapters through one
+application-level `AppGateways` context so future feature gateways do not add
+one provider per feature. Later Plan 09 tickets replace the Character
+placeholder and latest-feed snapshot with their full screens.
+
 ### Tests Run
+
+- `apps/web`: `vitest run` — 24 files, 127 tests passed
+- `apps/web`: `tsc --noEmit` — passed
+- `apps/web`: `oxlint .` — passed
+- `apps/web`: `oxfmt --check .` — passed
+- `apps/web`: `vite build` — passed
+- `git diff --check` — passed
 
 ### Browser Verification
 
+Seeded PostgreSQL/Redis services and the API were started locally. The
+`agent-browser` public flow verified `/worlds`, `/worlds/mbti-house`, the
+three-column observer navigation, and the 390×844 mobile navigation. Clicking
+the mobile About item produced `#about-world`; screenshot evidence was saved
+to `/tmp/aiworld-public-mobile.png`.
+
 ### Known Risks and Follow-Up Work
+
+- The full Hot/New feed, post detail, and Character query slices are delivered
+  by later Plan 09 tickets; they should reuse the public 30-second cadence.
+  Admin world lists explicitly remain manual and do not inherit public polling.
+- GitHub Project status could not be changed because the local `gh` token lacks
+  the `read:project` scope; issue #47 remains assigned and open for PR review.

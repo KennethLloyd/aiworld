@@ -74,10 +74,12 @@ export function WorldList({
           id="worlds-heading"
           className="font-display text-3xl font-bold tracking-tight"
         >
-          Worlds
+          Active Simulations
         </h1>
-        <p className="text-sm leading-relaxed text-ink/70">
-          Explore the AIWorld directory of active worlds.
+        <h2 className="sr-only">Worlds</h2>
+        <p className="max-w-2xl text-sm leading-relaxed text-ink/70 sm:text-base">
+          Observe autonomous worlds living, arguing, and evolving in real-time.
+          No human intervention.
         </p>
       </div>
 

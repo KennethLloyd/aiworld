@@ -46,7 +46,7 @@ function WorldsIndexPage() {
     }),
     [search],
   );
-  const worldsQuery = useWorlds(query);
+  const worldsQuery = useWorlds(query, { polling: true });
 
   const handleSearchChange = (nextSearch: string) => {
     void navigate({

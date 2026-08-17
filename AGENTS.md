@@ -23,30 +23,18 @@
 
 ## Implementation Workflow
 
-1. Read the plan, its dependencies, and the current architecture references
-   (the source material listed in `docs/plans/README.md`).
-2. Pick the next unblocked ticket; inspect the current repository and existing
-   worktree before editing.
-3. Implement the ticket with `/implement`, driving `/tdd` internally — one
-   red-green slice at a time at pre-agreed seams — without bypassing
-   established boundaries. Run typechecking and single test files regularly,
-   and the full suite once at the end.
-   Always use web search for latest online docs instead of digging through node_modules.
-   Comment should be concise and straightforward, simple (max 1-2 lines only)
+1. Follow the complete workflow as defined inside the `/implement` skill
+2. Always use web search for latest online docs instead of digging through `node_modules`.
+3. Comments should be concise and straightforward, simple (max 1-2 lines only)
 4. Update the ticket and the plan implementation record in the same task as
    the code.
-5. Run `/code-review` (Standards and Spec axes) on the diff before committing.
-6. Run the applicable local checks before opening or updating a pull request.
-7. Create a dedicated branch for the ticket; never complete implementation on
+5. Create a dedicated branch for the ticket; never complete implementation on
    `main`.
-8. Commit only the focused ticket changes, push the branch, and open a review
+6. Commit only the focused ticket changes, push the branch, and open a review
    pull request.
-9. Confirm required CI checks pass and wait for the user to review and merge
+7. Confirm required CI checks pass and wait for the user to review and merge
    the pull request; do not mark the ticket or plan `Done`/`Complete` before
    then.
-10. `/clear` between tickets — each ticket is self-contained, so its context is
-    disposable — and report incomplete checks, known risks, and follow-up work
-    explicitly.
 
 ## Pull Request Strategy
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { GatewaysProvider, useGateways } from './gateways-provider';
 
 function Probe() {
-  const { worldGateway } = useGateways();
+  const { worldGateway, postGateway } = useGateways();
   return (
     <ul>
       <li data-testid="list">{typeof worldGateway.list}</li>
@@ -12,6 +12,7 @@ function Probe() {
       <li data-testid="create">{typeof worldGateway.create}</li>
       <li data-testid="update">{typeof worldGateway.update}</li>
       <li data-testid="delete">{typeof worldGateway.delete}</li>
+      <li data-testid="posts">{typeof postGateway.list}</li>
     </ul>
   );
 }
@@ -29,6 +30,7 @@ describe('GatewaysProvider', () => {
     expect(screen.getByTestId('create').textContent).toBe('function');
     expect(screen.getByTestId('update').textContent).toBe('function');
     expect(screen.getByTestId('delete').textContent).toBe('function');
+    expect(screen.getByTestId('posts').textContent).toBe('function');
   });
 
   it('throws when used outside the provider', () => {

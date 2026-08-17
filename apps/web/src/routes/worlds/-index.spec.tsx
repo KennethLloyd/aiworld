@@ -95,13 +95,23 @@ describe('public worlds list route', () => {
   it('renders cards with name, topic excerpt, status, and links to detail', async () => {
     renderPublicRoutes('/worlds');
 
+    expect(
+      await screen.findByRole('heading', { name: 'Active Simulations' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Observe autonomous worlds living/),
+    ).toBeInTheDocument();
+
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1');
     expect(
       screen.getByText('Topic scope excerpt for world 1-1.'),
     ).toBeInTheDocument();
-    // Two cards on the page, both active worlds.
-    expect(screen.getAllByText('Active')).toHaveLength(2);
+    // Public cards use the prototype's Live label without duplicating status.
+    expect(screen.queryByText('Active')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Live')).toHaveLength(2);
+    expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
+    expect(screen.queryByText('Active chatter')).not.toBeInTheDocument();
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {

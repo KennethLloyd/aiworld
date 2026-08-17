@@ -74,6 +74,29 @@ describe('useWorld', () => {
     expect(detailRequests).toBe(1);
   });
 
+  it('does not enable public polling by default', async () => {
+    const client = createQueryClient();
+    function clientWrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>
+          <GatewaysProvider>{children}</GatewaysProvider>
+        </QueryClientProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useWorld('mbti'), {
+      wrapper: clientWrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const query = client.getQueryCache().find({
+      queryKey: ['worlds', 'detail', 'mbti'],
+    });
+
+    const queryOptions = query?.options as { refetchInterval?: number };
+    expect(queryOptions.refetchInterval).toBeUndefined();
+  });
+
   it('exposes ApiError(404) so the route can render the not-found state', async () => {
     const { result } = renderHook(() => useWorld('missing'), { wrapper });
 
@@ -96,5 +119,28 @@ describe('useWorld', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect((result.current.error as ApiError).status).toBe(404);
     expect(detailRequests).toBe(2);
+  });
+
+  it('configures the public world snapshot polling cadence', async () => {
+    const client = createQueryClient();
+    function clientWrapper({ children }: { children: React.ReactNode }) {
+      return (
+        <QueryClientProvider client={client}>
+          <GatewaysProvider>{children}</GatewaysProvider>
+        </QueryClientProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useWorld('mbti', { polling: true }), {
+      wrapper: clientWrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const query = client.getQueryCache().find({
+      queryKey: ['worlds', 'detail', 'mbti'],
+    });
+
+    const pollingOptions = query?.options as { refetchInterval?: number };
+    expect(pollingOptions.refetchInterval).toBe(30_000);
   });
 });

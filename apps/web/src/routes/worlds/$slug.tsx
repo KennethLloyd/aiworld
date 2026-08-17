@@ -1,26 +1,40 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Globe } from 'lucide-react';
+import { z } from 'zod';
 
 import { ApiError } from '@/core/api/api-error';
+import { WorldFeed } from '@/features/posts/components/world-feed';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
 import { WorldDetail } from '@/features/worlds/components/world-detail';
+import type { WorldSection } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';
 import { buttonClasses } from '@/shared/ui/button';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Skeleton } from '@/shared/ui/skeleton';
 
+const worldDetailSearchSchema = z.object({
+  section: z.enum(['feed', 'residents', 'about-world']).optional(),
+});
+
 export const Route = createFileRoute('/worlds/$slug')({
+  validateSearch: (input) => worldDetailSearchSchema.parse(input),
   component: WorldDetailRoute,
 });
 
 function WorldDetailRoute() {
   const { slug } = Route.useParams();
-  const worldQuery = useWorld(slug);
+  const { section } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const worldQuery = useWorld(slug, { polling: true });
   return (
     <WorldDetailScreen
       slug={slug}
+      activeSection={section ?? 'feed'}
+      onSectionChange={(nextSection) =>
+        void navigate({ search: { section: nextSection } })
+      }
       data={worldQuery.data}
       isPending={worldQuery.isPending}
       isError={worldQuery.isError}
@@ -32,6 +46,8 @@ function WorldDetailRoute() {
 
 export interface WorldDetailScreenProps {
   slug: string;
+  activeSection: WorldSection;
+  onSectionChange: (section: WorldSection) => void;
   data: WorldResponse | undefined;
   isPending: boolean;
   isError: boolean;
@@ -47,6 +63,8 @@ export interface WorldDetailScreenProps {
  */
 export function WorldDetailScreen({
   slug,
+  activeSection,
+  onSectionChange,
   data,
   isPending,
   isError,
@@ -73,7 +91,14 @@ export function WorldDetailScreen({
     // the switch total for type safety.
     return null;
   }
-  return <WorldDetail world={data} />;
+  return (
+    <WorldDetail
+      world={data}
+      activeSection={activeSection}
+      onSectionChange={onSectionChange}
+      feed={<WorldFeed slug={data.slug} />}
+    />
+  );
 }
 
 function WorldDetailSkeleton() {

@@ -2,33 +2,44 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import { HttpClient } from '@/core/api/http-client';
 import { env } from '@/core/config/env';
-import { createGateways, type Gateways } from '@/core/services/gateways';
+import { HttpPostGateway } from '@/features/posts/api/http-post-gateway';
+import type { PostGateway } from '@/features/posts/api/post-gateway';
 import { HttpWorldGateway } from '@/features/worlds/api/http-world-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 
-// Composition root: the adapter object graph is built once and shared by the
-// provider and the router context (no singleton locator, no module-level
-// pull). The provider imports the feature adapter; core stays feature-free.
+/** The application-level adapter object assembled by the composition root. */
+export interface AppGateways {
+  worldGateway: WorldGateway;
+  postGateway: PostGateway;
+}
+
 const apiClient = new HttpClient(env.apiBaseUrl);
-const gateways = createGateways<WorldGateway>(
-  apiClient,
-  new HttpWorldGateway(apiClient),
-);
+const gateways: AppGateways = {
+  worldGateway: new HttpWorldGateway(apiClient),
+  postGateway: new HttpPostGateway(apiClient),
+};
 
-const GatewaysContext = createContext<Gateways<WorldGateway> | null>(null);
+const GatewaysContext = createContext<AppGateways | null>(null);
 
-/** Shared by the provider and the router context (composition root). */
+/** Shared by the provider and the router context. */
 export { gateways };
 
-export function GatewaysProvider({ children }: { children: ReactNode }) {
+export function GatewaysProvider({
+  children,
+  value = gateways,
+}: {
+  children: ReactNode;
+  /** Override the adapter object at the application seam in tests. */
+  value?: AppGateways;
+}) {
   return (
-    <GatewaysContext.Provider value={gateways}>
+    <GatewaysContext.Provider value={value}>
       {children}
     </GatewaysContext.Provider>
   );
 }
 
-export function useGateways(): Gateways<WorldGateway> {
+export function useGateways(): AppGateways {
   const value = useContext(GatewaysContext);
   if (value === null) {
     throw new Error('useGateways must be used within a GatewaysProvider');
