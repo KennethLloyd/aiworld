@@ -86,6 +86,8 @@ const fixture = {
     handle: 'detail_author',
     name: 'Detail Author',
     avatarUrl: null,
+    classification: null,
+    classificationGroup: null,
   },
   authorCharacterId: seedUuid('character:detail-author'),
   commenter: {
@@ -448,6 +450,8 @@ describe('Post detail (real database)', () => {
         handle: 'inactive_author_test',
         name: 'Inactive Author Test',
         avatarUrl: null,
+        classification: null,
+        classificationGroup: null,
       });
       expect(res.body.comments[0].author!.id).toBe(memberId);
     } finally {

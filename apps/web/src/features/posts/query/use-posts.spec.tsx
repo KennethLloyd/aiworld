@@ -44,7 +44,7 @@ describe('usePosts', () => {
     };
     const client = new QueryClient();
 
-    const { result } = renderHook(() => usePosts('mbti'), {
+    const { result } = renderHook(() => usePosts('mbti', 'new'), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={client}>
           <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
@@ -58,7 +58,7 @@ describe('usePosts', () => {
     expect(gateway.list).toHaveBeenCalledWith('mbti', {
       sort: 'new',
       page: 1,
-      limit: 5,
+      limit: 20,
     });
   });
 
@@ -72,7 +72,7 @@ describe('usePosts', () => {
     };
     const client = new QueryClient();
 
-    const { result } = renderHook(() => usePosts('mbti'), {
+    const { result } = renderHook(() => usePosts('mbti', 'hot'), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={client}>
           <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
@@ -82,7 +82,7 @@ describe('usePosts', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     const query = client.getQueryCache().find({
-      queryKey: ['posts', 'list', 'mbti'],
+      queryKey: ['posts', 'list', 'mbti', 'hot'],
     });
 
     const queryOptions = query?.options as { refetchInterval?: number };

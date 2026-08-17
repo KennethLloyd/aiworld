@@ -14,6 +14,7 @@ export function WorldCard({ world }: { world: WorldResponse }) {
     <Link
       to="/worlds/$slug"
       params={{ slug: world.slug }}
+      search={{ sort: 'hot' }}
       className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
       aria-label={`View ${world.name}`}
     >

@@ -10,6 +10,8 @@ export const authorResponseSchema = z.object({
   handle: z.string(),
   name: z.string(),
   avatarUrl: z.string().nullable(),
+  classification: z.string().nullable().optional(),
+  classificationGroup: z.string().nullable().optional(),
 });
 
 export type AuthorResponse = z.infer<typeof authorResponseSchema>;
