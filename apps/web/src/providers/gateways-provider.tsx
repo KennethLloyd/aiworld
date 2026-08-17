@@ -3,6 +3,8 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { HttpClient } from '@/core/api/http-client';
 import { env } from '@/core/config/env';
 import { createGateways, type Gateways } from '@/core/services/gateways';
+import { HttpPostGateway } from '@/features/posts/api/http-post-gateway';
+import { PostGatewayProvider } from '@/features/posts/api/post-gateway-context';
 import { HttpWorldGateway } from '@/features/worlds/api/http-world-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 
@@ -10,6 +12,7 @@ import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 // provider and the router context (no singleton locator, no module-level
 // pull). The provider imports the feature adapter; core stays feature-free.
 const apiClient = new HttpClient(env.apiBaseUrl);
+const postGateway = new HttpPostGateway(apiClient);
 const gateways = createGateways<WorldGateway>(
   apiClient,
   new HttpWorldGateway(apiClient),
@@ -23,7 +26,9 @@ export { gateways };
 export function GatewaysProvider({ children }: { children: ReactNode }) {
   return (
     <GatewaysContext.Provider value={gateways}>
-      {children}
+      <PostGatewayProvider gateway={postGateway}>
+        {children}
+      </PostGatewayProvider>
     </GatewaysContext.Provider>
   );
 }

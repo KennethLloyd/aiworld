@@ -32,6 +32,28 @@ const mbtiWorld: WorldResponse = {
 
 const server = setupServer(
   http.get('*/api/worlds/mbti', () => HttpResponse.json(mbtiWorld)),
+  http.get('*/api/worlds/mbti/posts', () =>
+    HttpResponse.json({
+      items: [
+        {
+          id: '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+          title: 'A latest conversation',
+          content: 'A new discussion from the world feed.',
+          voteScore: 4,
+          commentCount: 2,
+          author: {
+            id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+            handle: 'mystic-aura',
+            name: 'Mystic Aura',
+            avatarUrl: null,
+          },
+          createdAt: '2026-07-15T10:00:00.000Z',
+          updatedAt: '2026-07-15T10:00:00.000Z',
+        },
+      ],
+      meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+    }),
+  ),
   http.get('*/api/worlds/missing', () =>
     HttpResponse.json(
       { statusCode: 404, message: 'Not Found', error: 'NotFoundException' },
@@ -96,6 +118,12 @@ describe('public world detail route', () => {
       screen.getByText(
         'Personality types, cognition and communication styles.',
       ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('A latest conversation'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Mystic Aura avatar' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
