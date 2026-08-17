@@ -487,3 +487,12 @@ covered by that automated spec.
 - Manual runs bypass the scheduler retry policy — confirmed by Kenneth
   2026-08-14 (manual runs await the caller).
 - Log responses keep provider/model — confirmed by Kenneth 2026-08-14.
+
+### Scheduler Configuration Hardening (2026-08-17)
+
+The checked-in API environment example now uses the concrete value
+`SCHEDULER_ADAPTER=bullmq`. The previous `"bullmq" | "in-process"` notation was
+loaded literally by dotenv and caused scheduler configuration validation to
+fail during local Nest startup. The local environment was corrected to use the
+same scalar value. Verification covers the scheduler config unit suite and a
+successful `pnpm run dev` startup.
