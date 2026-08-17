@@ -1,6 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { CalendarDays, Compass, ListOrdered } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
@@ -25,6 +25,13 @@ export function WorldDetail({
   feed: ReactNode;
 }) {
   const descriptionEntries = Object.entries(world.description ?? {});
+
+  useEffect(() => {
+    document.getElementById(activeSection)?.scrollIntoView?.({
+      block: 'start',
+    });
+  }, [activeSection]);
+
   return (
     <WorldLayout
       world={world}

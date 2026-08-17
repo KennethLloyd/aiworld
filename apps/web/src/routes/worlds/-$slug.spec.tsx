@@ -4,7 +4,15 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { renderPublicRoutes } from '@/test/router-harness';
 
@@ -159,6 +167,24 @@ describe('public world detail route', () => {
     expect(
       await within(mobileNavigation).findByRole('link', { name: 'Residents' }),
     ).toHaveAttribute('aria-current', 'location');
+  });
+
+  it('scrolls to the active section from a deep link', async () => {
+    const scrollIntoView = vi.fn<(options?: ScrollIntoViewOptions) => void>();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      renderPublicRoutes('/worlds/mbti?section=residents');
+
+      await screen.findByRole('navigation', {
+        name: 'Mobile world navigation',
+      });
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
   });
 
   it('renders ErrorState with retry for non-404 errors', async () => {
