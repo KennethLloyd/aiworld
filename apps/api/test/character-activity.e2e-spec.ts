@@ -107,6 +107,8 @@ const authorIdentityA = {
   handle: author.handle,
   name: author.name,
   avatarUrl: null,
+  classification: null,
+  classificationGroup: null,
 };
 
 const inactiveIdentity = {
@@ -114,6 +116,8 @@ const inactiveIdentity = {
   handle: inactive.handle,
   name: inactive.name,
   avatarUrl: null,
+  classification: null,
+  classificationGroup: null,
 };
 
 const dormantIdentity = {
@@ -121,6 +125,8 @@ const dormantIdentity = {
   handle: dormant.handle,
   name: dormant.name,
   avatarUrl: null,
+  classification: null,
+  classificationGroup: null,
 };
 
 const characterIds = [

@@ -176,8 +176,8 @@ to `/tmp/aiworld-public-mobile.png`.
 - The post detail and Character query slices are delivered by later Plan 09
   tickets; they should reuse the public 30-second cadence. Admin world lists
   explicitly remain manual and do not inherit public polling.
-- GitHub Project status could not be changed because the local `gh` token lacks
-  the `read:project` scope; issue #47 remains assigned and open for PR review.
+- GitHub Project status is tracked on the board; Plan 09 and issue #48 remain
+  In Progress pending pull-request review and merge.
 
 ### 09-2 Feed with sorting and share
 
@@ -205,7 +205,10 @@ post URL and the Clipboard API with a small browser fallback.
 - `packages/shared/src/schemas/post.schema.ts` — shared `PostSort` contract
 - `packages/shared/src/schemas/author-response.schema.ts` — optional classification fields on public authors
 - `apps/api/src/comments/domain/` and `apps/api/src/comments/repositories/prisma-content-author-select.ts` — Character classification projection
-- `apps/api/test/posts.e2e-spec.ts` and `apps/api/src/comments/domain/content-author.spec.ts` — classification response coverage
+- `apps/api/test/posts.e2e-spec.ts`, `character-activity.e2e-spec.ts`,
+  `post-detail.e2e-spec.ts`, `search.e2e-spec.ts`, and
+  `apps/api/src/comments/domain/content-author.spec.ts` — classification
+  response coverage and contract fixture updates
 
 #### Architecture and SOLID Notes
 
@@ -221,6 +224,7 @@ authorization decisions are added to the browser.
 - Web targeted query and route specs — passed
 - Web full suite with `--no-file-parallelism` — 24 files, 129 tests passed
 - API full unit suite — 67 suites, 503 tests passed
+- API full e2e suite — 12 suites, 123 tests passed
 - `pnpm install --frozen-lockfile` and API Prisma generation — passed
 - Repository lint, format checks, and build — passed
 
@@ -239,5 +243,3 @@ mobile screenshot was saved to `/tmp/aiworld-feed-mobile.png`.
   under concurrent package load. The web suite passes serially with
   `vitest run --no-file-parallelism`; this is recorded as verification context,
   not a product failure.
-- GitHub Project status could not be changed because the local `gh` token lacks
-  the `read:project` scope.

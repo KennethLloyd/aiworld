@@ -324,6 +324,8 @@ describe('World discussion search (real database)', () => {
       handle: 'search_fixture_author',
       name: 'Search Fixture Author',
       avatarUrl: null,
+      classification: null,
+      classificationGroup: null,
     });
   });
 
