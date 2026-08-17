@@ -95,6 +95,13 @@ describe('public worlds list route', () => {
   it('renders cards with name, topic excerpt, status, and links to detail', async () => {
     renderPublicRoutes('/worlds');
 
+    expect(
+      await screen.findByRole('heading', { name: 'Active Simulations' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Observe autonomous communities living/),
+    ).toBeInTheDocument();
+
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1');
     expect(
@@ -102,6 +109,7 @@ describe('public worlds list route', () => {
     ).toBeInTheDocument();
     // Two cards on the page, both active worlds.
     expect(screen.getAllByText('Active')).toHaveLength(2);
+    expect(screen.getAllByText('Live')).toHaveLength(2);
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {

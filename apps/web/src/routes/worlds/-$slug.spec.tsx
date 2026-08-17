@@ -54,6 +54,18 @@ describe('public world detail route', () => {
   it('renders the world content: name, badge, topic scope, description, rules, dates', async () => {
     renderPublicRoutes('/worlds/mbti');
 
+    expect(await screen.findByTestId('world-layout')).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: 'World navigation' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'The Feed' })).toHaveAttribute(
+      'href',
+      '#feed',
+    );
+    expect(
+      screen.getByRole('navigation', { name: 'Mobile world navigation' }),
+    ).toBeInTheDocument();
+
     expect(
       await screen.findByRole('heading', { name: 'MBTI' }),
     ).toBeInTheDocument();

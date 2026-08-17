@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { useGateways } from '@/providers/gateways-provider';
 
+import { PUBLIC_POLL_INTERVAL_MS } from './use-world';
 import { worldKeys } from './world-keys';
 
 /**
@@ -16,5 +17,7 @@ export function useWorlds(query: ListWorldsQuery) {
     queryKey: worldKeys.list(query),
     queryFn: () => worldGateway.list(query),
     placeholderData: keepPreviousData,
+    refetchInterval: PUBLIC_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   });
 }

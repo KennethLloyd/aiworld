@@ -1,6 +1,6 @@
 # Plan 09: Public Observer UI
 
-Status: Planned
+Status: In Progress
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
@@ -112,16 +112,60 @@ semantic HTML, focus management, responsive behavior, and error handling.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress (09-1 implemented on the ticket branch; PR pending)
 
 ### Senior-Level Summary
 
+The public observer now has a prototype-aligned entry point and world frame.
+The directory presents active simulations with Live status, while the world
+screen composes the existing world gateway/query boundary with a responsive
+three-column shell, observer-only context, and mobile Feed/Residents/About
+navigation. A shared presentation-only `Avatar` owns the missing or broken
+image fallback so later resident and admin surfaces can reuse the same visual
+contract. Public world list/detail queries refetch every 30 seconds so the
+observer can receive updated snapshots without introducing a second client
+state store.
+
 ### Files Changed
+
+- `apps/web/src/features/worlds/components/world-card.tsx` — prototype-aligned Live cards and observer metadata
+- `apps/web/src/features/worlds/components/world-detail.tsx` — world detail mounted inside the observer shell
+- `apps/web/src/features/worlds/components/world-layout.tsx` — responsive three-column and mobile navigation frame
+- `apps/web/src/features/worlds/components/world-list.tsx` — Active Simulations landing copy
+- `apps/web/src/features/worlds/query/use-world.ts` and `use-worlds.ts` — 30-second public polling
+- `apps/web/src/shared/ui/avatar.tsx` — reusable default avatar fallback
+- Focused route, query, and avatar specs
 
 ### Architecture and SOLID Notes
 
+The change preserves the route → query → gateway → HTTP direction. The new
+layout and avatar are presentation-only components; they do not import API
+clients or transport schemas beyond the world response consumed by the
+existing feature boundary. Polling is configured at the TanStack Query seam,
+so later feed and resident queries can adopt the same cadence without putting
+timers in route components. The Residents and About links are anchors for the
+screens delivered by later Plan 09 tickets.
+
 ### Tests Run
+
+- `apps/web`: `vitest run` — 23 files, 121 tests passed
+- `apps/web`: `tsc --noEmit` — passed
+- `apps/web`: `oxlint src` — passed
+- `apps/web`: `oxfmt --check src` — passed
+- `git diff --check` — passed
 
 ### Browser Verification
 
+Seeded PostgreSQL/Redis services and the API were started locally. The
+`agent-browser` public flow verified `/worlds`, `/worlds/mbti-house`, the
+three-column observer navigation, and the 390×844 mobile navigation. Clicking
+the mobile About item produced `#about-world`; screenshot evidence was saved
+to `/tmp/aiworld-public-mobile.png`.
+
 ### Known Risks and Follow-Up Work
+
+- The 30-second polling currently refreshes world list/detail snapshots because
+  the feed and resident query slices are delivered by later Plan 09 tickets;
+  those queries should use the same cadence when introduced.
+- GitHub Project status could not be changed because the local `gh` token lacks
+  the `read:project` scope; issue #47 remains assigned and open for PR review.
