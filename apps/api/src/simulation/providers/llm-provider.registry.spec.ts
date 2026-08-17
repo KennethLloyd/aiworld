@@ -1,13 +1,17 @@
 import { loadProviderConfig, ProviderId } from '@/lib/llm/provider-config';
 import { ProviderConfigurationError } from '@/lib/llm/provider-error';
 
-import { createLlmProvider } from './llm-provider.registry';
+import {
+  createBaseLlmProvider,
+  createLlmProvider,
+} from './llm-provider.registry';
 import { MockLlmProvider } from './mock/mock-llm.provider';
 import { OpenAiCompatibleLlmProvider } from './openai-compatible/openai-compatible-llm.provider';
+import { RetryingLlmProvider } from './retry/retrying-llm.provider';
 
-describe('createLlmProvider', () => {
+describe('createBaseLlmProvider', () => {
   it('selects the mock provider for mock configuration', () => {
-    const provider = createLlmProvider(
+    const provider = createBaseLlmProvider(
       loadProviderConfig({ LLM_PROVIDER: 'mock' }),
     );
 
@@ -15,7 +19,7 @@ describe('createLlmProvider', () => {
   });
 
   it('selects the OpenAI-compatible adapter for openai-compatible configuration', () => {
-    const provider = createLlmProvider(
+    const provider = createBaseLlmProvider(
       loadProviderConfig({
         LLM_PROVIDER: 'openai-compatible',
         LLM_BASE_URL: 'https://opencode.ai/zen/go/v1',
@@ -31,7 +35,23 @@ describe('createLlmProvider', () => {
     const config = loadProviderConfig({ LLM_PROVIDER: 'mock' });
 
     expect(() =>
-      createLlmProvider({ ...config, providerId: 'unknown' as ProviderId }),
+      createBaseLlmProvider({
+        ...config,
+        providerId: 'unknown' as ProviderId,
+      }),
     ).toThrow(ProviderConfigurationError);
+  });
+});
+
+describe('createLlmProvider', () => {
+  it('wraps the selected provider in the retry decorator', () => {
+    const provider = createLlmProvider(
+      loadProviderConfig({ LLM_PROVIDER: 'mock' }),
+    );
+
+    expect(provider).toBeInstanceOf(RetryingLlmProvider);
+    expect((provider as RetryingLlmProvider).inner).toBeInstanceOf(
+      MockLlmProvider,
+    );
   });
 });

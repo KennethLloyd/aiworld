@@ -14,6 +14,11 @@ describe('loadProviderConfig', () => {
       timeoutMs: 30_000,
       maxRetries: 2,
       maxConcurrency: 1,
+      retry: {
+        baseDelayMs: 250,
+        maxDelayMs: 8_000,
+        jitterRatio: 0.25,
+      },
       capabilities: {
         structuredOutput: 'text-json-fallback',
         usageMetadata: 'optional',
@@ -34,6 +39,11 @@ describe('loadProviderConfig', () => {
       timeoutMs: 30_000,
       maxRetries: 2,
       maxConcurrency: 1,
+      retry: {
+        baseDelayMs: 250,
+        maxDelayMs: 8_000,
+        jitterRatio: 0.25,
+      },
       capabilities: {
         structuredOutput: 'text-json-fallback',
         usageMetadata: 'optional',
@@ -56,6 +66,9 @@ describe('loadProviderConfig', () => {
       LLM_TIMEOUT_MS: '45000',
       LLM_MAX_RETRIES: '3',
       LLM_MAX_CONCURRENCY: '2',
+      LLM_RETRY_BASE_DELAY_MS: '500',
+      LLM_RETRY_MAX_DELAY_MS: '10000',
+      LLM_RETRY_JITTER_RATIO: '0.5',
       LLM_STRUCTURED_OUTPUT: 'json-object',
       LLM_USAGE_METADATA: 'optional',
     });
@@ -67,6 +80,11 @@ describe('loadProviderConfig', () => {
       timeoutMs: 45_000,
       maxRetries: 3,
       maxConcurrency: 2,
+      retry: {
+        baseDelayMs: 500,
+        maxDelayMs: 10_000,
+        jitterRatio: 0.5,
+      },
       capabilities: {
         structuredOutput: 'json-object',
         usageMetadata: 'optional',
@@ -90,6 +108,11 @@ describe('loadProviderConfig', () => {
       timeoutMs: 30_000,
       maxRetries: 2,
       maxConcurrency: 1,
+      retry: {
+        baseDelayMs: 250,
+        maxDelayMs: 8_000,
+        jitterRatio: 0.25,
+      },
       capabilities: {
         structuredOutput: 'text-json-fallback',
         usageMetadata: 'optional',
@@ -99,6 +122,16 @@ describe('loadProviderConfig', () => {
     expect(JSON.stringify(toSafeProviderConfig(config))).not.toContain(
       'fixture-api-key',
     );
+  });
+
+  it('rejects a retry ceiling below the base delay', () => {
+    expect(() =>
+      loadProviderConfig({
+        LLM_PROVIDER: 'mock',
+        LLM_RETRY_BASE_DELAY_MS: '1000',
+        LLM_RETRY_MAX_DELAY_MS: '500',
+      }),
+    ).toThrow('Invalid LLM provider configuration');
   });
 
   it('rejects invalid numeric settings without exposing values', () => {

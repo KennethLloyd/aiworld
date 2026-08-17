@@ -21,6 +21,7 @@ import {
 export type ProviderFetchResponse = {
   ok: boolean;
   status: number;
+  headers?: { get(name: string): string | null };
   json: () => Promise<unknown>;
 };
 
@@ -28,6 +29,25 @@ export type FetchLike = (
   url: string,
   init?: RequestInit,
 ) => Promise<ProviderFetchResponse>;
+
+/** Parses a Retry-After header (delta-seconds) into milliseconds. HTTP-date
+ * values are not supported and fall back to undefined. */
+export function parseRetryAfterMs(
+  value: string | null | undefined,
+): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return undefined;
+  }
+  const seconds = Number(trimmed);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.round(seconds * 1000);
+  }
+  return undefined;
+}
 
 /** OpenAI-compatible endpoint adapter. Vendor code stays
  * in this one adapter; capabilities come from config and credentials never
@@ -70,10 +90,11 @@ export class OpenAiCompatibleLlmProvider extends LlmProvider {
       );
 
       if (!response.ok) {
-        // Ignore the error body so provider content or echoed credentials
-        // never reach domain errors.
+        // Ignore the error body; carry Retry-After so the retry decorator
+        // can honor it without leaking provider content.
         throw Object.assign(new Error('Provider request failed'), {
           statusCode: response.status,
+          retryAfterMs: parseRetryAfterMs(response.headers?.get('Retry-After')),
         });
       }
 

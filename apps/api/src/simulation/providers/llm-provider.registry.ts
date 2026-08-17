@@ -5,10 +5,11 @@ import { LlmProvider } from './llm-provider.port';
 import { mockLlmFixtures } from './mock/fixtures/mock-llm-fixtures';
 import { MockLlmProvider } from './mock/mock-llm.provider';
 import { OpenAiCompatibleLlmProvider } from './openai-compatible/openai-compatible-llm.provider';
+import { RetryingLlmProvider } from './retry/retrying-llm.provider';
 
-/** Selects the provider implementation from runtime configuration: mock
+/** Selects the base provider implementation from runtime configuration: mock
  * default, OpenAI-Compatible when configured. */
-export function createLlmProvider(config: ProviderConfig): LlmProvider {
+export function createBaseLlmProvider(config: ProviderConfig): LlmProvider {
   switch (config.providerId) {
     case 'mock':
       return new MockLlmProvider(config, mockLlmFixtures);
@@ -19,4 +20,10 @@ export function createLlmProvider(config: ProviderConfig): LlmProvider {
         `Unknown LLM provider "${config.providerId}"`,
       );
   }
+}
+
+/** Returns a provider ready for use: the selected adapter wrapped in the
+ * retry/backoff decorator. */
+export function createLlmProvider(config: ProviderConfig): LlmProvider {
+  return new RetryingLlmProvider(config, createBaseLlmProvider(config));
 }

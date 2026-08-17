@@ -18,6 +18,7 @@ const databaseUrl =
 async function waitFor(
   predicate: () => Promise<boolean>,
   timeoutMs: number,
+  diagnostics?: () => Promise<string>,
 ): Promise<void> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -26,7 +27,8 @@ async function waitFor(
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error('Timed out waiting for condition');
+  const details = diagnostics ? `: ${await diagnostics()}` : '';
+  throw new Error(`Timed out waiting for condition${details}`);
 }
 
 describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
@@ -67,14 +69,14 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     await prisma.$disconnect();
   });
 
-  const scheduledLogCount = (): Promise<number> =>
-    prisma.simulationLog.count({
-      where: { worldId, executionSource: 'SCHEDULED' },
-    });
-
-  const scheduledPostLogCount = (): Promise<number> =>
-    prisma.simulationLog.count({
-      where: { worldId, executionSource: 'SCHEDULED', action: 'POST' },
+  const scheduledLogsSinceTestStart = () =>
+    prisma.simulationLog.findMany({
+      where: {
+        worldId,
+        executionSource: 'SCHEDULED',
+        executedAt: { gt: testStart },
+      },
+      orderBy: { executedAt: 'asc' },
     });
 
   const pauseWorld = async (): Promise<void> => {
@@ -95,6 +97,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
         intervalMs: 2000,
         jitterMs: 0,
         speedMultiplier: 100,
+        actionWeights: { POST: 1, VOTE: 0, COMMENT: 0 },
       },
     });
 
@@ -103,23 +106,36 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
 
       // Completion-to-start cadence: multiple ticks fire back to back, and at
       // least one of them is a POST so content is actually persisted.
-      await waitFor(async () => {
-        return (
-          (await scheduledLogCount()) >= 2 &&
-          (await scheduledPostLogCount()) >= 1
-        );
-      }, 30000);
+      await waitFor(
+        async () => {
+          const logs = await scheduledLogsSinceTestStart();
+          return (
+            logs.filter((log) => log.status === 'SUCCESS').length >= 2 &&
+            logs.some(
+              (log) => log.status === 'SUCCESS' && log.action === 'POST',
+            )
+          );
+        },
+        30000,
+        async () => {
+          const logs = await scheduledLogsSinceTestStart();
+          return JSON.stringify(
+            logs.map(({ action, status, errorMessage, executedAt }) => ({
+              action,
+              status,
+              errorMessage,
+              executedAt,
+            })),
+          );
+        },
+      );
 
-      const logs = await prisma.simulationLog.findMany({
-        where: { worldId, executionSource: 'SCHEDULED' },
-        orderBy: { executedAt: 'asc' },
-        take: 2,
-      });
+      const logs = (await scheduledLogsSinceTestStart()).slice(0, 2);
       expect(logs).toHaveLength(2);
       for (const log of logs) {
         expect(log.jobId).toBeTruthy();
       }
-      expect(logs.some((log) => log.status === 'SUCCESS')).toBe(true);
+      expect(logs.every((log) => log.status === 'SUCCESS')).toBe(true);
 
       const posts = await prisma.post.findMany({
         where: { worldId, createdAt: { gt: testStart } },
@@ -130,9 +146,9 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       // are rejected by the gate and no further ticks fire.
       await app.get(SimulationLifecycleService).pause(worldId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const afterStop = await scheduledLogCount();
+      const afterStop = (await scheduledLogsSinceTestStart()).length;
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      expect(await scheduledLogCount()).toBe(afterStop);
+      expect((await scheduledLogsSinceTestStart()).length).toBe(afterStop);
     } finally {
       await pauseWorld();
     }

@@ -19,7 +19,7 @@
   verification are complete, you have reviewed and merged the pull request, and
   the review handoff is complete.
 - Link pull requests to child tickets with `Refs #<number>`. Use `Closes
-  #<number>` only when the whole parent plan is complete.
+#<number>` only when the whole parent plan is complete.
 
 ## Implementation Workflow
 
@@ -31,6 +31,8 @@
    red-green slice at a time at pre-agreed seams — without bypassing
    established boundaries. Run typechecking and single test files regularly,
    and the full suite once at the end.
+   Always use web search for latest online docs instead of digging through node_modules.
+   Comment should be concise and straightforward, simple (max 1-2 lines only)
 4. Update the ticket and the plan implementation record in the same task as
    the code.
 5. Run `/code-review` (Standards and Spec axes) on the diff before committing.

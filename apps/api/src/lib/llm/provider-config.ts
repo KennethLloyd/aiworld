@@ -22,6 +22,16 @@ export type ProviderId = (typeof providerIds)[number];
 export type StructuredOutputMode = (typeof structuredOutputModes)[number];
 export type UsageMetadataMode = (typeof usageMetadataModes)[number];
 
+/** Bounded exponential backoff policy for transient provider failures. */
+export type RetryPolicy = {
+  /** Initial backoff delay in milliseconds. */
+  baseDelayMs: number;
+  /** Backoff ceiling in milliseconds. */
+  maxDelayMs: number;
+  /** Fraction of the delay applied as jitter (0..1). */
+  jitterRatio: number;
+};
+
 export type ProviderConfig = {
   providerId: ProviderId;
   baseUrl?: string;
@@ -30,23 +40,50 @@ export type ProviderConfig = {
   timeoutMs: number;
   maxRetries: number;
   maxConcurrency: number;
+  retry: RetryPolicy;
   capabilities: {
     structuredOutput: StructuredOutputMode;
     usageMetadata: UsageMetadataMode;
   };
 };
 
-const providerConfigInputSchema = z.object({
-  providerId: z.enum(providerIds).default('mock'),
-  baseUrl: z.url().optional(),
-  apiKey: z.string().trim().min(1).optional(),
-  model: z.string().trim().min(1).optional(),
-  timeoutMs: z.coerce.number().int().positive().max(120_000).default(30_000),
-  maxRetries: z.coerce.number().int().nonnegative().max(10).default(2),
-  maxConcurrency: z.coerce.number().int().positive().max(100).default(1),
-  structuredOutput: z.enum(structuredOutputModes).default('text-json-fallback'),
-  usageMetadata: z.enum(usageMetadataModes).default('optional'),
-});
+const providerConfigInputSchema = z
+  .object({
+    providerId: z.enum(providerIds).default('mock'),
+    baseUrl: z.url().optional(),
+    apiKey: z.string().trim().min(1).optional(),
+    model: z.string().trim().min(1).optional(),
+    timeoutMs: z.coerce.number().int().positive().max(120_000).default(30_000),
+    maxRetries: z.coerce.number().int().nonnegative().max(10).default(2),
+    maxConcurrency: z.coerce.number().int().positive().max(100).default(1),
+    retryBaseDelayMs: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(60_000)
+      .default(250),
+    retryMaxDelayMs: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(300_000)
+      .default(8_000),
+    retryJitterRatio: z.coerce.number().min(0).max(1).default(0.25),
+    structuredOutput: z
+      .enum(structuredOutputModes)
+      .default('text-json-fallback'),
+    usageMetadata: z.enum(usageMetadataModes).default('optional'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.retryMaxDelayMs < data.retryBaseDelayMs) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['retryMaxDelayMs'],
+        message:
+          'retryMaxDelayMs must be greater than or equal to retryBaseDelayMs',
+      });
+    }
+  });
 
 type ProviderEnvironment = Record<string, string | undefined>;
 
@@ -85,6 +122,9 @@ export function loadProviderConfig(
     timeoutMs: envValue(env.LLM_TIMEOUT_MS),
     maxRetries: envValue(env.LLM_MAX_RETRIES),
     maxConcurrency: envValue(env.LLM_MAX_CONCURRENCY),
+    retryBaseDelayMs: envValue(env.LLM_RETRY_BASE_DELAY_MS),
+    retryMaxDelayMs: envValue(env.LLM_RETRY_MAX_DELAY_MS),
+    retryJitterRatio: envValue(env.LLM_RETRY_JITTER_RATIO),
     structuredOutput: envValue(env.LLM_STRUCTURED_OUTPUT),
     usageMetadata: envValue(env.LLM_USAGE_METADATA),
   });
@@ -111,6 +151,11 @@ export function loadProviderConfig(
     timeoutMs: parsed.data.timeoutMs,
     maxRetries: parsed.data.maxRetries,
     maxConcurrency: parsed.data.maxConcurrency,
+    retry: {
+      baseDelayMs: parsed.data.retryBaseDelayMs,
+      maxDelayMs: parsed.data.retryMaxDelayMs,
+      jitterRatio: parsed.data.retryJitterRatio,
+    },
     capabilities: {
       structuredOutput: parsed.data.structuredOutput,
       usageMetadata: parsed.data.usageMetadata,
@@ -126,6 +171,7 @@ export function toSafeProviderConfig(config: ProviderConfig) {
     timeoutMs: config.timeoutMs,
     maxRetries: config.maxRetries,
     maxConcurrency: config.maxConcurrency,
+    retry: config.retry,
     capabilities: config.capabilities,
     hasApiKey: config.apiKey !== undefined,
   };
