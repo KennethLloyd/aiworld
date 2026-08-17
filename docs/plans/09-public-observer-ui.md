@@ -124,9 +124,8 @@ section navigation. A shared presentation-only `Avatar` owns the missing or
 broken image fallback so later Character and admin surfaces can reuse the same
 visual contract. Public world list/detail queries refetch every 30 seconds so
 the observer can receive updated snapshots without introducing a second client
-state store. The route composes a validated latest-conversation snapshot at the
-feature boundary with the same cadence; the full feed experience remains in
-09-2.
+state store. The Feed target currently hands off to an explicit empty state,
+and the full feed experience remains in 09-2.
 
 ### Files Changed
 
@@ -135,7 +134,6 @@ feature boundary with the same cadence; the full feed experience remains in
 - `apps/web/src/features/worlds/components/world-layout.tsx` — responsive three-column frame with active section navigation
 - `apps/web/src/features/worlds/components/world-list.tsx` — Active Simulations landing copy
 - `apps/web/src/features/worlds/query/use-world.ts` and `use-worlds.ts` — 30-second public polling
-- `apps/web/src/features/posts/` — validated latest-conversation gateway, query, and snapshot panel
 - `apps/web/src/shared/ui/avatar.tsx` — reusable default avatar fallback
 - Focused route, query, and avatar specs
 
@@ -146,13 +144,13 @@ layout and avatar are presentation-only components; they do not import API
 clients or transport schemas beyond the world response consumed by the
 existing feature boundary. Polling is configured at the TanStack Query seam
 and explicitly opted into by the public route, so admin detail and list
-queries remain manual. The route composes the latest-feed snapshot instead of
-coupling the World feature to Posts; later Plan 09 tickets replace the
-Character placeholder and latest-feed snapshot with their full screens.
+queries remain manual. The World feature exposes the Feed target without
+coupling to the Posts feature; later Plan 09 tickets replace the Character and
+Feed placeholders with their full screens.
 
 ### Tests Run
 
-- `apps/web`: `vitest run` — 23 files, 123 tests passed
+- `apps/web`: `vitest run` — 23 files, 124 tests passed
 - `apps/web`: `tsc --noEmit` — passed
 - `apps/web`: `oxlint .` — passed
 - `apps/web`: `oxfmt --check .` — passed

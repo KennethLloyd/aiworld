@@ -1,7 +1,7 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { CalendarDays, Compass, ListOrdered } from 'lucide-react';
-import type { ReactNode } from 'react';
 
+import { EmptyState } from '@/shared/ui/empty-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
 import { WorldLayout, type WorldSection } from './world-layout';
@@ -17,12 +17,10 @@ export function WorldDetail({
   world,
   activeSection,
   onSectionChange,
-  feed,
 }: {
   world: WorldResponse;
   activeSection: WorldSection;
   onSectionChange: (section: WorldSection) => void;
-  feed: ReactNode;
 }) {
   const descriptionEntries = Object.entries(world.description ?? {});
   return (
@@ -44,7 +42,11 @@ export function WorldDetail({
               /worlds/{world.slug}
             </p>
           </header>
-          {feed}
+          <EmptyState
+            title="No conversations yet"
+            description="The public feed will appear here when this world starts talking."
+            className="mt-6"
+          />
         </section>
 
         <section id="residents" className="scroll-mt-24">
