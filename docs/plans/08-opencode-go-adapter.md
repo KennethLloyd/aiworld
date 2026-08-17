@@ -106,6 +106,9 @@ provider/model/latency/tokens/cost while omitting keys, auth headers, and raw
 prompts/responses (`simulation-admin-response.mapper.spec.ts`). This ticket adds
 the retry layer, `Retry-After` handling, and the retry policy configuration, and
 proves the stable error mapping and secret-free log surface with focused tests.
+The scheduler e2e cadence assertion is also isolated to post-`testStart` logs,
+requires successful scheduled POSTs, and uses deterministic POST weights so
+historical rows and random action selection cannot mask a failed tick.
 
 #### Files Changed
 
@@ -117,6 +120,7 @@ proves the stable error mapping and secret-free log surface with focused tests.
 - `apps/api/src/app.module.spec.ts` — registry resolves retry-wrapped mock
 - `apps/api/.env.example` — retry policy keys
 - `docs/providers/openai-compatible-contract.md` — retry policy documented
+- `apps/api/test/simulation-scheduler.e2e-spec.ts` — deterministic, time-windowed scheduler polling and timeout diagnostics
 
 #### Architecture and SOLID Notes
 
@@ -141,6 +145,10 @@ proves the stable error mapping and secret-free log surface with focused tests.
 - `pnpm --filter @aiworld/api build`
 - `pnpm --filter @aiworld/api exec tsc --noEmit` — no new errors (6 pre-existing
   type errors in search/e2e specs exist on `main` independently of this change)
+- `DATABASE_URL=... REDIS_URL=... SCHEDULER_ADAPTER=bullmq node_modules/.bin/jest --config ./test/jest-e2e.json --runInBand`
+  — 12 suites, 123 tests passed against OrbStack PostgreSQL and Redis
+- Explicit-env API unit suite — 67 suites, 502 tests passed
+- Web format, lint, build, and tests — all passed
 
 #### Browser Verification
 
