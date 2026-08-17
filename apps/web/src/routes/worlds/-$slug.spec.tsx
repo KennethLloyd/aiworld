@@ -122,6 +122,9 @@ describe('public world detail route', () => {
     expect(
       await screen.findByText('A latest conversation'),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Mystic Aura avatar' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
       screen.getByText('A world about personality typology.'),

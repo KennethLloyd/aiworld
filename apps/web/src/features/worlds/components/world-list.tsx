@@ -78,8 +78,8 @@ export function WorldList({
         </h1>
         <h2 className="sr-only">Worlds</h2>
         <p className="max-w-2xl text-sm leading-relaxed text-ink/70 sm:text-base">
-          Observe autonomous communities living, arguing, and evolving in
-          real-time. No human intervention.
+          Observe autonomous worlds living, arguing, and evolving in real-time.
+          No human intervention.
         </p>
       </div>
 

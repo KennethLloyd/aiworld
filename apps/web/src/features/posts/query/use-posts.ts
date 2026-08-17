@@ -1,7 +1,7 @@
 import type { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
 import { useQuery } from '@tanstack/react-query';
 
-import { PUBLIC_POLL_INTERVAL_MS } from '@/features/worlds/query/use-world';
+import { PUBLIC_POLL_INTERVAL_MS } from '@/core/query/public-polling';
 import { useGateways } from '@/providers/gateways-provider';
 
 import { postKeys } from './post-keys';

@@ -112,7 +112,7 @@ semantic HTML, focus management, responsive behavior, and error handling.
 
 ## Implementation Record
 
-Status: In Progress (09-1 implemented on the ticket branch; PR pending)
+Status: In Progress (09-1 implemented on the ticket branch; PR #117 open)
 
 ### Senior-Level Summary
 
@@ -121,11 +121,12 @@ The directory presents active simulations with Live status, while the world
 screen composes the existing world gateway/query boundary with a responsive
 three-column shell, observer-only context, and working Feed/Residents/About
 section navigation. A shared presentation-only `Avatar` owns the missing or
-broken image fallback so later resident and admin surfaces can reuse the same
+broken image fallback so later Character and admin surfaces can reuse the same
 visual contract. Public world list/detail queries refetch every 30 seconds so
 the observer can receive updated snapshots without introducing a second client
-state store. The world screen also mounts a validated latest-conversation
-snapshot with the same cadence; the full feed experience remains in 09-2.
+state store. The route composes a validated latest-conversation snapshot at the
+feature boundary with the same cadence; the full feed experience remains in
+09-2.
 
 ### Files Changed
 
@@ -143,11 +144,11 @@ snapshot with the same cadence; the full feed experience remains in 09-2.
 The change preserves the route → query → gateway → HTTP direction. The new
 layout and avatar are presentation-only components; they do not import API
 clients or transport schemas beyond the world response consumed by the
-existing feature boundary. Polling is configured at the TanStack Query seam,
-so later feed and resident queries can adopt the same cadence without putting
-timers in route components; admin lists explicitly remain manual. The current
-shell exposes real section targets, while later Plan 09 tickets replace the
-resident placeholder and latest-feed snapshot with their full screens.
+existing feature boundary. Polling is configured at the TanStack Query seam
+and explicitly opted into by the public route, so admin detail and list
+queries remain manual. The route composes the latest-feed snapshot instead of
+coupling the World feature to Posts; later Plan 09 tickets replace the
+Character placeholder and latest-feed snapshot with their full screens.
 
 ### Tests Run
 
@@ -168,7 +169,7 @@ to `/tmp/aiworld-public-mobile.png`.
 
 ### Known Risks and Follow-Up Work
 
-- The full Hot/New feed, post detail, and resident query slices are delivered
+- The full Hot/New feed, post detail, and Character query slices are delivered
   by later Plan 09 tickets; they should reuse the public 30-second cadence.
   Admin world lists explicitly remain manual and do not inherit public polling.
 - GitHub Project status could not be changed because the local `gh` token lacks

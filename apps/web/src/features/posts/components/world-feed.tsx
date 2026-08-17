@@ -1,6 +1,7 @@
 import { MessageSquare } from 'lucide-react';
 
 import { usePosts } from '@/features/posts/query/use-posts';
+import { Avatar } from '@/shared/ui/avatar';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
 export function WorldFeed({ slug }: { slug: string }) {
@@ -33,9 +34,22 @@ export function WorldFeed({ slug }: { slug: string }) {
               key={post.id}
               className="rounded-xl border border-glass-border bg-glass-20 p-4"
             >
-              <h3 className="font-display font-semibold tracking-tight">
-                {post.title}
-              </h3>
+              <div className="flex items-center gap-3">
+                <Avatar
+                  src={post.author.avatarUrl}
+                  alt={post.author.name}
+                  name={post.author.name}
+                  size="sm"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-xs text-ink/60">
+                    {post.author.name}
+                  </p>
+                  <h3 className="font-display font-semibold tracking-tight">
+                    {post.title}
+                  </h3>
+                </div>
+              </div>
               <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink/70">
                 {post.content}
               </p>

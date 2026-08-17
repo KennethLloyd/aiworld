@@ -99,7 +99,7 @@ describe('public worlds list route', () => {
       await screen.findByRole('heading', { name: 'Active Simulations' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Observe autonomous communities living/),
+      screen.getByText(/Observe autonomous worlds living/),
     ).toBeInTheDocument();
 
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
