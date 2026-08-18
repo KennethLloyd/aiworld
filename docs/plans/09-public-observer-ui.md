@@ -602,6 +602,14 @@ wide on desktop and 38px high, with the app's header and mesh background using
 the same gradient declarations and the first world card starting at y=313px
 versus the prototype's approximately y=308px at the same viewport.
 
+The follow-up in-app browser comparison opened the prototype feed state and
+confirmed its sidebar uses indigo, emerald, and amber icon colors, while its
+feed contains no embedded About content. The app now matches those nav colors;
+the feed has no About section, `/worlds/:slug/about` is the sole About page,
+and legacy `?section=about-world` state redirects there. The corrected app was
+rechecked at 1280×720: the feed DOM contains no About heading, the About route
+contains no feed region, and the sidebar icon classes match the prototype.
+
 #### Known Risks and Follow-Up Work
 
 - Direct `pnpm --filter @aiworld/web dev` now expects the API to be available;

@@ -184,6 +184,9 @@ describe('public world detail route', () => {
         'Resident profiles will appear here in the next observer view.',
       ),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'About', level: 2 }),
+    ).not.toBeInTheDocument();
 
     const summary = screen.getByRole('complementary', {
       name: 'World summary',

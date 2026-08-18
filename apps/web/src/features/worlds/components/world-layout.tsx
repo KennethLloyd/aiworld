@@ -165,14 +165,17 @@ function WorldNavLink({
   const active = activeSection === section;
   const linkClass = mobile
     ? active
-      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-ink transition-colors'
-      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-white transition-colors'
+      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-slate-400 transition-colors hover:bg-glass-50 hover:text-white'
     : active
-      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
-      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink';
-  const iconClass = active
-    ? 'h-5 w-5 text-brand-sentinel'
-    : 'h-5 w-5 text-ink/50';
+      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-white transition-colors'
+      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-glass-50 hover:text-white';
+  const iconColor = {
+    feed: 'text-indigo-400',
+    residents: 'text-emerald-400',
+    'about-world': 'text-amber-400',
+  }[section];
+  const iconClass = `h-5 w-5 ${iconColor}`;
 
   if (sectionNavigation === 'routes') {
     if (section === 'feed') {

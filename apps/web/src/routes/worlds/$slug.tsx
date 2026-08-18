@@ -33,6 +33,13 @@ export const Route = createFileRoute('/worlds/$slug')({
         replace: true,
       });
     }
+    if (search.section === 'about-world') {
+      throw redirect({
+        to: '/worlds/$slug/about',
+        params: { slug: params.slug },
+        replace: true,
+      });
+    }
   },
   component: WorldDetailRoute,
 });
