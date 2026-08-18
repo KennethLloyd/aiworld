@@ -5,7 +5,7 @@ import {
   createMemoryHistory,
   createRootRoute,
   createRouter,
-  useRouterState,
+  useMatch,
 } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -118,14 +118,14 @@ export function renderPublicRoutes(
 }
 
 function TestRootLayout() {
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
+  const worldDirectoryMatch = useMatch({
+    from: '/worlds/',
+    shouldThrow: false,
   });
-  const isWorldDirectory = pathname === '/worlds' || pathname === '/worlds/';
 
   return (
     <>
-      {isWorldDirectory ? <WorldDirectorySearch /> : null}
+      {worldDirectoryMatch ? <WorldDirectorySearch /> : null}
       <Outlet />
     </>
   );
