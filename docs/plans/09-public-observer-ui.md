@@ -236,6 +236,12 @@ The live public flow verified `/worlds/mbti-house?sort=new`, Hot/New ordering,
 Share feedback, Observer Mode feedback, and the 390×844 responsive feed. A
 mobile screenshot was saved to `/tmp/aiworld-feed-mobile.png`.
 
+The live app then exposed an additional prototype mismatch: its shared shell
+rendered a footer/contentinfo that is absent from the MVP HTML and could cover
+the fixed mobile world navigation. The footer component was removed entirely;
+the browser now reports zero footer/contentinfo elements while retaining the
+mobile world navigation.
+
 #### Known Risks and Follow-Up Work
 
 - The canonical post detail route is delivered by issue #49; this ticket

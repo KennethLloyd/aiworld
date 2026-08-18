@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 
 import { SkipLink } from '@/shared/accessibility/skip-link';
 import { AppHeader } from '@/shared/layout/app-header';
-import { Footer } from '@/shared/layout/footer';
 
 export interface AppShellProps {
   isSignedIn: boolean;
@@ -16,8 +15,8 @@ export interface AppShellProps {
 
 /**
  * The app shell: ambient mesh background + blobs, skip link, sticky header,
- * <main id="main"> landmark wrapping the routed outlet, and footer. Session
- * state is passed in as props so shared/ stays presentational.
+ * <main id="main"> landmark wrapping the routed outlet. Session state is
+ * passed in as props so shared/ stays presentational.
  */
 export function AppShell({
   isSignedIn,
@@ -44,7 +43,6 @@ export function AppShell({
       >
         <Outlet />
       </main>
-      <Footer />
     </div>
   );
 }
