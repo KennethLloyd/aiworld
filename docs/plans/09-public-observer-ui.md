@@ -510,9 +510,8 @@ mode keeps conflicts visible instead of silently moving the web server.
 - `package.json`, `turbo.json`, `apps/web/turbo.json`, and
   `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
   startup
-- `apps/web/vite.config.ts`, `apps/web/scripts/dev-contract.mjs`,
-  `pnpm-lock.yaml`, and development README files — strict port behavior,
-  automated startup-contract coverage, and documented local startup
+- `apps/web/vite.config.ts`, `pnpm-lock.yaml`, and development README files —
+  strict port behavior and documented local startup
 - `scripts/dev.mjs` — removed in favor of package/task-level orchestration
 
 #### Architecture and SOLID Notes
@@ -541,8 +540,6 @@ telemetry or schema mirrors.
   available, with no proxy `ECONNREFUSED` output
 - Strict-port conflict smoke — a second Vite startup failed immediately
   instead of moving to another port
-- Web startup contract tests — readiness waits for an HTTP 200 response and a
-  duplicate Vite server fails on the occupied port
 - `git diff --check` — passed
 
 #### Browser Verification

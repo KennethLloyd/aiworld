@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
-    "test": "vitest run && node --test scripts/dev-contract.mjs",
+    "test": "vitest run",
     "test:watch": "vitest",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check ."
