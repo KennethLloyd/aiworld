@@ -9,4 +9,7 @@ export const postEndpoints = {
     });
     return `/api/worlds/${encodeURIComponent(slug)}/posts?${searchParams.toString()}`;
   },
+  detail(slug: string, postId: string): string {
+    return `/api/worlds/${encodeURIComponent(slug)}/posts/${encodeURIComponent(postId)}`;
+  },
 };

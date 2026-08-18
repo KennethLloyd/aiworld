@@ -37,6 +37,7 @@ describe('usePosts', () => {
   it('fetches the latest conversations through the feature gateway', async () => {
     const gateway: PostGateway = {
       list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
+      getById: vi.fn<PostGateway['getById']>(),
     };
     const gateways: AppGateways = {
       worldGateway: unusedWorldGateway,
@@ -65,6 +66,7 @@ describe('usePosts', () => {
   it('polls the latest conversations for the public observer', async () => {
     const gateway: PostGateway = {
       list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
+      getById: vi.fn<PostGateway['getById']>(),
     };
     const gateways: AppGateways = {
       worldGateway: unusedWorldGateway,

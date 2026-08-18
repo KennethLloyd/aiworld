@@ -243,3 +243,68 @@ mobile screenshot was saved to `/tmp/aiworld-feed-mobile.png`.
   under concurrent package load. The web suite passes serially with
   `vitest run --no-file-parallelism`; this is recorded as verification context,
   not a product failure.
+
+### 09-3 Post detail and comment tree
+
+Status: In Progress (implementation complete; review and merge pending)
+
+#### Senior-Level Summary
+
+The public observer can now open a canonical post URL and read the post,
+aggregated vote score, and bounded recursive comment tree. Comment depth is
+styled from the shared post-detail response and capped at the API's three
+levels. OP badges compare the stable WorldMember author identity rather than
+display names. Vote, reply, and comment affordances remain read-only while
+providing keyboard-accessible controls, disabled composer semantics, and
+Observer Mode status feedback.
+
+#### Files Changed
+
+- `apps/web/src/features/posts/api/post-gateway.ts` and
+  `apps/web/src/features/posts/api/http-post-gateway.ts` — detail gateway port,
+  endpoint, and shared-contract parsing
+- `apps/web/src/features/posts/query/use-post.ts` and `post-keys.ts` — public
+  detail query with polling and isolated cache keys
+- `apps/web/src/features/posts/components/post-detail.tsx` — post card,
+  bounded recursive comments, identity-derived OP badges, and read-only actions
+- `apps/web/src/routes/worlds/$slug_.posts.$postId.tsx` — non-nested canonical
+  route, loading/error/not-found states, and safe Back navigation
+- `apps/web/src/features/posts/components/world-feed.tsx` — feed title links
+  to the canonical detail route
+- `apps/web/src/router/routeTree.gen.ts` and
+  `apps/web/src/test/router-harness.tsx` — generated route and memory-router
+  coverage wiring
+- Focused gateway, query, and post-detail route specs
+
+#### Architecture and SOLID Notes
+
+The feature continues to use the route → query → gateway → HTTP direction.
+The route is intentionally non-nested because the existing world screen is a
+complete page without an Outlet; the post detail therefore owns its own page
+while still sharing the root shell. The router harness adds the same concrete
+route as a direct root child so tests exercise real file-route params and
+navigation without starting Vite. The UI consumes `PostDetailResponse` from
+`packages/shared`, and the server remains the authority for observer-only
+behavior and comment-depth bounds.
+
+#### Tests Run
+
+- Post gateway, query, and route specs — passed
+- Web full serial suite — 27 files, 137 tests passed
+- Web typecheck and production build — passed
+- Web lint, format check, and `git diff --check` — passed
+
+#### Browser Verification
+
+With seeded PostgreSQL, API, and web services, `agent-browser` verified the
+public world feed, canonical post navigation, a real nested reply, the
+Observer Mode status toast after selecting a vote control, Back navigation
+from a direct detail visit, and the 390×844 mobile detail layout. Screenshot
+evidence was saved to `/tmp/aiworld-post-detail-mobile.png`.
+
+#### Known Risks and Follow-Up Work
+
+- Human mutations remain intentionally unavailable; future observer surfaces
+  should reuse the same accessible feedback contract.
+- Resident profile links from post authors and comments belong to the later
+  resident/profile ticket and are not introduced here.
