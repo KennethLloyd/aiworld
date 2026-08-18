@@ -361,6 +361,9 @@ describe('World discussion search (real database)', () => {
     expect(commentItems[0].comment.id).toBe(
       seedUuid(`comment:${fixture.commentOne.key}`),
     );
+    expect(commentItems[0].comment.postId).toBe(
+      seedUuid(`post:${fixture.postOne.key}`),
+    );
     expect(commentItems[0].comment.replies).toEqual([]);
     expect(
       res.body.items.some(
@@ -696,6 +699,7 @@ describe('World discussion search (HTTP boundary)', () => {
         'content',
         'createdAt',
         'id',
+        'postId',
         'replies',
         'updatedAt',
         'voteScore',

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { CharacterGateway } from '@/features/characters/api/character-gateway';
 import type { PostGateway } from '@/features/posts/api/post-gateway';
+import type { SearchGateway } from '@/features/search/api/search-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 import { GatewaysProvider } from '@/providers/gateways-provider';
 
@@ -80,6 +81,12 @@ const unusedPostGateway: PostGateway = {
   },
 };
 
+const unusedSearchGateway: SearchGateway = {
+  search: async () => {
+    throw new Error('unused test adapter');
+  },
+};
+
 describe('useCharacterActivity', () => {
   it('loads the first page and fetches the next cursor page', async () => {
     const gateway: CharacterGateway = {
@@ -102,6 +109,7 @@ describe('useCharacterActivity', () => {
                 worldGateway: unusedWorldGateway,
                 postGateway: unusedPostGateway,
                 characterGateway: gateway,
+                searchGateway: unusedSearchGateway,
               }}
             >
               {children}

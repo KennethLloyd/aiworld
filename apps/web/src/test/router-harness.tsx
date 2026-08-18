@@ -13,6 +13,7 @@ import { createQueryClient } from '@/providers/query-client';
 import { Route as IndexRoute } from '@/routes/index';
 import { Route as WorldsIndexRoute } from '@/routes/worlds';
 import { Route as WorldDetailRoute } from '@/routes/worlds/$slug';
+import { Route as AboutWorldRoute } from '@/routes/worlds/$slug_.about';
 import { Route as PostDetailRoute } from '@/routes/worlds/$slug_.posts.$postId';
 import { Route as ResidentsRoute } from '@/routes/worlds/$slug_.residents';
 import { Route as ResidentProfileRoute } from '@/routes/worlds/$slug_.residents_.$characterId';
@@ -73,6 +74,11 @@ export function renderPublicRoutes(
     path: '/worlds/$slug/residents/$characterId',
     getParentRoute: () => rootRoute,
   } as unknown as Parameters<typeof ResidentProfileRoute.update>[0]);
+  const aboutWorldRoute = AboutWorldRoute.update({
+    id: '/worlds/$slug_/about',
+    path: '/worlds/$slug/about',
+    getParentRoute: () => rootRoute,
+  } as unknown as Parameters<typeof AboutWorldRoute.update>[0]);
   const routeTree = rootRoute.addChildren({
     index: indexRoute,
     worlds: worldsRoute,
@@ -80,6 +86,7 @@ export function renderPublicRoutes(
     'worlds/$slug/posts/$postId': postDetailRoute,
     'worlds/$slug/residents': residentsRoute,
     'worlds/$slug/residents/$characterId': residentProfileRoute,
+    'worlds/$slug/about': aboutWorldRoute,
   });
   const router = createRouter({
     routeTree,

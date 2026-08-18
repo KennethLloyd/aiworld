@@ -113,6 +113,7 @@ export function ResidentsScreen({
       world={world}
       activeSection="residents"
       onSectionChange={onSectionChange}
+      sectionNavigation="routes"
     >
       <section id="residents" className="scroll-mt-24">
         <ResidentsGrid worldSlug={slug} characters={characters} />

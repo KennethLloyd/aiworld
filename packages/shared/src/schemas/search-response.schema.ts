@@ -16,7 +16,10 @@ export type PostSearchResult = z.infer<typeof postSearchResultSchema>;
 
 export const commentSearchResultSchema = z.object({
   type: z.literal("comment"),
-  comment: commentResponseSchema,
+  comment: commentResponseSchema.extend({
+    // Search comments need their parent so the dropdown can open the post.
+    postId: z.uuid(),
+  }),
 });
 
 export type CommentSearchResult = z.infer<typeof commentSearchResultSchema>;

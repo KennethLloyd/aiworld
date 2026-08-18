@@ -87,6 +87,7 @@ describe('SearchResponseMapper', () => {
         type: 'comment',
         comment: {
           id: commentRecordFixture.id,
+          postId: commentRecordFixture.postId,
           author: commentRecordFixture.author,
           content: commentRecordFixture.content,
           voteScore: commentRecordFixture.voteScore,

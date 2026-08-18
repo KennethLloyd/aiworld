@@ -6,6 +6,8 @@ import type { CharacterGateway } from '@/features/characters/api/character-gatew
 import { HttpCharacterGateway } from '@/features/characters/api/http-character-gateway';
 import { HttpPostGateway } from '@/features/posts/api/http-post-gateway';
 import type { PostGateway } from '@/features/posts/api/post-gateway';
+import { HttpSearchGateway } from '@/features/search/api/http-search-gateway';
+import type { SearchGateway } from '@/features/search/api/search-gateway';
 import { HttpWorldGateway } from '@/features/worlds/api/http-world-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 
@@ -14,6 +16,7 @@ export interface AppGateways {
   worldGateway: WorldGateway;
   postGateway: PostGateway;
   characterGateway: CharacterGateway;
+  searchGateway: SearchGateway;
 }
 
 const apiClient = new HttpClient(env.apiBaseUrl);
@@ -21,6 +24,7 @@ const gateways: AppGateways = {
   worldGateway: new HttpWorldGateway(apiClient),
   postGateway: new HttpPostGateway(apiClient),
   characterGateway: new HttpCharacterGateway(apiClient),
+  searchGateway: new HttpSearchGateway(apiClient),
 };
 
 const GatewaysContext = createContext<AppGateways | null>(null);

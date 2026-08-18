@@ -1,9 +1,11 @@
 import {
   createRootRouteWithContext,
+  useRouterState,
   useNavigate,
 } from '@tanstack/react-router';
 
 import { useSignOut } from '@/features/auth/query/use-session';
+import { DiscussionSearch } from '@/features/search/components/discussion-search';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthSessionBoundary } from '@/providers/auth-session-boundary';
@@ -37,8 +39,12 @@ function RootContent({
   isAdmin: boolean;
 }) {
   const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
   const { toast } = useToast();
   const signOut = useSignOut();
+  const publicWorldSlug = getPublicWorldSlug(pathname);
 
   // Sign-out is wired here (the composition root), not in the shared header:
   // the layout owns the mutation and the return navigation.
@@ -57,8 +63,19 @@ function RootContent({
       <AppShell
         isSignedIn={isSignedIn}
         isAdmin={isAdmin}
+        showObserverMode={!isAdmin}
+        headerContent={
+          publicWorldSlug ? (
+            <DiscussionSearch worldSlug={publicWorldSlug} />
+          ) : undefined
+        }
         onSignOut={handleSignOut}
       />
     </>
   );
+}
+
+function getPublicWorldSlug(pathname: string): string | undefined {
+  const match = /^\/worlds\/([^/]+)(?:\/|$)/.exec(pathname);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
 }

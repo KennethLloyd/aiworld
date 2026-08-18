@@ -155,6 +155,9 @@ describe('public post detail route', () => {
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
     );
     expect(screen.getByText('Calm Voice').closest('a')).toBeNull();
+    expect(
+      screen.getByRole('navigation', { name: 'Mobile world navigation' }),
+    ).toBeInTheDocument();
   });
 
   it('gives disabled observer controls accessible feedback', async () => {

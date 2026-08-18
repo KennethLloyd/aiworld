@@ -113,6 +113,7 @@ export function WorldDetailScreen({
       world={data}
       activeSection={activeSection}
       onSectionChange={onSectionChange}
+      sectionNavigation="routes"
       feed={
         <WorldFeed slug={data.slug} sort={sort} onSortChange={onSortChange} />
       }

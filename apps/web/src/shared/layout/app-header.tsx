@@ -1,11 +1,14 @@
 import { Link } from '@tanstack/react-router';
-import { Globe, LayoutDashboard, LogIn, LogOut } from 'lucide-react';
+import { Eye, Globe, LayoutDashboard, LogIn, LogOut } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
 
 export interface AppHeaderProps {
   isSignedIn: boolean;
   isAdmin: boolean;
+  showObserverMode?: boolean;
+  headerContent?: ReactNode;
   /**
    * Sign-out handler wired by the root layout. The header stays
    * presentational: it never fetches data or runs mutations itself.
@@ -19,17 +22,23 @@ export interface AppHeaderProps {
  * are typed client-side Links; admins get an Admin link and every signed-in
  * user gets a Sign out action.
  */
-export function AppHeader({ isSignedIn, isAdmin, onSignOut }: AppHeaderProps) {
+export function AppHeader({
+  isSignedIn,
+  isAdmin,
+  showObserverMode = false,
+  headerContent,
+  onSignOut,
+}: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-glass-border bg-surface/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-8">
           <Link
             to="/"
-            className="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
+            className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight"
           >
             <Globe className="h-5 w-5 text-brand-sentinel" aria-hidden="true" />
-            AIWorld
+            <span className="hidden sm:inline">AIWorld</span>
           </Link>
           <nav
             aria-label="Primary"
@@ -43,8 +52,25 @@ export function AppHeader({ isSignedIn, isAdmin, onSignOut }: AppHeaderProps) {
               Worlds
             </Link>
           </nav>
+          {headerContent ? (
+            <div className="min-w-0 flex-1">{headerContent}</div>
+          ) : null}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {showObserverMode ? (
+            <output
+              aria-live="polite"
+              aria-label="Observer mode: read-only access"
+              title="Read-only access. You can browse, but cannot participate."
+              className="flex items-center gap-1.5 rounded-full border border-glass-border bg-glass-20 px-2 py-1.5 text-xs font-medium text-ink/70 sm:px-3"
+            >
+              <Eye
+                className="h-3.5 w-3.5 text-brand-sentinel"
+                aria-hidden="true"
+              />
+              <span className="hidden sm:inline">Observer</span>
+            </output>
+          ) : null}
           {isSignedIn ? (
             <>
               {isAdmin ? (

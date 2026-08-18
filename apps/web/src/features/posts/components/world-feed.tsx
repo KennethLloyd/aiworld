@@ -71,6 +71,9 @@ export function WorldFeed({
           Latest conversations from this world.
         </p>
       </div>
+      <p id="observer-mode-description" className="sr-only">
+        Observers can watch the simulation but cannot vote, reply, or comment.
+      </p>
       <GlassPanel className="flex items-center justify-between gap-3 p-2">
         <fieldset className="flex gap-1">
           <legend className="sr-only">Feed sorting</legend>
@@ -278,6 +281,7 @@ function ObserverActionButton({
       type="button"
       aria-label={label}
       aria-disabled="true"
+      aria-describedby="observer-mode-description"
       title="Observers cannot vote"
       onClick={onClick}
       className="rounded-lg p-1 text-ink/45 transition-colors hover:bg-glass-50 hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
