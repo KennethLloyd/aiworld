@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { CharacterGateway } from '@/features/characters/api/character-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 import {
   GatewaysProvider,
@@ -42,6 +43,7 @@ describe('usePosts', () => {
     const gateways: AppGateways = {
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
+      characterGateway: unusedCharacterGateway,
     };
     const client = new QueryClient();
 
@@ -71,6 +73,7 @@ describe('usePosts', () => {
     const gateways: AppGateways = {
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
+      characterGateway: unusedCharacterGateway,
     };
     const client = new QueryClient();
 
@@ -106,6 +109,18 @@ const unusedWorldGateway: WorldGateway = {
     throw new Error('unused test adapter');
   },
   delete: async () => {
+    throw new Error('unused test adapter');
+  },
+};
+
+const unusedCharacterGateway: CharacterGateway = {
+  list: async () => {
+    throw new Error('unused test adapter');
+  },
+  getById: async () => {
+    throw new Error('unused test adapter');
+  },
+  getActivity: async () => {
     throw new Error('unused test adapter');
   },
 };

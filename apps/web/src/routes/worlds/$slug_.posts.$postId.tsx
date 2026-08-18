@@ -94,7 +94,7 @@ export function PostDetailScreen({
     return null;
   }
 
-  return <PostDetail post={data} onBack={onBack} />;
+  return <PostDetail slug={slug} post={data} onBack={onBack} />;
 }
 
 function PostDetailSkeleton() {

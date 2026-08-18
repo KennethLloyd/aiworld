@@ -34,6 +34,7 @@ export class ActivityResponseMapper {
             updatedAt: item.record.updatedAt,
             replies: [],
           }),
+          postId: item.record.postId,
           postTitle: item.record.postTitle,
         };
       }),

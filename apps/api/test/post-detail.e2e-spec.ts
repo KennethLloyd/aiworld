@@ -83,6 +83,7 @@ const fixture = {
   ],
   author: {
     id: seedUuid('member:detail-author'),
+    characterId: seedUuid('character:detail-author'),
     handle: 'detail_author',
     name: 'Detail Author',
     avatarUrl: null,
@@ -447,6 +448,7 @@ describe('Post detail (real database)', () => {
 
       expect(res.body.author).toEqual({
         id: memberId,
+        characterId,
         handle: 'inactive_author_test',
         name: 'Inactive Author Test',
         avatarUrl: null,

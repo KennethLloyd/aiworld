@@ -14,6 +14,7 @@ export const postActivityItemSchema = postWithAuthorResponseSchema.extend({
 
 export const commentActivityItemSchema = commentResponseSchema.extend({
   kind: z.literal("comment"),
+  postId: z.uuid(),
   postTitle: z.string(),
 });
 

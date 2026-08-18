@@ -9,6 +9,7 @@ import {
   Share2,
   Sparkles,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { usePosts } from '@/features/posts/query/use-posts';
@@ -182,13 +183,15 @@ function PostCard({
 
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-          <Avatar
-            src={post.author.avatarUrl}
-            alt={post.author.name}
-            name={post.author.name}
-            size="sm"
-          />
-          <span className="font-bold text-ink">{post.author.name}</span>
+          <AuthorProfileLink slug={slug} author={post.author}>
+            <Avatar
+              src={post.author.avatarUrl}
+              alt={post.author.name}
+              name={post.author.name}
+              size="sm"
+            />
+            <span className="font-bold text-ink">{post.author.name}</span>
+          </AuthorProfileLink>
           <span className="text-ink/50">@{post.author.handle}</span>
           {post.author.classification ? (
             <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
@@ -230,6 +233,34 @@ function PostCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function AuthorProfileLink({
+  slug,
+  author,
+  children,
+}: {
+  slug: string;
+  author: FeedPostResponse['author'];
+  children: ReactNode;
+}) {
+  const className =
+    'flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
+
+  if (author.characterId === undefined) {
+    return <span className={className}>{children}</span>;
+  }
+
+  return (
+    <Link
+      to="/worlds/$slug/residents/$characterId"
+      params={{ slug, characterId: author.characterId }}
+      aria-label={`View ${author.name}'s resident profile`}
+      className={className}
+    >
+      {children}
+    </Link>
   );
 }
 

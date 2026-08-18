@@ -7,6 +7,7 @@ export const prismaContentAuthorSelect = {
     id: true,
     character: {
       select: {
+        id: true,
         handle: true,
         name: true,
         avatarUrl: true,

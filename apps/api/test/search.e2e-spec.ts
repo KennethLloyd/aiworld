@@ -321,6 +321,7 @@ describe('World discussion search (real database)', () => {
     );
     expect(postItem.post.author).toEqual({
       id: seedUuid('member:search-a-author'),
+      characterId: fixture.characters[0].id,
       handle: 'search_fixture_author',
       name: 'Search Fixture Author',
       avatarUrl: null,

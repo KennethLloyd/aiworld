@@ -51,6 +51,7 @@ const server = setupServer(
           commentCount: 2,
           author: {
             id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+            characterId: '9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
             handle: 'mystic-aura',
             name: 'Mystic Aura',
             avatarUrl: null,
@@ -62,6 +63,12 @@ const server = setupServer(
         },
       ],
       meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+    }),
+  ),
+  http.get('*/api/characters', () =>
+    HttpResponse.json({
+      items: [],
+      meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
     }),
   ),
   http.get('*/api/worlds/missing', () =>
@@ -107,17 +114,28 @@ describe('public world detail route', () => {
     const residentsLink = within(mobileNavigation).getByRole('link', {
       name: 'Residents',
     });
-    expect(residentsLink).toHaveAttribute('href', '#residents');
+    expect(residentsLink).toHaveAttribute('href', '/worlds/mbti/residents');
     await userEvent.click(residentsLink);
-    expect(residentsLink).toHaveAttribute('aria-current', 'location');
-    expect(document.getElementById('residents')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'World Residents' }),
+    ).toBeInTheDocument();
 
-    const aboutLink = within(mobileNavigation).getByRole('link', {
+    const aboutLink = within(
+      await screen.findByRole('navigation', {
+        name: 'Mobile world navigation',
+      }),
+    ).getByRole('link', {
       name: 'About',
     });
     expect(aboutLink).toHaveAttribute('href', '#about-world');
     await userEvent.click(aboutLink);
-    expect(aboutLink).toHaveAttribute('aria-current', 'location');
+    expect(
+      within(
+        await screen.findByRole('navigation', {
+          name: 'Mobile world navigation',
+        }),
+      ).getByRole('link', { name: 'About' }),
+    ).toHaveAttribute('aria-current', 'location');
     expect(document.getElementById('about-world')).toBeInTheDocument();
 
     expect(
@@ -135,6 +153,14 @@ describe('public world detail route', () => {
     expect(
       screen.getByRole('img', { name: 'Mystic Aura avatar' }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: "View Mystic Aura's resident profile",
+      }),
+    ).toHaveAttribute(
+      'href',
+      '/worlds/mbti/residents/9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+    );
     expect(screen.getByText('INFJ')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
@@ -187,6 +213,7 @@ describe('public world detail route', () => {
               commentCount: 2,
               author: {
                 id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+                characterId: '9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
                 handle: 'mystic-aura',
                 name: 'Mystic Aura',
                 avatarUrl: null,

@@ -10,11 +10,12 @@ describe('mapContentAuthor', () => {
     user: null,
   };
 
-  it('maps an AI member to its Character identity with the member id', () => {
+  it('maps an AI member to its Character identity with both ids', () => {
     expect(
       mapContentAuthor({
         ...memberRow,
         character: {
+          id: '00000000-0000-4000-8000-000000000102',
           handle: 'standard_procedure',
           name: 'Standard_Procedure',
           avatarUrl: 'https://example.com/avatar.png',
@@ -22,6 +23,7 @@ describe('mapContentAuthor', () => {
       }),
     ).toEqual({
       id: memberRow.id,
+      characterId: '00000000-0000-4000-8000-000000000102',
       handle: 'standard_procedure',
       name: 'Standard_Procedure',
       avatarUrl: 'https://example.com/avatar.png',
@@ -33,6 +35,7 @@ describe('mapContentAuthor', () => {
       mapContentAuthor({
         ...memberRow,
         character: {
+          id: '00000000-0000-4000-8000-000000000103',
           handle: 'mystic_aura',
           name: 'Mystic Aura',
           avatarUrl: null,
@@ -42,6 +45,7 @@ describe('mapContentAuthor', () => {
       }),
     ).toEqual({
       id: memberRow.id,
+      characterId: '00000000-0000-4000-8000-000000000103',
       handle: 'mystic_aura',
       name: 'Mystic Aura',
       avatarUrl: null,

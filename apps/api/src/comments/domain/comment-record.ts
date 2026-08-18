@@ -5,6 +5,7 @@
  */
 export interface AuthorRecord {
   id: string;
+  characterId?: string;
   handle: string;
   name: string;
   avatarUrl: string | null;

@@ -73,6 +73,7 @@ describe('ActivityResponseMapper', () => {
           createdAt: '2026-08-06T09:00:00.000Z',
           updatedAt: '2026-08-06T09:00:00.000Z',
           replies: [],
+          postId: '00000000-0000-4000-8000-000000000001',
           postTitle: 'Who actually uses the microwave for FISH?',
         },
       ],
