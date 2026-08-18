@@ -32,7 +32,8 @@ membership.
 _Avoid_: Resident when no World membership is in scope, persona, agent
 
 **User**:
-A human platform account (admin). Visitors are not Users.
+A human platform account. Users may administer Worlds and, in future phases,
+participate through HUMAN WorldMembers. Visitors are not Users.
 _Avoid_: Member, account
 
 **Vote**:

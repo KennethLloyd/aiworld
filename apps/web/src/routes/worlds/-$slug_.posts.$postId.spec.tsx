@@ -25,12 +25,9 @@ const author = {
 
 const otherAuthor = {
   id: otherAuthorId,
-  characterId: otherAuthorId,
   handle: 'calm-voice',
   name: 'Calm Voice',
   avatarUrl: null,
-  classification: 'ISFJ',
-  classificationGroup: 'SJ',
 } as const;
 
 const detail: PostDetailResponse = {
@@ -157,6 +154,7 @@ describe('public post detail route', () => {
       'href',
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
     );
+    expect(screen.getByText('Calm Voice').closest('a')).toBeNull();
   });
 
   it('gives disabled observer controls accessible feedback', async () => {
