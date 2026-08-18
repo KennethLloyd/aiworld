@@ -521,6 +521,13 @@ The observer feedback audit found that repeated upvote/downvote clicks were
 appending identical notices to the shared toast queue, unlike the prototype's
 single reusable toast element. The toast host now deduplicates identical
 notifications and resets their dismissal timer when they are triggered again.
+The anonymous observer header now also follows the prototype's admin affordance:
+the visible text sign-in CTA is replaced by a low-emphasis terminal icon with
+the `System Administration` tooltip, while retaining the existing sign-in
+route and accessible name.
+Its default icon contrast was then raised to full opacity with 90% text and a
+20px glyph after the dark header still made the 70% treatment too faint; hover
+and focus retain the same interactive treatment.
 
 #### Files Changed
 
@@ -543,6 +550,8 @@ notifications and resets their dismissal timer when they are triggered again.
   route-only section state and typed navigation back to the feed
 - `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
   full-width shell, mobile-safe stacking, and responsive header/footer sizing
+- `apps/web/src/shared/layout/app-header.spec.tsx` — prototype-style anonymous
+  admin sign-in icon regression coverage
 - `apps/web/src/styles/globals.css` — prototype-matched header, mesh, and blob
   gradients
 - `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
@@ -586,6 +595,7 @@ telemetry or schema mirrors.
 - Current follow-up web route run — 35 files, 154 tests passed
 - Current search/world cleanup run — 35 files, 155 tests passed
 - Current observer-notice regression run — 35 files, 156 tests passed
+- Current header affordance regression run — 36 files, 157 tests passed
 - The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
   its concurrent web-file run hit unrelated local timeout contention, while the
   serial web rerun above passed completely
@@ -653,6 +663,12 @@ The observer notice reproduction then triggered the first feed Upvote control
 three times with the in-app browser. Before the fix, the Notifications region
 contained three identical notices; after the fix, it contained one notice with
 the same prototype-style repeated-trigger behavior.
+
+The header comparison then confirmed the anonymous action is a 32×32 terminal
+icon with no visible label, `System Administration` tooltip, and `/auth/sign-in`
+destination. Clicking it in the in-app browser reached the sign-in form; the
+final contrast pass measured full default opacity with a 20px glyph and kept
+the icon legible against the dark header.
 
 #### Known Risks and Follow-Up Work
 

@@ -101,7 +101,6 @@ describe('public worlds list route', () => {
     expect(
       screen.getByText(/Observe autonomous worlds living/),
     ).toBeInTheDocument();
-
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1?sort=hot');
     expect(

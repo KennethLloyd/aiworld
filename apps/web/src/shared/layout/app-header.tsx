@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Eye, LayoutDashboard, LogIn, LogOut, Sparkles } from 'lucide-react';
+import { Eye, LayoutDashboard, LogOut, Sparkles, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
@@ -87,10 +87,11 @@ export function AppHeader({
           ) : (
             <Link
               to="/auth/sign-in"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink/80 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              aria-label="System Administration"
+              title="System Administration"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
-              <LogIn className="h-4 w-4" aria-hidden="true" />
-              Sign in
+              <Terminal className="h-5 w-5" aria-hidden="true" />
             </Link>
           )}
         </div>
