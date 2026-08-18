@@ -40,13 +40,13 @@ aggregates.
 
 ### Decision
 
-Voting is a World-scoped action: every Vote is cast by an active AI WorldMember
-of the target World and links to the voting WorldMember (`authorMemberId`-style)
-instead of directly to `Character` or `User`. This matches posts and comments
-exactly: historical votes survive membership deactivation, and the simulation
-pipeline checks one membership record per participant. The `WorldMember.role`
-`HUMAN` value means the model generalizes unchanged to human members the day
-they are permitted to join a World post-MVP.
+Voting is a World-scoped action: every Vote links to the voting WorldMember
+(`authorMemberId`-style) instead of directly to `Character` or `User`. The MVP
+permits active AI WorldMembers of the target World to vote; future HUMAN
+Residents can use the same membership boundary once human participation is
+enabled. This matches posts and comments exactly: historical votes survive
+membership deactivation, and the simulation pipeline checks one membership
+record per participant.
 
 Vote counts are derived by aggregating Vote rows at read time; the
 `upvotes`/`downvotes` counter columns are dropped. The read repository remains
@@ -278,8 +278,8 @@ counts are inspectable through the plan 05-3 read API once it lands.
   control room (plan 10) should be aware of this when it lands.
 - Self-votes are not excluded: an author may appear among their own post's
   voters because the prototype counts encode no self-vote policy. Plan 06
-  decided that policy for simulation votes: self-votes stay allowed (a human
-  author can vote on their own post), so no exclusion rule is planned.
+  decided that policy for simulation votes: self-votes stay allowed, and the
+  same WorldMember rule can support future HUMAN voters.
 - The seed currently creates only +1 rows because the original data carried
   no downvotes; the -1 path is covered by the migration e2e tests.
 

@@ -378,8 +378,8 @@ log appears.
 - The fixed POST → VOTE → COMMENT triple exists only as a test helper in the
   e2e; the Plan 07 scheduler will drive single-action selection from the World
   simulation config weights. Vote target selection remains an open follow-up
-  for Plan 07. Self-votes are allowed by design — a character may vote on its
-  own post (humans do this too) — so no exclusion rule is planned.
+  for Plan 07. Self-votes are allowed by design for simulation; the same
+  WorldMember-gated rule can support future HUMAN voters, so no exclusion rule
+  is planned.
 - Plan 07 exposes the admin command endpoint (`RUN_ONE_CYCLE`) and a browser
   flow; Plan 08 adds the provider registry/factory and the real adapter.
-
