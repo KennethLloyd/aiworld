@@ -112,6 +112,10 @@ describe('public worlds list route', () => {
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
     expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
+    expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Next page' }),
+    ).toBeInTheDocument();
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {
@@ -133,7 +137,7 @@ describe('public worlds list route', () => {
 
     await screen.findByText('World 1-1');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
 
     // Placeholder data: page 1 stays on screen while page 2 is in flight.
     expect(screen.getByText('World 1-1')).toBeInTheDocument();
