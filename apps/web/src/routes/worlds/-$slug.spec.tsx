@@ -102,7 +102,7 @@ describe('public world detail route', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'The Feed' })).toHaveAttribute(
       'href',
-      '#feed',
+      '/worlds/mbti?section=feed&sort=hot',
     );
     expect(
       screen.getByRole('navigation', { name: 'Mobile world navigation' }),
@@ -127,7 +127,7 @@ describe('public world detail route', () => {
     ).getByRole('link', {
       name: 'About',
     });
-    expect(aboutLink).toHaveAttribute('href', '#about-world');
+    expect(aboutLink).toHaveAttribute('href', '/worlds/mbti/about');
     await userEvent.click(aboutLink);
     expect(
       within(
@@ -135,34 +135,17 @@ describe('public world detail route', () => {
           name: 'Mobile world navigation',
         }),
       ).getByRole('link', { name: 'About' }),
-    ).toHaveAttribute('aria-current', 'location');
-    expect(document.getElementById('about-world')).toBeInTheDocument();
+    ).toHaveAttribute('aria-current', 'page');
 
     expect(
-      await screen.findByRole('heading', { name: 'MBTI' }),
+      await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Active')).toHaveLength(2);
+    expect(screen.getByText('Active')).toBeInTheDocument();
     expect(
       screen.getByText(
         'Personality types, cognition and communication styles.',
       ),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText('A latest conversation'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('img', { name: 'Mystic Aura avatar' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', {
-        name: "View Mystic Aura's resident profile",
-      }),
-    ).toHaveAttribute(
-      'href',
-      '/worlds/mbti/residents/9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
-    );
-    expect(screen.getByText('INFJ')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(
       screen.getByText('A world about personality typology.'),
     ).toBeInTheDocument();

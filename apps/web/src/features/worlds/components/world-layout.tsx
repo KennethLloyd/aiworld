@@ -15,12 +15,14 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 import { WorldStatusBadge } from './world-status-badge';
 
 export type WorldSection = 'feed' | 'residents' | 'about-world';
+export type SectionNavigation = 'anchors' | 'routes';
 
 export interface WorldLayoutProps {
   world: WorldResponse;
   children: ReactNode;
   activeSection: WorldSection;
   onSectionChange: (section: WorldSection) => void;
+  sectionNavigation?: SectionNavigation;
 }
 
 export function WorldLayout({
@@ -28,6 +30,7 @@ export function WorldLayout({
   children,
   activeSection,
   onSectionChange,
+  sectionNavigation = 'anchors',
 }: WorldLayoutProps) {
   return (
     <div
@@ -40,6 +43,7 @@ export function WorldLayout({
             worldSlug={world.slug}
             activeSection={activeSection}
             onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
           />
         </GlassPanel>
       </aside>
@@ -64,6 +68,8 @@ export function WorldLayout({
             label="Feed"
             activeSection={activeSection}
             onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
+            mobile
           />
           <WorldNavLink
             worldSlug={world.slug}
@@ -72,6 +78,8 @@ export function WorldLayout({
             label="Residents"
             activeSection={activeSection}
             onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
+            mobile
           />
           <WorldNavLink
             worldSlug={world.slug}
@@ -80,6 +88,8 @@ export function WorldLayout({
             label="About"
             activeSection={activeSection}
             onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
+            mobile
           />
         </div>
       </nav>
@@ -91,10 +101,12 @@ function WorldNavigation({
   worldSlug,
   activeSection,
   onNavigate,
+  sectionNavigation,
 }: {
   worldSlug: string;
   activeSection: WorldSection;
   onNavigate: (section: WorldSection) => void;
+  sectionNavigation: SectionNavigation;
 }) {
   return (
     <nav aria-label="World navigation" className="flex flex-col gap-1">
@@ -105,6 +117,7 @@ function WorldNavigation({
         label="The Feed"
         activeSection={activeSection}
         onNavigate={onNavigate}
+        sectionNavigation={sectionNavigation}
       />
       <WorldNavLink
         worldSlug={worldSlug}
@@ -113,6 +126,7 @@ function WorldNavigation({
         label="Residents"
         activeSection={activeSection}
         onNavigate={onNavigate}
+        sectionNavigation={sectionNavigation}
       />
       <WorldNavLink
         worldSlug={worldSlug}
@@ -121,6 +135,7 @@ function WorldNavigation({
         label="About World"
         activeSection={activeSection}
         onNavigate={onNavigate}
+        sectionNavigation={sectionNavigation}
       />
     </nav>
   );
@@ -133,6 +148,8 @@ function WorldNavLink({
   label,
   activeSection,
   onNavigate,
+  sectionNavigation,
+  mobile = false,
 }: {
   worldSlug: string;
   section: WorldSection;
@@ -140,8 +157,50 @@ function WorldNavLink({
   label: string;
   activeSection: WorldSection;
   onNavigate: (section: WorldSection) => void;
+  sectionNavigation: SectionNavigation;
+  mobile?: boolean;
 }) {
   const active = activeSection === section;
+  const linkClass = mobile
+    ? active
+      ? 'flex min-w-16 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-ink transition-colors'
+      : 'flex min-w-16 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+    : active
+      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
+      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink';
+  const iconClass = active
+    ? 'h-5 w-5 text-brand-sentinel'
+    : 'h-5 w-5 text-ink/50';
+
+  if (sectionNavigation === 'routes') {
+    if (section === 'feed') {
+      return (
+        <Link
+          to="/worlds/$slug"
+          params={{ slug: worldSlug }}
+          search={{ section: 'feed', sort: 'hot' }}
+          aria-current={active ? 'location' : undefined}
+          className={linkClass}
+        >
+          <Icon className={iconClass} aria-hidden="true" />
+          {label}
+        </Link>
+      );
+    }
+    if (section === 'about-world') {
+      return (
+        <Link
+          to="/worlds/$slug/about"
+          params={{ slug: worldSlug }}
+          aria-current={active ? 'location' : undefined}
+          className={linkClass}
+        >
+          <Icon className={iconClass} aria-hidden="true" />
+          {label}
+        </Link>
+      );
+    }
+  }
 
   if (section === 'residents') {
     return (
@@ -149,18 +208,9 @@ function WorldNavLink({
         to="/worlds/$slug/residents"
         params={{ slug: worldSlug }}
         aria-current={active ? 'location' : undefined}
-        className={
-          active
-            ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
-            : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
-        }
+        className={linkClass}
       >
-        <Users
-          className={
-            active ? 'h-5 w-5 text-brand-sentinel' : 'h-5 w-5 text-ink/50'
-          }
-          aria-hidden="true"
-        />
+        <Icon className={iconClass} aria-hidden="true" />
         {label}
       </Link>
     );
@@ -175,18 +225,9 @@ function WorldNavLink({
         onNavigate(section);
         document.getElementById(section)?.scrollIntoView?.({ block: 'start' });
       }}
-      className={
-        active
-          ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
-          : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
-      }
+      className={linkClass}
     >
-      <Icon
-        className={
-          active ? 'h-5 w-5 text-brand-sentinel' : 'h-5 w-5 text-ink/50'
-        }
-        aria-hidden="true"
-      />
+      <Icon className={iconClass} aria-hidden="true" />
       {label}
     </a>
   );
@@ -226,12 +267,13 @@ function WorldContext({ world }: { world: WorldResponse }) {
           </dd>
         </div>
       </dl>
-      <a
-        href="#world-rules"
+      <Link
+        to="/worlds/$slug/about"
+        params={{ slug: world.slug }}
         className="flex w-full items-center justify-center rounded-xl border border-glass-border bg-glass-20 px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink"
       >
         Read World Rules
-      </a>
+      </Link>
     </GlassPanel>
   );
 }

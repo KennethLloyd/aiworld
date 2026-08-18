@@ -11,6 +11,7 @@ import { z } from 'zod';
 const SearchCommentDoc = z
   .object({
     id: z.uuid(),
+    postId: z.uuid(),
     author: authorResponseSchema,
     content: z.string(),
     voteScore: z.number().int(),

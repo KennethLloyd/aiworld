@@ -24,13 +24,14 @@ export class SearchResponseMapper {
             ),
           };
         }
+        const comment = this.commentResponseMapper.mapToCommentResponse({
+          ...record.comment,
+          replies: [],
+        });
         return {
           type: 'comment' as const,
           // Search results are flat: comments never carry replies here.
-          comment: this.commentResponseMapper.mapToCommentResponse({
-            ...record.comment,
-            replies: [],
-          }),
+          comment: { ...comment, postId: record.comment.postId },
         };
       }),
       meta: records.meta,

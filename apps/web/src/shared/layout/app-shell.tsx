@@ -1,4 +1,5 @@
 import { Outlet } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 
 import { SkipLink } from '@/shared/accessibility/skip-link';
 import { AppHeader } from '@/shared/layout/app-header';
@@ -7,6 +8,8 @@ import { Footer } from '@/shared/layout/footer';
 export interface AppShellProps {
   isSignedIn: boolean;
   isAdmin: boolean;
+  showObserverMode?: boolean;
+  headerContent?: ReactNode;
   /** Sign-out handler wired by the root layout and forwarded to the header. */
   onSignOut?: () => void;
 }
@@ -16,7 +19,13 @@ export interface AppShellProps {
  * <main id="main"> landmark wrapping the routed outlet, and footer. Session
  * state is passed in as props so shared/ stays presentational.
  */
-export function AppShell({ isSignedIn, isAdmin, onSignOut }: AppShellProps) {
+export function AppShell({
+  isSignedIn,
+  isAdmin,
+  showObserverMode,
+  headerContent,
+  onSignOut,
+}: AppShellProps) {
   return (
     <div className="relative flex min-h-screen flex-col bg-surface text-ink">
       <AmbientBackground />
@@ -24,6 +33,8 @@ export function AppShell({ isSignedIn, isAdmin, onSignOut }: AppShellProps) {
       <AppHeader
         isSignedIn={isSignedIn}
         isAdmin={isAdmin}
+        showObserverMode={showObserverMode}
+        headerContent={headerContent}
         onSignOut={onSignOut}
       />
       <main

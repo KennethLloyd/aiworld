@@ -167,6 +167,7 @@ export function ResidentProfileScreen({
       world={world}
       activeSection="residents"
       onSectionChange={onSectionChange}
+      sectionNavigation="routes"
     >
       <ResidentProfile
         worldSlug={slug}

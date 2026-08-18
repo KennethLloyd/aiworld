@@ -1,4 +1,5 @@
 import type { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import {
   createFileRoute,
   Link,
@@ -11,6 +12,11 @@ import { ApiError } from '@/core/api/api-error';
 import { PostDetail } from '@/features/posts/components/post-detail';
 import { usePost } from '@/features/posts/query/use-post';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import {
+  WorldLayout,
+  type WorldSection,
+} from '@/features/worlds/components/world-layout';
+import { useWorld } from '@/features/worlds/query/use-world';
 import { buttonClasses } from '@/shared/ui/button';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
@@ -26,6 +32,7 @@ function PostDetailRoute() {
   const router = useRouter();
   const canGoBack = useCanGoBack();
   const postQuery = usePost(slug, postId);
+  const worldQuery = useWorld(slug, { polling: true });
 
   const handleBack = () => {
     if (canGoBack) {
@@ -49,6 +56,20 @@ function PostDetailRoute() {
       error={postQuery.error}
       onRetry={() => void postQuery.refetch()}
       onBack={handleBack}
+      world={worldQuery.data}
+      onSectionChange={(section) => {
+        void navigate({
+          to:
+            section === 'residents'
+              ? '/worlds/$slug/residents'
+              : section === 'about-world'
+                ? '/worlds/$slug/about'
+                : '/worlds/$slug',
+          params: { slug },
+          search:
+            section === 'feed' ? { section: 'feed', sort: 'hot' } : undefined,
+        });
+      }}
     />
   );
 }
@@ -61,6 +82,8 @@ export interface PostDetailScreenProps {
   error: unknown;
   onRetry: () => void;
   onBack: () => void;
+  world: WorldResponse | undefined;
+  onSectionChange: (section: WorldSection) => void;
 }
 
 export function PostDetailScreen({
@@ -71,30 +94,49 @@ export function PostDetailScreen({
   error,
   onRetry,
   onBack,
+  world,
+  onSectionChange,
 }: PostDetailScreenProps) {
-  if (isPending) {
-    return <PostDetailSkeleton />;
-  }
-
-  if (isError) {
-    if (error instanceof ApiError && error.status === 404) {
-      return <PostNotFound slug={slug} onBack={onBack} />;
+  const content = (() => {
+    if (isPending) {
+      return <PostDetailSkeleton />;
     }
 
-    return (
-      <ErrorState
-        title="Could not load this post"
-        message={errorMessage(error)}
-        onRetry={onRetry}
-      />
-    );
+    if (isError) {
+      if (error instanceof ApiError && error.status === 404) {
+        return <PostNotFound slug={slug} onBack={onBack} />;
+      }
+
+      return (
+        <ErrorState
+          title="Could not load this post"
+          message={errorMessage(error)}
+          onRetry={onRetry}
+        />
+      );
+    }
+
+    if (data === undefined) {
+      return null;
+    }
+
+    return <PostDetail slug={slug} post={data} onBack={onBack} />;
+  })();
+
+  if (world === undefined) {
+    return content;
   }
 
-  if (data === undefined) {
-    return null;
-  }
-
-  return <PostDetail slug={slug} post={data} onBack={onBack} />;
+  return (
+    <WorldLayout
+      world={world}
+      activeSection="feed"
+      onSectionChange={onSectionChange}
+      sectionNavigation="routes"
+    >
+      {content}
+    </WorldLayout>
+  );
 }
 
 function PostDetailSkeleton() {

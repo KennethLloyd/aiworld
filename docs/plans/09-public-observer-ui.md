@@ -400,3 +400,78 @@ test; the seeded profile used for the browser smoke flow had no second page.
 - The repository's existing full API typecheck still reports unrelated search
   fixture errors and implicit-any errors in the e2e spec; the affected API
   activity tests and the running API compile cleanly.
+
+### 09-5 Search, About, Observer Mode, and mobile navigation
+
+Status: In Progress (implementation complete; review and merge pending)
+
+#### Senior-Level Summary
+
+The public observer now has a World-scoped discussion search in the application
+header. Search input is validated at two characters, results are parsed through
+the shared contract, and both post and comment matches link to the canonical
+post detail route. Search comments now carry their parent `postId`, preserving
+the API's read-model boundary while giving the dropdown an unambiguous target.
+The About World experience is available at `/worlds/$slug/about` and presents
+World lore, topic scope, rules, dates, and explicit read-only observation rules.
+World navigation uses canonical routes for Feed, Residents, and About, while
+the mobile bottom navigation follows the prototype's icon-over-label layout.
+Observer Mode remains read-only across feed votes, post votes, replies, and the
+comment composer, with shared accessible descriptions and feedback.
+
+#### Files Changed
+
+- `apps/web/src/features/search/` — search gateway, shared-response parsing,
+  TanStack Query hook/cache keys, and accessible dropdown states
+- `apps/web/src/providers/gateways-provider.tsx` — application search adapter
+  composition
+- `apps/web/src/routes/__root.tsx`, `apps/web/src/shared/layout/` — current
+  World search placement and public Observer Mode header badge
+- `apps/web/src/routes/worlds/$slug_.about.tsx` and
+  `apps/web/src/features/worlds/components/world-about.tsx` — canonical About
+  route and reusable lore/rules presentation
+- `apps/web/src/features/worlds/components/world-layout.tsx` and route files —
+  route-based navigation and prototype-aligned mobile bottom nav
+- `apps/api/src/search/`, `apps/api/test/search.e2e-spec.ts`, and
+  `packages/shared/src/schemas/search-response.schema.ts` — search comment
+  parent-post contract and OpenAPI/mapper/e2e coverage
+- Focused web search/About tests and gateway/query fixtures
+
+#### Architecture and SOLID Notes
+
+The change preserves route/composition root → feature query → feature gateway →
+HTTP direction. Search owns its endpoint, adapter, query cache, and dropdown;
+the root only supplies the current World slug to the header slot. The API
+remains responsible for World scoping and result identity, while the shared
+search contract carries the minimum parent-post reference needed for client
+navigation. About is a presentational feature component reused by the inline
+world snapshot and canonical route. Navigation mode is explicit so complete
+standalone Residents/About pages use routes, while the existing world snapshot
+can still deep-link its sections.
+
+#### Tests Run
+
+- Web focused search/gateway/query/About suites — passed
+- Web full serial suite — 35 files, 151 tests passed
+- Web typecheck, lint, format check, production build, and `git diff --check` —
+  passed
+- API search unit suites — 4 suites, 21 tests passed
+- API full e2e suite against PostgreSQL — 12 suites, 123 tests passed
+
+#### Browser Verification
+
+Using the running public app at `http://localhost:5176`, `agent-browser`
+verified the World feed, the `microwave` search dropdown result, navigation to
+the matching post, disabled vote/reply/comment controls with Observer Mode
+feedback, `/worlds/mbti-house/about`, and the 390×844 mobile bottom nav on
+both the About and post-detail routes. Screenshots were saved to
+`/tmp/aiworld-issue-51-about-mobile.png` and
+`/tmp/aiworld-issue-51-post-mobile.png`.
+
+#### Known Risks and Follow-Up Work
+
+- Issue #51 still requires review and merge of its pull request before its
+  project item can move to Done; Plan 09 remains In Progress while sibling
+  tickets and this review handoff are pending.
+- Search comment responses now include `postId`; downstream consumers should
+  continue parsing the shared contract rather than reconstructing parent links.
