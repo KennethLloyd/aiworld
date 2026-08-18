@@ -28,6 +28,7 @@ describe('WorldController', () => {
     description: { about: 'A community for MBTI enthusiasts' },
     rules: ['Keep discussions civil.', 'Stay on MBTI topic.'],
     topicScope: 'MBTI theory, personality types, cognitive functions',
+    residentCount: 16,
     isActive: true,
     createdAt: new Date('2026-08-01T00:00:00.000Z'),
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),

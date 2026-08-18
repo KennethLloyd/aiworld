@@ -42,7 +42,8 @@ pnpm --filter @aiworld/api db:migrate
 pnpm --filter @aiworld/api db:seed
 ```
 
-Start both workspaces:
+Start both workspaces through Turborepo. The web task waits for the API's
+OpenAPI endpoint before starting Vite:
 
 ```bash
 pnpm dev
@@ -53,8 +54,8 @@ The API is available at **http://localhost:3000** and the web app at
 
 ## Turborepo
 
-The root scripts delegate workspace orchestration to the local Turborepo
-binary. You can use the shortcuts above or invoke Turbo directly:
+The root build, lint, format, test, and development scripts delegate workspace
+orchestration to the local Turborepo binary:
 
 ```bash
 pnpm turbo run dev
@@ -65,7 +66,9 @@ pnpm turbo run format:check
 ```
 
 Turbo runs each task across the API, web, and shared workspaces according to
-`turbo.json`, including task dependencies and build outputs.
+`turbo.json`, including task dependencies, persistent dev servers, and build
+outputs. The web package declares the API as a runtime dependency and uses an
+HTTP readiness probe before launching Vite.
 
 To create a local ADMIN account for the protected web routes:
 

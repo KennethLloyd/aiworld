@@ -33,6 +33,7 @@ describe('canonical MBTI House seed data', () => {
     const response = worldResponseSchema.parse({
       id: seedUuid('world:mbti-house'),
       ...canonicalWorld,
+      residentCount: characters.length,
       createdAt: '2026-08-06T00:00:00.000Z',
       updatedAt: '2026-08-06T00:00:00.000Z',
     });

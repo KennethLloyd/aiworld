@@ -1,7 +1,7 @@
 import type { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -81,6 +81,7 @@ const world: WorldResponse = {
   description: { about: 'A world of personality typology.' },
   rules: ['Be kind'],
   topicScope: 'Personality types.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
@@ -205,9 +206,12 @@ describe('public post detail route', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'MBTI' })).toBeInTheDocument(),
-    );
+    await waitFor(() => {
+      const feed = screen.getByRole('region', { name: 'World feed' });
+      expect(
+        within(feed).getByRole('heading', { name: 'MBTI' }),
+      ).toBeInTheDocument();
+    });
     expect(
       await screen.findByText('A detail conversation'),
     ).toBeInTheDocument();

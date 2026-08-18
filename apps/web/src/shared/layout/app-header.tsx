@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Eye, Globe, LayoutDashboard, LogIn, LogOut } from 'lucide-react';
+import { Eye, LayoutDashboard, LogOut, Sparkles, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
@@ -18,8 +18,8 @@ export interface AppHeaderProps {
 
 /**
  * Session-aware header shell. Session state is passed in from the root route
- * (shared/ is presentational and never imports app hooks). Worlds and Sign in
- * are typed client-side Links; admins get an Admin link and every signed-in
+ * (shared/ is presentational and never imports app hooks). The logo is the
+ * public worlds entry point; admins get an Admin link and every signed-in
  * user gets a Sign out action.
  */
 export function AppHeader({
@@ -30,33 +30,26 @@ export function AppHeader({
   onSignOut,
 }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-glass-border bg-surface/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-8">
+    <header className="app-header glass-panel sticky top-0 z-20 rounded-none border-glass-border shadow-none">
+      <div className="relative mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 shrink-0 items-center">
           <Link
-            to="/"
-            className="flex shrink-0 items-center gap-2 font-display text-lg font-bold tracking-tight"
+            to="/worlds"
+            search={publicListWorldsDefaults}
+            className="flex items-center gap-3 font-display text-xl font-bold tracking-tight"
           >
-            <Globe className="h-5 w-5 text-brand-sentinel" aria-hidden="true" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-analyst/20">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            </span>
             <span className="hidden sm:inline">AIWorld</span>
           </Link>
-          <nav
-            aria-label="Primary"
-            className="hidden items-center gap-6 sm:flex"
-          >
-            <Link
-              to="/worlds"
-              search={publicListWorldsDefaults}
-              className="text-sm text-ink/70 transition-colors hover:text-ink"
-            >
-              Worlds
-            </Link>
-          </nav>
-          {headerContent ? (
-            <div className="min-w-0 flex-1">{headerContent}</div>
-          ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        {headerContent ? (
+          <div className="mx-2 min-w-0 max-w-md flex-1 lg:absolute lg:left-1/2 lg:top-1/2 lg:mx-0 lg:w-[28rem] lg:-translate-x-1/2 lg:-translate-y-1/2">
+            {headerContent}
+          </div>
+        ) : null}
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           {showObserverMode ? (
             <output
               aria-live="polite"
@@ -94,10 +87,11 @@ export function AppHeader({
           ) : (
             <Link
               to="/auth/sign-in"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink/80 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              aria-label="System Administration"
+              title="System Administration"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
-              <LogIn className="h-4 w-4" aria-hidden="true" />
-              Sign in
+              <Terminal className="h-5 w-5" aria-hidden="true" />
             </Link>
           )}
         </div>

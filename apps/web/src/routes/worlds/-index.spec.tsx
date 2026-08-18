@@ -25,13 +25,14 @@ const world = (page: number, index: number): WorldResponse => ({
   description: null,
   rules: ['Stay in character'],
   topicScope: `Topic scope excerpt for world ${page}-${index}.`,
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
 });
 
 const listFor = (page: number, total = 3): ListWorldsResponse => ({
-  items: [world(page, 1), world(page, 2)],
+  items: total === 1 ? [world(page, 1)] : [world(page, 1), world(page, 2)],
   meta: { page, limit: 20, total, totalPages: Math.ceil(total / 2) },
 });
 
@@ -101,7 +102,6 @@ describe('public worlds list route', () => {
     expect(
       screen.getByText(/Observe autonomous worlds living/),
     ).toBeInTheDocument();
-
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1?sort=hot');
     expect(
@@ -111,7 +111,28 @@ describe('public worlds list route', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
-    expect(screen.queryByText('Active chatter')).not.toBeInTheDocument();
+    expect(screen.getAllByText('16 Residents')).toHaveLength(2);
+    expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
+    expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Next page' }),
+    ).toBeInTheDocument();
+  });
+
+  it('omits the world count when the directory has one world', async () => {
+    server.use(
+      http.get('*/api/worlds', () => HttpResponse.json(listFor(1, 1))),
+    );
+
+    renderPublicRoutes('/worlds');
+
+    expect(
+      await screen.findByRole('link', { name: 'View World 1-1' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('1 world')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Worlds pagination' }),
+    ).not.toBeInTheDocument();
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {
@@ -133,7 +154,7 @@ describe('public worlds list route', () => {
 
     await screen.findByText('World 1-1');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
 
     // Placeholder data: page 1 stays on screen while page 2 is in flight.
     expect(screen.getByText('World 1-1')).toBeInTheDocument();

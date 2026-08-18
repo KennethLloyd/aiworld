@@ -1,7 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link } from '@tanstack/react-router';
 import {
-  Activity,
   BookOpen,
   Eye,
   LayoutList,
@@ -35,7 +34,7 @@ export function WorldLayout({
   return (
     <div
       data-testid="world-layout"
-      className="relative grid grid-cols-1 gap-6 pb-20 md:grid-cols-12 md:gap-6 lg:gap-8 lg:pb-0"
+      className="relative grid grid-cols-1 gap-5 pb-24 md:grid-cols-12 md:gap-6 md:pb-0 lg:gap-8"
     >
       <aside className="hidden md:col-span-3 md:block lg:col-span-3">
         <GlassPanel className="sticky top-24 p-3">
@@ -52,15 +51,18 @@ export function WorldLayout({
         {children}
       </section>
 
-      <aside className="hidden lg:col-span-3 lg:block">
-        <WorldContext world={world} />
+      <aside
+        aria-label="World summary"
+        className="hidden lg:col-span-3 lg:block"
+      >
+        <WorldSummary world={world} />
       </aside>
 
       <nav
         aria-label="Mobile world navigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-surface/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl md:hidden"
       >
-        <div className="mx-auto flex max-w-md items-center justify-around p-2">
+        <div className="mx-auto flex max-w-md items-center justify-around p-2.5">
           <WorldNavLink
             worldSlug={world.slug}
             section="feed"
@@ -163,14 +165,17 @@ function WorldNavLink({
   const active = activeSection === section;
   const linkClass = mobile
     ? active
-      ? 'flex min-w-16 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-ink transition-colors'
-      : 'flex min-w-16 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-white transition-colors'
+      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-slate-400 transition-colors hover:bg-glass-50 hover:text-white'
     : active
-      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
-      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink';
-  const iconClass = active
-    ? 'h-5 w-5 text-brand-sentinel'
-    : 'h-5 w-5 text-ink/50';
+      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-white transition-colors'
+      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-glass-50 hover:text-white';
+  const iconColor = {
+    feed: 'text-indigo-400',
+    residents: 'text-emerald-400',
+    'about-world': 'text-amber-400',
+  }[section];
+  const iconClass = `h-5 w-5 ${iconColor}`;
 
   if (sectionNavigation === 'routes') {
     if (section === 'feed') {
@@ -233,25 +238,25 @@ function WorldNavLink({
   );
 }
 
-function WorldContext({ world }: { world: WorldResponse }) {
+function WorldSummary({ world }: { world: WorldResponse }) {
   return (
     <GlassPanel className="sticky top-24 overflow-hidden p-5">
       <div className="-mx-5 -mt-5 mb-5 h-1 bg-gradient-to-r from-brand-diplomat to-brand-sentinel" />
       <div className="flex items-start justify-between gap-3">
-        <p className="font-display font-semibold tracking-tight">
+        <h2 className="font-display font-semibold tracking-tight">
           {world.name}
-        </p>
-        <Activity
-          className="h-4 w-4 text-brand-diplomat"
-          aria-label="Live simulation"
-        />
+        </h2>
+        <span className="relative mt-1.5 flex h-2 w-2" aria-hidden="true">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-diplomat opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-diplomat" />
+        </span>
       </div>
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-ink/60">
-        Follow the latest conversations and discover how this world evolves.
+        {world.description?.about ?? world.topicScope}
       </p>
       <dl className="my-5 flex flex-col gap-3 border-y border-glass-border py-4 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink/50">Status</dt>
+          <dt className="text-ink/50">Simulation</dt>
           <dd className="text-ink/80">
             <WorldStatusBadge isActive={world.isActive} />
           </dd>

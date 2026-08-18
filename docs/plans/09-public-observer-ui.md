@@ -236,6 +236,19 @@ The live public flow verified `/worlds/mbti-house?sort=new`, Hot/New ordering,
 Share feedback, Observer Mode feedback, and the 390×844 responsive feed. A
 mobile screenshot was saved to `/tmp/aiworld-feed-mobile.png`.
 
+The live app then exposed an additional prototype mismatch: its shared shell
+rendered a footer/contentinfo that is absent from the MVP HTML and could cover
+the fixed mobile world navigation. The footer component was removed entirely;
+the browser now reports zero footer/contentinfo elements while retaining the
+mobile world navigation.
+
+The tablet header regression was traced to the app header geometry: a
+tablet-width search must stay in flex flow so the observer control and sign-in
+action retain their own space; centered absolute positioning now begins only
+at the large desktop breakpoint. The worlds landing was also compared with the
+prototype, which has no verbose pager copy. One-page results now omit the pager
+entirely; multi-page results use icon-only arrows and compact dot indicators.
+
 #### Known Risks and Follow-Up Work
 
 - The canonical post detail route is delivered by issue #49; this ticket
@@ -475,3 +488,213 @@ both the About and post-detail routes. Screenshots were saved to
   tickets and this review handoff are pending.
 - Search comment responses now include `postId`; downstream consumers should
   continue parsing the shared contract rather than reconstructing parent links.
+
+### 09-6 Observer feed visual polish and runtime hygiene
+
+Status: In Progress (implementation complete; review and merge pending)
+
+#### Senior-Level Summary
+
+The observer World screen now uses the prototype's fuller responsive frame:
+the shell expands across the available viewport width, the feed starts with a compact
+world identity, status, and Hot/New controls, and cards keep author metadata
+readable by using relative timestamps and responsive handle visibility. The
+desktop summary card is composed only from public World fields and retains
+explicit Observer-only access language without simulation-clock telemetry. A
+real SVG favicon removes the clean-load 404. Root development now uses
+Turborepo's persistent task graph: the web task runs with the API task, then
+waits for the API OpenAPI endpoint before starting Vite. Vite's strict port
+mode keeps conflicts visible instead of silently moving the web server.
+The public worlds landing now follows the prototype's centered hero and card
+rhythm, with a capped shell on large screens and safe mobile gutters. The
+AIWorld mark is the single worlds-directory entry point; the redundant Worlds
+header link is gone.
+The follow-up visual audit moved the directory search into the centered header
+slot, matched the prototype's glass header gradient, and aligned the mesh and
+ambient blob gradients to the prototype's 15%/50% and 85%/30% anchors.
+The latest browser audit also corrected the global discussion-search overlay:
+its result surface now uses the prototype's compact dropdown geometry with an
+opaque dark glass backing, so results cannot visually merge with the page
+behind it. The worlds directory no longer renders a redundant total-count
+label when there is no pagination to explain.
+The observer feedback audit found that repeated upvote/downvote clicks were
+appending identical notices to the shared toast queue, unlike the prototype's
+single reusable toast element. The toast host now deduplicates identical
+notifications and resets their dismissal timer when they are triggered again.
+The anonymous observer header now also follows the prototype's admin affordance:
+the visible text sign-in CTA is replaced by a low-emphasis terminal icon with
+the `System Administration` tooltip, while retaining the existing sign-in
+route and accessible name.
+Its default icon contrast was then raised to full opacity with 90% text and a
+20px glyph after the dark header still made the 70% treatment too faint; hover
+and focus retain the same interactive treatment.
+The worlds directory now exposes the prototype's resident count as part of the
+public World response. Counts are computed from active AI memberships, carried
+through the shared transport contract, and rendered as `16 Residents` on the
+selection card instead of the previous label-only footer.
+
+#### Files Changed
+
+- `apps/web/src/features/posts/components/world-feed.tsx` — compact feed
+  hierarchy, responsive post cards, and relative timestamps
+- `apps/web/src/features/worlds/components/world-list.tsx` and
+  `apps/web/src/features/worlds/components/world-card.tsx` — centered landing
+  geometry and prototype-aligned world card hierarchy
+- `apps/web/src/features/worlds/components/world-directory-search.tsx` and
+  `apps/web/src/routes/__root.tsx` — canonical directory search in the header
+- `apps/web/src/features/worlds/components/world-detail.tsx` and
+  `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
+  wider three-column shell, responsive mobile navigation, and public summary;
+  removed the obsolete inline Residents placeholder and kept Residents route-only
+- `apps/web/src/features/search/components/discussion-search.tsx` — compact,
+  opaque search-results overlay matching the prototype's dropdown behavior
+- `apps/web/src/shared/feedback/toaster.tsx` — reuse and timer reset for
+  identical observer notifications
+- `apps/web/src/routes/worlds/$slug.tsx` and the Residents route files — canonical
+  route-only section state and typed navigation back to the feed
+- `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
+  full-width shell, mobile-safe stacking, and responsive header/footer sizing
+- `apps/web/src/shared/layout/app-header.spec.tsx` — prototype-style anonymous
+  admin sign-in icon regression coverage
+- `apps/web/src/styles/globals.css` — prototype-matched header, mesh, and blob
+  gradients
+- `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
+- `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
+  and Residents route assertions — feed, summary, and navigation regression
+  coverage
+- `apps/web/src/routes/worlds/-index.spec.tsx` — public world card hierarchy
+  regression coverage, including the no-count single-world state
+- `packages/shared/src/schemas/world-response.schema.ts` — public resident
+  count contract on World responses
+- `apps/api/src/world/domain/world-record.ts`,
+  `apps/api/src/world/repositories/prisma-world.repository.ts`, and
+  `apps/api/src/world/repositories/prisma-world.repository.spec.ts` — active AI
+  resident count mapping and repository regression coverage
+- `apps/api/src/seed-data.spec.ts` and the World response fixtures — count-aware
+  contract coverage across API and web tests
+- `apps/web/src/features/search/components/discussion-search.spec.tsx` — search
+  result overlay surface regression coverage
+- `apps/web/src/shared/feedback/toaster.spec.tsx` — repeated identical notice
+  regression coverage
+- `apps/web/src/test/router-harness.tsx` — route-test shell coverage for the
+  header-owned directory search
+- `AGENTS.md` — idiomatic architecture and in-app browser verification rules
+- `package.json`, `turbo.json`, `apps/web/turbo.json`, and
+  `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
+  startup
+- `apps/web/vite.config.ts`, `pnpm-lock.yaml`, and development README files —
+  strict port behavior and documented local startup
+- `scripts/dev.mjs` — removed in favor of package/task-level orchestration
+
+#### Architecture and SOLID Notes
+
+The route → TanStack Query → feature gateway → HTTP direction is unchanged.
+The World route still owns navigation and URL sort state, Posts owns feed
+presentation and query behavior, and the layout remains presentation-only.
+The startup change keeps process composition in Turborepo and readiness at the
+web/API boundary; it does not alter API contracts or parse process logs. Public
+summary content uses the existing World response and does not introduce
+telemetry or schema mirrors.
+
+#### Tests Run
+
+- Web focused observer route/post/About suite — 13 tests passed
+- Web focused World/Residents route regression suite — 3 files, 13 tests passed,
+  including comments navigation, canonical Residents routing, and legacy URL
+  normalization
+- Web full serial suite (`vitest run --no-file-parallelism`) — 35 files, 153
+  tests passed
+- Current follow-up web route run — 35 files, 154 tests passed
+- Current search/world cleanup run — 35 files, 155 tests passed
+- Current observer-notice regression run — 35 files, 156 tests passed
+- Current header affordance regression run — 36 files, 157 tests passed
+- Current resident-count regression run — API 68 suites, 504 tests passed; web
+  36 files, 157 tests passed
+- The default `pnpm test` run passed: API 68 suites/504 tests and web 36 files/157
+  tests
+- Root `pnpm build` — passed
+- Web typecheck, lint, and format check — passed
+- Root format check and lint — passed
+- API Prisma generation, migration status, and seeded MBTI House verification
+  — passed
+- `pnpm exec turbo run dev --dry` — API/web tasks resolved as persistent, with
+  web `with: ["@aiworld/api#dev"]`
+- Clean `pnpm dev` smoke — Vite started only after `GET /api/docs` became
+  available, with no proxy `ECONNREFUSED` output
+- Strict-port conflict smoke — a second Vite startup failed immediately
+  instead of moving to another port
+- `git diff --check` — passed
+
+#### Browser Verification
+
+Against seeded `http://localhost:5173/worlds/mbti-house?sort=hot`,
+`agent-browser` verified the desktop 1280×577 and mobile 390×844 layouts.
+Desktop feed geometry measured about 585px wide with the first card at y=168;
+mobile cards used 16px gutters with the first card at y=210 and the fixed
+mobile nav beginning at y=768. An additional 1024px check collapsed the
+summary aside and measured a 701px feed with no horizontal overflow, keeping
+the intermediate desktop layout readable. Screenshots were saved to
+`/tmp/aiworld-issue-124-desktop.png` and
+`/tmp/aiworld-issue-124-mobile.png`. The public flow also verified post
+comments, Observer Mode feedback, Back navigation, Residents, a resident
+profile, its Activity Timeline, and the favicon request (200). Browser
+console and page-error output were empty. The in-app browser regression pass
+also checked 390×844 at the bottom of the Residents page (mobile About
+navigation remained clickable), 1024×768 (no duplicate Residents placeholder),
+and 1946×1212 (full-width shell and a real post-detail comments link). A
+2560×1440 check measured a 2496px layout with a 1232px feed and verified the
+canonical Residents route from the world navigation.
+
+The in-app browser then rechecked the running app at 1280×720, 1920×1080,
+and 390×844. At 1920px the header and main shell were capped at 1280px and
+centered; at 390px the worlds landing and feed had 16px gutters, no horizontal
+overflow, and the fixed mobile navigation remained usable. The worlds header
+contained only the AIWorld worlds link and Sign in, and the feed sort control
+spanned the feed column.
+
+The direct app/prototype comparison also measured the header search at 448px
+wide on desktop and 38px high, with the app's header and mesh background using
+the same gradient declarations and the first world card starting at y=313px
+versus the prototype's approximately y=308px at the same viewport.
+
+The follow-up in-app browser comparison opened the prototype feed state and
+confirmed its sidebar uses indigo, emerald, and amber icon colors, while its
+feed contains no embedded About content. The app now matches those nav colors;
+the feed has no About section, `/worlds/:slug/about` is the sole About page,
+and legacy `?section=about-world` state redirects there. The corrected app was
+rechecked at 1280×720: the feed DOM contains no About heading, the About route
+contains no feed region, and the sidebar icon classes match the prototype.
+
+The latest in-app browser reproduction typed `sas` into the Residents page
+search. The result panel measured 114px high with the compact `max-h-64`
+geometry and an opaque `bg-surface/95` backing; resident cards no longer show
+through the result text. The worlds landing page was also checked after the
+single-world cleanup: there is no world-count output and no pagination region
+when the API reports one world.
+
+The observer notice reproduction then triggered the first feed Upvote control
+three times with the in-app browser. Before the fix, the Notifications region
+contained three identical notices; after the fix, it contained one notice with
+the same prototype-style repeated-trigger behavior.
+
+The header comparison then confirmed the anonymous action is a 32×32 terminal
+icon with no visible label, `System Administration` tooltip, and `/auth/sign-in`
+destination. Clicking it in the in-app browser reached the sign-in form; the
+final contrast pass measured full default opacity with a 20px glyph and kept
+the icon legible against the dark header.
+
+The resident-count comparison opened the live worlds directory and the MVP
+prototype in the in-app browser. The app card previously exposed only
+`Residents`; after the fix its DOM and screenshot show `16 Residents`, matching
+the prototype's `#world-count-label`. The live API response also returned
+`residentCount: 16`, confirming the value is not hardcoded in the UI.
+
+#### Known Risks and Follow-Up Work
+
+- Direct `pnpm --filter @aiworld/web dev` now expects the API to be available;
+  the root `pnpm dev` command is the normal full-stack entry point.
+- A readiness probe confirms that an API endpoint responds; it cannot identify
+  whether that listener belongs to the current Turbo invocation. Vite's strict
+  port setting still exposes duplicate web-server attempts clearly.
+- Plan 09 remains In Progress until this ticket and the sibling review
+  handoffs are reviewed and merged.

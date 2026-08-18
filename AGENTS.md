@@ -65,6 +65,16 @@
 - Add focused unit tests for domain decisions and integration or e2e tests for
   boundary behavior.
 
+## Architecture and Idiomaticity
+
+- Treat idiomatic, framework-native architecture as a hard project constraint.
+- Prefer the capabilities already provided by Turborepo, Vite, React,
+  TanStack Query, Tailwind, and the existing feature boundaries before adding
+  custom scripts, monkey patches, test harnesses, or other workaround layers.
+- Do not add noisy or non-idiomatic scaffolding to hide a race condition or
+  paper over an unclear ownership boundary. If a workaround is unavoidable,
+  document the architectural reason and keep it isolated and minimal.
+
 ## Verification
 
 From the repository root, run the checks relevant to the change:
@@ -87,8 +97,13 @@ DATABASE_URL='postgres://postgres:postgres@localhost:5432/aiworld' \
 pnpm --filter @aiworld/api test:e2e
 ```
 
-For UI work, run the relevant `agent-browser` flow from the plan after the
-application is running. Re-snapshot after navigation or dynamic UI changes.
+For UI work, prefer the `control-in-app-browser` skill when it is available:
+use it to inspect the rendered page, exercise the affected interactions, and
+spot responsive or visual UX regressions directly. Run the relevant
+`agent-browser` flow from the plan as a complementary automated check or as a
+fallback when the in-app browser is unavailable. Re-snapshot after navigation
+or dynamic UI changes; automated tests do not replace direct browser
+verification for UI behavior.
 
 ## Security and Git Hygiene
 

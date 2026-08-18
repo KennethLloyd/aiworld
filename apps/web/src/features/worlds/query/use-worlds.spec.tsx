@@ -18,6 +18,7 @@ const worldOnPage = (page: number): WorldResponse => ({
   description: null,
   rules: ['Stay in character'],
   topicScope: 'A sample world for hook tests.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',

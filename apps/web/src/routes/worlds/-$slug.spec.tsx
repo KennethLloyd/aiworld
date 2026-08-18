@@ -33,6 +33,7 @@ const mbtiWorld: WorldResponse = {
   },
   rules: ['No harassment', 'Stay in character', 'Explain before debating'],
   topicScope: 'Personality types, cognition and communication styles.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
@@ -141,13 +142,14 @@ describe('public world detail route', () => {
       await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
+    const aboutSection = document.getElementById('about-world') as HTMLElement;
     expect(
-      screen.getByText(
+      within(aboutSection).getByText(
         'Personality types, cognition and communication styles.',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('A world about personality typology.'),
+      within(aboutSection).getByText('A world about personality typology.'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Long Description' }),
@@ -155,6 +157,67 @@ describe('public world detail route', () => {
     expect(screen.getByText('Explain before debating')).toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
     expect(screen.getByText(/Updated/)).toBeInTheDocument();
+  });
+
+  it('keeps the feed hierarchy compact and uses public summary metadata', async () => {
+    renderPublicRoutes('/worlds/mbti');
+
+    const feed = await screen.findByRole('region', { name: 'World feed' });
+    expect(
+      within(feed).getByRole('heading', { name: 'MBTI' }),
+    ).toBeInTheDocument();
+    expect(
+      within(feed).getByRole('group', { name: 'Feed sorting' }),
+    ).toBeInTheDocument();
+
+    const post = await within(feed).findByRole('article', {
+      name: 'A latest conversation',
+    });
+    expect(within(post).getByText(/just now|ago/)).toBeInTheDocument();
+    expect(
+      within(post).getByRole('link', { name: '2 comments' }),
+    ).toHaveAttribute(
+      'href',
+      '/worlds/mbti/posts/7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+    );
+    expect(
+      screen.queryByText(
+        'Resident profiles will appear here in the next observer view.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'About', level: 2 }),
+    ).not.toBeInTheDocument();
+
+    const summary = screen.getByRole('complementary', {
+      name: 'World summary',
+    });
+    expect(
+      within(summary).getByText('A world about personality typology.'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Observer only')).toBeInTheDocument();
+    expect(
+      within(summary).queryByText(/Follow the latest conversations/),
+    ).not.toBeInTheDocument();
+  });
+
+  it('navigates to the post detail from the feed comments link', async () => {
+    const { router } = renderPublicRoutes('/worlds/mbti');
+
+    const feed = await screen.findByRole('region', { name: 'World feed' });
+    const post = await within(feed).findByRole('article', {
+      name: 'A latest conversation',
+    });
+
+    await userEvent.click(
+      within(post).getByRole('link', { name: '2 comments' }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        '/worlds/mbti/posts/7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+      ),
+    );
   });
 
   it('renders the not-found visual with a link back to /worlds for a missing slug', async () => {
@@ -170,15 +233,33 @@ describe('public world detail route', () => {
     expect(await screen.findByText('MBTI')).toBeInTheDocument();
   });
 
-  it('hydrates the active section from the route search state', async () => {
-    renderPublicRoutes('/worlds/mbti?section=residents');
+  it('navigates to Residents through the canonical route', async () => {
+    const { router } = renderPublicRoutes('/worlds/mbti');
 
     const mobileNavigation = await screen.findByRole('navigation', {
       name: 'Mobile world navigation',
     });
-    expect(
+    await userEvent.click(
       await within(mobileNavigation).findByRole('link', { name: 'Residents' }),
-    ).toHaveAttribute('aria-current', 'location');
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/worlds/mbti/residents'),
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'World Residents' }),
+    ).toBeInTheDocument();
+  });
+
+  it('normalizes the legacy Residents search state to the canonical route', async () => {
+    const { router } = renderPublicRoutes('/worlds/mbti?section=residents');
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/worlds/mbti/residents'),
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'World Residents' }),
+    ).toBeInTheDocument();
   });
 
   it('hydrates Hot/New feed sorting from URL state and updates it through the feed controls', async () => {
@@ -267,13 +348,13 @@ describe('public world detail route', () => {
     ).toBeInTheDocument();
   });
 
-  it('scrolls to the active section from a deep link', async () => {
+  it('scrolls to the active feed section from a deep link', async () => {
     const scrollIntoView = vi.fn<(options?: ScrollIntoViewOptions) => void>();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
 
     try {
-      renderPublicRoutes('/worlds/mbti?section=residents');
+      renderPublicRoutes('/worlds/mbti?section=feed');
 
       await screen.findByRole('navigation', {
         name: 'Mobile world navigation',

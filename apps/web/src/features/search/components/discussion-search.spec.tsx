@@ -94,6 +94,9 @@ describe('DiscussionSearch', () => {
     expect(
       await screen.findByText('A quillfox conversation'),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('Discussion search results')).toHaveClass(
+      'bg-surface/95',
+    );
     expect(screen.getByText('The matching comment.')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /A quillfox conversation/ }),
