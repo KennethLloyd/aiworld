@@ -84,6 +84,7 @@ describe('ActivityController', () => {
         createdAt: '2026-08-06T09:00:00.000Z',
         updatedAt: '2026-08-06T09:00:00.000Z',
         replies: [],
+        postId: commentRecordFixture.record.postId,
         postTitle: 'Who actually uses the microwave for FISH?',
       },
     ],

@@ -308,3 +308,87 @@ evidence was saved to `/tmp/aiworld-post-detail-mobile.png`.
   should reuse the same accessible feedback contract.
 - Resident profile links from post authors and comments belong to the later
   resident/profile ticket and are not introduced here.
+
+### 09-4 Residents, profile, and activity timeline
+
+Status: In Progress (implementation complete; review and merge pending)
+
+#### Senior-Level Summary
+
+The public observer now has a world-scoped Residents grid and canonical
+resident profile route. Profiles compose the existing World shell with
+character identity, traits, biography, and a merged post/comment Activity
+Timeline. The timeline uses the shared keyset-paginated activity contract,
+TanStack Query `useInfiniteQuery`, newest-first ordering from the API, per-kind
+icons, vote scores, and canonical post-detail links. Feed authors, post-detail
+authors/comments, the residents grid, and the profile header all expose
+resident navigation. The shared activity contract now carries `postId` on
+comment items so every timeline entry can open its parent post.
+
+#### Files Changed
+
+- `apps/web/src/features/characters/` — character gateway, HTTP adapter,
+  queries, Residents grid, profile, and Activity Timeline
+- `apps/web/src/routes/worlds/$slug_.residents.tsx` and
+  `apps/web/src/routes/worlds/$slug_.residents_.$characterId.tsx` — list and
+  non-nested profile routes with loading, error, retry, and Back behavior
+- `apps/web/src/features/posts/components/world-feed.tsx` and
+  `post-detail.tsx` — resident links from every public identity surface
+- `apps/web/src/features/worlds/components/world-layout.tsx` — Residents
+  navigation to the canonical route
+- `apps/web/src/providers/gateways-provider.tsx`, route tree, and router
+  harness — composition and route-test wiring
+- `packages/shared/src/schemas/activity-response.schema.ts` — parent post ID
+  on comment activity items
+- `packages/shared/src/schemas/author-response.schema.ts` and
+  `apps/api/src/comments/domain/content-author.ts` — optional Character ID
+  alongside the WorldMember author ID for AI author profile navigation
+- `apps/api/src/activity/` and `apps/api/test/character-activity.e2e-spec.ts`
+  — response mapping, OpenAPI documentation, and contract fixture coverage
+- Focused web route/query/gateway tests and API activity mapper/controller
+  coverage
+
+#### Architecture and SOLID Notes
+
+The implementation keeps the route → query → gateway → HTTP direction. The
+world slug is part of list/activity cache keys and activity requests, while
+the shared Zod contracts remain the transport source of truth. The profile
+route uses TanStack Router's non-nesting filename suffix because the Residents
+list is a complete page without an Outlet; its public URL remains
+`/worlds/$slug/residents/$characterId`. The API remains responsible for public
+character visibility, world membership, merged ordering, cursor creation, and
+the distinction between WorldMember and Character author identities. HUMAN
+authors remain valid content identities but do not receive Character profile
+links.
+
+#### Tests Run
+
+- Web focused route/query/gateway suite — 6 files, 18 tests passed
+- Web full serial suite (`vitest run --no-file-parallelism`) — 31 files, 144
+  tests passed
+- Web typecheck, lint, format check, and production build — passed
+- API activity unit/controller/mapping suite — 6 suites, 33 tests passed
+- `git diff --check` — passed
+
+#### Browser Verification
+
+With seeded PostgreSQL, API, and web services, `agent-browser` verified the
+world directory, the Residents navigation, the 16-character Residents grid,
+a direct resident profile at `/worlds/mbti-house/residents/<characterId>`, the
+profile Activity Timeline with a canonical post link, and Back returning to
+the Residents grid. Cursor continuation is covered by the infinite-query
+test; the seeded profile used for the browser smoke flow had no second page.
+
+#### Known Risks and Follow-Up Work
+
+- Issue #50 remains In Progress until its review pull request is reviewed and
+  merged; Plan 09 remains In Progress while sibling tickets are pending.
+- The shared `postId` addition is required for comment click-through and is
+  covered by API mapper/controller/e2e fixtures; downstream consumers should
+  continue parsing the shared contract.
+- Public author `id` remains the WorldMember identifier for compatibility and
+  OP comparisons; AI authors additionally expose `characterId`, while HUMAN
+  authors omit it because they are not Character profiles.
+- The repository's existing full API typecheck still reports unrelated search
+  fixture errors and implicit-any errors in the e2e spec; the affected API
+  activity tests and the running API compile cleanly.

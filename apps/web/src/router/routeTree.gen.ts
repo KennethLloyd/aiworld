@@ -20,7 +20,9 @@ import { Route as WorldsIndexRouteImport } from './../routes/worlds/index'
 import { Route as WorldsSlugRouteImport } from './../routes/worlds/$slug'
 import { Route as AdminWorldsSlugRouteImport } from './../routes/admin/worlds.$slug'
 import { Route as AdminWorldsNewRouteImport } from './../routes/admin/worlds.new'
+import { Route as WorldsSlugResidentsRouteImport } from './../routes/worlds/$slug_.residents'
 import { Route as WorldsSlugPostsPostIdRouteImport } from './../routes/worlds/$slug_.posts.$postId'
+import { Route as WorldsSlugResidentsCharacterIdRouteImport } from './../routes/worlds/$slug_.residents_.$characterId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,11 +79,22 @@ const AdminWorldsNewRoute = AdminWorldsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AdminWorldsRoute,
 } as any)
+const WorldsSlugResidentsRoute = WorldsSlugResidentsRouteImport.update({
+  id: '/worlds/$slug_/residents',
+  path: '/worlds/$slug/residents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorldsSlugPostsPostIdRoute = WorldsSlugPostsPostIdRouteImport.update({
   id: '/worlds/$slug_/posts/$postId',
   path: '/worlds/$slug/posts/$postId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorldsSlugResidentsCharacterIdRoute =
+  WorldsSlugResidentsCharacterIdRouteImport.update({
+    id: '/worlds/$slug_/residents_/$characterId',
+    path: '/worlds/$slug/residents/$characterId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -95,7 +108,9 @@ export interface FileRoutesByFullPath {
   '/worlds/': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug/residents': typeof WorldsSlugResidentsRoute
   '/worlds/$slug/posts/$postId': typeof WorldsSlugPostsPostIdRoute
+  '/worlds/$slug/residents/$characterId': typeof WorldsSlugResidentsCharacterIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -108,7 +123,9 @@ export interface FileRoutesByTo {
   '/worlds': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug/residents': typeof WorldsSlugResidentsRoute
   '/worlds/$slug/posts/$postId': typeof WorldsSlugPostsPostIdRoute
+  '/worlds/$slug/residents/$characterId': typeof WorldsSlugResidentsCharacterIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,7 +140,9 @@ export interface FileRoutesById {
   '/worlds/': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug_/residents': typeof WorldsSlugResidentsRoute
   '/worlds/$slug_/posts/$postId': typeof WorldsSlugPostsPostIdRoute
+  '/worlds/$slug_/residents_/$characterId': typeof WorldsSlugResidentsCharacterIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,7 +158,9 @@ export interface FileRouteTypes {
     | '/worlds/'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug/residents'
     | '/worlds/$slug/posts/$postId'
+    | '/worlds/$slug/residents/$characterId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -152,7 +173,9 @@ export interface FileRouteTypes {
     | '/worlds'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug/residents'
     | '/worlds/$slug/posts/$postId'
+    | '/worlds/$slug/residents/$characterId'
   id:
     | '__root__'
     | '/'
@@ -166,7 +189,9 @@ export interface FileRouteTypes {
     | '/worlds/'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug_/residents'
     | '/worlds/$slug_/posts/$postId'
+    | '/worlds/$slug_/residents_/$characterId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -177,7 +202,9 @@ export interface RootRouteChildren {
   AuthSignInRoute: typeof AuthSignInRoute
   WorldsSlugRoute: typeof WorldsSlugRoute
   WorldsIndexRoute: typeof WorldsIndexRoute
+  WorldsSlugResidentsRoute: typeof WorldsSlugResidentsRoute
   WorldsSlugPostsPostIdRoute: typeof WorldsSlugPostsPostIdRoute
+  WorldsSlugResidentsCharacterIdRoute: typeof WorldsSlugResidentsCharacterIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -259,11 +286,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWorldsNewRouteImport
       parentRoute: typeof AdminWorldsRoute
     }
+    '/worlds/$slug_/residents': {
+      id: '/worlds/$slug_/residents'
+      path: '/worlds/$slug/residents'
+      fullPath: '/worlds/$slug/residents'
+      preLoaderRoute: typeof WorldsSlugResidentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/worlds/$slug_/posts/$postId': {
       id: '/worlds/$slug_/posts/$postId'
       path: '/worlds/$slug/posts/$postId'
       fullPath: '/worlds/$slug/posts/$postId'
       preLoaderRoute: typeof WorldsSlugPostsPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/worlds/$slug_/residents_/$characterId': {
+      id: '/worlds/$slug_/residents_/$characterId'
+      path: '/worlds/$slug/residents/$characterId'
+      fullPath: '/worlds/$slug/residents/$characterId'
+      preLoaderRoute: typeof WorldsSlugResidentsCharacterIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -305,7 +346,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignInRoute: AuthSignInRoute,
   WorldsSlugRoute: WorldsSlugRoute,
   WorldsIndexRoute: WorldsIndexRoute,
+  WorldsSlugResidentsRoute: WorldsSlugResidentsRoute,
   WorldsSlugPostsPostIdRoute: WorldsSlugPostsPostIdRoute,
+  WorldsSlugResidentsCharacterIdRoute: WorldsSlugResidentsCharacterIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

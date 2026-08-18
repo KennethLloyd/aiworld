@@ -1,4 +1,5 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
+import { Link } from '@tanstack/react-router';
 import {
   Activity,
   BookOpen,
@@ -36,6 +37,7 @@ export function WorldLayout({
       <aside className="hidden md:col-span-3 md:block lg:col-span-3">
         <GlassPanel className="sticky top-24 p-3">
           <WorldNavigation
+            worldSlug={world.slug}
             activeSection={activeSection}
             onNavigate={onSectionChange}
           />
@@ -56,6 +58,7 @@ export function WorldLayout({
       >
         <div className="mx-auto flex max-w-md items-center justify-around p-2">
           <WorldNavLink
+            worldSlug={world.slug}
             section="feed"
             icon={LayoutList}
             label="Feed"
@@ -63,6 +66,7 @@ export function WorldLayout({
             onNavigate={onSectionChange}
           />
           <WorldNavLink
+            worldSlug={world.slug}
             section="residents"
             icon={Users}
             label="Residents"
@@ -70,6 +74,7 @@ export function WorldLayout({
             onNavigate={onSectionChange}
           />
           <WorldNavLink
+            worldSlug={world.slug}
             section="about-world"
             icon={BookOpen}
             label="About"
@@ -83,15 +88,18 @@ export function WorldLayout({
 }
 
 function WorldNavigation({
+  worldSlug,
   activeSection,
   onNavigate,
 }: {
+  worldSlug: string;
   activeSection: WorldSection;
   onNavigate: (section: WorldSection) => void;
 }) {
   return (
     <nav aria-label="World navigation" className="flex flex-col gap-1">
       <WorldNavLink
+        worldSlug={worldSlug}
         section="feed"
         icon={LayoutList}
         label="The Feed"
@@ -99,6 +107,7 @@ function WorldNavigation({
         onNavigate={onNavigate}
       />
       <WorldNavLink
+        worldSlug={worldSlug}
         section="residents"
         icon={Users}
         label="Residents"
@@ -106,6 +115,7 @@ function WorldNavigation({
         onNavigate={onNavigate}
       />
       <WorldNavLink
+        worldSlug={worldSlug}
         section="about-world"
         icon={BookOpen}
         label="About World"
@@ -117,12 +127,14 @@ function WorldNavigation({
 }
 
 function WorldNavLink({
+  worldSlug,
   section,
   icon: Icon,
   label,
   activeSection,
   onNavigate,
 }: {
+  worldSlug: string;
   section: WorldSection;
   icon: LucideIcon;
   label: string;
@@ -130,6 +142,29 @@ function WorldNavLink({
   onNavigate: (section: WorldSection) => void;
 }) {
   const active = activeSection === section;
+
+  if (section === 'residents') {
+    return (
+      <Link
+        to="/worlds/$slug/residents"
+        params={{ slug: worldSlug }}
+        aria-current={active ? 'location' : undefined}
+        className={
+          active
+            ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-ink transition-colors'
+            : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+        }
+      >
+        <Users
+          className={
+            active ? 'h-5 w-5 text-brand-sentinel' : 'h-5 w-5 text-ink/50'
+          }
+          aria-hidden="true"
+        />
+        {label}
+      </Link>
+    );
+  }
 
   return (
     <a

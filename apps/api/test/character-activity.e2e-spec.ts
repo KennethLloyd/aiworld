@@ -494,6 +494,7 @@ describe('Character activity (real database)', () => {
     expect(res.body.items[0].author).toEqual(authorIdentityA);
     expect(res.body.items[1].kind).toBe('comment');
     expect(res.body.items[1].id).toBe(commentA2Id);
+    expect(res.body.items[1].postId).toBe(postA2Id);
     expect(res.body.items[1].postTitle).toBe('Someone else\u2019s post');
     expect(res.body.items[1].replies).toEqual([]);
     expect(res.body.items[1].voteScore).toBe(2);
@@ -912,6 +913,7 @@ describe('Character activity (HTTP boundary)', () => {
         'createdAt',
         'id',
         'kind',
+        'postId',
         'postTitle',
         'replies',
         'updatedAt',
@@ -921,6 +923,7 @@ describe('Character activity (HTTP boundary)', () => {
     expect(postItem.voteScore).toBe(5);
     expect(commentItem.voteScore).toBe(2);
     expect(commentItem.postTitle).toBe(postRow.title);
+    expect(commentItem.postId).toBe(postRow.id);
   });
 
   it('queries each stream after the cursor with the page size plus one, one grouped vote query per entity', async () => {

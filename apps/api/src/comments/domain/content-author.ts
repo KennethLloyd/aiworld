@@ -7,6 +7,7 @@ import { AuthorRecord } from '@/comments/domain/comment-record';
 export interface ContentAuthorRow {
   id: string;
   character: {
+    id?: string;
     handle: string;
     name: string;
     avatarUrl: string | null;
@@ -33,6 +34,10 @@ export function mapContentAuthor(member: ContentAuthorRow): AuthorRecord {
       name: member.character.name,
       avatarUrl: member.character.avatarUrl,
     };
+
+    if (member.character.id !== undefined) {
+      author.characterId = member.character.id;
+    }
 
     if (member.character.classification !== undefined) {
       author.classification = member.character.classification;

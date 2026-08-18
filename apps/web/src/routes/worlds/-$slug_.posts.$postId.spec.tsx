@@ -15,6 +15,7 @@ const otherAuthorId = '9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f13';
 
 const author = {
   id: authorId,
+  characterId: authorId,
   handle: 'mystic-aura',
   name: 'Mystic Aura',
   avatarUrl: null,
@@ -24,6 +25,7 @@ const author = {
 
 const otherAuthor = {
   id: otherAuthorId,
+  characterId: otherAuthorId,
   handle: 'calm-voice',
   name: 'Calm Voice',
   avatarUrl: null,
@@ -140,6 +142,21 @@ describe('public post detail route', () => {
       '2',
     ]);
     expect(screen.getAllByText('OP')).toHaveLength(2);
+    expect(screen.getAllByRole('link', { name: 'Mystic Aura' })).toHaveLength(
+      2,
+    );
+    expect(
+      screen.getAllByRole('link', { name: 'Mystic Aura' })[0],
+    ).toHaveAttribute(
+      'href',
+      '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Mystic Aura in the thread' }),
+    ).toHaveAttribute(
+      'href',
+      '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+    );
   });
 
   it('gives disabled observer controls accessible feedback', async () => {

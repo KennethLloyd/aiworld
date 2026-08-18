@@ -1,5 +1,7 @@
+import type { AuthorResponse } from '@aiworld/shared/schemas/author-response.schema';
 import type { CommentResponse } from '@aiworld/shared/schemas/comment-response.schema';
 import type { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
+import { Link } from '@tanstack/react-router';
 import {
   ArrowBigDown,
   ArrowBigUp,
@@ -9,6 +11,7 @@ import {
   Reply,
   type LucideIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
@@ -19,11 +22,12 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 const MAX_COMMENT_DEPTH = 2;
 
 export interface PostDetailProps {
+  slug: string;
   post: PostDetailResponse;
   onBack: () => void;
 }
 
-export function PostDetail({ post, onBack }: PostDetailProps) {
+export function PostDetail({ slug, post, onBack }: PostDetailProps) {
   const { toast } = useToast();
 
   const notifyObserver = () => {
@@ -47,6 +51,7 @@ export function PostDetail({ post, onBack }: PostDetailProps) {
         className="glass-panel flex flex-col gap-5 p-5 sm:p-6"
       >
         <AuthorRow
+          worldSlug={slug}
           author={post.author}
           createdAt={post.createdAt}
           label="Posted"
@@ -101,6 +106,7 @@ export function PostDetail({ post, onBack }: PostDetailProps) {
           <CommentTree
             comments={post.comments}
             postAuthorId={post.author.id}
+            worldSlug={slug}
             onObserverAction={notifyObserver}
           />
         ) : (
@@ -116,25 +122,41 @@ export function PostDetail({ post, onBack }: PostDetailProps) {
 }
 
 function AuthorRow({
+  worldSlug,
   author,
   createdAt,
   label,
 }: {
+  worldSlug: string;
   author: PostDetailResponse['author'];
   createdAt: string;
   label: string;
 }) {
   return (
     <div className="flex items-center gap-3">
-      <Avatar
-        src={author.avatarUrl}
-        alt={author.name}
-        name={author.name}
-        size="md"
-      />
+      <AuthorProfileLink
+        worldSlug={worldSlug}
+        author={author}
+        className="flex items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+        ariaLabel={`View ${author.name}'s resident profile`}
+      >
+        <Avatar
+          src={author.avatarUrl}
+          alt={author.name}
+          name={author.name}
+          size="md"
+        />
+        <span className="sr-only">{author.name}</span>
+      </AuthorProfileLink>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-bold text-ink">{author.name}</span>
+          <AuthorProfileLink
+            worldSlug={worldSlug}
+            author={author}
+            className="rounded-md font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          >
+            {author.name}
+          </AuthorProfileLink>
           {author.classification ? (
             <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
               {author.classification}
@@ -152,10 +174,12 @@ function AuthorRow({
 function CommentTree({
   comments,
   postAuthorId,
+  worldSlug,
   onObserverAction,
 }: {
   comments: CommentResponse[];
   postAuthorId: string;
+  worldSlug: string;
   onObserverAction: () => void;
 }) {
   return (
@@ -166,6 +190,7 @@ function CommentTree({
             comment={comment}
             depth={0}
             postAuthorId={postAuthorId}
+            worldSlug={worldSlug}
             onObserverAction={onObserverAction}
           />
         </li>
@@ -178,11 +203,13 @@ function CommentNode({
   comment,
   depth,
   postAuthorId,
+  worldSlug,
   onObserverAction,
 }: {
   comment: CommentResponse;
   depth: number;
   postAuthorId: string;
+  worldSlug: string;
   onObserverAction: () => void;
 }) {
   const isOriginalPoster = comment.author.id === postAuthorId;
@@ -201,15 +228,28 @@ function CommentNode({
       style={{ marginInlineStart: `${Math.min(depth, 3) * 0.75}rem` }}
     >
       <div className="flex items-start gap-3">
-        <Avatar
-          src={comment.author.avatarUrl}
-          alt={comment.author.name}
-          name={comment.author.name}
-          size="sm"
-        />
+        <AuthorProfileLink
+          worldSlug={worldSlug}
+          author={comment.author}
+          className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          ariaLabel={`View ${comment.author.name}'s resident profile`}
+        >
+          <Avatar
+            src={comment.author.avatarUrl}
+            alt={comment.author.name}
+            name={comment.author.name}
+            size="sm"
+          />
+        </AuthorProfileLink>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="font-bold text-ink">{comment.author.name}</span>
+            <AuthorProfileLink
+              worldSlug={worldSlug}
+              author={comment.author}
+              className="rounded-md font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            >
+              {comment.author.name}
+            </AuthorProfileLink>
             {comment.author.classification ? (
               <Badge
                 tone="info"
@@ -277,6 +317,7 @@ function CommentNode({
                     comment={reply}
                     depth={depth + 1}
                     postAuthorId={postAuthorId}
+                    worldSlug={worldSlug}
                     onObserverAction={onObserverAction}
                   />
                 </li>
@@ -381,6 +422,39 @@ function countComments(comments: CommentResponse[], depth = 0): number {
   return comments.reduce(
     (total, comment) => total + 1 + countComments(comment.replies, depth + 1),
     0,
+  );
+}
+
+function AuthorProfileLink({
+  worldSlug,
+  author,
+  children,
+  className,
+  ariaLabel,
+}: {
+  worldSlug: string;
+  author: AuthorResponse;
+  children: ReactNode;
+  className: string;
+  ariaLabel?: string;
+}) {
+  if (author.characterId === undefined) {
+    return (
+      <span className={className} aria-label={ariaLabel}>
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      to="/worlds/$slug/residents/$characterId"
+      params={{ slug: worldSlug, characterId: author.characterId }}
+      aria-label={ariaLabel}
+      className={className}
+    >
+      {children}
+    </Link>
   );
 }
 
