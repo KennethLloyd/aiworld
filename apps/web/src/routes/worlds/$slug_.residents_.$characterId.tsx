@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router';
 
 import { ApiError } from '@/core/api/api-error';
-import { CharacterProfile } from '@/features/characters/components/character-profile';
+import { ResidentProfile } from '@/features/characters/components/resident-profile';
 import { useCharacter } from '@/features/characters/query/use-character';
 import { useCharacterActivity } from '@/features/characters/query/use-character-activity';
 import {
@@ -19,10 +19,10 @@ import { ErrorState } from '@/shared/ui/error-state';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export const Route = createFileRoute('/worlds/$slug_/residents_/$characterId')({
-  component: CharacterProfileRoute,
+  component: ResidentProfileRoute,
 });
 
-function CharacterProfileRoute() {
+function ResidentProfileRoute() {
   const { slug, characterId } = Route.useParams();
   const navigate = Route.useNavigate();
   const router = useRouter();
@@ -43,7 +43,7 @@ function CharacterProfileRoute() {
   };
 
   return (
-    <CharacterProfileScreen
+    <ResidentProfileScreen
       slug={slug}
       world={worldQuery.data}
       character={characterQuery.data}
@@ -74,14 +74,14 @@ function CharacterProfileRoute() {
   );
 }
 
-export interface CharacterProfileScreenProps {
+export interface ResidentProfileScreenProps {
   slug: string;
   world: WorldResponse | undefined;
   character: CharacterResponse | undefined;
   activity:
     | {
         items: Parameters<
-          typeof CharacterProfile
+          typeof ResidentProfile
         >[0]['activity'][number]['items'];
       }[]
     | undefined;
@@ -99,7 +99,7 @@ export interface CharacterProfileScreenProps {
   onSectionChange: (section: WorldSection) => void;
 }
 
-export function CharacterProfileScreen({
+export function ResidentProfileScreen({
   slug,
   world,
   character,
@@ -116,7 +116,7 @@ export function CharacterProfileScreen({
   onRetry,
   onBack,
   onSectionChange,
-}: CharacterProfileScreenProps) {
+}: ResidentProfileScreenProps) {
   if (worldPending || characterPending || activityPending) {
     return <ProfileSkeleton />;
   }
@@ -168,7 +168,7 @@ export function CharacterProfileScreen({
       activeSection="residents"
       onSectionChange={onSectionChange}
     >
-      <CharacterProfile
+      <ResidentProfile
         worldSlug={slug}
         character={character}
         activity={activity}

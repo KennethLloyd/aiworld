@@ -8,7 +8,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
-export function CharacterProfile({
+export function ResidentProfile({
   worldSlug,
   character,
   activity,

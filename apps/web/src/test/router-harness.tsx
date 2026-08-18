@@ -14,8 +14,8 @@ import { Route as IndexRoute } from '@/routes/index';
 import { Route as WorldsIndexRoute } from '@/routes/worlds';
 import { Route as WorldDetailRoute } from '@/routes/worlds/$slug';
 import { Route as PostDetailRoute } from '@/routes/worlds/$slug_.posts.$postId';
-import { Route as CharactersRoute } from '@/routes/worlds/$slug_.residents';
-import { Route as CharacterProfileRoute } from '@/routes/worlds/$slug_.residents_.$characterId';
+import { Route as ResidentsRoute } from '@/routes/worlds/$slug_.residents';
+import { Route as ResidentProfileRoute } from '@/routes/worlds/$slug_.residents_.$characterId';
 import { Toaster } from '@/shared/feedback/toaster';
 
 export interface RenderPublicRoutesOptions {
@@ -63,23 +63,23 @@ export function renderPublicRoutes(
     path: '/worlds/$slug/posts/$postId',
     getParentRoute: () => rootRoute,
   } as unknown as Parameters<typeof PostDetailRoute.update>[0]);
-  const charactersRoute = CharactersRoute.update({
+  const residentsRoute = ResidentsRoute.update({
     id: '/worlds/$slug_/residents',
     path: '/worlds/$slug/residents',
     getParentRoute: () => rootRoute,
-  } as unknown as Parameters<typeof CharactersRoute.update>[0]);
-  const characterProfileRoute = CharacterProfileRoute.update({
+  } as unknown as Parameters<typeof ResidentsRoute.update>[0]);
+  const residentProfileRoute = ResidentProfileRoute.update({
     id: '/worlds/$slug_/residents_/$characterId',
     path: '/worlds/$slug/residents/$characterId',
     getParentRoute: () => rootRoute,
-  } as unknown as Parameters<typeof CharacterProfileRoute.update>[0]);
+  } as unknown as Parameters<typeof ResidentProfileRoute.update>[0]);
   const routeTree = rootRoute.addChildren({
     index: indexRoute,
     worlds: worldsRoute,
     'worlds/$slug': worldDetailRoute,
     'worlds/$slug/posts/$postId': postDetailRoute,
-    'worlds/$slug/residents': charactersRoute,
-    'worlds/$slug/residents/$characterId': characterProfileRoute,
+    'worlds/$slug/residents': residentsRoute,
+    'worlds/$slug/residents/$characterId': residentProfileRoute,
   });
   const router = createRouter({
     routeTree,

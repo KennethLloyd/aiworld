@@ -3,7 +3,7 @@ import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schem
 import { createFileRoute } from '@tanstack/react-router';
 
 import { ApiError } from '@/core/api/api-error';
-import { CharactersGrid } from '@/features/characters/components/characters-grid';
+import { ResidentsGrid } from '@/features/characters/components/residents-grid';
 import { useCharacters } from '@/features/characters/query/use-characters';
 import {
   WorldLayout,
@@ -14,17 +14,17 @@ import { ErrorState } from '@/shared/ui/error-state';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export const Route = createFileRoute('/worlds/$slug_/residents')({
-  component: CharactersRoute,
+  component: ResidentsRoute,
 });
 
-function CharactersRoute() {
+function ResidentsRoute() {
   const { slug } = Route.useParams();
   const navigate = Route.useNavigate();
   const worldQuery = useWorld(slug, { polling: true });
   const charactersQuery = useCharacters(slug);
 
   return (
-    <CharactersScreen
+    <ResidentsScreen
       slug={slug}
       world={worldQuery.data}
       characters={charactersQuery.data?.items}
@@ -47,7 +47,7 @@ function CharactersRoute() {
   );
 }
 
-export interface CharactersScreenProps {
+export interface ResidentsScreenProps {
   slug: string;
   world: WorldResponse | undefined;
   characters: CharacterResponse[] | undefined;
@@ -59,7 +59,7 @@ export interface CharactersScreenProps {
   onSectionChange: (section: WorldSection) => void;
 }
 
-export function CharactersScreen({
+export function ResidentsScreen({
   slug,
   world,
   characters,
@@ -69,9 +69,9 @@ export function CharactersScreen({
   charactersError,
   onRetry,
   onSectionChange,
-}: CharactersScreenProps) {
+}: ResidentsScreenProps) {
   if (worldPending || charactersPending) {
-    return <CharactersSkeleton />;
+    return <ResidentsSkeleton />;
   }
 
   if (worldError instanceof ApiError && worldError.status === 404) {
@@ -115,13 +115,13 @@ export function CharactersScreen({
       onSectionChange={onSectionChange}
     >
       <section id="residents" className="scroll-mt-24">
-        <CharactersGrid worldSlug={slug} characters={characters} />
+        <ResidentsGrid worldSlug={slug} characters={characters} />
       </section>
     </WorldLayout>
   );
 }
 
-function CharactersSkeleton() {
+function ResidentsSkeleton() {
   return (
     <div
       aria-label="Loading residents"

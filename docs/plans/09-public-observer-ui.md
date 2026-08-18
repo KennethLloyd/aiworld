@@ -316,7 +316,7 @@ Status: In Progress (implementation complete; review and merge pending)
 #### Senior-Level Summary
 
 The public observer now has a world-scoped Residents grid and canonical
-resident profile route. Profiles compose the existing World shell with
+Resident profile route. Profiles compose the existing World shell with
 character identity, traits, biography, and a merged post/comment Activity
 Timeline. The timeline uses the shared keyset-paginated activity contract,
 TanStack Query `useInfiniteQuery`, newest-first ordering from the API, per-kind

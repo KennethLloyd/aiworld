@@ -5,7 +5,7 @@ import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
-export function CharactersGrid({
+export function ResidentsGrid({
   worldSlug,
   characters,
 }: {
