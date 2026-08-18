@@ -517,6 +517,10 @@ its result surface now uses the prototype's compact dropdown geometry with an
 opaque dark glass backing, so results cannot visually merge with the page
 behind it. The worlds directory no longer renders a redundant total-count
 label when there is no pagination to explain.
+The observer feedback audit found that repeated upvote/downvote clicks were
+appending identical notices to the shared toast queue, unlike the prototype's
+single reusable toast element. The toast host now deduplicates identical
+notifications and resets their dismissal timer when they are triggered again.
 
 #### Files Changed
 
@@ -533,6 +537,8 @@ label when there is no pagination to explain.
   removed the obsolete inline Residents placeholder and kept Residents route-only
 - `apps/web/src/features/search/components/discussion-search.tsx` — compact,
   opaque search-results overlay matching the prototype's dropdown behavior
+- `apps/web/src/shared/feedback/toaster.tsx` — reuse and timer reset for
+  identical observer notifications
 - `apps/web/src/routes/worlds/$slug.tsx` and the Residents route files — canonical
   route-only section state and typed navigation back to the feed
 - `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
@@ -547,6 +553,8 @@ label when there is no pagination to explain.
   regression coverage, including the no-count single-world state
 - `apps/web/src/features/search/components/discussion-search.spec.tsx` — search
   result overlay surface regression coverage
+- `apps/web/src/shared/feedback/toaster.spec.tsx` — repeated identical notice
+  regression coverage
 - `apps/web/src/test/router-harness.tsx` — route-test shell coverage for the
   header-owned directory search
 - `AGENTS.md` — idiomatic architecture and in-app browser verification rules
@@ -577,6 +585,7 @@ telemetry or schema mirrors.
   tests passed
 - Current follow-up web route run — 35 files, 154 tests passed
 - Current search/world cleanup run — 35 files, 155 tests passed
+- Current observer-notice regression run — 35 files, 156 tests passed
 - The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
   its concurrent web-file run hit unrelated local timeout contention, while the
   serial web rerun above passed completely
@@ -639,6 +648,11 @@ geometry and an opaque `bg-surface/95` backing; resident cards no longer show
 through the result text. The worlds landing page was also checked after the
 single-world cleanup: there is no world-count output and no pagination region
 when the API reports one world.
+
+The observer notice reproduction then triggered the first feed Upvote control
+three times with the in-app browser. Before the fix, the Notifications region
+contained three identical notices; after the fix, it contained one notice with
+the same prototype-style repeated-trigger behavior.
 
 #### Known Risks and Follow-Up Work
 

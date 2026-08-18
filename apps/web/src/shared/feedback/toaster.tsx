@@ -63,6 +63,7 @@ const toneTextClasses: Record<ToastTone, string> = {
  */
 export function Toaster({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastsRef = useRef<Toast[]>([]);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const dismiss = useCallback((id: string) => {
@@ -71,7 +72,11 @@ export function Toaster({ children }: { children: ReactNode }) {
       clearTimeout(timer);
     }
     timers.current.delete(id);
-    setToasts((previous) => previous.filter((item) => item.id !== id));
+    setToasts((previous) => {
+      const next = previous.filter((item) => item.id !== id);
+      toastsRef.current = next;
+      return next;
+    });
   }, []);
 
   const pause = useCallback((id: string) => {
@@ -95,16 +100,28 @@ export function Toaster({ children }: { children: ReactNode }) {
 
   const toast = useCallback(
     (input: ToastInput) => {
-      const id = `toast-${nextToastId++}`;
-      setToasts((previous) => [
-        ...previous.slice(-(MAX_TOASTS - 1)),
-        {
-          ...input,
-          variant:
-            input.variant ?? (input.tone === 'error' ? 'alert' : 'status'),
-          id,
-        },
-      ]);
+      const variant =
+        input.variant ?? (input.tone === 'error' ? 'alert' : 'status');
+      const existing = toastsRef.current.find(
+        (item) =>
+          item.tone === input.tone &&
+          item.title === input.title &&
+          item.description === input.description &&
+          item.variant === variant,
+      );
+      const id = existing?.id ?? `toast-${nextToastId++}`;
+      const nextToast: Toast = { ...input, variant, id };
+      const nextToasts = existing
+        ? toastsRef.current.map((item) => (item.id === id ? nextToast : item))
+        : [...toastsRef.current.slice(-(MAX_TOASTS - 1)), nextToast];
+
+      toastsRef.current = nextToasts;
+      setToasts(nextToasts);
+      const timer = timers.current.get(id);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+        timers.current.delete(id);
+      }
       resume(id);
     },
     [resume],

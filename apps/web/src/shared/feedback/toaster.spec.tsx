@@ -66,6 +66,17 @@ describe('Toaster', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Failed');
   });
 
+  it('reuses an identical notification instead of stacking duplicates', () => {
+    setup();
+
+    const trigger = screen.getByRole('button', { name: 'Push error' });
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
   it('auto-dismisses after the timeout and pauses on hover', () => {
     vi.useFakeTimers();
     setup();
