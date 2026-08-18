@@ -3,7 +3,7 @@ import {
   type PostSort,
 } from '@aiworld/shared/schemas/post.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { Globe } from 'lucide-react';
 import { z } from 'zod';
 
@@ -25,6 +25,15 @@ const worldDetailSearchSchema = z.object({
 
 export const Route = createFileRoute('/worlds/$slug')({
   validateSearch: (input) => worldDetailSearchSchema.parse(input),
+  beforeLoad: ({ params, search }) => {
+    if (search.section === 'residents') {
+      throw redirect({
+        to: '/worlds/$slug/residents',
+        params: { slug: params.slug },
+        replace: true,
+      });
+    }
+  },
   component: WorldDetailRoute,
 });
 
@@ -40,7 +49,10 @@ function WorldDetailRoute() {
       activeSection={section ?? 'feed'}
       onSectionChange={(nextSection) =>
         void navigate({
-          search: (previous) => ({ ...previous, section: nextSection }),
+          search: (previous) => ({
+            ...previous,
+            section: nextSection,
+          }),
         })
       }
       onSortChange={(nextSort) =>

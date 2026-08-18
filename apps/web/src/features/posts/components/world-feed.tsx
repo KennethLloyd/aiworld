@@ -246,10 +246,15 @@ function PostCard({
           {post.content}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50 sm:mt-4">
-          <span className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1">
+          <Link
+            to="/worlds/$slug/posts/$postId"
+            params={{ slug, postId: post.id }}
+            aria-label={`${post.commentCount} comments`}
+            className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
+          >
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {post.commentCount} comments
-          </span>
+          </Link>
           <button
             type="button"
             onClick={onShare}

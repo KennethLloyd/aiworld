@@ -483,7 +483,7 @@ Status: In Progress (implementation complete; review and merge pending)
 #### Senior-Level Summary
 
 The observer World screen now uses the prototype's fuller responsive frame:
-the shell expands to the 7xl content width, the feed starts with a compact
+the shell expands across the available viewport width, the feed starts with a compact
 world identity, status, and Hot/New controls, and cards keep author metadata
 readable by using relative timestamps and responsive handle visibility. The
 desktop summary card is composed only from public World fields and retains
@@ -499,14 +499,17 @@ mode keeps conflicts visible instead of silently moving the web server.
   hierarchy, responsive post cards, and relative timestamps
 - `apps/web/src/features/worlds/components/world-detail.tsx` and
   `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
-  wider three-column shell, responsive mobile navigation, and public summary
-- `apps/web/src/routes/worlds/$slug.tsx` — passes the World display name to the
-  feed presentation boundary
-- `apps/web/src/shared/layout/app-shell.tsx` and `app-header.tsx` — wider shell,
-  mobile-safe spacing, and responsive header sizing
+  wider three-column shell, responsive mobile navigation, and public summary;
+  removed the obsolete inline Residents placeholder and kept Residents route-only
+- `apps/web/src/routes/worlds/$slug.tsx` and the Residents route files — canonical
+  route-only section state and typed navigation back to the feed
+- `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
+  full-width shell, mobile-safe stacking, and responsive header/footer sizing
 - `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
 - `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
-  assertions — feed, summary, and navigation regression coverage
+  and Residents route assertions — feed, summary, and navigation regression
+  coverage
+- `AGENTS.md` — idiomatic architecture and in-app browser verification rules
 - `package.json`, `turbo.json`, `apps/web/turbo.json`, and
   `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
   startup
@@ -527,8 +530,14 @@ telemetry or schema mirrors.
 #### Tests Run
 
 - Web focused observer route/post/About suite — 13 tests passed
-- Full `pnpm test` — API 67 suites, 503 tests passed; web 35 files, 152
+- Web focused World/Residents route regression suite — 3 files, 13 tests passed,
+  including comments navigation, canonical Residents routing, and legacy URL
+  normalization
+- Web full serial suite (`vitest run --no-file-parallelism`) — 35 files, 153
   tests passed
+- The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
+  its concurrent web-file run hit unrelated local timeout contention, while the
+  serial web rerun above passed completely
 - Root `pnpm build` — passed
 - Web typecheck, lint, and format check — passed
 - Root format check and lint — passed
@@ -555,7 +564,12 @@ the intermediate desktop layout readable. Screenshots were saved to
 `/tmp/aiworld-issue-124-mobile.png`. The public flow also verified post
 comments, Observer Mode feedback, Back navigation, Residents, a resident
 profile, its Activity Timeline, and the favicon request (200). Browser
-console and page-error output were empty.
+console and page-error output were empty. The in-app browser regression pass
+also checked 390×844 at the bottom of the Residents page (mobile About
+navigation remained clickable), 1024×768 (no duplicate Residents placeholder),
+and 1946×1212 (full-width shell and a real post-detail comments link). A
+2560×1440 check measured a 2496px layout with a 1232px feed and verified the
+canonical Residents route from the world navigation.
 
 #### Known Risks and Follow-Up Work
 

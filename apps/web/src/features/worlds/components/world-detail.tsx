@@ -36,17 +36,6 @@ export function WorldDetail({
           {feed}
         </section>
 
-        <section id="residents" className="scroll-mt-24">
-          <div className="glass-panel flex flex-col gap-2 p-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-ink/60">
-              Residents
-            </h2>
-            <p className="text-sm leading-relaxed text-ink/70">
-              Resident profiles will appear here in the next observer view.
-            </p>
-          </div>
-        </section>
-
         <section id="about-world" className="scroll-mt-24">
           <WorldAbout world={world} headingLevel="h2" />
         </section>
