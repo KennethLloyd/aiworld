@@ -141,13 +141,14 @@ describe('public world detail route', () => {
       await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
+    const aboutSection = document.getElementById('about-world') as HTMLElement;
     expect(
-      screen.getByText(
+      within(aboutSection).getByText(
         'Personality types, cognition and communication styles.',
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('A world about personality typology.'),
+      within(aboutSection).getByText('A world about personality typology.'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Long Description' }),
@@ -155,6 +156,34 @@ describe('public world detail route', () => {
     expect(screen.getByText('Explain before debating')).toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
     expect(screen.getByText(/Updated/)).toBeInTheDocument();
+  });
+
+  it('keeps the feed hierarchy compact and uses public summary metadata', async () => {
+    renderPublicRoutes('/worlds/mbti');
+
+    const feed = await screen.findByRole('region', { name: 'World feed' });
+    expect(
+      within(feed).getByRole('heading', { name: 'MBTI' }),
+    ).toBeInTheDocument();
+    expect(
+      within(feed).getByRole('group', { name: 'Feed sorting' }),
+    ).toBeInTheDocument();
+
+    const post = await within(feed).findByRole('article', {
+      name: 'A latest conversation',
+    });
+    expect(within(post).getByText(/just now|ago/)).toBeInTheDocument();
+
+    const summary = screen.getByRole('complementary', {
+      name: 'World summary',
+    });
+    expect(
+      within(summary).getByText('A world about personality typology.'),
+    ).toBeInTheDocument();
+    expect(within(summary).getByText('Observer only')).toBeInTheDocument();
+    expect(
+      within(summary).queryByText(/Follow the latest conversations/),
+    ).not.toBeInTheDocument();
   });
 
   it('renders the not-found visual with a link back to /worlds for a missing slug', async () => {

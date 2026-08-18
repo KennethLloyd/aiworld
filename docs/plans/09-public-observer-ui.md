@@ -475,3 +475,84 @@ both the About and post-detail routes. Screenshots were saved to
   tickets and this review handoff are pending.
 - Search comment responses now include `postId`; downstream consumers should
   continue parsing the shared contract rather than reconstructing parent links.
+
+### 09-6 Observer feed visual polish and runtime hygiene
+
+Status: In Progress (implementation complete; review and merge pending)
+
+#### Senior-Level Summary
+
+The observer World screen now uses the prototype's fuller responsive frame:
+the shell expands to the 7xl content width, the feed starts with a compact
+world identity, status, and Hot/New controls, and cards keep author metadata
+readable by using relative timestamps and responsive handle visibility. The
+desktop summary card is composed only from public World fields and retains
+explicit Observer-only access language without simulation-clock telemetry. A
+real SVG favicon removes the clean-load 404. Root development now starts Nest
+first, waits for its successful listen message, and only then starts Vite; bind
+failures remain visible and prevent a misleading web startup.
+
+#### Files Changed
+
+- `apps/web/src/features/posts/components/world-feed.tsx` — compact feed
+  hierarchy, responsive post cards, and relative timestamps
+- `apps/web/src/features/worlds/components/world-detail.tsx` and
+  `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
+  wider three-column shell, responsive mobile navigation, and public summary
+- `apps/web/src/routes/worlds/$slug.tsx` — passes the World display name to the
+  feed presentation boundary
+- `apps/web/src/shared/layout/app-shell.tsx` and `app-header.tsx` — wider shell,
+  mobile-safe spacing, and responsive header sizing
+- `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
+- `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
+  assertions — feed, summary, and navigation regression coverage
+- `scripts/dev.mjs`, `package.json`, and development README files — API
+  readiness-ordered local startup
+
+#### Architecture and SOLID Notes
+
+The route → TanStack Query → feature gateway → HTTP direction is unchanged.
+The World route still owns navigation and URL sort state, Posts owns feed
+presentation and query behavior, and the layout remains presentation-only.
+The startup change is isolated to the local process composition root; it does
+not alter API contracts or hide genuine API failures. Public summary content
+uses the existing World response and does not introduce telemetry or schema
+mirrors.
+
+#### Tests Run
+
+- Web focused observer route/post/About suite — 13 tests passed
+- Full `pnpm test` — API 67 suites, 503 tests passed; web 35 files, 152
+  tests passed
+- Root `pnpm build` — passed
+- Web typecheck, lint, and format check — passed
+- Root format check and lint — passed
+- API Prisma generation, migration status, and seeded MBTI House verification
+  — passed
+- `node --check scripts/dev.mjs` — passed
+- Oxfmt check for `scripts/dev.mjs` and `git diff --check` — passed
+- Clean `pnpm dev` smoke — API listen message preceded Vite startup with no
+  proxy `ECONNREFUSED` output; a deliberate port conflict stopped before Vite
+
+#### Browser Verification
+
+Against seeded `http://localhost:5173/worlds/mbti-house?sort=hot`,
+`agent-browser` verified the desktop 1280×577 and mobile 390×844 layouts.
+Desktop feed geometry measured about 585px wide with the first card at y=168;
+mobile cards used 16px gutters with the first card at y=210 and the fixed
+mobile nav beginning at y=768. An additional 1024px check collapsed the
+summary aside and measured a 701px feed with no horizontal overflow, keeping
+the intermediate desktop layout readable. Screenshots were saved to
+`/tmp/aiworld-issue-124-desktop.png` and
+`/tmp/aiworld-issue-124-mobile.png`. The public flow also verified post
+comments, Observer Mode feedback, Back navigation, Residents, a resident
+profile, its Activity Timeline, and the favicon request (200). Browser
+console and page-error output were empty.
+
+#### Known Risks and Follow-Up Work
+
+- The readiness launcher intentionally owns the root `pnpm dev` process
+  ordering; direct workspace `pnpm --filter ... dev` commands remain available
+  for isolated development.
+- Plan 09 remains In Progress until this ticket and the sibling review
+  handoffs are reviewed and merged.

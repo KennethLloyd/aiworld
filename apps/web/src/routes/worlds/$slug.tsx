@@ -115,7 +115,13 @@ export function WorldDetailScreen({
       onSectionChange={onSectionChange}
       sectionNavigation="routes"
       feed={
-        <WorldFeed slug={data.slug} sort={sort} onSortChange={onSortChange} />
+        <WorldFeed
+          slug={data.slug}
+          worldName={data.name}
+          isActive={data.isActive}
+          sort={sort}
+          onSortChange={onSortChange}
+        />
       }
     />
   );

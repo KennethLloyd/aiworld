@@ -36,8 +36,9 @@ describe('public About World route', () => {
     expect(
       await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
     ).toBeInTheDocument();
+    const aboutSection = document.getElementById('about-world') as HTMLElement;
     expect(
-      screen.getByText('A world of personality typology.'),
+      within(aboutSection).getByText('A world of personality typology.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Sixteen residents share one evolving house.'),

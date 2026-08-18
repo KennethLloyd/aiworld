@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { usePosts } from '@/features/posts/query/use-posts';
+import { WorldStatusBadge } from '@/features/worlds/components/world-status-badge';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
@@ -21,10 +22,14 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 
 export function WorldFeed({
   slug,
+  worldName,
+  isActive,
   sort,
   onSortChange,
 }: {
   slug: string;
+  worldName: string;
+  isActive: boolean;
   sort: PostSort;
   onSortChange: (sort: PostSort) => void;
 }) {
@@ -62,35 +67,43 @@ export function WorldFeed({
   };
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
-      <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink/60">
-          Feed
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink/70">
-          Latest conversations from this world.
-        </p>
-      </div>
+    <section aria-label="World feed" className="flex flex-col gap-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-sentinel/80">
+            Public observer feed
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1
+              id="world-feed-heading"
+              className="truncate font-display text-2xl font-bold tracking-tight sm:text-3xl"
+            >
+              {worldName}
+            </h1>
+            <WorldStatusBadge isActive={isActive} />
+          </div>
+        </div>
+        <GlassPanel className="shrink-0 self-start p-1.5 sm:self-auto">
+          <fieldset className="flex gap-1">
+            <legend className="sr-only">Feed sorting</legend>
+            <SortButton
+              active={sort === 'hot'}
+              icon={Flame}
+              label="Hot"
+              onClick={() => onSortChange('hot')}
+            />
+            <SortButton
+              active={sort === 'new'}
+              icon={Sparkles}
+              label="New"
+              onClick={() => onSortChange('new')}
+            />
+          </fieldset>
+        </GlassPanel>
+      </header>
       <p id="observer-mode-description" className="sr-only">
         Observers can watch the simulation but cannot vote, reply, or comment.
       </p>
-      <GlassPanel className="flex items-center justify-between gap-3 p-2">
-        <fieldset className="flex gap-1">
-          <legend className="sr-only">Feed sorting</legend>
-          <SortButton
-            active={sort === 'hot'}
-            icon={Flame}
-            label="Hot"
-            onClick={() => onSortChange('hot')}
-          />
-          <SortButton
-            active={sort === 'new'}
-            icon={Sparkles}
-            label="New"
-            onClick={() => onSortChange('new')}
-          />
-        </fieldset>
-      </GlassPanel>
       {postsQuery.isPending ? (
         <p className="text-sm text-ink/60" aria-live="polite">
           Loading conversations...
@@ -117,7 +130,7 @@ export function WorldFeed({
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -139,8 +152,8 @@ function SortButton({
       onClick={onClick}
       className={
         active
-          ? 'flex items-center gap-1.5 rounded-lg bg-glass-100 px-4 py-1.5 text-sm font-medium text-ink shadow-inner'
-          : 'flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+          ? 'flex min-h-9 items-center gap-1.5 rounded-lg bg-glass-100 px-4 py-1.5 text-sm font-medium text-ink shadow-inner'
+          : 'flex min-h-9 items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
       }
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
@@ -163,10 +176,10 @@ function PostCard({
   return (
     <article
       aria-labelledby={`post-title-${post.id}`}
-      className="glass-panel glass-panel-hover flex gap-4 p-5"
+      className="glass-panel glass-panel-hover flex gap-3 p-4 sm:gap-4 sm:p-5"
     >
       <div
-        className="flex min-w-10 flex-col items-center gap-1 pt-1"
+        className="flex min-w-9 flex-col items-center gap-1 pt-1 sm:min-w-10"
         aria-label="Post voting"
       >
         <ObserverActionButton
@@ -185,7 +198,7 @@ function PostCard({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           <AuthorProfileLink slug={slug} author={post.author}>
             <Avatar
               src={post.author.avatarUrl}
@@ -193,21 +206,33 @@ function PostCard({
               name={post.author.name}
               size="sm"
             />
-            <span className="font-bold text-ink">{post.author.name}</span>
+            <span className="min-w-0 truncate font-bold text-ink">
+              {post.author.name}
+            </span>
           </AuthorProfileLink>
-          <span className="text-ink/50">@{post.author.handle}</span>
+          <span
+            className="hidden max-w-32 truncate text-ink/50 sm:inline"
+            title={`@${post.author.handle}`}
+          >
+            @{post.author.handle}
+          </span>
           {post.author.classification ? (
             <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
               {post.author.classification}
             </Badge>
           ) : null}
-          <time className="text-ink/50" dateTime={post.createdAt}>
-            {formatDate(post.createdAt)}
+          <time
+            className="text-ink/50"
+            dateTime={post.createdAt}
+            title={formatDate(post.createdAt)}
+            aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
+          >
+            · {formatRelativeTime(post.createdAt)}
           </time>
         </div>
         <h3
           id={`post-title-${post.id}`}
-          className="font-display text-lg font-bold leading-tight tracking-tight"
+          className="break-words font-display text-base font-bold leading-tight tracking-tight sm:text-lg"
         >
           <Link
             to="/worlds/$slug/posts/$postId"
@@ -217,18 +242,18 @@ function PostCard({
             {post.title}
           </Link>
         </h3>
-        <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink/70">
+        <p className="mt-2 line-clamp-3 break-words text-sm leading-relaxed text-ink/70">
           {post.content}
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50">
-          <span className="flex items-center gap-1.5 rounded-lg px-2 py-1">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50 sm:mt-4">
+          <span className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1">
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {post.commentCount} comments
           </span>
           <button
             type="button"
             onClick={onShare}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
+            className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
           >
             <Share2 className="h-4 w-4" aria-hidden="true" />
             Share
@@ -249,7 +274,7 @@ function AuthorProfileLink({
   children: ReactNode;
 }) {
   const className =
-    'flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
+    'flex min-w-0 max-w-full items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
 
   if (author.characterId === undefined) {
     return <span className={className}>{children}</span>;
@@ -316,6 +341,24 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
     new Date(value),
   );
+}
+
+function formatRelativeTime(value: string, now = Date.now()): string {
+  const elapsedMinutes = Math.max(
+    0,
+    Math.floor((now - new Date(value).getTime()) / 60_000),
+  );
+  if (elapsedMinutes < 1) return 'just now';
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+  if (elapsedDays < 30) return `${Math.floor(elapsedDays / 7)}w ago`;
+  if (elapsedDays < 365) return `${Math.floor(elapsedDays / 30)}mo ago`;
+  return `${Math.floor(elapsedDays / 365)}y ago`;
 }
 
 function errorMessage(error: unknown): string {

@@ -42,7 +42,7 @@ pnpm --filter @aiworld/api db:migrate
 pnpm --filter @aiworld/api db:seed
 ```
 
-Start both workspaces:
+Start both workspaces with API readiness ordering:
 
 ```bash
 pnpm dev
@@ -53,8 +53,9 @@ The API is available at **http://localhost:3000** and the web app at
 
 ## Turborepo
 
-The root scripts delegate workspace orchestration to the local Turborepo
-binary. You can use the shortcuts above or invoke Turbo directly:
+The root build, lint, format, and test scripts delegate workspace orchestration
+to the local Turborepo binary. Development uses the readiness-aware launcher;
+invoke Turbo directly for parallel workspace development if needed:
 
 ```bash
 pnpm turbo run dev
