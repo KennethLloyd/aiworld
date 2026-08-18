@@ -19,6 +19,7 @@ function makeWorld(index: number): WorldResponse {
     description: null,
     rules: ['Stay in character'],
     topicScope: `Topic scope for world ${index}.`,
+    residentCount: 16,
     isActive: index % 2 === 0,
     createdAt: '2026-07-01T10:00:00.000Z',
     updatedAt: '2026-07-15T10:00:00.000Z',

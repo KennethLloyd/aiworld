@@ -16,6 +16,7 @@ const world: WorldResponse = {
   },
   rules: ['Be kind', 'Stay on topic'],
   topicScope: 'Personality types and cognition.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',

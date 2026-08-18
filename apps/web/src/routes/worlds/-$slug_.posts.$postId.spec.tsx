@@ -81,6 +81,7 @@ const world: WorldResponse = {
   description: { about: 'A world of personality typology.' },
   rules: ['Be kind'],
   topicScope: 'Personality types.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',

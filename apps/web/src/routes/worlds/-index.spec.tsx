@@ -25,6 +25,7 @@ const world = (page: number, index: number): WorldResponse => ({
   description: null,
   rules: ['Stay in character'],
   topicScope: `Topic scope excerpt for world ${page}-${index}.`,
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
@@ -110,6 +111,7 @@ describe('public worlds list route', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
+    expect(screen.getAllByText('16 Residents')).toHaveLength(2);
     expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
     expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
     expect(

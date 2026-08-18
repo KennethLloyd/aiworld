@@ -33,6 +33,7 @@ const mbtiWorld: WorldResponse = {
   },
   rules: ['No harassment', 'Stay in character', 'Explain before debating'],
   topicScope: 'Personality types, cognition and communication styles.',
+  residentCount: 16,
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',

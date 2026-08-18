@@ -50,7 +50,7 @@ export function WorldCard({ world }: { world: WorldResponse }) {
         <div className="relative z-10 flex items-center gap-6 border-t border-glass-border pt-4 text-sm text-ink/60">
           <span className="flex items-center gap-2">
             <Users className="h-4 w-4 text-brand-sentinel" aria-hidden="true" />
-            Residents
+            {world.residentCount} Residents
           </span>
           <span className="flex items-center gap-2">
             <MessageSquare

@@ -5,6 +5,7 @@ export interface WorldRecord {
   description: Record<string, string> | null;
   rules: string[];
   topicScope: string;
+  residentCount: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

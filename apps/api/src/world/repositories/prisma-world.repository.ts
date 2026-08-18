@@ -11,6 +11,16 @@ import { PrismaService } from '@/lib/database/prisma.service';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
+const residentMemberWhere: Prisma.WorldMemberWhereInput = {
+  role: 'AI',
+  isActive: true,
+  character: { isActive: true },
+};
+
+const residentCountInclude = {
+  _count: { select: { members: { where: residentMemberWhere } } },
+} as const;
+
 function isStringRecord(
   value: Prisma.JsonValue | null,
 ): value is Record<string, string> {
@@ -33,7 +43,7 @@ export class PrismaWorldRepository extends WorldRepository {
     super();
   }
 
-  private mapToWorldRecord(world: World): WorldRecord {
+  private mapToWorldRecord(world: World, residentCount = 0): WorldRecord {
     return {
       id: world.id,
       name: world.name,
@@ -41,6 +51,7 @@ export class PrismaWorldRepository extends WorldRepository {
       description: isStringRecord(world.description) ? world.description : null,
       rules: isStringArray(world.rules) ? world.rules : [],
       topicScope: world.topicScope,
+      residentCount,
       isActive: world.isActive,
       createdAt: world.createdAt,
       updatedAt: world.updatedAt,
@@ -58,6 +69,7 @@ export class PrismaWorldRepository extends WorldRepository {
     const [items, total] = await Promise.all([
       this.prisma.world.findMany({
         where,
+        include: residentCountInclude,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -65,7 +77,9 @@ export class PrismaWorldRepository extends WorldRepository {
     ]);
 
     return {
-      items: items.map((item) => this.mapToWorldRecord(item)),
+      items: items.map((item) =>
+        this.mapToWorldRecord(item, item._count.members),
+      ),
       meta: {
         page,
         limit,
@@ -81,6 +95,7 @@ export class PrismaWorldRepository extends WorldRepository {
   ): Promise<WorldRecord | null> {
     const item = await this.prisma.world.findUnique({
       where: { slug },
+      include: residentCountInclude,
     });
 
     // The active check is applied to the fetched record instead of the Prisma
@@ -90,7 +105,7 @@ export class PrismaWorldRepository extends WorldRepository {
       return null;
     }
 
-    return this.mapToWorldRecord(item);
+    return this.mapToWorldRecord(item, item._count.members);
   }
 
   async findById(id: string): Promise<WorldRecord | null> {

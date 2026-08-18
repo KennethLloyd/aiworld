@@ -12,6 +12,7 @@ export const worldResponseSchema = z.object({
   description: z.record(z.string(), z.string()).nullable(),
   rules: z.array(z.string()),
   topicScope: z.string(),
+  residentCount: z.number().int().nonnegative(),
   isActive: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

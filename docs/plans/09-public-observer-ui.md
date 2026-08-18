@@ -528,6 +528,10 @@ route and accessible name.
 Its default icon contrast was then raised to full opacity with 90% text and a
 20px glyph after the dark header still made the 70% treatment too faint; hover
 and focus retain the same interactive treatment.
+The worlds directory now exposes the prototype's resident count as part of the
+public World response. Counts are computed from active AI memberships, carried
+through the shared transport contract, and rendered as `16 Residents` on the
+selection card instead of the previous label-only footer.
 
 #### Files Changed
 
@@ -560,6 +564,14 @@ and focus retain the same interactive treatment.
   coverage
 - `apps/web/src/routes/worlds/-index.spec.tsx` — public world card hierarchy
   regression coverage, including the no-count single-world state
+- `packages/shared/src/schemas/world-response.schema.ts` — public resident
+  count contract on World responses
+- `apps/api/src/world/domain/world-record.ts`,
+  `apps/api/src/world/repositories/prisma-world.repository.ts`, and
+  `apps/api/src/world/repositories/prisma-world.repository.spec.ts` — active AI
+  resident count mapping and repository regression coverage
+- `apps/api/src/seed-data.spec.ts` and the World response fixtures — count-aware
+  contract coverage across API and web tests
 - `apps/web/src/features/search/components/discussion-search.spec.tsx` — search
   result overlay surface regression coverage
 - `apps/web/src/shared/feedback/toaster.spec.tsx` — repeated identical notice
@@ -596,9 +608,10 @@ telemetry or schema mirrors.
 - Current search/world cleanup run — 35 files, 155 tests passed
 - Current observer-notice regression run — 35 files, 156 tests passed
 - Current header affordance regression run — 36 files, 157 tests passed
-- The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
-  its concurrent web-file run hit unrelated local timeout contention, while the
-  serial web rerun above passed completely
+- Current resident-count regression run — API 68 suites, 504 tests passed; web
+  36 files, 157 tests passed
+- The default `pnpm test` run passed: API 68 suites/504 tests and web 36 files/157
+  tests
 - Root `pnpm build` — passed
 - Web typecheck, lint, and format check — passed
 - Root format check and lint — passed
@@ -669,6 +682,12 @@ icon with no visible label, `System Administration` tooltip, and `/auth/sign-in`
 destination. Clicking it in the in-app browser reached the sign-in form; the
 final contrast pass measured full default opacity with a 20px glyph and kept
 the icon legible against the dark header.
+
+The resident-count comparison opened the live worlds directory and the MVP
+prototype in the in-app browser. The app card previously exposed only
+`Residents`; after the fix its DOM and screenshot show `16 Residents`, matching
+the prototype's `#world-count-label`. The live API response also returned
+`residentCount: 16`, confirming the value is not hardcoded in the UI.
 
 #### Known Risks and Follow-Up Work
 
