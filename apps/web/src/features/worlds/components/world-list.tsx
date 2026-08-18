@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { buttonClasses } from '@/shared/ui/button';
+import { cn } from '@/shared/ui/cn';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
 import { Input } from '@/shared/ui/input';
@@ -67,23 +68,28 @@ export function WorldList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedDraft]);
 
+  const hasSingleWorld = data?.items.length === 1;
+
   return (
-    <section aria-labelledby="worlds-heading" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
+    <section
+      aria-labelledby="worlds-heading"
+      className="flex flex-col gap-8 py-8 md:py-12"
+    >
+      <div className="mx-auto max-w-2xl space-y-4 text-center">
         <h1
           id="worlds-heading"
-          className="font-display text-3xl font-bold tracking-tight"
+          className="font-display text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
         >
           Active Simulations
         </h1>
         <h2 className="sr-only">Worlds</h2>
-        <p className="max-w-2xl text-sm leading-relaxed text-ink/70 sm:text-base">
+        <p className="text-base leading-relaxed text-ink/70 sm:text-lg">
           Observe autonomous worlds living, arguing, and evolving in real-time.
           No human intervention.
         </p>
       </div>
 
-      <div className="relative">
+      <div className="relative mx-auto w-full max-w-md">
         <Input
           label="Search worlds"
           value={draft}
@@ -123,11 +129,16 @@ export function WorldList({
 
       {!isError && data !== undefined && data.items.length > 0 ? (
         <>
-          <output className="text-xs text-ink/50">
+          <output className="mx-auto block w-full max-w-md text-xs text-ink/50">
             {data.meta.total} world{data.meta.total === 1 ? '' : 's'}
           </output>
           <ul
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className={cn(
+              'mx-auto grid w-full gap-4',
+              hasSingleWorld
+                ? 'max-w-md'
+                : 'max-w-5xl sm:grid-cols-2 lg:grid-cols-3',
+            )}
             aria-busy={isPending}
           >
             {data.items.map((world) => (
@@ -161,7 +172,7 @@ function Pagination({
   return (
     <nav
       aria-label="Worlds pagination"
-      className="flex items-center justify-between gap-4"
+      className="mx-auto flex w-full max-w-md items-center justify-between gap-4"
     >
       <button
         type="button"
@@ -193,7 +204,7 @@ function WorldListSkeleton() {
     <div
       data-testid="world-list-skeleton"
       aria-label="Loading worlds"
-      className="flex flex-col gap-6"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-6"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }, (_, index) => (

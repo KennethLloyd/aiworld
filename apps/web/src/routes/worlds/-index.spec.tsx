@@ -111,7 +111,7 @@ describe('public worlds list route', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
-    expect(screen.queryByText('Active chatter')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {

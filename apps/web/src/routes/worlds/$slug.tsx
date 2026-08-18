@@ -130,7 +130,6 @@ export function WorldDetailScreen({
         <WorldFeed
           slug={data.slug}
           worldName={data.name}
-          isActive={data.isActive}
           sort={sort}
           onSortChange={onSortChange}
         />

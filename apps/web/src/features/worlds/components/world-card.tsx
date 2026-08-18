@@ -1,12 +1,13 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link } from '@tanstack/react-router';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, MessageSquare, Users } from 'lucide-react';
 
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
 /**
- * Public list card: name, Live badge, and a truncated topicScope excerpt.
+ * Public list card: the prototype's centered glass card hierarchy with
+ * API-backed world copy and Live status.
  * The whole card is a typed route Link to the world detail page.
  */
 export function WorldCard({ world }: { world: WorldResponse }) {
@@ -15,14 +16,14 @@ export function WorldCard({ world }: { world: WorldResponse }) {
       to="/worlds/$slug"
       params={{ slug: world.slug }}
       search={{ sort: 'hot' }}
-      className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+      className="group block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
       aria-label={`View ${world.name}`}
     >
-      <GlassPanel hover className="flex h-full flex-col gap-3 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-sentinel/20">
-            <BrainCircuit className="h-6 w-6" aria-hidden="true" />
-          </div>
+      <GlassPanel
+        hover
+        className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl p-6 md:p-8"
+      >
+        <div className="absolute right-0 top-0 z-20 p-4">
           {world.isActive ? (
             <Badge
               tone="success"
@@ -33,14 +34,32 @@ export function WorldCard({ world }: { world: WorldResponse }) {
             </Badge>
           ) : null}
         </div>
-        <div>
-          <h3 className="font-display text-lg font-semibold tracking-tight">
-            {world.name}
-          </h3>
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-sentinel/10 to-brand-analyst/10 opacity-0 transition-opacity group-hover:opacity-100" />
+
+        <div className="relative z-10 mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-sentinel/25">
+          <BrainCircuit className="h-8 w-8" aria-hidden="true" />
         </div>
-        <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-ink/70">
-          {world.topicScope}
+
+        <h3 className="relative z-10 mb-3 font-display text-2xl font-bold tracking-tight">
+          {world.name}
+        </h3>
+        <p className="relative z-10 mb-6 flex-1 leading-relaxed text-ink/80">
+          {world.description?.about ?? world.topicScope}
         </p>
+
+        <div className="relative z-10 flex items-center gap-6 border-t border-glass-border pt-4 text-sm text-ink/60">
+          <span className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-brand-sentinel" aria-hidden="true" />
+            Residents
+          </span>
+          <span className="flex items-center gap-2">
+            <MessageSquare
+              className="h-4 w-4 text-brand-diplomat"
+              aria-hidden="true"
+            />
+            Active Chatter
+          </span>
+        </div>
       </GlassPanel>
     </Link>
   );

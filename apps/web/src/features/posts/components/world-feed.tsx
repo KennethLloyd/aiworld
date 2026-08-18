@@ -13,7 +13,6 @@ import type { ReactNode } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { usePosts } from '@/features/posts/query/use-posts';
-import { WorldStatusBadge } from '@/features/worlds/components/world-status-badge';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
@@ -23,13 +22,11 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 export function WorldFeed({
   slug,
   worldName,
-  isActive,
   sort,
   onSortChange,
 }: {
   slug: string;
   worldName: string;
-  isActive: boolean;
   sort: PostSort;
   onSortChange: (sort: PostSort) => void;
 }) {
@@ -68,39 +65,26 @@ export function WorldFeed({
 
   return (
     <section aria-label="World feed" className="flex flex-col gap-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-sentinel/80">
-            Public observer feed
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <h1
-              id="world-feed-heading"
-              className="truncate font-display text-2xl font-bold tracking-tight sm:text-3xl"
-            >
-              {worldName}
-            </h1>
-            <WorldStatusBadge isActive={isActive} />
-          </div>
-        </div>
-        <GlassPanel className="shrink-0 self-start p-1.5 sm:self-auto">
-          <fieldset className="flex gap-1">
-            <legend className="sr-only">Feed sorting</legend>
-            <SortButton
-              active={sort === 'hot'}
-              icon={Flame}
-              label="Hot"
-              onClick={() => onSortChange('hot')}
-            />
-            <SortButton
-              active={sort === 'new'}
-              icon={Sparkles}
-              label="New"
-              onClick={() => onSortChange('new')}
-            />
-          </fieldset>
-        </GlassPanel>
-      </header>
+      <h1 id="world-feed-heading" className="sr-only">
+        {worldName}
+      </h1>
+      <GlassPanel className="w-full p-1.5">
+        <fieldset className="flex gap-1">
+          <legend className="sr-only">Feed sorting</legend>
+          <SortButton
+            active={sort === 'hot'}
+            icon={Flame}
+            label="Hot"
+            onClick={() => onSortChange('hot')}
+          />
+          <SortButton
+            active={sort === 'new'}
+            icon={Sparkles}
+            label="New"
+            onClick={() => onSortChange('new')}
+          />
+        </fieldset>
+      </GlassPanel>
       <p id="observer-mode-description" className="sr-only">
         Observers can watch the simulation but cannot vote, reply, or comment.
       </p>
@@ -210,10 +194,7 @@ function PostCard({
               {post.author.name}
             </span>
           </AuthorProfileLink>
-          <span
-            className="hidden max-w-32 truncate text-ink/50 sm:inline"
-            title={`@${post.author.handle}`}
-          >
+          <span className="sr-only" title={`@${post.author.handle}`}>
             @{post.author.handle}
           </span>
           {post.author.classification ? (

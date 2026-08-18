@@ -1,7 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link } from '@tanstack/react-router';
 import {
-  Activity,
   BookOpen,
   Eye,
   LayoutList,
@@ -48,13 +47,13 @@ export function WorldLayout({
         </GlassPanel>
       </aside>
 
-      <section className="min-w-0 md:col-span-9 xl:col-span-6">
+      <section className="min-w-0 md:col-span-9 lg:col-span-6">
         {children}
       </section>
 
       <aside
         aria-label="World summary"
-        className="hidden xl:col-span-3 xl:block"
+        className="hidden lg:col-span-3 lg:block"
       >
         <WorldSummary world={world} />
       </aside>
@@ -244,10 +243,10 @@ function WorldSummary({ world }: { world: WorldResponse }) {
         <h2 className="font-display font-semibold tracking-tight">
           {world.name}
         </h2>
-        <Activity
-          className="h-4 w-4 text-brand-diplomat"
-          aria-label="Live simulation"
-        />
+        <span className="relative mt-1.5 flex h-2 w-2" aria-hidden="true">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-diplomat opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-diplomat" />
+        </span>
       </div>
       <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-ink/60">
         {world.description?.about ?? world.topicScope}

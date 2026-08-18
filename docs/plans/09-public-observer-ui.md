@@ -492,11 +492,18 @@ real SVG favicon removes the clean-load 404. Root development now uses
 Turborepo's persistent task graph: the web task runs with the API task, then
 waits for the API OpenAPI endpoint before starting Vite. Vite's strict port
 mode keeps conflicts visible instead of silently moving the web server.
+The public worlds landing now follows the prototype's centered hero and card
+rhythm, with a capped shell on large screens and safe mobile gutters. The
+AIWorld mark is the single worlds-directory entry point; the redundant Worlds
+header link is gone.
 
 #### Files Changed
 
 - `apps/web/src/features/posts/components/world-feed.tsx` — compact feed
   hierarchy, responsive post cards, and relative timestamps
+- `apps/web/src/features/worlds/components/world-list.tsx` and
+  `apps/web/src/features/worlds/components/world-card.tsx` — centered landing
+  geometry and prototype-aligned world card hierarchy
 - `apps/web/src/features/worlds/components/world-detail.tsx` and
   `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
   wider three-column shell, responsive mobile navigation, and public summary;
@@ -509,6 +516,8 @@ mode keeps conflicts visible instead of silently moving the web server.
 - `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
   and Residents route assertions — feed, summary, and navigation regression
   coverage
+- `apps/web/src/routes/worlds/-index.spec.tsx` — public world card hierarchy
+  regression coverage
 - `AGENTS.md` — idiomatic architecture and in-app browser verification rules
 - `package.json`, `turbo.json`, `apps/web/turbo.json`, and
   `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
@@ -535,6 +544,7 @@ telemetry or schema mirrors.
   normalization
 - Web full serial suite (`vitest run --no-file-parallelism`) — 35 files, 153
   tests passed
+- Current follow-up web route run — 35 files, 154 tests passed
 - The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
   its concurrent web-file run hit unrelated local timeout contention, while the
   serial web rerun above passed completely
@@ -570,6 +580,13 @@ navigation remained clickable), 1024×768 (no duplicate Residents placeholder),
 and 1946×1212 (full-width shell and a real post-detail comments link). A
 2560×1440 check measured a 2496px layout with a 1232px feed and verified the
 canonical Residents route from the world navigation.
+
+The in-app browser then rechecked the running app at 1280×720, 1920×1080,
+and 390×844. At 1920px the header and main shell were capped at 1280px and
+centered; at 390px the worlds landing and feed had 16px gutters, no horizontal
+overflow, and the fixed mobile navigation remained usable. The worlds header
+contained only the AIWorld worlds link and Sign in, and the feed sort control
+spanned the feed column.
 
 #### Known Risks and Follow-Up Work
 
