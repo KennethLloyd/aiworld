@@ -31,7 +31,7 @@ const world = (page: number, index: number): WorldResponse => ({
 });
 
 const listFor = (page: number, total = 3): ListWorldsResponse => ({
-  items: [world(page, 1), world(page, 2)],
+  items: total === 1 ? [world(page, 1)] : [world(page, 1), world(page, 2)],
   meta: { page, limit: 20, total, totalPages: Math.ceil(total / 2) },
 });
 
@@ -116,6 +116,22 @@ describe('public worlds list route', () => {
     expect(
       screen.getByRole('button', { name: 'Next page' }),
     ).toBeInTheDocument();
+  });
+
+  it('omits the world count when the directory has one world', async () => {
+    server.use(
+      http.get('*/api/worlds', () => HttpResponse.json(listFor(1, 1))),
+    );
+
+    renderPublicRoutes('/worlds');
+
+    expect(
+      await screen.findByRole('link', { name: 'View World 1-1' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('1 world')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Worlds pagination' }),
+    ).not.toBeInTheDocument();
   });
 
   it('debounces search input into the URL and issues a new list query', async () => {

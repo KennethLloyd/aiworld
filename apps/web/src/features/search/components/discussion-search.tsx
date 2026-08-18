@@ -88,7 +88,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
           id="discussion-search-results"
           aria-label="Discussion search results"
           aria-live="polite"
-          className="glass-panel absolute inset-x-0 top-full z-50 mt-2 max-h-80 overflow-y-auto p-2"
+          className="glass-panel absolute inset-x-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl bg-surface/95 py-2 shadow-2xl"
         >
           {isTooShort ? (
             <p

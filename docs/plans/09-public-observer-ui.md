@@ -512,6 +512,11 @@ header link is gone.
 The follow-up visual audit moved the directory search into the centered header
 slot, matched the prototype's glass header gradient, and aligned the mesh and
 ambient blob gradients to the prototype's 15%/50% and 85%/30% anchors.
+The latest browser audit also corrected the global discussion-search overlay:
+its result surface now uses the prototype's compact dropdown geometry with an
+opaque dark glass backing, so results cannot visually merge with the page
+behind it. The worlds directory no longer renders a redundant total-count
+label when there is no pagination to explain.
 
 #### Files Changed
 
@@ -526,6 +531,8 @@ ambient blob gradients to the prototype's 15%/50% and 85%/30% anchors.
   `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
   wider three-column shell, responsive mobile navigation, and public summary;
   removed the obsolete inline Residents placeholder and kept Residents route-only
+- `apps/web/src/features/search/components/discussion-search.tsx` — compact,
+  opaque search-results overlay matching the prototype's dropdown behavior
 - `apps/web/src/routes/worlds/$slug.tsx` and the Residents route files — canonical
   route-only section state and typed navigation back to the feed
 - `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
@@ -537,7 +544,9 @@ ambient blob gradients to the prototype's 15%/50% and 85%/30% anchors.
   and Residents route assertions — feed, summary, and navigation regression
   coverage
 - `apps/web/src/routes/worlds/-index.spec.tsx` — public world card hierarchy
-  regression coverage
+  regression coverage, including the no-count single-world state
+- `apps/web/src/features/search/components/discussion-search.spec.tsx` — search
+  result overlay surface regression coverage
 - `apps/web/src/test/router-harness.tsx` — route-test shell coverage for the
   header-owned directory search
 - `AGENTS.md` — idiomatic architecture and in-app browser verification rules
@@ -567,6 +576,7 @@ telemetry or schema mirrors.
 - Web full serial suite (`vitest run --no-file-parallelism`) — 35 files, 153
   tests passed
 - Current follow-up web route run — 35 files, 154 tests passed
+- Current search/world cleanup run — 35 files, 155 tests passed
 - The API portion of the default `pnpm test` run passed (67 suites, 503 tests);
   its concurrent web-file run hit unrelated local timeout contention, while the
   serial web rerun above passed completely
@@ -622,6 +632,13 @@ the feed has no About section, `/worlds/:slug/about` is the sole About page,
 and legacy `?section=about-world` state redirects there. The corrected app was
 rechecked at 1280×720: the feed DOM contains no About heading, the About route
 contains no feed region, and the sidebar icon classes match the prototype.
+
+The latest in-app browser reproduction typed `sas` into the Residents page
+search. The result panel measured 114px high with the compact `max-h-64`
+geometry and an opaque `bg-surface/95` backing; resident cards no longer show
+through the result text. The worlds landing page was also checked after the
+single-world cleanup: there is no world-count output and no pagination region
+when the API reports one world.
 
 #### Known Risks and Follow-Up Work
 

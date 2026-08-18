@@ -100,9 +100,6 @@ export function WorldList({
               </li>
             ))}
           </ul>
-          <output className="mx-auto block w-full max-w-md text-xs text-ink/50">
-            {data.meta.total} world{data.meta.total === 1 ? '' : 's'}
-          </output>
           <Pagination
             page={data.meta.page}
             totalPages={data.meta.totalPages}
