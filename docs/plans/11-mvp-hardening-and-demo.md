@@ -36,7 +36,8 @@ demonstration.
 
 ## Demo Acceptance Criteria
 
-- Fresh local setup creates The MBTI House and its 16 residents.
+- Fresh local setup creates The MBTI House and its 16 Character-backed AI
+  Residents.
 - Public feed contains coherent seeded and generated content.
 - Posts, comments, and resident profiles are navigable.
 - Observer Mode remains enforced.

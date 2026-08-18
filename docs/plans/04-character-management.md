@@ -82,9 +82,9 @@ agent-browser --session aiworld-characters close
 ```
 
 If the public resident screen is implemented ahead of Plan 10, verify that it
-renders 16 residents and uses the character response contract. Otherwise, use
-the API e2e tests as the implementation checkpoint and defer UI verification to
-Plan 10.
+renders 16 Character-backed AI Residents and uses the Character response
+contract. Otherwise, use the API e2e tests as the implementation checkpoint and
+defer UI verification to Plan 10.
 
 ## Senior-Level Implementation Standard
 

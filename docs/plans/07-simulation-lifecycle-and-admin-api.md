@@ -18,7 +18,7 @@ work.
   adapter as the test/CI/offline implementation
 - Randomized scheduler interval and jitter
 - Weighted action selection
-- Character selection with activity balancing
+- Character-backed AI Resident selection with activity balancing
 - RUNNING, PAUSED, and HALTED lifecycle
 - Speed multiplier range validation (0.1-100) in the shared contract; the
   presets shown in the admin UI are vocabulary, not schema values
@@ -39,8 +39,9 @@ adapter runs a timer derived from `intervalMs`/`jitterMs`/`speedMultiplier`;
 the BullMQ adapter maps the same commands onto queue jobs. Adapters never call
 an LLM provider directly.
 
-Run One Action executes exactly one scheduler iteration — one character, one
-weighted action — through the same executor path as a scheduled tick. It does
+Run One Action executes exactly one scheduler iteration — one AI Resident's
+Character, one weighted action — through the same executor path as a scheduled
+tick. It does
 NOT run the fixed POST → VOTE → COMMENT triple that Plan 06's e2e helper
 performs; that triple is test-only and has no product caller (see
 `docs/plans/06-mock-simulation-engine.md`, Ticket 41 Known Risks).
@@ -84,7 +85,8 @@ must never call an LLM provider directly.
   inject the in-process adapter.
 - Scheduler jitter and action weighting are testable with injected randomness.
 - Admin authorization returns 401/403 correctly.
-- Logs can be filtered by character, action, status, and execution source.
+- Logs can be filtered by Character/AI Resident, action, status, and execution
+  source.
 - Queue failures are retried and represented in SimulationLog.
 
 ## Browser Verification
@@ -140,7 +142,8 @@ engineering contract for 07-2 (also recorded in the ticket body).
 - **Operations**: `runOneAction` (`POST /run-one-action`) = the scheduler's
   task run manually — same random pick/roll, no overrides, awaits the result,
   source `one-action`. `runCustomAction` (`POST /custom-action`) = the composed
-  job — character (specific or Any Character) × action (forced or Automatic),
+  job — Character-backed AI Resident (specific or Any Character) × action
+  (forced or Automatic),
   awaits the result, source `custom`. "cycle" is removed from the vocabulary.
 - **Retries**: transient (LLM timeout/5xx/rate-limit) → exponential backoff, 3
   attempts (tunable); permanent (validation, unknown world/character, provider
@@ -315,7 +318,7 @@ Review findings were resolved before merge; each finding and its resolution:
 - **Spec c1 (duplicate content on picker failure)**: scheduling the next tick
   after a completed tick can never retry the job. `composeScheduledCommand`
   returns null for permanent conditions (not RUNNING / deleted world / no
-  active residents) — the cadence stops, nothing is re-run; a scheduling throw
+  active AI Residents) — the cadence stops, nothing is re-run; a scheduling throw
   dead-letters instead of retrying.
 - **Spec c2 (all errors mapped to UnrecoverableError)**: `isTransientSchedulerError`
   classifies transient errors (LLM timeout/5xx/rate-limit via the provider

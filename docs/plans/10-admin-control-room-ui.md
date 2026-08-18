@@ -17,14 +17,16 @@ contracts and the shared simulation pipeline.
 - Speed selector — preset buttons (0.5x, 1x, 2x, 5x, 10x) mapping to the
   range-validated multiplier (0.1-100), with persisted feedback
 - Run One Action control
-- Target Resident and action selectors
+- Target AI Resident and action selectors
 - Custom Action control
 - Telemetry and live execution feedback
 - World configuration editor
 - Character registry and editor
-- World member management (list, assign, activate, and deactivate AI
-  memberships) — the join flow for unassigned Characters is under review in
-  a follow-up grilling session; ticket 10-4 is provisional (`needs-triage`)
+- World member management (list, assign, and activate or deactivate
+  WorldMemberships) — the current MVP UI manages Character-backed AI
+  memberships and the join flow for unassigned Characters; the existing
+  WorldMember contract remains ready for future User-backed HUMAN memberships
+  and participation. Ticket 10-4 is provisional (`needs-triage`)
 - Character avatar URL editor with the shared default fallback from Plan 09
 - Filterable simulation log viewer
 - Log detail view with provider, model, latency, source, prompt, response,
@@ -39,9 +41,9 @@ contracts and the shared simulation pipeline.
   real-time streaming in the MVP
 - World member management is a separate child ticket (10-4) and includes the
   join flow: assigning an unassigned Character (zero World memberships, per
-  `CONTEXT.md`) to a World creates the membership. The finalized membership
-  flow is pending a follow-up grilling session and may revise the WorldMember
-  contract.
+  `CONTEXT.md`) to a World creates a Character-backed AI membership. The
+  WorldMember contract also supports future User-backed HUMAN membership and
+  participation without coupling User identity to Character.
 
 Re-confirm every tab's request and response contracts against Plan 07's
 finalized shared schemas before implementation.
