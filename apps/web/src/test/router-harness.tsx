@@ -13,6 +13,7 @@ import { createQueryClient } from '@/providers/query-client';
 import { Route as IndexRoute } from '@/routes/index';
 import { Route as WorldsIndexRoute } from '@/routes/worlds';
 import { Route as WorldDetailRoute } from '@/routes/worlds/$slug';
+import { Route as PostDetailRoute } from '@/routes/worlds/$slug_.posts.$postId';
 import { Toaster } from '@/shared/feedback/toaster';
 
 export interface RenderPublicRoutesOptions {
@@ -55,10 +56,16 @@ export function renderPublicRoutes(
     path: '/worlds/$slug',
     getParentRoute: () => rootRoute,
   } as unknown as Parameters<typeof WorldDetailRoute.update>[0]);
+  const postDetailRoute = PostDetailRoute.update({
+    id: '/worlds/$slug/posts/$postId',
+    path: '/worlds/$slug/posts/$postId',
+    getParentRoute: () => rootRoute,
+  } as unknown as Parameters<typeof PostDetailRoute.update>[0]);
   const routeTree = rootRoute.addChildren({
     index: indexRoute,
     worlds: worldsRoute,
     'worlds/$slug': worldDetailRoute,
+    'worlds/$slug/posts/$postId': postDetailRoute,
   });
   const router = createRouter({
     routeTree,

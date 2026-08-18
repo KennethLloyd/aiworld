@@ -20,6 +20,7 @@ import { Route as WorldsIndexRouteImport } from './../routes/worlds/index'
 import { Route as WorldsSlugRouteImport } from './../routes/worlds/$slug'
 import { Route as AdminWorldsSlugRouteImport } from './../routes/admin/worlds.$slug'
 import { Route as AdminWorldsNewRouteImport } from './../routes/admin/worlds.new'
+import { Route as WorldsSlugPostsPostIdRouteImport } from './../routes/worlds/$slug_.posts.$postId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const AdminWorldsNewRoute = AdminWorldsNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AdminWorldsRoute,
 } as any)
+const WorldsSlugPostsPostIdRoute = WorldsSlugPostsPostIdRouteImport.update({
+  id: '/worlds/$slug_/posts/$postId',
+  path: '/worlds/$slug/posts/$postId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/worlds/': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug/posts/$postId': typeof WorldsSlugPostsPostIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/worlds': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug/posts/$postId': typeof WorldsSlugPostsPostIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/worlds/': typeof WorldsIndexRoute
   '/admin/worlds/$slug': typeof AdminWorldsSlugRoute
   '/admin/worlds/new': typeof AdminWorldsNewRoute
+  '/worlds/$slug_/posts/$postId': typeof WorldsSlugPostsPostIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/worlds/'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug/posts/$postId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/worlds'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug/posts/$postId'
   id:
     | '__root__'
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/worlds/'
     | '/admin/worlds/$slug'
     | '/admin/worlds/new'
+    | '/worlds/$slug_/posts/$postId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   AuthSignInRoute: typeof AuthSignInRoute
   WorldsSlugRoute: typeof WorldsSlugRoute
   WorldsIndexRoute: typeof WorldsIndexRoute
+  WorldsSlugPostsPostIdRoute: typeof WorldsSlugPostsPostIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWorldsNewRouteImport
       parentRoute: typeof AdminWorldsRoute
     }
+    '/worlds/$slug_/posts/$postId': {
+      id: '/worlds/$slug_/posts/$postId'
+      path: '/worlds/$slug/posts/$postId'
+      fullPath: '/worlds/$slug/posts/$postId'
+      preLoaderRoute: typeof WorldsSlugPostsPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignInRoute: AuthSignInRoute,
   WorldsSlugRoute: WorldsSlugRoute,
   WorldsIndexRoute: WorldsIndexRoute,
+  WorldsSlugPostsPostIdRoute: WorldsSlugPostsPostIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

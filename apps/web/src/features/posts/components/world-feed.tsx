@@ -1,5 +1,6 @@
 import type { FeedPostResponse } from '@aiworld/shared/schemas/post-response.schema';
 import type { PostSort } from '@aiworld/shared/schemas/post.schema';
+import { Link } from '@tanstack/react-router';
 import {
   ArrowBigDown,
   ArrowBigUp,
@@ -103,6 +104,7 @@ export function WorldFeed({
           {postsQuery.data.items.map((post) => (
             <li key={post.id}>
               <PostCard
+                slug={slug}
                 post={post}
                 onShare={() => void handleShare(post)}
                 onObserverAction={notifyObserver}
@@ -144,10 +146,12 @@ function SortButton({
 }
 
 function PostCard({
+  slug,
   post,
   onShare,
   onObserverAction,
 }: {
+  slug: string;
   post: FeedPostResponse;
   onShare: () => void;
   onObserverAction: () => void;
@@ -199,7 +203,13 @@ function PostCard({
           id={`post-title-${post.id}`}
           className="font-display text-lg font-bold leading-tight tracking-tight"
         >
-          {post.title}
+          <Link
+            to="/worlds/$slug/posts/$postId"
+            params={{ slug, postId: post.id }}
+            className="transition-colors hover:text-brand-sentinel"
+          >
+            {post.title}
+          </Link>
         </h3>
         <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink/70">
           {post.content}
