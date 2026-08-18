@@ -78,7 +78,7 @@ export class PrismaWorldRepository extends WorldRepository {
 
     return {
       items: items.map((item) =>
-        this.mapToWorldRecord(item, item._count.members),
+        this.mapToWorldRecord(item, item._count?.members ?? 0),
       ),
       meta: {
         page,
@@ -105,7 +105,7 @@ export class PrismaWorldRepository extends WorldRepository {
       return null;
     }
 
-    return this.mapToWorldRecord(item, item._count.members);
+    return this.mapToWorldRecord(item, item._count?.members ?? 0);
   }
 
   async findById(id: string): Promise<WorldRecord | null> {
