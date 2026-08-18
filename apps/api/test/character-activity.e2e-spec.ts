@@ -104,6 +104,7 @@ const outsider = {
 // Character (see prismaContentAuthorSelect and mapContentAuthor).
 const authorIdentityA = {
   id: seedUuid('member:activity-author'),
+  characterId: author.id,
   handle: author.handle,
   name: author.name,
   avatarUrl: null,
@@ -113,6 +114,7 @@ const authorIdentityA = {
 
 const inactiveIdentity = {
   id: seedUuid('member:activity-inactive'),
+  characterId: inactive.id,
   handle: inactive.handle,
   name: inactive.name,
   avatarUrl: null,
@@ -122,6 +124,7 @@ const inactiveIdentity = {
 
 const dormantIdentity = {
   id: seedUuid('member:activity-dormant'),
+  characterId: dormant.id,
   handle: dormant.handle,
   name: dormant.name,
   avatarUrl: null,
@@ -494,7 +497,7 @@ describe('Character activity (real database)', () => {
     expect(res.body.items[0].author).toEqual(authorIdentityA);
     expect(res.body.items[1].kind).toBe('comment');
     expect(res.body.items[1].id).toBe(commentA2Id);
-    expect(res.body.items[1].postId).toBe(postA2Id);
+    expect(res.body.items[1].postId).toBe(seedUuid('post:activity-post-other'));
     expect(res.body.items[1].postTitle).toBe('Someone else\u2019s post');
     expect(res.body.items[1].replies).toEqual([]);
     expect(res.body.items[1].voteScore).toBe(2);

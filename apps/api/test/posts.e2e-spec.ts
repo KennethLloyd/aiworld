@@ -79,6 +79,7 @@ describe('World feed (seeded database)', () => {
       );
       expect(item.author).toEqual({
         id: seedUuid(`member:${post.authorKey}`),
+        characterId: seedUuid(`character:${post.authorKey}`),
         handle: authorCharacter!.key,
         name: authorCharacter!.name,
         avatarUrl: authorCharacter!.avatarUrl,
