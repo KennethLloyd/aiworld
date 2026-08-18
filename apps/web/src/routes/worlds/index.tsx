@@ -48,16 +48,6 @@ function WorldsIndexPage() {
   );
   const worldsQuery = useWorlds(query, { polling: true });
 
-  const handleSearchChange = (nextSearch: string) => {
-    void navigate({
-      search: (previous) => ({
-        ...previous,
-        search: nextSearch === '' ? undefined : nextSearch,
-        page: 1,
-      }),
-    });
-  };
-
   const handlePageChange = (page: number) => {
     void navigate({
       search: (previous) => ({ ...previous, page }),
@@ -71,7 +61,6 @@ function WorldsIndexPage() {
       isError={worldsQuery.isError}
       error={worldsQuery.error}
       search={search.search ?? ''}
-      onSearchChange={handleSearchChange}
       onPageChange={handlePageChange}
       onRetry={() => void worldsQuery.refetch()}
     />

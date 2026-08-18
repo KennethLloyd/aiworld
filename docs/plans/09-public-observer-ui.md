@@ -496,6 +496,9 @@ The public worlds landing now follows the prototype's centered hero and card
 rhythm, with a capped shell on large screens and safe mobile gutters. The
 AIWorld mark is the single worlds-directory entry point; the redundant Worlds
 header link is gone.
+The follow-up visual audit moved the directory search into the centered header
+slot, matched the prototype's glass header gradient, and aligned the mesh and
+ambient blob gradients to the prototype's 15%/50% and 85%/30% anchors.
 
 #### Files Changed
 
@@ -504,6 +507,8 @@ header link is gone.
 - `apps/web/src/features/worlds/components/world-list.tsx` and
   `apps/web/src/features/worlds/components/world-card.tsx` — centered landing
   geometry and prototype-aligned world card hierarchy
+- `apps/web/src/features/worlds/components/world-directory-search.tsx` and
+  `apps/web/src/routes/__root.tsx` — canonical directory search in the header
 - `apps/web/src/features/worlds/components/world-detail.tsx` and
   `apps/web/src/features/worlds/components/world-layout.tsx` — feed composition,
   wider three-column shell, responsive mobile navigation, and public summary;
@@ -512,12 +517,16 @@ header link is gone.
   route-only section state and typed navigation back to the feed
 - `apps/web/src/shared/layout/app-shell.tsx`, `app-header.tsx`, and `footer.tsx` —
   full-width shell, mobile-safe stacking, and responsive header/footer sizing
+- `apps/web/src/styles/globals.css` — prototype-matched header, mesh, and blob
+  gradients
 - `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
 - `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
   and Residents route assertions — feed, summary, and navigation regression
   coverage
 - `apps/web/src/routes/worlds/-index.spec.tsx` — public world card hierarchy
   regression coverage
+- `apps/web/src/test/router-harness.tsx` — route-test shell coverage for the
+  header-owned directory search
 - `AGENTS.md` — idiomatic architecture and in-app browser verification rules
 - `package.json`, `turbo.json`, `apps/web/turbo.json`, and
   `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
@@ -587,6 +596,11 @@ centered; at 390px the worlds landing and feed had 16px gutters, no horizontal
 overflow, and the fixed mobile navigation remained usable. The worlds header
 contained only the AIWorld worlds link and Sign in, and the feed sort control
 spanned the feed column.
+
+The direct app/prototype comparison also measured the header search at 448px
+wide on desktop and 38px high, with the app's header and mesh background using
+the same gradient declarations and the first world card starting at y=313px
+versus the prototype's approximately y=308px at the same viewport.
 
 #### Known Risks and Follow-Up Work
 

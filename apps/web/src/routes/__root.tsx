@@ -7,6 +7,7 @@ import {
 import { useSignOut } from '@/features/auth/query/use-session';
 import { DiscussionSearch } from '@/features/search/components/discussion-search';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { WorldDirectorySearch } from '@/features/worlds/components/world-directory-search';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthSessionBoundary } from '@/providers/auth-session-boundary';
 import type { RouterContext } from '@/router/router';
@@ -45,6 +46,7 @@ function RootContent({
   const { toast } = useToast();
   const signOut = useSignOut();
   const publicWorldSlug = getPublicWorldSlug(pathname);
+  const isWorldDirectory = pathname === '/worlds' || pathname === '/worlds/';
 
   // Sign-out is wired here (the composition root), not in the shared header:
   // the layout owns the mutation and the return navigation.
@@ -65,7 +67,9 @@ function RootContent({
         isAdmin={isAdmin}
         showObserverMode={!isAdmin}
         headerContent={
-          publicWorldSlug ? (
+          isWorldDirectory ? (
+            <WorldDirectorySearch />
+          ) : publicWorldSlug ? (
             <DiscussionSearch worldSlug={publicWorldSlug} />
           ) : undefined
         }

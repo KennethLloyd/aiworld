@@ -19,7 +19,7 @@
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* Ambient animations (prototype keyframes) */
-  --animate-blob: blob 18s ease-in-out infinite;
+  --animate-blob: blob 15s ease-in-out infinite;
   --animate-fade-in: fade-in 0.4s ease-out both;
   --animate-slide-up: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 
@@ -106,19 +106,39 @@
     transform: translateY(-2px);
   }
 
-  /* Ambient mesh background (AppShell): two radial gradients, prototype look */
+  .app-header {
+    background-image: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.01) 100%
+    );
+  }
+
+  /* Ambient mesh background (AppShell): match the prototype's anchors. */
   .mesh-bg {
     background-image:
       radial-gradient(
-        ellipse 80% 60% at 20% 10%,
+        circle at 15% 50%,
         rgba(30, 27, 75, 0.8),
-        transparent 60%
+        transparent 50%
       ),
-      radial-gradient(
-        ellipse 70% 50% at 80% 90%,
-        rgba(9, 39, 50, 0.8),
-        transparent 60%
-      );
+      radial-gradient(circle at 85% 30%, rgba(9, 39, 50, 0.8), transparent 50%);
+  }
+
+  .blob-1 {
+    background-image: radial-gradient(
+      circle,
+      rgba(76, 29, 149, 0.3) 0%,
+      transparent 70%
+    );
+  }
+
+  .blob-2 {
+    background-image: radial-gradient(
+      circle,
+      rgba(16, 185, 129, 0.15) 0%,
+      transparent 70%
+    );
   }
 }
 

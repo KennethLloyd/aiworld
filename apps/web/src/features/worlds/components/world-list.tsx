@@ -1,13 +1,11 @@
 import type { ListWorldsResponse } from '@aiworld/shared/schemas/world-response.schema';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { ApiError } from '@/core/api/api-error';
 import { buttonClasses } from '@/shared/ui/button';
 import { cn } from '@/shared/ui/cn';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
-import { Input } from '@/shared/ui/input';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { WorldCard } from './world-card';
@@ -19,18 +17,15 @@ export interface WorldListProps {
   error: unknown;
   /** Current URL-backed search value ('' when absent). */
   search: string;
-  /** Fired with the debounced (300ms) search text after the user stops typing. */
-  onSearchChange: (search: string) => void;
   /** Fired when the user requests a specific page. */
   onPageChange: (page: number) => void;
   onRetry: () => void;
 }
 
 /**
- * Public /worlds screen: debounced search box, responsive card grid, and the
- * four universal states (loading skeleton, error + retry, empty, content).
- * Presentational: data and callbacks come from the route; the only local
- * state is the search input draft (the URL is the source of truth).
+ * Public /worlds screen: responsive card grid and the four universal states
+ * (loading skeleton, error + retry, empty, content). Search is owned by the
+ * header so the page matches the prototype while the URL remains canonical.
  * placeholderData keeps the previous grid visible while search/pagination
  * changes load, so the skeleton only appears on the first load (no data).
  */
@@ -40,34 +35,9 @@ export function WorldList({
   isError,
   error,
   search,
-  onSearchChange,
   onPageChange,
   onRetry,
 }: WorldListProps) {
-  const [draft, setDraft] = useState(search);
-  const didMount = useRef(false);
-
-  // Keep the input in sync when the URL search changes (back/forward, links).
-  useEffect(() => {
-    setDraft(search);
-  }, [search]);
-
-  const debouncedDraft = useDebouncedValue(draft, 300);
-
-  useEffect(() => {
-    if (!didMount.current) {
-      didMount.current = true;
-      return;
-    }
-    if (debouncedDraft !== search) {
-      onSearchChange(debouncedDraft);
-    }
-    // The URL-backed `search` is intentionally excluded: this effect fires
-    // only when the debounced draft settles, and the guard above makes the
-    // round-trip idempotent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedDraft]);
-
   const hasSingleWorld = data?.items.length === 1;
 
   return (
@@ -87,20 +57,6 @@ export function WorldList({
           Observe autonomous worlds living, arguing, and evolving in real-time.
           No human intervention.
         </p>
-      </div>
-
-      <div className="relative mx-auto w-full max-w-md">
-        <Input
-          label="Search worlds"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Search by name or topic..."
-          className="pr-11"
-        />
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-ink/40"
-        />
       </div>
 
       {isError ? (
@@ -129,9 +85,6 @@ export function WorldList({
 
       {!isError && data !== undefined && data.items.length > 0 ? (
         <>
-          <output className="mx-auto block w-full max-w-md text-xs text-ink/50">
-            {data.meta.total} world{data.meta.total === 1 ? '' : 's'}
-          </output>
           <ul
             className={cn(
               'mx-auto grid w-full gap-4',
@@ -147,6 +100,9 @@ export function WorldList({
               </li>
             ))}
           </ul>
+          <output className="mx-auto block w-full max-w-md text-xs text-ink/50">
+            {data.meta.total} world{data.meta.total === 1 ? '' : 's'}
+          </output>
           <Pagination
             page={data.meta.page}
             totalPages={data.meta.totalPages}
@@ -213,15 +169,6 @@ function WorldListSkeleton() {
       </div>
     </div>
   );
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
 }
 
 function errorMessage(error: unknown): string {

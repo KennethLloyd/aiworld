@@ -1,13 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
+  Outlet,
   RouterProvider,
   createMemoryHistory,
   createRootRoute,
   createRouter,
+  useRouterState,
 } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
+import { WorldDirectorySearch } from '@/features/worlds/components/world-directory-search';
 import { GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 import { Route as IndexRoute } from '@/routes/index';
@@ -39,6 +42,7 @@ export function renderPublicRoutes(
   options: RenderPublicRoutesOptions = {},
 ) {
   const rootRoute = createRootRoute({
+    component: TestRootLayout,
     notFoundComponent: () => <p>Not Found</p>,
   });
   // File routes carry no id/path until update() wires them (exactly what the
@@ -111,4 +115,18 @@ export function renderPublicRoutes(
     ),
     router,
   };
+}
+
+function TestRootLayout() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const isWorldDirectory = pathname === '/worlds' || pathname === '/worlds/';
+
+  return (
+    <>
+      {isWorldDirectory ? <WorldDirectorySearch /> : null}
+      <Outlet />
+    </>
+  );
 }

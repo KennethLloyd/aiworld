@@ -30,8 +30,8 @@ export function AppHeader({
   onSignOut,
 }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-20 border-b border-glass-border bg-surface/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
+    <header className="app-header glass-panel sticky top-0 z-20 rounded-none border-glass-border shadow-none">
+      <div className="relative mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
         <div className="flex min-w-0 shrink-0 items-center">
           <Link
             to="/worlds"
@@ -45,7 +45,7 @@ export function AppHeader({
           </Link>
         </div>
         {headerContent ? (
-          <div className="mx-2 min-w-0 max-w-md flex-1 sm:mx-4 lg:mx-8">
+          <div className="mx-2 min-w-0 max-w-md flex-1 sm:absolute sm:left-1/2 sm:top-1/2 sm:mx-0 sm:w-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 md:w-[28rem]">
             {headerContent}
           </div>
         ) : null}
