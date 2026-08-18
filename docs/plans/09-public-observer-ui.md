@@ -488,9 +488,10 @@ world identity, status, and Hot/New controls, and cards keep author metadata
 readable by using relative timestamps and responsive handle visibility. The
 desktop summary card is composed only from public World fields and retains
 explicit Observer-only access language without simulation-clock telemetry. A
-real SVG favicon removes the clean-load 404. Root development now starts Nest
-first, waits for its successful listen message, and only then starts Vite; bind
-failures remain visible and prevent a misleading web startup.
+real SVG favicon removes the clean-load 404. Root development now uses
+Turborepo's persistent task graph: the web task runs with the API task, then
+waits for the API OpenAPI endpoint before starting Vite. Vite's strict port
+mode keeps conflicts visible instead of silently moving the web server.
 
 #### Files Changed
 
@@ -506,18 +507,23 @@ failures remain visible and prevent a misleading web startup.
 - `apps/web/index.html` and `apps/web/public/favicon.svg` — valid favicon
 - `apps/web/src/routes/worlds/-$slug.spec.tsx`, plus scoped post/About route
   assertions — feed, summary, and navigation regression coverage
-- `scripts/dev.mjs`, `package.json`, and development README files — API
-  readiness-ordered local startup
+- `package.json`, `turbo.json`, `apps/web/turbo.json`, and
+  `apps/web/package.json` — Turborepo runtime dependency and HTTP readiness
+  startup
+- `apps/web/vite.config.ts`, `apps/web/scripts/dev-contract.mjs`,
+  `pnpm-lock.yaml`, and development README files — strict port behavior,
+  automated startup-contract coverage, and documented local startup
+- `scripts/dev.mjs` — removed in favor of package/task-level orchestration
 
 #### Architecture and SOLID Notes
 
 The route → TanStack Query → feature gateway → HTTP direction is unchanged.
 The World route still owns navigation and URL sort state, Posts owns feed
 presentation and query behavior, and the layout remains presentation-only.
-The startup change is isolated to the local process composition root; it does
-not alter API contracts or hide genuine API failures. Public summary content
-uses the existing World response and does not introduce telemetry or schema
-mirrors.
+The startup change keeps process composition in Turborepo and readiness at the
+web/API boundary; it does not alter API contracts or parse process logs. Public
+summary content uses the existing World response and does not introduce
+telemetry or schema mirrors.
 
 #### Tests Run
 
@@ -529,10 +535,15 @@ mirrors.
 - Root format check and lint — passed
 - API Prisma generation, migration status, and seeded MBTI House verification
   — passed
-- `node --check scripts/dev.mjs` — passed
-- Oxfmt check for `scripts/dev.mjs` and `git diff --check` — passed
-- Clean `pnpm dev` smoke — API listen message preceded Vite startup with no
-  proxy `ECONNREFUSED` output; a deliberate port conflict stopped before Vite
+- `pnpm exec turbo run dev --dry` — API/web tasks resolved as persistent, with
+  web `with: ["@aiworld/api#dev"]`
+- Clean `pnpm dev` smoke — Vite started only after `GET /api/docs` became
+  available, with no proxy `ECONNREFUSED` output
+- Strict-port conflict smoke — a second Vite startup failed immediately
+  instead of moving to another port
+- Web startup contract tests — readiness waits for an HTTP 200 response and a
+  duplicate Vite server fails on the occupied port
+- `git diff --check` — passed
 
 #### Browser Verification
 
@@ -551,8 +562,10 @@ console and page-error output were empty.
 
 #### Known Risks and Follow-Up Work
 
-- The readiness launcher intentionally owns the root `pnpm dev` process
-  ordering; direct workspace `pnpm --filter ... dev` commands remain available
-  for isolated development.
+- Direct `pnpm --filter @aiworld/web dev` now expects the API to be available;
+  the root `pnpm dev` command is the normal full-stack entry point.
+- A readiness probe confirms that an API endpoint responds; it cannot identify
+  whether that listener belongs to the current Turbo invocation. Vite's strict
+  port setting still exposes duplicate web-server attempts clearly.
 - Plan 09 remains In Progress until this ticket and the sibling review
   handoffs are reviewed and merged.

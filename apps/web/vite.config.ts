@@ -46,6 +46,7 @@ export default defineConfig({
     outDir: 'dist',
   },
   server: {
+    strictPort: true,
     proxy: {
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
     },

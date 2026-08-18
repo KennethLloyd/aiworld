@@ -2,25 +2,29 @@
 
 The AIWorld browser application, built with React 19, Vite, TanStack Router, TanStack Query, and Tailwind CSS. It consumes the NestJS API through the browser-safe contracts in `@aiworld/shared`.
 
-The root workspace uses Turborepo for build, lint, format, and test tasks. The
-root `pnpm dev` command starts the API first, waits for it to report its
-listening URL, and then starts Vite so normal initial requests do not race API
-startup.
+The root workspace uses Turborepo for build, lint, format, test, and development
+tasks. The web dev task runs alongside the API through Turbo's runtime task
+relationship, then waits for `http://localhost:3000/api/docs` before starting
+Vite so initial requests do not race API startup.
 
 ## Quick Start
 
-From the repository root:
+From the repository root, install dependencies and start both services with
+Turborepo:
 
 ```bash
 pnpm install
-pnpm --filter @aiworld/web dev
+pnpm dev
 ```
 
-Open **http://localhost:5173**. In development, Vite proxies `/api/*` to
-**http://localhost:3000**, so start the API as well when using live data:
+Open **http://localhost:5173**. The web task waits for the API OpenAPI
+endpoint before starting Vite.
+
+For isolated web development, start the API in a separate terminal first:
 
 ```bash
 pnpm --filter @aiworld/api dev
+pnpm --filter @aiworld/web dev
 ```
 
 For a separately hosted API, set `VITE_API_BASE_URL` in `apps/web/.env.local`.
