@@ -242,6 +242,13 @@ the fixed mobile world navigation. The footer component was removed entirely;
 the browser now reports zero footer/contentinfo elements while retaining the
 mobile world navigation.
 
+The tablet header regression was traced to the app header geometry: a
+tablet-width search must stay in flex flow so the observer control and sign-in
+action retain their own space; centered absolute positioning now begins only
+at the large desktop breakpoint. The worlds landing was also compared with the
+prototype, which has no verbose pager copy. One-page results now omit the pager
+entirely; multi-page results use icon-only arrows and compact dot indicators.
+
 #### Known Risks and Follow-Up Work
 
 - The canonical post detail route is delivered by issue #49; this ticket

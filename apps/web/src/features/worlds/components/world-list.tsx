@@ -123,36 +123,110 @@ function Pagination({
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
+  if (totalPages <= 1) return null;
+
   const canGoPrevious = page > 1;
   const canGoNext = page < totalPages;
+  const pageItems = getPageItems(page, totalPages);
+
   return (
     <nav
       aria-label="Worlds pagination"
-      className="mx-auto flex w-full max-w-md items-center justify-between gap-4"
+      className="mx-auto flex w-full max-w-md items-center justify-center gap-4"
     >
       <button
         type="button"
-        className={buttonClasses('outline', 'sm')}
+        aria-label="Previous page"
+        title="Previous page"
+        className={cn(
+          buttonClasses('outline', 'sm'),
+          'h-9 w-9 rounded-full px-0',
+        )}
         disabled={!canGoPrevious}
         onClick={() => onPageChange(page - 1)}
       >
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        Previous
       </button>
-      <output className="text-xs text-ink/60">
-        Page {page} of {totalPages}
-      </output>
+
+      <div
+        className="flex items-center gap-0.5"
+        aria-label={`Page ${page} of ${totalPages}`}
+      >
+        {pageItems.map((item, index) =>
+          item === 'ellipsis' ? (
+            <span
+              key={`ellipsis-${index}`}
+              aria-hidden="true"
+              className="px-1 text-xs text-ink/40"
+            >
+              …
+            </span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              aria-label={`Go to page ${item}`}
+              aria-current={item === page ? 'page' : undefined}
+              className={cn(
+                'inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60',
+                'hover:bg-glass-20',
+              )}
+              onClick={() => onPageChange(item)}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'block rounded-full transition-all',
+                  item === page
+                    ? 'h-1.5 w-5 bg-brand-sentinel'
+                    : 'h-1.5 w-1.5 bg-ink/35',
+                )}
+              />
+            </button>
+          ),
+        )}
+      </div>
+
       <button
         type="button"
-        className={buttonClasses('outline', 'sm')}
+        aria-label="Next page"
+        title="Next page"
+        className={cn(
+          buttonClasses('outline', 'sm'),
+          'h-9 w-9 rounded-full px-0',
+        )}
         disabled={!canGoNext}
         onClick={() => onPageChange(page + 1)}
       >
-        Next
         <ChevronRight className="h-4 w-4" aria-hidden="true" />
       </button>
     </nav>
   );
+}
+
+type PageItem = number | 'ellipsis';
+
+function getPageItems(page: number, totalPages: number): PageItem[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const visiblePages = new Set([1, totalPages, page]);
+  if (page > 2) visiblePages.add(page - 1);
+  if (page < totalPages - 1) visiblePages.add(page + 1);
+
+  const pages = [...visiblePages].sort((left, right) => left - right);
+  const items: PageItem[] = [];
+
+  pages.forEach((currentPage, index) => {
+    if (index > 0 && currentPage - pages[index - 1] > 1) {
+      items.push('ellipsis');
+    }
+    items.push(currentPage);
+  });
+
+  return items;
 }
 
 function WorldListSkeleton() {

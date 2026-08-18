@@ -45,7 +45,7 @@ export function AppHeader({
           </Link>
         </div>
         {headerContent ? (
-          <div className="mx-2 min-w-0 max-w-md flex-1 sm:absolute sm:left-1/2 sm:top-1/2 sm:mx-0 sm:w-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 md:w-[28rem]">
+          <div className="mx-2 min-w-0 max-w-md flex-1 lg:absolute lg:left-1/2 lg:top-1/2 lg:mx-0 lg:w-[28rem] lg:-translate-x-1/2 lg:-translate-y-1/2">
             {headerContent}
           </div>
         ) : null}
