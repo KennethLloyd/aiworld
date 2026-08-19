@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Eye, LayoutDashboard, LogOut, Sparkles, Terminal } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { adminDashboardDefaults } from '@/features/admin/admin-search';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
 
 export interface AppHeaderProps {
@@ -69,6 +70,7 @@ export function AppHeader({
               {isAdmin ? (
                 <Link
                   to="/admin"
+                  search={adminDashboardDefaults}
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink/80 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
                 >
                   <LayoutDashboard className="h-4 w-4" aria-hidden="true" />

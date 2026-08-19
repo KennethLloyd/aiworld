@@ -7,6 +7,7 @@ import type { CharacterGateway } from '@/features/characters/api/character-gatew
 import type { SearchGateway } from '@/features/search/api/search-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 import { GatewaysProvider } from '@/providers/gateways-provider';
+import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 
 import type { PostGateway } from '../api/post-gateway';
 import { usePost } from './use-post';
@@ -41,6 +42,7 @@ describe('usePost', () => {
         <QueryClientProvider client={client}>
           <GatewaysProvider
             value={{
+              adminGateway: unusedAdminGateway,
               worldGateway: unusedWorldGateway,
               postGateway: gateway,
               characterGateway: unusedCharacterGateway,
@@ -71,6 +73,7 @@ describe('usePost', () => {
         <QueryClientProvider client={client}>
           <GatewaysProvider
             value={{
+              adminGateway: unusedAdminGateway,
               worldGateway: unusedWorldGateway,
               postGateway: gateway,
               characterGateway: unusedCharacterGateway,

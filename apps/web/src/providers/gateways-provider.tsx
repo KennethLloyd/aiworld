@@ -2,6 +2,8 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import { HttpClient } from '@/core/api/http-client';
 import { env } from '@/core/config/env';
+import type { AdminGateway } from '@/features/admin/api/admin-gateway';
+import { HttpAdminGateway } from '@/features/admin/api/http-admin-gateway';
 import type { CharacterGateway } from '@/features/characters/api/character-gateway';
 import { HttpCharacterGateway } from '@/features/characters/api/http-character-gateway';
 import { HttpPostGateway } from '@/features/posts/api/http-post-gateway';
@@ -13,6 +15,7 @@ import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 
 /** The application-level adapter object assembled by the composition root. */
 export interface AppGateways {
+  adminGateway: AdminGateway;
   worldGateway: WorldGateway;
   postGateway: PostGateway;
   characterGateway: CharacterGateway;
@@ -21,6 +24,7 @@ export interface AppGateways {
 
 const apiClient = new HttpClient(env.apiBaseUrl);
 const gateways: AppGateways = {
+  adminGateway: new HttpAdminGateway(apiClient),
   worldGateway: new HttpWorldGateway(apiClient),
   postGateway: new HttpPostGateway(apiClient),
   characterGateway: new HttpCharacterGateway(apiClient),

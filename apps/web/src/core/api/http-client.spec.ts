@@ -84,6 +84,15 @@ describe('HttpClient', () => {
     });
   });
 
+  it('omits the body when a post has no payload', async () => {
+    const fetchMock = mockFetch(200, { status: 'success' });
+
+    await client.post('/api/worlds/mbti/simulation/run-one-action');
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
+  });
+
   it('maps a 400 envelope with ZodIssue[] message to an ApiError', async () => {
     mockFetch(400, {
       statusCode: 400,
