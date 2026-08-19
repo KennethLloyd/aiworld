@@ -18,6 +18,7 @@ import {
   GatewaysProvider,
   type AppGateways,
 } from '@/providers/gateways-provider';
+import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 
 import type { SearchGateway } from '../api/search-gateway';
 import { DiscussionSearch } from './discussion-search';
@@ -144,6 +145,7 @@ async function renderSearch(search: SearchGateway['search']) {
   });
   await router.load();
   const gateways: AppGateways = {
+    adminGateway: unusedAdminGateway,
     worldGateway: unusedWorldGateway,
     postGateway: unusedPostGateway,
     characterGateway: unusedCharacterGateway,

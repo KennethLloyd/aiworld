@@ -10,6 +10,7 @@ import {
   GatewaysProvider,
   type AppGateways,
 } from '@/providers/gateways-provider';
+import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 
 import type { SearchGateway } from '../api/search-gateway';
 import { useSearch } from './use-search';
@@ -54,6 +55,7 @@ describe('useSearch', () => {
 
 function gateways(searchGateway: SearchGateway): AppGateways {
   return {
+    adminGateway: unusedAdminGateway,
     worldGateway: unusedWorldGateway,
     postGateway: unusedPostGateway,
     characterGateway: unusedCharacterGateway,

@@ -10,6 +10,7 @@ import {
   GatewaysProvider,
   type AppGateways,
 } from '@/providers/gateways-provider';
+import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 
 import type { PostGateway } from '../api/post-gateway';
 import { usePosts } from './use-posts';
@@ -42,6 +43,7 @@ describe('usePosts', () => {
       getById: vi.fn<PostGateway['getById']>(),
     };
     const gateways: AppGateways = {
+      adminGateway: unusedAdminGateway,
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,
@@ -73,6 +75,7 @@ describe('usePosts', () => {
       getById: vi.fn<PostGateway['getById']>(),
     };
     const gateways: AppGateways = {
+      adminGateway: unusedAdminGateway,
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,
