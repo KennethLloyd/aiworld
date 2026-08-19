@@ -8,6 +8,21 @@ Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 Implement the prototype's terminal-style ADMIN dashboard using real API
 contracts and the shared simulation pipeline.
 
+## Reference Artifacts
+
+- [MVP prototype](../product/aiworld_mvp.html) — visual hierarchy, labels,
+  layout, and interaction affordances for the terminal-style control room.
+- [Simulation lifecycle and admin API](./07-simulation-lifecycle-and-admin-api.md)
+  — simulation endpoints, lifecycle rules, polling, and shared contracts.
+- [Character management](./04-character-management.md) — Character and
+  WorldMember endpoints and projections.
+- [`CONTEXT.md`](../../CONTEXT.md) — domain vocabulary and ownership boundaries.
+
+The prototype is a visual and interaction reference only. Do not copy its
+in-memory authentication, mock runtime, provider metadata, or prompt/raw-
+response display. Production behavior comes from the NestJS authorization
+boundary and the shared Zod contracts.
+
 ## Scope
 
 - ADMIN route guard and access-denied behavior
@@ -23,20 +38,23 @@ contracts and the shared simulation pipeline.
 - World configuration editor
 - Character registry and editor
 - World member management (list, assign, and activate or deactivate
-  WorldMemberships) — the current MVP UI manages Character-backed AI
-  memberships and the join flow for unassigned Characters; the existing
-  WorldMember contract remains ready for future User-backed HUMAN memberships
-  and participation. Ticket 10-4 is provisional (`needs-triage`)
+  WorldMembers) — ticket 10-4 owns the Members tab and the join flow for
+  unassigned Characters. The current MVP UI manages Character-backed AI
+  memberships only; User-backed HUMAN membership and participation remain
+  post-MVP.
 - Character avatar URL editor with the shared default fallback from Plan 09
 - Filterable simulation log viewer
-- Log detail view with provider, model, latency, source, prompt, response,
-  tokens, cost estimate, and error details where authorized
-- CSV export only if supported by the final API contract
+- Log detail view with provider, model, latency, execution source, reasoning,
+  tokens, cost estimate, status, and error details from the finalized admin
+  log contract. Prompt and raw provider response are never rendered because
+  they are intentionally excluded from the transport response.
+- CSV export is out of scope unless a dedicated API contract is added; do not
+  synthesize an export from fields that the API does not expose.
 - New World creation form (backend world CRUD exists; multi-World creation is
   not an MVP acceptance requirement, but the form is built for admin
   completeness — recorded decision 2026-08-08)
-- Secret admin entry trigger (the prototype's hidden header trigger) as the
-  control-room shell's entry UX
+- Low-visibility admin entry affordance matching the prototype's header
+  trigger as UX only; authentication and authorization remain server-side.
 - Telemetry, demo controls, and the log viewer poll Plan 07's endpoints; no
   real-time streaming in the MVP
 - World member management is a separate child ticket (10-4) and includes the
@@ -45,8 +63,38 @@ contracts and the shared simulation pipeline.
   WorldMember contract also supports future User-backed HUMAN membership and
   participation without coupling User identity to Character.
 
-Re-confirm every tab's request and response contracts against Plan 07's
-finalized shared schemas before implementation.
+Re-confirm every tab's request and response contracts against the finalized
+shared schemas before implementation. The existing `/admin` route guard and
+World CRUD routes are the foundation to extend; do not create a parallel admin
+surface for behavior that already exists.
+
+## Ticket Ownership
+
+- **10-1 / #52** owns the `/admin` shell, tab navigation, world selector,
+  shared admin query utilities, and Simulation Status tab.
+- **10-2 / #53** owns World Config, the single Global Character Registry, and
+  the Character editor. It does not assign World membership.
+- **10-3 / #54** owns the Simulation Logs tab and detail rows.
+- **10-4 / #55** owns the Members tab, WorldMember assignment, and membership
+  activation/deactivation. It reuses the registry data and does not create a
+  second registry.
+
+## Contract Map
+
+The status tab consumes `GET /api/worlds/:slug/simulation`, state and speed
+PATCH endpoints, `POST /api/worlds/:slug/simulation/run-one-action`, and
+`POST /api/worlds/:slug/simulation/custom-action`, plus telemetry and logs.
+Speed presets are presentation choices over the shared 0.1–100 range. RUNNING
+and PAUSED allow manual work; HALTED returns the server's refusal response.
+
+The log tab uses `characterId`, `action`, `status`, `executionSource`, `page`,
+and `limit` query fields. Log rows expose provider/model, latency, reasoning,
+tokens, cost, status, execution source, and error details only.
+
+The Members tab uses the ADMIN-only Character and WorldMember endpoints. An
+unassigned Character is a Character with no membership in the selected World;
+assignment creates an AI WorldMember. Character activation and membership
+activation are separate states and must be displayed separately.
 
 ## Security Rules
 
@@ -64,6 +112,8 @@ finalized shared schemas before implementation.
 - Manual controls show pending, success, refusal, and failure states.
 - Character and World forms validate and preserve unsaved-change behavior.
 - Log filters produce correct query requests and rendered results.
+- Members list, unassigned-Character assignment, and membership activation /
+  deactivation work without exposing HUMAN onboarding controls.
 - Keyboard navigation and modal focus trapping work correctly.
 
 ## Automated Browser Verification
@@ -89,7 +139,8 @@ agent-browser --session aiworld-admin close
 ```
 
 Add separate assertions for PAUSED, HALTED refusal, manual action selection,
-character editing, log filtering, and logout. Re-snapshot after every tab,
+character editing, World creation, log filtering/detail, member assignment,
+membership activation/deactivation, and logout. Re-snapshot after every tab,
 modal, or mutation because refs become invalid after dynamic updates.
 
 ## Senior-Level Implementation Standard
