@@ -2,6 +2,7 @@ import type {
   AdminCharacterResponse,
   CharacterResponse,
 } from '@aiworld/shared/schemas/character-response.schema';
+import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
@@ -83,12 +84,32 @@ const telemetry: SimulationTelemetryResponse = {
   lastRunAt: '2026-07-15T10:00:00.000Z',
 };
 
+const simulationLog: SimulationLogResponse = {
+  id: 'aa3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f14',
+  worldId: world.id,
+  characterId: character.id,
+  action: 'COMMENT',
+  targetId: null,
+  reasoning: 'The resident continued the discussion thoughtfully.',
+  provider: 'mock',
+  model: 'fixture-model',
+  latencyMs: 640,
+  jobId: 'job-42',
+  executionSource: 'custom',
+  tokensUsed: 240,
+  costEstimate: 0.08,
+  status: 'FAILED',
+  errorMessage: 'Provider timed out after the retry budget.',
+  executedAt: '2026-07-15T10:05:00.000Z',
+};
+
 let currentConfig: SimulationConfigResponse;
 let stateRequests: string[];
 let speedRequests: number[];
 let customActionRequests: Record<string, unknown>[];
 let telemetryRequests: number;
 let logRequests: number;
+let logQueryRequests: URLSearchParams[];
 let currentWorld: WorldResponse;
 let characterRequests: Record<string, unknown>[];
 
@@ -166,8 +187,9 @@ const server = setupServer(
     telemetryRequests += 1;
     return HttpResponse.json(telemetry);
   }),
-  http.get('*/api/worlds/mbti-house/simulation/logs', () => {
+  http.get('*/api/worlds/mbti-house/simulation/logs', ({ request }) => {
     logRequests += 1;
+    logQueryRequests.push(new URL(request.url).searchParams);
     return HttpResponse.json({
       items: [],
       meta: { page: 1, limit: 5, total: 0, totalPages: 0 },
@@ -216,6 +238,7 @@ describe('/admin control room', () => {
     customActionRequests = [];
     telemetryRequests = 0;
     logRequests = 0;
+    logQueryRequests = [];
   });
   afterEach(() => {
     server.resetHandlers();
@@ -227,6 +250,7 @@ describe('/admin control room', () => {
     customActionRequests = [];
     telemetryRequests = 0;
     logRequests = 0;
+    logQueryRequests = [];
   });
   afterAll(() => server.close());
 
@@ -348,6 +372,142 @@ describe('/admin control room', () => {
       expect(telemetryRequests).toBeGreaterThan(1);
       expect(logRequests).toBeGreaterThan(1);
     });
+  });
+
+  it('filters, paginates, and expands authorized simulation log details', async () => {
+    const pageTwoLog: SimulationLogResponse = {
+      ...simulationLog,
+      id: 'ba3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f15',
+      jobId: 'job-43',
+      reasoning: 'The second page contains a newer execution.',
+    };
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', ({ request }) => {
+        const search = new URL(request.url).searchParams;
+        logQueryRequests.push(search);
+        return HttpResponse.json({
+          items: [search.get('page') === '2' ? pageTwoLog : simulationLog],
+          meta: {
+            page: Number(search.get('page') ?? 1),
+            limit: Number(search.get('limit') ?? 10),
+            total: 2,
+            totalPages: 2,
+          },
+        });
+      }),
+    );
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Simulation Logs' }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', {
+        name: 'Show details for Mystic Aura',
+      }),
+    ).toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Character / AI Resident'),
+      character.id,
+    );
+    await userEvent.selectOptions(screen.getByLabelText('Action'), 'COMMENT');
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'FAILED');
+    await userEvent.selectOptions(
+      screen.getByLabelText('Execution source'),
+      'custom',
+    );
+
+    await waitFor(() => {
+      const latest = logQueryRequests.at(-1);
+      expect(latest?.get('characterId')).toBe(character.id);
+      expect(latest?.get('action')).toBe('COMMENT');
+      expect(latest?.get('status')).toBe('FAILED');
+      expect(latest?.get('executionSource')).toBe('custom');
+      expect(latest?.get('page')).toBe('1');
+    });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show details for Mystic Aura' }),
+    );
+    expect(
+      await screen.findByText('Provider timed out after the retry budget.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('job-42')).toBeInTheDocument();
+    expect(screen.getByText('mock')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/promptUsed|responseRaw/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Export CSV/i }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => expect(logQueryRequests.at(-1)?.get('page')).toBe('2'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show details for Mystic Aura' }),
+    );
+    expect(await screen.findByText('job-43')).toBeInTheDocument();
+    expect(screen.queryByText('job-42')).not.toBeInTheDocument();
+  });
+
+  it('renders all log status and execution-source options', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
+
+    await screen.findByRole('heading', { name: 'Simulation Logs' });
+    expect(screen.getByRole('option', { name: 'Success' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Failed' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Skipped' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Rejected' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'Scheduled' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: 'One Action' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Custom' })).toBeInTheDocument();
+  });
+
+  it('renders an empty log state for a filter with no matches', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json({
+          items: [],
+          meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+        }),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'No simulation logs' }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders a forbidden state when simulation logs are denied', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json(
+          { statusCode: 403, message: 'Forbidden', error: 'Forbidden' },
+          { status: 403 },
+        ),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Access denied' }),
+    ).toBeInTheDocument();
   });
 
   it('shows an accessible HALTED refusal from the server', async () => {

@@ -5,7 +5,6 @@ import { useRef, type KeyboardEvent } from 'react';
 
 import type { AdminDashboardSearch } from '@/features/admin/admin-search';
 import { useWorlds } from '@/features/worlds/query/use-worlds';
-import { useToast } from '@/shared/feedback/toaster';
 import { buttonClasses } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
@@ -14,6 +13,7 @@ import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { CharacterRegistryTab } from './character-registry-tab';
+import { SimulationLogsTab } from './simulation-logs-tab';
 import { SimulationStatusTab } from './simulation-status-tab';
 import { WorldConfigTab } from './world-config-tab';
 
@@ -28,7 +28,6 @@ const tabs = [
 
 export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
   const navigate = useNavigate({ from: '/admin/' });
-  const { toast } = useToast();
   const tabRefs = useRef<
     Record<AdminDashboardSearch['tab'], HTMLButtonElement | null>
   >({
@@ -53,14 +52,6 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     });
   };
 
-  const showComingSoon = (label: string) => {
-    toast({
-      tone: 'info',
-      title: `${label} is coming next`,
-      description: 'This control-room tab is owned by a follow-up ticket.',
-    });
-  };
-
   const handleTabKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -78,9 +69,6 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     const nextTab = tabs[(index + direction + tabs.length) % tabs.length];
     selectTab(nextTab.value);
     tabRefs.current[nextTab.value]?.focus();
-    if (nextTab.value === 'logs') {
-      showComingSoon(nextTab.label);
-    }
   };
 
   return (
@@ -139,12 +127,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                     tabRefs.current[tab.value] = element;
                   }}
                   onKeyDown={(event) => handleTabKeyDown(event, index)}
-                  onClick={() => {
-                    selectTab(tab.value);
-                    if (tab.value === 'logs') {
-                      showComingSoon(tab.label);
-                    }
-                  }}
+                  onClick={() => selectTab(tab.value)}
                   className={
                     active
                       ? 'border-b-2 border-brand-diplomat px-1 pb-3 text-sm font-bold text-brand-diplomat outline-none'
@@ -197,6 +180,8 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
             <SimulationStatusTab world={selectedWorld} />
           ) : search.tab === 'world' ? (
             <WorldConfigTab world={selectedWorld} />
+          ) : search.tab === 'logs' ? (
+            <SimulationLogsTab world={selectedWorld} />
           ) : (
             <EmptyState
               icon={Cpu}

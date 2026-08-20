@@ -4,7 +4,12 @@ import type {
   UpdateSimulationSpeed,
   UpdateSimulationState,
 } from '@aiworld/shared/schemas/simulation-state.schema';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { useGateways } from '@/providers/gateways-provider';
 
@@ -44,6 +49,7 @@ export function useSimulationLogs(
   return useQuery({
     queryKey: adminKeys.worldLogs(slug, query),
     queryFn: () => adminGateway.listSimulationLogs(slug, query),
+    placeholderData: keepPreviousData,
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
