@@ -153,7 +153,7 @@ reimplementing simulation behavior.
 
 ## Implementation Record
 
-Status: In Progress — ticket 10-1 / issue #52 implemented; tickets 10-2 through 10-4 remain.
+Status: In Progress — ticket 10-1 / issue #52 and ticket 10-2 / issue #53 are implemented on review branches; tickets 10-3 and 10-4 remain.
 
 ### Senior-Level Summary
 
@@ -163,22 +163,43 @@ against the shared Plan 07 simulation contracts. The shell keeps the future
 World Config, Agents, and LLM Logs tabs as explicit extension points owned by
 the remaining child tickets.
 
+Ticket 10-2 now fills the World Config and Agents extension points. World Config
+reuses the existing World form and mutation flow, while the global Character
+registry uses the admin Character projection and shared create/update contracts
+for full Character editing, including the admin-only system prompt. Both
+editors preserve drafts on API failure and use router-aware accessible discard
+confirmation for dirty navigation.
+
 ### Files Changed
 
 - Added the admin feature slice: endpoint builders, HTTP gateway, query keys,
   polling hooks, control-room shell, and Simulation Status controls.
+- Added the admin World Config and Character registry/editor tabs, including
+  shared form mappings, separate public/admin Character gateway ports,
+  paginated registry queries, avatar preview fallback, and unsaved-change
+  confirmation. The global registry remains available when the World directory
+  is empty or unavailable.
 - Updated the admin route/search contract, app header navigation, and gateway
   composition.
-- Added gateway, route, and mutation/error-state coverage; updated existing
-  gateway test fixtures for the new required admin port.
+- Added gateway, form-mapping, route, mutation, dirty-draft, and error-state
+  coverage; updated existing Character gateway test fixtures for the expanded
+  admin methods.
 
 ### Architecture and SOLID Notes
 
 - Transport parsing stays at the HTTP adapter boundary and reuses shared
-  simulation schemas; components consume the injected `AdminGateway` port.
+  simulation and admin Character schemas; components consume injected gateway
+  ports and never parse HTTP responses directly.
 - TanStack Query owns server state, polling, and invalidation. State/speed
   commands invalidate configuration, while manual actions invalidate telemetry
   and logs.
+- The existing World form remains the single presentation boundary for World
+  CRUD. The Character editor owns admin-only fields and derives field rules
+  from the shared Character request schemas; membership assignment remains
+  ticket 10-4's responsibility.
+- Dirty editor state is observed at the form boundary and guarded through
+  TanStack Router navigation blocking plus an accessible Continue editing /
+  Discard changes dialog.
 - The route guard remains UX behavior; NestJS authorization remains the
   security boundary. Public observer payloads are not used by the tab.
 
@@ -192,18 +213,21 @@ the remaining child tickets.
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm build`
-- `pnpm test` — 68 API suites / 504 tests and 38 web files / 171 tests passed
+- `pnpm test` — 68 API suites / 504 tests and 39 web files / 187 tests passed
+- `pnpm build`
 
 ### Browser Verification
 
 The in-app browser verified the anonymous `/admin` redirect to sign-in with the
 original target query preserved. Authenticated verification was blocked because
 the local admin seed requires `ADMIN_EMAIL` and `ADMIN_PASSWORD`, which are not
-configured in this workspace; no credentials were created or stored.
+configured in this workspace; no credentials were created or stored. The
+automated route flow covers authenticated World Config and Character editor
+interactions through MSW.
 
 ### Known Risks and Follow-Up Work
 
-- The remaining child tickets own the World Config, Agents, and full LLM Logs
+- The remaining child tickets own the full LLM Logs and World Member
   experiences; the shell currently exposes clear placeholders for those tabs.
 - Full authenticated browser coverage still needs a configured local admin
   account or agent-browser auth vault.

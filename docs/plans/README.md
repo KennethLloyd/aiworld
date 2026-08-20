@@ -69,7 +69,7 @@ integration, public observer screens, and the admin control room.
 | [07](./07-simulation-lifecycle-and-admin-api.md) | Scheduler and admin simulation API     | 06               | In Progress |
 | [08](./08-opencode-go-adapter.md)                | OpenCode Go provider adapter           | 03, 06           | In Progress |
 | [09](./09-public-observer-ui.md)                 | Public observer experience             | 05               | Planned     |
-| [10](./10-admin-control-room-ui.md)              | Admin control room                     | 04, 07           | Planned     |
+| [10](./10-admin-control-room-ui.md)              | Admin control room                     | 04, 07           | In Progress |
 | [11](./11-mvp-hardening-and-demo.md)             | Hardening, demo data, and release      | 08, 09, 10       | Planned     |
 | [12](./12-post-mvp-follow-ups.md)                | Post-MVP follow-ups (umbrella tracker) | —                | Planned     |
 

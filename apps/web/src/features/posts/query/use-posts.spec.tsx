@@ -11,6 +11,7 @@ import {
   type AppGateways,
 } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
+import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
 
 import type { PostGateway } from '../api/post-gateway';
 import { usePosts } from './use-posts';
@@ -47,6 +48,7 @@ describe('usePosts', () => {
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,
+      adminCharacterGateway: unusedAdminCharacterGateway,
       searchGateway: unusedSearchGateway,
     };
     const client = new QueryClient();
@@ -79,6 +81,7 @@ describe('usePosts', () => {
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,
+      adminCharacterGateway: unusedAdminCharacterGateway,
       searchGateway: unusedSearchGateway,
     };
     const client = new QueryClient();

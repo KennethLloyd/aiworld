@@ -1,4 +1,7 @@
-import type { CharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
+import type {
+  AdminCharacterResponse,
+  CharacterResponse,
+} from '@aiworld/shared/schemas/character-response.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
@@ -7,7 +10,15 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 
 import { createQueryClient } from '@/providers/query-client';
 import { renderAuthRoutes } from '@/test/auth-router-harness';
@@ -38,6 +49,11 @@ const character: CharacterResponse = {
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
+};
+
+const adminCharacter: AdminCharacterResponse = {
+  ...character,
+  systemPrompt: 'You are a thoughtful resident of the MBTI House.',
 };
 
 const config: SimulationConfigResponse = {
@@ -73,6 +89,8 @@ let speedRequests: number[];
 let customActionRequests: Record<string, unknown>[];
 let telemetryRequests: number;
 let logRequests: number;
+let currentWorld: WorldResponse;
+let characterRequests: Record<string, unknown>[];
 
 const server = setupServer(
   http.get('*/api/worlds', () =>
@@ -81,12 +99,32 @@ const server = setupServer(
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
     }),
   ),
+  http.get('*/api/worlds/mbti-house', () => HttpResponse.json(currentWorld)),
+  http.patch('*/api/worlds/mbti-house', async ({ request }) => {
+    const body = (await request.json()) as Partial<WorldResponse>;
+    currentWorld = {
+      ...currentWorld,
+      ...body,
+      updatedAt: '2026-07-15T11:00:00.000Z',
+    };
+    return HttpResponse.json(currentWorld);
+  }),
   http.get('*/api/characters', () =>
     HttpResponse.json({
-      items: [character],
+      items: [adminCharacter],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
     }),
   ),
+  http.post('*/api/characters', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    characterRequests.push(body);
+    return HttpResponse.json(adminCharacter, { status: 201 });
+  }),
+  http.patch('*/api/characters/:characterId', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    characterRequests.push(body);
+    return HttpResponse.json({ ...adminCharacter, ...body });
+  }),
   http.get('*/api/worlds/mbti-house/simulation', () =>
     HttpResponse.json(currentConfig),
   ),
@@ -169,8 +207,20 @@ function retryDisabledClient(): QueryClient {
 
 describe('/admin control room', () => {
   beforeAll(() => server.listen());
+  beforeEach(() => {
+    currentWorld = { ...world };
+    characterRequests = [];
+    currentConfig = { ...config };
+    stateRequests = [];
+    speedRequests = [];
+    customActionRequests = [];
+    telemetryRequests = 0;
+    logRequests = 0;
+  });
   afterEach(() => {
     server.resetHandlers();
+    currentWorld = { ...world };
+    characterRequests = [];
     currentConfig = { ...config };
     stateRequests = [];
     speedRequests = [];
@@ -346,5 +396,261 @@ describe('/admin control room', () => {
       await screen.findByRole('heading', { name: 'Could not load simulation' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('loads and saves the selected World from the World Config tab', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=world', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'World Config' }),
+    ).toBeInTheDocument();
+    const nameInput = await screen.findByLabelText('Name');
+    expect(nameInput).toHaveValue(world.name);
+
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'The Updated House');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByText('World updated')).toBeInTheDocument();
+    expect(currentWorld.name).toBe('The Updated House');
+  });
+
+  it('blocks leaving a dirty World Config draft until the admin decides', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes('/admin/?tab=world', {
+      queryClient: client,
+    });
+
+    const nameInput = await screen.findByLabelText('Name');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Unsaved World');
+    await userEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Unsaved changes' }),
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toMatchObject({ tab: 'world' });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Continue editing' }),
+    );
+    expect(screen.getByLabelText('Name')).toHaveValue('Unsaved World');
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Discard changes' }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Global Character Registry',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the World draft visible when a save request fails', async () => {
+    server.use(
+      http.patch('*/api/worlds/mbti-house', () =>
+        HttpResponse.json(
+          { statusCode: 503, message: 'World service unavailable' },
+          { status: 503 },
+        ),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=world', { queryClient: client });
+
+    const worldName = await screen.findByLabelText('Name');
+    await userEvent.clear(worldName);
+    await userEvent.type(worldName, 'Draft World');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(
+      await screen.findByText('World service unavailable'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Draft World');
+  });
+
+  it('keeps the Character draft visible when a save request fails', async () => {
+    server.use(
+      http.patch('*/api/characters/:characterId', () =>
+        HttpResponse.json(
+          { statusCode: 503, message: 'Character service unavailable' },
+          { status: 503 },
+        ),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    await screen.findByRole('heading', { name: 'Global Character Registry' });
+    const editButtons = await screen.findAllByRole('button', {
+      name: 'Edit Mystic Aura',
+    });
+    await userEvent.click(editButtons[0]!);
+    const nameInput = await screen.findByLabelText('Name');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Draft Character');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save character' }),
+    );
+
+    expect(
+      await screen.findByText('Character service unavailable'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Draft Character');
+  });
+
+  it('loads the admin Character registry and saves the full editor payload', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Global Character Registry',
+      }),
+    ).toBeInTheDocument();
+    const editButtons = await screen.findAllByRole('button', {
+      name: 'Edit Mystic Aura',
+    });
+    await userEvent.click(editButtons[0]!);
+
+    const systemPrompt = await screen.findByLabelText('System prompt');
+    expect(systemPrompt).toHaveValue(adminCharacter.systemPrompt);
+    const nameInput = screen.getByLabelText('Name');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Mystic Aura Revised');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save character' }),
+    );
+
+    expect(await screen.findByText('Character updated')).toBeInTheDocument();
+    expect(characterRequests).toHaveLength(1);
+    expect(characterRequests[0]).toMatchObject({
+      name: 'Mystic Aura Revised',
+      systemPrompt: adminCharacter.systemPrompt,
+      traits: ['Curious'],
+    });
+  });
+
+  it('keeps the global Character registry available without any Worlds', async () => {
+    server.use(
+      http.get('*/api/worlds', () =>
+        HttpResponse.json({
+          items: [],
+          meta: { page: 1, limit: 100, total: 0, totalPages: 0 },
+        }),
+      ),
+    );
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Global Character Registry',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'New Character' }),
+    ).toBeInTheDocument();
+  });
+
+  it('renders an explicit not-found state for an unavailable World slug', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=world&world=missing-world', {
+      queryClient: client,
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'World not found' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/requested World is not in the admin directory/),
+    ).toBeInTheDocument();
+  });
+
+  it('creates an unassigned Character through the existing admin API flow', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    await screen.findByRole('heading', { name: 'Global Character Registry' });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'New Character' }),
+    );
+    await userEvent.type(screen.getByLabelText('Handle'), 'new_character');
+    await userEvent.type(screen.getByLabelText('Name'), 'New Character');
+    await userEvent.type(
+      screen.getByLabelText('System prompt'),
+      'You are a new character.',
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create character' }),
+    );
+
+    expect(await screen.findByText('Character created')).toBeInTheDocument();
+    expect(characterRequests[0]).toMatchObject({
+      handle: 'new_character',
+      name: 'New Character',
+      systemPrompt: 'You are a new character.',
+    });
+  });
+
+  it('preserves a dirty Character draft until the admin explicitly discards it', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    await screen.findByRole('heading', { name: 'Global Character Registry' });
+    const editButtons = await screen.findAllByRole('button', {
+      name: 'Edit Mystic Aura',
+    });
+    await userEvent.click(editButtons[0]!);
+    const nameInput = await screen.findByLabelText('Name');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Unsaved Character');
+    await userEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Unsaved changes' }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Continue editing' }),
+    );
+    expect(screen.getByLabelText('Name')).toHaveValue('Unsaved Character');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close editor' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Discard changes' }),
+    );
+    expect(
+      screen.queryByRole('heading', { name: /Edit Mystic Aura/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders a forbidden state when the admin Character registry is denied', async () => {
+    server.use(
+      http.get('*/api/characters', () =>
+        HttpResponse.json(
+          { statusCode: 403, message: 'Forbidden' },
+          { status: 403 },
+        ),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=characters', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Access denied' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('You need the ADMIN role to view this content.'),
+    ).toBeInTheDocument();
   });
 });

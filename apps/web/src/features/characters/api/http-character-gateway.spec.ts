@@ -1,5 +1,12 @@
 import type { CharacterActivityResponse } from '@aiworld/shared/schemas/activity-response.schema';
-import type { CharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
+import type {
+  AdminCharacterResponse,
+  CharacterResponse,
+} from '@aiworld/shared/schemas/character-response.schema';
+import type {
+  CreateCharacter,
+  UpdateCharacter,
+} from '@aiworld/shared/schemas/character.schema';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
@@ -19,6 +26,11 @@ const character: CharacterResponse = {
   isActive: true,
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
+};
+
+const adminCharacter: AdminCharacterResponse = {
+  ...character,
+  systemPrompt: 'You are a thoughtful resident of the MBTI House.',
 };
 
 const activity: CharacterActivityResponse = {
@@ -142,5 +154,80 @@ describe('HttpCharacterGateway', () => {
     await expect(
       gateway.getActivity(character.id, { worldSlug: 'mbti', limit: 20 }),
     ).rejects.toBeInstanceOf(ZodError);
+  });
+
+  it('parses the admin registry projection including the system prompt', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      return new Response(
+        JSON.stringify({
+          items: [adminCharacter],
+          meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      gateway.listAdmin({ page: 1, limit: 100, isActive: false }),
+    ).resolves.toEqual({
+      items: [adminCharacter],
+      meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/characters?page=1&limit=100&isActive=false',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('creates and updates through the admin character endpoints', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(adminCharacter), { status: 201 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(adminCharacter), { status: 200 }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const createInput: CreateCharacter = {
+      handle: 'mystic_aura',
+      name: 'Mystic Aura',
+      classification: 'INFJ',
+      classificationGroup: 'NF',
+      avatarUrl: null,
+      biography: 'A reflective resident.',
+      traits: ['Curious', 'Thoughtful'],
+      systemPrompt: adminCharacter.systemPrompt,
+      isActive: true,
+    };
+    const updateInput: UpdateCharacter = {
+      biography: 'A more reflective resident.',
+      systemPrompt: 'You are even more thoughtful.',
+    };
+
+    await expect(gateway.create(createInput)).resolves.toEqual(adminCharacter);
+    await expect(gateway.update(character.id, updateInput)).resolves.toEqual(
+      adminCharacter,
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/characters',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(createInput),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/characters/${character.id}`,
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify(updateInput),
+      }),
+    );
   });
 });

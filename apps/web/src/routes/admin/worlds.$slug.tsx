@@ -8,6 +8,7 @@ import { WorldForm } from '@/features/worlds/forms/world-form';
 import {
   toUpdateWorld,
   type WorldFormValues,
+  worldToFormValues,
 } from '@/features/worlds/forms/world-form-schema';
 import { useWorld } from '@/features/worlds/query/use-world';
 import { useUpdateWorld } from '@/features/worlds/query/use-world-mutations';
@@ -145,24 +146,6 @@ function EditWorldForm({ world }: { world: WorldResponse }) {
       />
     </div>
   );
-}
-
-/** Description record -> editable rows; rules strings -> rows (one empty row for adding). */
-function worldToFormValues(world: WorldResponse): WorldFormValues {
-  const descriptionEntries = Object.entries(world.description ?? {}).map(
-    ([key, value]) => ({ key, value }),
-  );
-  return {
-    name: world.name,
-    slug: world.slug,
-    topicScope: world.topicScope,
-    rules:
-      world.rules.length > 0
-        ? world.rules.map((rule) => ({ value: rule }))
-        : [{ value: '' }],
-    isActive: world.isActive,
-    descriptionEntries: descriptionEntries.length > 0 ? descriptionEntries : [],
-  };
 }
 
 function EditWorldSkeleton() {

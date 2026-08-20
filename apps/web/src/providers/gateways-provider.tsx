@@ -4,7 +4,10 @@ import { HttpClient } from '@/core/api/http-client';
 import { env } from '@/core/config/env';
 import type { AdminGateway } from '@/features/admin/api/admin-gateway';
 import { HttpAdminGateway } from '@/features/admin/api/http-admin-gateway';
-import type { CharacterGateway } from '@/features/characters/api/character-gateway';
+import type {
+  AdminCharacterGateway,
+  CharacterGateway,
+} from '@/features/characters/api/character-gateway';
 import { HttpCharacterGateway } from '@/features/characters/api/http-character-gateway';
 import { HttpPostGateway } from '@/features/posts/api/http-post-gateway';
 import type { PostGateway } from '@/features/posts/api/post-gateway';
@@ -19,6 +22,7 @@ export interface AppGateways {
   worldGateway: WorldGateway;
   postGateway: PostGateway;
   characterGateway: CharacterGateway;
+  adminCharacterGateway: AdminCharacterGateway;
   searchGateway: SearchGateway;
 }
 
@@ -28,6 +32,7 @@ const gateways: AppGateways = {
   worldGateway: new HttpWorldGateway(apiClient),
   postGateway: new HttpPostGateway(apiClient),
   characterGateway: new HttpCharacterGateway(apiClient),
+  adminCharacterGateway: new HttpCharacterGateway(apiClient),
   searchGateway: new HttpSearchGateway(apiClient),
 };
 

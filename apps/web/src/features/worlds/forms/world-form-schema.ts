@@ -1,3 +1,4 @@
+import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import {
   createWorldSchema,
   type CreateWorld,
@@ -44,6 +45,23 @@ export const worldFormSchema = createWorldSchema
   });
 
 export type WorldFormValues = z.infer<typeof worldFormSchema>;
+
+export function worldToFormValues(world: WorldResponse): WorldFormValues {
+  const descriptionEntries = Object.entries(world.description ?? {}).map(
+    ([key, value]) => ({ key, value }),
+  );
+  return {
+    name: world.name,
+    slug: world.slug,
+    topicScope: world.topicScope,
+    rules:
+      world.rules.length > 0
+        ? world.rules.map((rule) => ({ value: rule }))
+        : [{ value: '' }],
+    isActive: world.isActive,
+    descriptionEntries: descriptionEntries.length > 0 ? descriptionEntries : [],
+  };
+}
 
 /**
  * Converts editable rows to a description record, dropping rows whose key or

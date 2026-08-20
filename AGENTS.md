@@ -25,14 +25,19 @@
 
 1. Follow the complete workflow as defined inside the `/implement` skill
 2. Always use web search for latest online docs instead of digging through `node_modules`.
-3. Comments should be concise and straightforward, simple (max 1-2 lines only)
-4. Update the ticket and the plan implementation record in the same task as
+3. Before declaring authenticated UI verification blocked, inspect local config
+   such as `apps/api/.env` for configured test credentials without printing
+   secrets. Treat `control-in-app-browser` verification as a required UI
+   acceptance step and report authenticated and unauthenticated coverage
+   separately.
+4. Comments should be concise and straightforward, simple (max 1-2 lines only)
+5. Update the ticket and the plan implementation record in the same task as
    the code.
-5. Create a dedicated branch for the ticket; never complete implementation on
+6. Create a dedicated branch for the ticket; never complete implementation on
    `main`.
-6. Commit only the focused ticket changes, push the branch, and open a review
+7. Commit only the focused ticket changes, push the branch, and open a review
    pull request.
-7. Confirm required CI checks pass and wait for the user to review and merge
+8. Confirm required CI checks pass and wait for the user to review and merge
    the pull request; do not mark the ticket or plan `Done`/`Complete` before
    then.
 

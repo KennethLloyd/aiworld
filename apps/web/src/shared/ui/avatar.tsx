@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { cn } from './cn';
 
@@ -30,6 +30,9 @@ export function Avatar({
   className,
 }: AvatarProps) {
   const [hasLoadError, setHasLoadError] = useState(false);
+  useEffect(() => {
+    setHasLoadError(false);
+  }, [src]);
   const showImage = Boolean(src) && !hasLoadError;
 
   return (
