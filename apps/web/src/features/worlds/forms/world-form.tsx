@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 
 import { buttonClasses } from '@/shared/ui/button';
@@ -16,6 +17,8 @@ export interface WorldFormProps {
   isSubmitting: boolean;
   /** Form-level error (mutation failure) shown in an alert area. */
   submitError: string | null;
+  resetKey?: string | number;
+  onDirtyChange?: (dirty: boolean) => void;
   onSubmit: (values: WorldFormValues) => void;
 }
 
@@ -31,17 +34,35 @@ export function WorldForm({
   initialValues,
   isSubmitting,
   submitError,
+  resetKey,
+  onDirtyChange,
   onSubmit,
 }: WorldFormProps) {
   const {
     control,
     register,
     handleSubmit,
-    formState: { errors },
+    reset,
+    formState: { errors, isDirty },
   } = useForm<WorldFormValues>({
     resolver: zodResolver(worldFormSchema),
     defaultValues: initialValues,
   });
+  const initialValuesRef = useRef(initialValues);
+
+  useEffect(() => {
+    initialValuesRef.current = initialValues;
+  }, [initialValues]);
+
+  useEffect(() => {
+    if (resetKey !== undefined) {
+      reset(initialValuesRef.current);
+    }
+  }, [reset, resetKey]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   // Rows are {value} objects (see ruleRowSchema) so FieldArrayPath covers the
   // rules array; the wire payload maps them back to plain strings.

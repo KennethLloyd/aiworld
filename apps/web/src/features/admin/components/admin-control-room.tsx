@@ -13,7 +13,9 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
+import { CharacterRegistryTab } from './character-registry-tab';
 import { SimulationStatusTab } from './simulation-status-tab';
+import { WorldConfigTab } from './world-config-tab';
 
 const adminWorldsQuery = { page: 1, limit: 100 } as const;
 
@@ -76,7 +78,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     const nextTab = tabs[(index + direction + tabs.length) % tabs.length];
     selectTab(nextTab.value);
     tabRefs.current[nextTab.value]?.focus();
-    if (nextTab.value !== 'status') {
+    if (nextTab.value === 'logs') {
       showComingSoon(nextTab.label);
     }
   };
@@ -139,7 +141,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                   onKeyDown={(event) => handleTabKeyDown(event, index)}
                   onClick={() => {
                     selectTab(tab.value);
-                    if (tab.value !== 'status') {
+                    if (tab.value === 'logs') {
                       showComingSoon(tab.label);
                     }
                   }}
@@ -162,7 +164,9 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           aria-label={activeTabLabel(search.tab)}
           className="mt-6"
         >
-          {worldsQuery.isError ? (
+          {search.tab === 'characters' ? (
+            <CharacterRegistryTab />
+          ) : worldsQuery.isError ? (
             <ErrorState
               title="Could not load admin worlds"
               message="The control room cannot select a World until the directory is available."
@@ -186,11 +190,13 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
             />
           ) : selectedWorld === undefined ? (
             <ErrorState
-              title="Selected World unavailable"
-              message="Choose another World from the selector to continue."
+              title="World not found"
+              message="The requested World is not in the admin directory. Choose another World to continue."
             />
           ) : search.tab === 'status' ? (
             <SimulationStatusTab world={selectedWorld} />
+          ) : search.tab === 'world' ? (
+            <WorldConfigTab world={selectedWorld} />
           ) : (
             <EmptyState
               icon={Cpu}
@@ -240,10 +246,7 @@ function resolveSelectedWorld(
   requestedSlug: string | undefined,
 ): WorldResponse | undefined {
   if (requestedSlug !== undefined) {
-    const requested = worlds.find((world) => world.slug === requestedSlug);
-    if (requested !== undefined) {
-      return requested;
-    }
+    return worlds.find((world) => world.slug === requestedSlug);
   }
   return (
     worlds.find((world) => world.slug === 'mbti-house') ??

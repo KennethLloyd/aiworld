@@ -11,6 +11,7 @@ import {
   type AppGateways,
 } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
+import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
 
 import type { SearchGateway } from '../api/search-gateway';
 import { useSearch } from './use-search';
@@ -59,6 +60,7 @@ function gateways(searchGateway: SearchGateway): AppGateways {
     worldGateway: unusedWorldGateway,
     postGateway: unusedPostGateway,
     characterGateway: unusedCharacterGateway,
+    adminCharacterGateway: unusedAdminCharacterGateway,
     searchGateway,
   };
 }

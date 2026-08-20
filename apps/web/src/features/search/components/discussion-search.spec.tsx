@@ -19,6 +19,7 @@ import {
   type AppGateways,
 } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
+import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
 
 import type { SearchGateway } from '../api/search-gateway';
 import { DiscussionSearch } from './discussion-search';
@@ -149,6 +150,7 @@ async function renderSearch(search: SearchGateway['search']) {
     worldGateway: unusedWorldGateway,
     postGateway: unusedPostGateway,
     characterGateway: unusedCharacterGateway,
+    adminCharacterGateway: unusedAdminCharacterGateway,
     searchGateway: { search },
   };
 

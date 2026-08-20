@@ -13,8 +13,11 @@ function appendQuery(path: string, values: Record<string, string | undefined>) {
 }
 
 export const characterEndpoints = {
+  base(): string {
+    return '/api/characters';
+  },
   list(query: ListCharactersQuery): string {
-    return appendQuery('/api/characters', {
+    return appendQuery(characterEndpoints.base(), {
       worldSlug: query.worldSlug,
       search: query.search,
       classification: query.classification,

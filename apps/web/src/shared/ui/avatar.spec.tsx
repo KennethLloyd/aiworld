@@ -27,4 +27,25 @@ describe('Avatar', () => {
 
     expect(screen.getByTestId('avatar-fallback')).toBeInTheDocument();
   });
+
+  it('retries the preview when the avatar URL changes', () => {
+    const { rerender } = render(
+      <Avatar
+        src="https://example.test/broken.png"
+        alt="Mystic Aura"
+        name="Mystic Aura"
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText(''));
+    rerender(
+      <Avatar
+        src="https://example.test/working.png"
+        alt="Mystic Aura"
+        name="Mystic Aura"
+      />,
+    );
+
+    expect(screen.getByTestId('avatar-image')).toBeInTheDocument();
+  });
 });

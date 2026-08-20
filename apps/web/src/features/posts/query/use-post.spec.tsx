@@ -8,6 +8,7 @@ import type { SearchGateway } from '@/features/search/api/search-gateway';
 import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 import { GatewaysProvider } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
+import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
 
 import type { PostGateway } from '../api/post-gateway';
 import { usePost } from './use-post';
@@ -46,6 +47,7 @@ describe('usePost', () => {
               worldGateway: unusedWorldGateway,
               postGateway: gateway,
               characterGateway: unusedCharacterGateway,
+              adminCharacterGateway: unusedAdminCharacterGateway,
               searchGateway: unusedSearchGateway,
             }}
           >
@@ -77,6 +79,7 @@ describe('usePost', () => {
               worldGateway: unusedWorldGateway,
               postGateway: gateway,
               characterGateway: unusedCharacterGateway,
+              adminCharacterGateway: unusedAdminCharacterGateway,
               searchGateway: unusedSearchGateway,
             }}
           >

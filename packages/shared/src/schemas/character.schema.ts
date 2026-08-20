@@ -5,6 +5,14 @@ const optionalClassificationFields = {
   classificationGroup: z.string().trim().min(1).max(50).nullish(),
 };
 
+export const MAX_CHARACTER_TRAITS = 50;
+
+export const characterTraitSchema = z.string().trim().min(1).max(100);
+
+export const characterTraitsSchema = z
+  .array(characterTraitSchema)
+  .max(MAX_CHARACTER_TRAITS);
+
 const characterFields = {
   handle: z
     .string()
@@ -16,7 +24,7 @@ const characterFields = {
   ...optionalClassificationFields,
   avatarUrl: z.string().trim().min(1).max(2048).nullish(),
   biography: z.string().max(10_000),
-  traits: z.array(z.string().trim().min(1).max(100)).max(50),
+  traits: characterTraitsSchema,
   systemPrompt: z.string().min(1).max(50_000),
   isActive: z.boolean().optional(),
 };
