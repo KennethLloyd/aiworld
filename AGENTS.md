@@ -40,8 +40,11 @@
    screenshot that showcase the new change. If the change spans multiple pages
    or states, include enough screenshots to show every distinct page/state; two
    screenshots are sufficient only when they fully cover the changed surface.
-   Inspect screenshots for secrets before posting them, and use the PR
-   description or a PR comment to explain what reviewers should expect.
+   Inspect screenshots for secrets before posting them. Every UI pull request
+   must also include a `What to expect` section in simplified technical,
+   product-facing English that explains the visible change, key interactions,
+   responsive behavior, and any demo-data limitations. Put it in the PR
+   description or a PR comment alongside the screenshots.
 6. Comments should be concise and straightforward, simple (max 1-2 lines only)
 7. Update the ticket and the plan implementation record in the same task as
    the code.
