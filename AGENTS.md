@@ -30,14 +30,29 @@
    secrets. Treat `control-in-app-browser` verification as a required UI
    acceptance step and report authenticated and unauthenticated coverage
    separately.
-4. Comments should be concise and straightforward, simple (max 1-2 lines only)
-5. Update the ticket and the plan implementation record in the same task as
+4. For every UI change, exhaustively test the changed route and its surrounding
+   navigation/layout states with the `control-in-app-browser` skill before
+   creating a pull request. Exercise the relevant happy path, loading, empty,
+   error, unauthorized/forbidden, responsive, and interaction states; direct
+   browser verification is required in addition to automated tests.
+5. Capture and attach review screenshots before opening the pull request: at
+   minimum include one desktop screenshot and one iPhone 15/mobile viewport
+   screenshot that showcase the new change. If the change spans multiple pages
+   or states, include enough screenshots to show every distinct page/state; two
+   screenshots are sufficient only when they fully cover the changed surface.
+   Inspect screenshots for secrets before posting them. Every UI pull request
+   must also include a `What to expect` section in simplified technical,
+   product-facing English that explains the visible change, key interactions,
+   responsive behavior, and any demo-data limitations. Put it in the PR
+   description or a PR comment alongside the screenshots.
+6. Comments should be concise and straightforward, simple (max 1-2 lines only)
+7. Update the ticket and the plan implementation record in the same task as
    the code.
-6. Create a dedicated branch for the ticket; never complete implementation on
+8. Create a dedicated branch for the ticket; never complete implementation on
    `main`.
-7. Commit only the focused ticket changes, push the branch, and open a review
+9. Commit only the focused ticket changes, push the branch, and open a review
    pull request.
-8. Confirm required CI checks pass and wait for the user to review and merge
+10. Confirm required CI checks pass and wait for the user to review and merge
    the pull request; do not mark the ticket or plan `Done`/`Complete` before
    then.
 

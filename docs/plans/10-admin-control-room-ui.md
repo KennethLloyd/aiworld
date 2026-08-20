@@ -153,7 +153,7 @@ reimplementing simulation behavior.
 
 ## Implementation Record
 
-Status: In Progress — ticket 10-1 / issue #52 and ticket 10-2 / issue #53 are implemented on review branches; tickets 10-3 and 10-4 remain.
+Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / issue #54 are implemented; ticket 10-4 remains.
 
 ### Senior-Level Summary
 
@@ -170,6 +170,14 @@ for full Character editing, including the admin-only system prompt. Both
 editors preserve drafts on API failure and use router-aware accessible discard
 confirmation for dirty navigation.
 
+Ticket 10-3 now fills the LLM Logs extension point with a typed, World-scoped
+viewer. It uses the existing admin gateway and TanStack Query polling to submit
+filters, replace each paginated snapshot by stable log ID, and expand only the
+authorized SimulationLog response fields. Tab orchestration stays in
+`simulation-logs-tab.tsx`, while the table and authorized detail presentation
+live in `simulation-log-list.tsx`. Provider prompts and raw responses never
+enter the rendered detail surface.
+
 ### Files Changed
 
 - Added the admin feature slice: endpoint builders, HTTP gateway, query keys,
@@ -179,11 +187,14 @@ confirmation for dirty navigation.
   paginated registry queries, avatar preview fallback, and unsaved-change
   confirmation. The global registry remains available when the World directory
   is empty or unavailable.
+- Added the Simulation Logs tab with Character, action, status, and execution
+  source filters; expandable authorized details; empty/error states; and
+  paginated polling with stable snapshot replacement.
 - Updated the admin route/search contract, app header navigation, and gateway
   composition.
-- Added gateway, form-mapping, route, mutation, dirty-draft, and error-state
-  coverage; updated existing Character gateway test fixtures for the expanded
-  admin methods.
+- Added gateway, form-mapping, route, mutation, dirty-draft, log filtering,
+  pagination, detail-visibility, and error-state coverage; updated existing
+  Character gateway test fixtures for the expanded admin methods.
 
 ### Architecture and SOLID Notes
 
@@ -197,6 +208,16 @@ confirmation for dirty navigation.
   CRUD. The Character editor owns admin-only fields and derives field rules
   from the shared Character request schemas; membership assignment remains
   ticket 10-4's responsibility.
+- The Logs tab consumes the existing injected AdminGateway port and shared
+  SimulationLog schemas. TanStack Query owns filter/page keys, background
+  polling, and previous-page placeholders; the component never aggregates or
+  appends server snapshots client-side.
+- `SimulationLogsTab` owns query, filter, pagination, and state transitions;
+  `LogList` owns stable-ID row rendering and authorized detail presentation.
+- The log detail row is a presentation-only expansion over the public admin log
+  response. It renders provider metadata and persisted reasoning/error fields,
+  while promptUsed and responseRaw remain absent from the transport contract
+  and DOM.
 - Dirty editor state is observed at the form boundary and guarded through
   TanStack Router navigation blocking plus an accessible Continue editing /
   Discard changes dialog.
@@ -213,21 +234,32 @@ confirmation for dirty navigation.
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm build`
-- `pnpm test` — 68 API suites / 504 tests and 39 web files / 187 tests passed
+- `pnpm test` — 68 API suites / 504 tests and 39 web files / 191 tests passed
 - `pnpm build`
+- Focused `/admin` route coverage for log filters, pagination, detail rows,
+  empty state, forbidden state, and prompt/raw-response absence.
 
 ### Browser Verification
 
-The in-app browser verified the anonymous `/admin` redirect to sign-in with the
-original target query preserved. Authenticated verification was blocked because
-the local admin seed requires `ADMIN_EMAIL` and `ADMIN_PASSWORD`, which are not
-configured in this workspace; no credentials were created or stored. The
-automated route flow covers authenticated World Config and Character editor
-interactions through MSW.
+The in-app browser verified the authenticated `/admin?tab=logs` flow against
+the seeded local API: a real Run One Action created a persisted log; all four
+filters submitted the expected query values; authorized details expanded
+without prompt/raw-provider fields; page 2 replaced page 1 without duplicate
+rows; background polling replaced the active page after a new log; the
+Rejected filter produced the empty state; and a clean mobile-width render had
+no console errors. Stopping the API also exercised the existing session-load
+error boundary, then the API was restored and a fresh Logs tab loaded with no
+warnings.
+
+The complementary `agent-browser` flow authenticated against the local app,
+opened the Logs tab, confirmed the accessible filter/options surface, selected
+Rejected, and confirmed the zero-match state and absence of prompt/raw fields
+in the DOM output.
 
 ### Known Risks and Follow-Up Work
 
-- The remaining child tickets own the full LLM Logs and World Member
-  experiences; the shell currently exposes clear placeholders for those tabs.
-- Full authenticated browser coverage still needs a configured local admin
-  account or agent-browser auth vault.
+- The remaining child ticket owns World member management; the shell still
+  exposes that tab as the next extension point.
+- The browser flow used seeded local data, so the production API error path
+  remains covered by the automated forbidden/error tests rather than by
+  changing deployed server state.
