@@ -13,7 +13,10 @@ import {
   useUpdateWorldMember,
 } from '@/features/admin/query/use-world-member-mutations';
 import { useWorldMembers } from '@/features/admin/query/use-world-members';
-import { useAdminCharacterDirectory } from '@/features/characters/query/use-admin-characters';
+import {
+  useAdminCharacterDirectory,
+  useAdminCharacters,
+} from '@/features/characters/query/use-admin-characters';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
@@ -36,16 +39,15 @@ interface MemberRow {
 
 export function WorldMembersTab({ world }: { world: WorldResponse }) {
   const membersQuery = useWorldMembers(world.slug);
-  const directoryQuery = useAdminCharacterDirectory({
-    enabled: membersQuery.isSuccess,
-  });
+  const directoryQuery = useAdminCharacterDirectory();
   const [memberPage, setMemberPage] = useState(1);
   const [candidatePage, setCandidatePage] = useState(1);
   const [candidateSearch, setCandidateSearch] = useState('');
   const debouncedCandidateSearch = useDebouncedValue(candidateSearch, 300);
-  const candidateQuery = useAdminCharacterDirectory({
-    enabled: membersQuery.isSuccess,
-    search: debouncedCandidateSearch,
+  const candidateQuery = useAdminCharacters({
+    page: candidatePage,
+    limit: CANDIDATE_PAGE_SIZE,
+    search: debouncedCandidateSearch || undefined,
   });
   const [deactivationTarget, setDeactivationTarget] =
     useState<MemberRow | null>(null);
@@ -94,16 +96,13 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
     () => new Set(memberRows.map(({ member }) => member.characterId)),
     [memberRows],
   );
-  const candidates = (candidateQuery.data ?? []).filter(
+  const membershipReady = membersQuery.isSuccess;
+  const candidates = (candidateQuery.data?.items ?? []).filter(
     (character) => !membershipCharacterIds.has(character.id),
   );
   const candidatePageCount = Math.max(
     1,
-    Math.ceil(candidates.length / CANDIDATE_PAGE_SIZE),
-  );
-  const visibleCandidates = candidates.slice(
-    (candidatePage - 1) * CANDIDATE_PAGE_SIZE,
-    candidatePage * CANDIDATE_PAGE_SIZE,
+    candidateQuery.data?.meta.totalPages ?? 1,
   );
 
   const assignCharacter = (character: AdminCharacterResponse) => {
@@ -142,27 +141,6 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
     );
   };
 
-  if (membersQuery.isPending && membersQuery.data === undefined) {
-    return <WorldMembersSkeleton />;
-  }
-  if (membersQuery.isError && membersQuery.data === undefined) {
-    return (
-      <ErrorState
-        title="Could not load World members"
-        message={
-          isForbiddenError(membersQuery.error)
-            ? undefined
-            : adminErrorMessage(
-                membersQuery.error,
-                'Something went wrong while loading World members.',
-              )
-        }
-        forbidden={isForbiddenError(membersQuery.error)}
-        onRetry={() => void membersQuery.refetch()}
-      />
-    );
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -181,7 +159,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
         </Badge>
       </header>
 
-      {membersQuery.isError ? (
+      {membersQuery.isError && membersQuery.data !== undefined ? (
         <RefreshNotice
           message={adminErrorMessage(
             membersQuery.error,
@@ -226,27 +204,44 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
           ) : null}
         </div>
 
-        <DataTable
-          rows={visibleMembers}
-          columns={memberColumns({
-            updateMutation,
-            onDeactivate: setDeactivationTarget,
-            onReactivate: (row) => updateMembership(row, true),
-          })}
-          rowKey={({ member }) => member.id}
-          caption="Assigned AI Residents"
-          loading={
-            directoryQuery.isPending && directoryQuery.data === undefined
-          }
-          loadingSlot={<MemberRowsSkeleton />}
-          emptySlot={
-            <EmptyState
-              icon={Users}
-              title="No AI Residents assigned"
-              description="Assign an active Character below to add the first AI Resident to this World."
-            />
-          }
-        />
+        {membersQuery.isError && membersQuery.data === undefined ? (
+          <ErrorState
+            title="Could not load World members"
+            message={
+              isForbiddenError(membersQuery.error)
+                ? undefined
+                : adminErrorMessage(
+                    membersQuery.error,
+                    'Something went wrong while loading World members.',
+                  )
+            }
+            forbidden={isForbiddenError(membersQuery.error)}
+            onRetry={() => void membersQuery.refetch()}
+          />
+        ) : (
+          <DataTable
+            rows={visibleMembers}
+            columns={memberColumns({
+              updateMutation,
+              onDeactivate: setDeactivationTarget,
+              onReactivate: (row) => updateMembership(row, true),
+            })}
+            rowKey={({ member }) => member.id}
+            caption="Assigned AI Residents"
+            loading={
+              (membersQuery.isPending && membersQuery.data === undefined) ||
+              (directoryQuery.isPending && directoryQuery.data === undefined)
+            }
+            loadingSlot={<MemberRowsSkeleton />}
+            emptySlot={
+              <EmptyState
+                icon={Users}
+                title="No AI Residents assigned"
+                description="Assign an active Character below to add the first AI Resident to this World."
+              />
+            }
+          />
+        )}
 
         {memberRows.length > MEMBER_PAGE_SIZE ? (
           <Pagination
@@ -317,10 +312,11 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
             ) : null}
             <div className="mt-5">
               <DataTable
-                rows={visibleCandidates}
+                rows={candidates}
                 columns={candidateColumns({
                   assignMutation,
                   onAssign: assignCharacter,
+                  assignmentDisabled: !membershipReady,
                 })}
                 rowKey={(character) => character.id}
                 caption="Unassigned Characters"
@@ -341,7 +337,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                 }
               />
             </div>
-            {candidates.length > CANDIDATE_PAGE_SIZE ? (
+            {candidatePageCount > 1 ? (
               <Pagination
                 label="Character candidate pages"
                 page={candidatePage}
@@ -534,9 +530,11 @@ function memberColumns({
 function candidateColumns({
   assignMutation,
   onAssign,
+  assignmentDisabled,
 }: {
   assignMutation: ReturnType<typeof useAssignWorldMember>;
   onAssign: (character: AdminCharacterResponse) => void;
+  assignmentDisabled: boolean;
 }): readonly DataTableColumn<AdminCharacterResponse>[] {
   return [
     {
@@ -587,13 +585,15 @@ function candidateColumns({
           <Button
             size="sm"
             loading={pending}
-            disabled={!character.isActive}
+            disabled={!character.isActive || assignmentDisabled}
             onClick={() => onAssign(character)}
             aria-label={`Assign ${character.name}`}
             title={
-              character.isActive
-                ? undefined
-                : 'Inactive Characters cannot be assigned'
+              !character.isActive
+                ? 'Inactive Characters cannot be assigned'
+                : assignmentDisabled
+                  ? 'Wait for the World membership list to finish loading'
+                  : undefined
             }
           >
             Assign
@@ -676,20 +676,6 @@ function MutationError({ message }: { message: string }) {
       className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200"
     >
       {message}
-    </div>
-  );
-}
-
-function WorldMembersSkeleton() {
-  return (
-    <div
-      aria-label="Loading World members"
-      aria-busy="true"
-      className="flex flex-col gap-6"
-    >
-      <Skeleton variant="text" className="h-8 w-56" />
-      <MemberRowsSkeleton />
-      <CandidateRowsSkeleton />
     </div>
   );
 }

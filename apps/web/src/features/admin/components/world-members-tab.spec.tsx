@@ -245,6 +245,32 @@ describe('WorldMembersTab', () => {
       screen.getByRole('heading', { name: 'Assign a Character' }),
     ).toBeInTheDocument();
   });
+
+  it('keeps assignment candidates available when membership loading is forbidden', async () => {
+    const forbidden = new ApiError(403, 'Forbidden', 'Forbidden');
+    const listMembers = vi
+      .fn<WorldMemberGateway['list']>()
+      .mockRejectedValue(forbidden);
+    const listCharacters = vi
+      .fn<AdminCharacterGateway['listAdmin']>()
+      .mockResolvedValue(paginated([candidateCharacter]));
+
+    renderMembers({
+      worldMemberGateway: {
+        list: listMembers,
+        create: vi.fn<WorldMemberGateway['create']>(),
+        update: vi.fn<WorldMemberGateway['update']>(),
+      },
+      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+    });
+
+    expect(await screen.findByText('Access denied')).toBeInTheDocument();
+    expect(
+      (
+        await screen.findAllByRole('button', { name: 'Assign Bright Signal' })
+      ).every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+  });
 });
 
 function renderMembers({

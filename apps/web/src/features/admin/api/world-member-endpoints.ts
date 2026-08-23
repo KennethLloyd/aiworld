@@ -1,8 +1,4 @@
-import type {
-  CreateWorldMember,
-  ListWorldMembersQuery,
-  UpdateWorldMember,
-} from '@aiworld/shared/schemas/world-member.schema';
+import type { ListWorldMembersQuery } from '@aiworld/shared/schemas/world-member.schema';
 
 function appendQuery(
   path: string,
@@ -37,10 +33,10 @@ export const worldMemberEndpoints = {
   detail(memberId: string): string {
     return `${worldMemberEndpoints.base()}/${encodeURIComponent(memberId)}`;
   },
-  create(_input: CreateWorldMember): string {
+  create(): string {
     return worldMemberEndpoints.base();
   },
-  update(memberId: string, _input: UpdateWorldMember): string {
+  update(memberId: string): string {
     return worldMemberEndpoints.detail(memberId);
   },
 };

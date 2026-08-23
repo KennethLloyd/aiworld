@@ -33,7 +33,7 @@ export class HttpWorldMemberGateway implements WorldMemberGateway {
   async create(input: CreateWorldMember): Promise<WorldMemberResponse> {
     const body = createWorldMemberSchema.parse(input);
     const raw = await this.http.post<unknown>(
-      worldMemberEndpoints.create(body),
+      worldMemberEndpoints.create(),
       body,
     );
     return worldMemberResponseSchema.parse(raw);
@@ -45,7 +45,7 @@ export class HttpWorldMemberGateway implements WorldMemberGateway {
   ): Promise<WorldMemberResponse> {
     const body = updateWorldMemberSchema.parse(input);
     const raw = await this.http.patch<unknown>(
-      worldMemberEndpoints.update(memberId, body),
+      worldMemberEndpoints.update(memberId),
       body,
     );
     return worldMemberResponseSchema.parse(raw);

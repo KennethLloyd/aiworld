@@ -182,9 +182,12 @@ enter the rendered detail surface.
 Ticket 10-4 now fills the Members extension point with a typed, selected-World
 AI membership manager. It loads all selected-World AI membership pages before
 filtering the reusable Character registry, debounces server-side candidate
-search, preserves Character and membership activity as separate states, and
-uses server-authoritative assignment and activation mutations. HUMAN onboarding
-controls remain absent from the MVP surface.
+search, fetches candidate pages incrementally, preserves Character and
+membership activity as separate states, and uses server-authoritative
+assignment and activation mutations. Membership and candidate panels keep
+their loading and forbidden states independent, while assignment remains gated
+until the complete membership set is available. HUMAN onboarding controls
+remain absent from the MVP surface.
 
 ### Files Changed
 
@@ -200,9 +203,9 @@ controls remain absent from the MVP surface.
   paginated polling with stable snapshot replacement.
 - Added the Members tab with WorldMember gateway/query/mutation boundaries,
   complete selected-World membership loading, joined Character identities,
-  responsive member and candidate tables, debounced candidate search,
-  assignment, independent Character/membership status, and deactivation
-  confirmation.
+  responsive member and candidate tables, debounced incremental candidate
+  search, assignment gating, independent Character/membership status, and
+  deactivation confirmation.
 - Clarified the distinction between globally unassigned and World-unassigned
   Characters in `CONTEXT.md` and recorded the assignment semantics in
   ADR-0004.
@@ -259,9 +262,9 @@ controls remain absent from the MVP surface.
 - Focused `/admin` route coverage for log filters, pagination, detail rows,
   empty state, forbidden state, and prompt/raw-response absence.
 - Focused WorldMember gateway, pagination, Character identity joining,
-  server-side candidate debounce, assignment conflicts, mutation invalidation,
-  activation/deactivation, independent forbidden states, and status-distinction
-  coverage.
+  incremental server-side candidate pages and debounce, assignment conflicts,
+  mutation invalidation, activation/deactivation, independent forbidden states,
+  and status-distinction coverage.
 
 ### Browser Verification
 
