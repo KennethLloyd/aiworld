@@ -1,7 +1,13 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Cpu, ExternalLink, ShieldCheck, Terminal } from 'lucide-react';
-import { useRef, type KeyboardEvent } from 'react';
+import {
+  ChevronDown,
+  Cpu,
+  ExternalLink,
+  ShieldCheck,
+  Terminal,
+} from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import type { AdminDashboardSearch } from '@/features/admin/admin-search';
 import { useWorlds } from '@/features/worlds/query/use-worlds';
@@ -9,7 +15,6 @@ import { buttonClasses } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
-import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { CharacterRegistryTab } from './character-registry-tab';
@@ -18,12 +23,17 @@ import { SimulationStatusTab } from './simulation-status-tab';
 import { WorldConfigTab } from './world-config-tab';
 import { WorldMembersTab } from './world-members-tab';
 
+/* The custom picker uses the ARIA combobox/listbox pattern so its menu stays
+   anchored to the trigger on narrow screens instead of relying on a native
+   select popup that the browser positions independently. */
+/* oxlint-disable jsx-a11y/prefer-tag-over-role */
+
 const adminWorldsQuery = { page: 1, limit: 100 } as const;
 
 const tabs = [
   { value: 'status', label: 'Simulation Status' },
   { value: 'world', label: 'World Config' },
-  { value: 'characters', label: 'Agents' },
+  { value: 'characters', label: 'Characters' },
   { value: 'members', label: 'Members' },
   { value: 'logs', label: 'LLM Logs' },
 ] as const;
@@ -76,15 +86,15 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <GlassPanel className="overflow-hidden p-4 sm:p-6 lg:p-8">
+      <GlassPanel className="relative overflow-visible p-4 sm:p-6 lg:p-8">
         <AdminHeader />
         <div className="mt-6 flex min-w-0 flex-col gap-4 border-b border-glass-border pb-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink/50">
-              Selected World Context
+              Selected World
             </p>
             <p className="mt-1 text-sm text-ink/70">
-              Commands are always scoped to the selected World.
+              All controls use this World.
             </p>
           </div>
           <div className="w-full sm:max-w-sm">
@@ -93,19 +103,14 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                 <Skeleton variant="row" />
               </div>
             ) : (
-              <Select
-                id="admin-selected-world"
-                label="Selected World"
+              <WorldPicker
                 value={selectedWorld?.slug ?? ''}
-                options={worlds.map((world) => ({
-                  value: world.slug,
-                  label: `${world.name} (${world.slug})`,
-                }))}
+                worlds={worlds}
                 placeholder={
                   worlds.length === 0 ? 'No worlds available' : undefined
                 }
                 disabled={worlds.length === 0}
-                onChange={(event) => handleWorldChange(event.target.value)}
+                onChange={handleWorldChange}
               />
             )}
           </div>
@@ -155,7 +160,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           ) : worldsQuery.isError ? (
             <ErrorState
               title="Could not load admin worlds"
-              message="The control room cannot select a World until the directory is available."
+              message="Worlds unavailable."
               onRetry={() => void worldsQuery.refetch()}
             />
           ) : worldsQuery.isPending && worlds.length === 0 ? (
@@ -163,7 +168,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           ) : worlds.length === 0 ? (
             <EmptyState
               title="No worlds available"
-              description="Create a World before opening simulation controls."
+              description="Create a World to get started."
               action={
                 <Link
                   to="/admin/worlds/new"
@@ -177,7 +182,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           ) : selectedWorld === undefined ? (
             <ErrorState
               title="World not found"
-              message="The requested World is not in the admin directory. Choose another World to continue."
+              message="Choose another World."
             />
           ) : search.tab === 'status' ? (
             <SimulationStatusTab world={selectedWorld} />
@@ -191,7 +196,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
             <EmptyState
               icon={Cpu}
               title={`${activeTabLabel(search.tab)} is coming next`}
-              description="The control-room shell is ready for this tab. Its data and mutations will be added by the owning ticket."
+              description="This tab is not available yet."
             />
           )}
         </div>
@@ -216,7 +221,7 @@ function AdminHeader() {
             className="h-3.5 w-3.5 text-brand-diplomat"
             aria-hidden="true"
           />
-          Authorized Human Override. Access Level: ADMIN.
+          Admin access.
         </p>
       </div>
       <Link
@@ -228,6 +233,156 @@ function AdminHeader() {
         World directory
       </Link>
     </header>
+  );
+}
+
+function WorldPicker({
+  worlds,
+  value,
+  placeholder,
+  disabled,
+  onChange,
+}: {
+  worlds: readonly WorldResponse[];
+  value: string;
+  placeholder?: string;
+  disabled?: boolean;
+  onChange: (slug: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const selectedIndex = Math.max(
+    0,
+    worlds.findIndex((world) => world.slug === value),
+  );
+  const [activeIndex, setActiveIndex] = useState(selectedIndex);
+  const listboxId = 'admin-selected-world-options';
+  const selectedWorld = worlds.find((world) => world.slug === value);
+
+  useEffect(() => {
+    if (!open) {
+      setActiveIndex(selectedIndex);
+    }
+  }, [open, selectedIndex]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [open]);
+
+  const chooseWorld = (slug: string) => {
+    onChange(slug);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex((current) => {
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        return Math.min(worlds.length - 1, Math.max(0, current + direction));
+      });
+      return;
+    }
+    if (event.key === 'Escape' && open) {
+      event.preventDefault();
+      setOpen(false);
+      return;
+    }
+    if ((event.key === 'Enter' || event.key === ' ') && open) {
+      event.preventDefault();
+      const activeWorld = worlds[activeIndex];
+      if (activeWorld) {
+        chooseWorld(activeWorld.slug);
+      }
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setOpen(true);
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex flex-col gap-1.5">
+      <span className="text-xs font-medium uppercase tracking-wider text-ink/60">
+        Selected World
+      </span>
+      <button
+        ref={triggerRef}
+        id="admin-selected-world"
+        type="button"
+        role="combobox"
+        aria-label="Selected World"
+        aria-controls={listboxId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-activedescendant={
+          open && worlds[activeIndex]
+            ? `${listboxId}-${worlds[activeIndex].slug}`
+            : undefined
+        }
+        data-value={value}
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={handleKeyDown}
+        className="flex h-11 w-full items-center justify-between gap-3 rounded-lg border border-glass-border bg-surface-2 px-3.5 text-left text-sm text-ink transition-colors focus:border-brand-sentinel/50 focus:outline-none focus:ring-2 focus:ring-brand-sentinel/40 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className="min-w-0 truncate">
+          {selectedWorld
+            ? `${selectedWorld.name} (${selectedWorld.slug})`
+            : (placeholder ?? 'Select a World')}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-ink/60 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+      {open && worlds.length > 0 ? (
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="World options"
+          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 max-h-72 overflow-y-auto rounded-lg border border-glass-border bg-surface-2 p-1 shadow-2xl"
+        >
+          {worlds.map((world, index) => {
+            const selected = world.slug === value;
+            const active = index === activeIndex;
+            return (
+              <button
+                key={world.slug}
+                id={`${listboxId}-${world.slug}`}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => setActiveIndex(index)}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  chooseWorld(world.slug);
+                }}
+                onClick={() => chooseWorld(world.slug)}
+                className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${active ? 'bg-glass-20 text-ink' : 'text-ink/80 hover:bg-glass-20 hover:text-ink'} ${selected ? 'font-semibold text-brand-diplomat' : ''}`}
+              >
+                <span className="truncate">
+                  {world.name} ({world.slug})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -149,8 +149,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
             World Members
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Manage Character-backed AI Residents for {world.name}. Character
-            activity and membership activity are separate states.
+            Assign and manage Characters in {world.name}.
           </p>
         </div>
         <Badge tone="info" dot={false}>
@@ -163,7 +162,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
         <RefreshNotice
           message={adminErrorMessage(
             membersQuery.error,
-            'World members could not be refreshed. Showing the last successful snapshot.',
+            'Members unavailable.',
           )}
           onRetry={() => void membersQuery.refetch()}
         />
@@ -173,7 +172,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
         <RefreshNotice
           message={adminErrorMessage(
             directoryQuery.error,
-            'Character identity details could not be loaded.',
+            'Character details unavailable.',
           )}
           onRetry={() => void directoryQuery.refetch()}
         />
@@ -193,8 +192,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
               Assigned AI Residents
             </h3>
             <p className="mt-1 text-sm text-ink/60">
-              Membership status can change without changing the Character’s
-              global activity status.
+              Character and membership status are separate.
             </p>
           </div>
           {membersQuery.isFetching ? (
@@ -210,10 +208,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
             message={
               isForbiddenError(membersQuery.error)
                 ? undefined
-                : adminErrorMessage(
-                    membersQuery.error,
-                    'Something went wrong while loading World members.',
-                  )
+                : adminErrorMessage(membersQuery.error, 'Members unavailable.')
             }
             forbidden={isForbiddenError(membersQuery.error)}
             onRetry={() => void membersQuery.refetch()}
@@ -237,7 +232,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
               <EmptyState
                 icon={Users}
                 title="No AI Residents assigned"
-                description="Assign an active Character below to add the first AI Resident to this World."
+                description="Assign an active Character to add the first resident."
               />
             }
           />
@@ -270,9 +265,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
             Assign a Character
           </h3>
           <p className="text-sm leading-relaxed text-ink/60">
-            Search the reusable Character registry. Characters already assigned
-            to this World are hidden; inactive Characters remain visible but
-            cannot be assigned.
+            Assign Characters to this World.
           </p>
         </div>
 
@@ -284,7 +277,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                 ? undefined
                 : adminErrorMessage(
                     candidateQuery.error,
-                    'Something went wrong while loading assignment candidates.',
+                    'Candidates unavailable.',
                   )
             }
             forbidden={isForbiddenError(candidateQuery.error)}
@@ -305,7 +298,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
               <RefreshNotice
                 message={adminErrorMessage(
                   candidateQuery.error,
-                  'Assignment candidates could not be refreshed. Showing the last successful snapshot.',
+                  'Candidates unavailable.',
                 )}
                 onRetry={() => void candidateQuery.refetch()}
               />
@@ -330,8 +323,8 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                     title="No World-unassigned Characters found"
                     description={
                       candidateSearch.trim().length > 0
-                        ? 'Try a different name or handle.'
-                        : 'All Characters in the current result set already belong to this World.'
+                        ? 'Try another search.'
+                        : 'No unassigned Characters in this result.'
                     }
                   />
                 }
@@ -407,9 +400,8 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
         }
       >
         <p className="text-sm leading-relaxed text-ink/70">
-          This keeps the historical membership record but prevents the Character
-          from participating in this World. The Character’s global active state
-          will not change.
+          Removes this Character from the World. Global Character status is
+          unchanged.
         </p>
         {deactivationTarget?.character ? (
           <p className="mt-3 font-medium">

@@ -25,13 +25,10 @@ export function WorldConfigTab({ world }: { world: WorldResponse }) {
         title={notFound ? 'World not found' : 'Could not load this world'}
         message={
           notFound
-            ? `The World /${world.slug} could not be found.`
+            ? `World /${world.slug} not found.`
             : isForbiddenError(worldQuery.error)
               ? undefined
-              : adminErrorMessage(
-                  worldQuery.error,
-                  'Something went wrong while loading this world.',
-                )
+              : adminErrorMessage(worldQuery.error, 'World unavailable.')
         }
         forbidden={isForbiddenError(worldQuery.error)}
         onRetry={() => void worldQuery.refetch()}
@@ -48,8 +45,8 @@ export function WorldConfigTab({ world }: { world: WorldResponse }) {
         <QueryRefreshNotice
           message={
             isNotFoundError(worldQuery.error)
-              ? `World /${world.slug} was not found. Your current editor values are preserved.`
-              : 'The World could not be refreshed. Your current editor values are preserved.'
+              ? `World /${world.slug} not found.`
+              : 'World could not be refreshed.'
           }
           onRetry={() => void worldQuery.refetch()}
         />

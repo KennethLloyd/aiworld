@@ -77,10 +77,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
     return (
       <ErrorState
         title="Could not load simulation"
-        message={errorMessage(
-          simulationQuery.error,
-          'The selected World simulation could not be loaded.',
-        )}
+        message={errorMessage(simulationQuery.error, 'Simulation unavailable.')}
         onRetry={() => void simulationQuery.refetch()}
       />
     );
@@ -258,7 +255,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
           <div className="mt-5 flex flex-col gap-5">
             <Select
               id="simulation-speed"
-              label="Simulation speed"
+              label="Speed"
               value={String(config.speedMultiplier)}
               options={speedPresets.map((speed) => ({
                 value: String(speed),
@@ -268,8 +265,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
               onChange={(event) => handleSpeedChange(event.target.value)}
             />
             <p className="-mt-3 text-xs leading-relaxed text-ink/50">
-              Presets submit the shared 0.1–100 multiplier. The scheduler owns
-              pacing and action selection.
+              Choose a speed preset.
             </p>
 
             <Button
@@ -284,21 +280,21 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
             </Button>
             {residentsUnavailable ? (
               <ErrorState
-                title="Could not load active AI Residents"
-                message="Manual controls are unavailable until the resident directory is reachable."
+                title="Active Characters unavailable"
+                message="Try again to enable manual controls."
                 onRetry={() => void residentsQuery.refetch()}
                 className="-mt-3 p-4"
               />
             ) : !hasActiveResidents && !residentsQuery.isPending ? (
               <p className="-mt-3 text-xs text-brand-explorer">
-                No active AI Residents are available for manual work.
+                No active Characters.
               </p>
             ) : null}
 
             <div className="flex flex-col gap-4 border-t border-glass-border pt-5">
               <Select
                 id="target-ai-resident"
-                label="Target AI Resident"
+                label="Character"
                 value={targetCharacterId}
                 options={[
                   { value: '', label: 'Any Character' },
@@ -417,7 +413,7 @@ function TelemetryPanel({
       ) : isError ? (
         <ErrorState
           title="Could not load telemetry"
-          message="Telemetry will retry on the next polling interval."
+          message="Telemetry unavailable."
           onRetry={onRetry}
           className="mt-4 p-4"
         />
@@ -494,17 +490,12 @@ function RecentActivityPanel({
       ) : isError ? (
         <ErrorState
           title="Could not load recent execution"
-          message="Recent logs will retry on the next polling interval."
+          message="Try again to reload recent activity."
           onRetry={onRetry}
           className="mt-4 p-4"
         />
       ) : logs.length === 0 ? (
-        <EmptyState
-          icon={Clock3}
-          title="No simulation activity yet"
-          description="Run one action or a custom action to create the first execution record."
-          className="mt-4"
-        />
+        <EmptyState icon={Clock3} title="No activity yet" className="mt-4" />
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-glass-border">
           <table className="w-full min-w-[42rem] text-left text-sm">

@@ -119,7 +119,7 @@ describe('WorldMembersTab', () => {
       })[0]!,
     );
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      'historical membership record',
+      'Global Character status is unchanged.',
     );
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', {

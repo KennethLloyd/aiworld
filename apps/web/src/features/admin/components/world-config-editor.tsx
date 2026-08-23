@@ -88,9 +88,7 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
           <h2 className="font-display text-2xl font-bold tracking-tight">
             World Config
           </h2>
-          <p className="mt-1 font-mono text-xs text-ink/50">
-            Editing /{world.slug}
-          </p>
+          <p className="mt-1 font-mono text-xs text-ink/50">/{world.slug}</p>
         </div>
         <Link
           to="/admin/worlds/new"

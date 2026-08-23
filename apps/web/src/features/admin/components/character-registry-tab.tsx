@@ -136,8 +136,7 @@ export function CharacterRegistryTab() {
             Global Character Registry
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Manage reusable Characters globally. Unassigned Characters remain
-            visible here; World membership is managed in the Members tab.
+            Manage reusable Characters. Assign them in Members.
           </p>
         </div>
         <Button onClick={() => requestEditor('new')}>
@@ -157,7 +156,7 @@ export function CharacterRegistryTab() {
           <EmptyState
             icon={UserRound}
             title="No Characters in the registry"
-            description="Create the first reusable Character before assigning it to a World."
+            description="No Characters yet."
             action={
               <Button onClick={() => requestEditor('new')}>
                 <Plus className="h-4 w-4" aria-hidden="true" />

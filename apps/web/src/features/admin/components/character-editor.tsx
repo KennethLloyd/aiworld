@@ -67,10 +67,7 @@ export function CharacterEditor({
           },
           onError: (error) => {
             setSubmitError(
-              adminErrorMessage(
-                error,
-                'Could not create the Character. Please try again.',
-              ),
+              adminErrorMessage(error, 'Could not create the Character.'),
             );
           },
         });
@@ -94,10 +91,7 @@ export function CharacterEditor({
           },
           onError: (error) => {
             setSubmitError(
-              adminErrorMessage(
-                error,
-                'Could not update the Character. Please try again.',
-              ),
+              adminErrorMessage(error, 'Could not update the Character.'),
             );
           },
         },
@@ -123,8 +117,8 @@ export function CharacterEditor({
           </h3>
           <p className="mt-1 text-sm text-ink/60">
             {mode === 'create'
-              ? 'Create an unassigned Character for the global registry.'
-              : 'Character identity and simulation instructions are admin-only.'}
+              ? 'Add a reusable Character.'
+              : 'Edit identity and simulation settings.'}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose}>

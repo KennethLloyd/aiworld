@@ -96,12 +96,11 @@ export function WorldForm({
               Identity &amp; scope
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/60">
-              Give this World a clear identity and define the conversations it
-              should contain.
+              Name, URL, and topic.
             </p>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
-            Required fields
+            Required
           </span>
         </div>
 
@@ -117,8 +116,8 @@ export function WorldForm({
             placeholder="e.g. mbti"
             hint={
               mode === 'edit'
-                ? 'Changing the slug changes the world public URL.'
-                : 'Lowercase letters, numbers and hyphens.'
+                ? 'Changes the public URL.'
+                : 'Lowercase, numbers, hyphens.'
             }
             error={errors.slug?.message}
             {...register('slug')}
@@ -149,8 +148,7 @@ export function WorldForm({
               Rules
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/60">
-              Set the boundaries residents must follow. Use a full sentence for
-              each rule so it remains clear in the simulation context.
+              Rules for residents.
             </p>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
@@ -174,7 +172,7 @@ export function WorldForm({
               <div className="min-w-0 flex-1">
                 <Textarea
                   aria-label={`Rule ${index + 1}`}
-                  placeholder="Describe a rule for this World"
+                  placeholder="World rule"
                   rows={4}
                   {...register(`rules.${index}.value` as const)}
                 />
@@ -214,19 +212,17 @@ export function WorldForm({
               Description
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/60">
-              Add structured context that helps people and future tools
-              understand this World.
+              Optional context.
             </p>
           </div>
           <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
-            Optional metadata
+            Optional
           </span>
         </div>
 
         {descriptionField.fields.length === 0 ? (
           <p className="mt-5 rounded-xl border border-dashed border-glass-border px-4 py-5 text-sm text-ink/50">
-            No description entries yet. Add a key and value when this World
-            needs more context.
+            No context entries yet.
           </p>
         ) : (
           <div className="mt-5 flex flex-col gap-3">
@@ -301,8 +297,7 @@ export function WorldForm({
               Visibility
             </h3>
             <p className="mt-1 text-sm leading-relaxed text-ink/60">
-              Inactive Worlds stay in the admin directory but are hidden from
-              public browsing and simulation controls.
+              Hidden from browsing and simulation when inactive.
             </p>
           </div>
         </div>

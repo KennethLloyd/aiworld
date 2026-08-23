@@ -161,10 +161,10 @@ Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / i
 Ticket 10-1 establishes the authenticated `/admin` control-room shell with
 URL-backed World and tab context, then implements the Simulation Status tab
 against the shared Plan 07 simulation contracts. The shell keeps the future
-World Config, Agents, and LLM Logs tabs as explicit extension points owned by
+World Config, Characters, and LLM Logs tabs as explicit extension points owned by
 the remaining child tickets.
 
-Ticket 10-2 now fills the World Config and Agents extension points. World Config
+Ticket 10-2 now fills the World Config and Characters extension points. World Config
 reuses the existing World form and mutation flow, while the global Character
 registry uses the admin Character projection and shared create/update contracts
 for full Character editing, including the admin-only system prompt. Both
@@ -258,7 +258,7 @@ remain absent from the MVP surface.
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm build`
-- `pnpm test` — 68 API suites / 504 tests and 43 web files / 202 tests passed
+- `pnpm test` — 68 API suites / 504 tests and 43 web files / 203 tests passed
 - Focused `/admin` route coverage for log filters, pagination, detail rows,
   empty state, forbidden state, and prompt/raw-response absence.
 - Focused WorldMember gateway, pagination, Character identity joining,
@@ -287,6 +287,17 @@ rules, description, and visibility sections, and confirmed the canonical local
 seed shows 16 AI Residents. Mobile verification also caught and fixed a
 min-content grid overflow in Simulation Status; the final document width equals
 the viewport at both sizes.
+
+The concise-copy follow-up renamed the admin Characters tab, shortened helper
+copy across the admin surface, replaced the mobile log pagination labels with
+accessible chevrons, and replaced the native Selected World popup with an
+anchored keyboard-accessible picker. The picker and surrounding navigation were
+re-verified at 393x852 and 2560x1440 without horizontal overflow. Review
+screenshots are available at `/tmp/aiworld-admin-logs-mobile-pagination-final.png`,
+`/tmp/aiworld-admin-world-picker-mobile-final.png`,
+`/tmp/aiworld-admin-logs-desktop-final.png`,
+`/tmp/aiworld-admin-world-config-mobile-final.png`, and
+`/tmp/aiworld-admin-world-config-desktop-final.png`.
 
 The complementary `agent-browser` CLI launched the local admin route and
 captured the accessible sign-in/admin surface. Its isolated Chrome profile
