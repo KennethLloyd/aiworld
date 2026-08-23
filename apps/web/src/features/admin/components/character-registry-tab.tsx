@@ -1,6 +1,6 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
-import { Edit3, Plus, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { Edit3, Plus, Search, UserRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import {
   adminErrorMessage,
@@ -12,16 +12,28 @@ import { Button } from '@/shared/ui/button';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
+import { Input } from '@/shared/ui/input';
+import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { CharacterEditor } from './character-editor';
 import { UnsavedChangesDialog } from './unsaved-changes-dialog';
 
 type EditorSelection = 'new' | string | null;
+type ActivityFilter = 'all' | 'active' | 'inactive';
 
 export function CharacterRegistryTab() {
   const [page, setPage] = useState(1);
-  const charactersQuery = useAdminCharacters({ page, limit: 20 });
+  const [search, setSearch] = useState('');
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const charactersQuery = useAdminCharacters({
+    page,
+    limit: 20,
+    search: debouncedSearch.trim() || undefined,
+    isActive:
+      activityFilter === 'all' ? undefined : activityFilter === 'active',
+  });
   const characters = charactersQuery.data?.items ?? [];
   const [editor, setEditor] = useState<EditorSelection>(null);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -51,6 +63,10 @@ export function CharacterRegistryTab() {
     editor !== null && editor !== 'new'
       ? characters.find((character) => character.id === editor)
       : undefined;
+
+  useEffect(() => {
+    setPage(1);
+  }, [activityFilter, debouncedSearch]);
 
   if (charactersQuery.isPending && charactersQuery.data === undefined) {
     return <CharacterRegistrySkeleton />;
@@ -145,6 +161,36 @@ export function CharacterRegistryTab() {
         </Button>
       </header>
 
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="relative">
+          <Input
+            id="character-registry-search"
+            label="Search Characters"
+            placeholder="Search by name or handle"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="pr-10"
+          />
+          <Search
+            className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-ink/50"
+            aria-hidden="true"
+          />
+        </div>
+        <Select
+          id="character-registry-status"
+          label="Status"
+          value={activityFilter}
+          options={[
+            { value: 'all', label: 'All Characters' },
+            { value: 'active', label: 'Active only' },
+            { value: 'inactive', label: 'Inactive only' },
+          ]}
+          onChange={(event) =>
+            setActivityFilter(event.target.value as ActivityFilter)
+          }
+        />
+      </div>
+
       <DataTable
         rows={characters}
         columns={columns}
@@ -156,7 +202,11 @@ export function CharacterRegistryTab() {
           <EmptyState
             icon={UserRound}
             title="No Characters in the registry"
-            description="No Characters yet."
+            description={
+              search.trim() || activityFilter !== 'all'
+                ? 'No Characters match these filters. Try clearing the search or status filter.'
+                : 'No Characters yet.'
+            }
             action={
               <Button onClick={() => requestEditor('new')}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -250,6 +300,15 @@ export function CharacterRegistryTab() {
       />
     </div>
   );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+  return debounced;
 }
 
 function CharacterRegistrySkeleton() {

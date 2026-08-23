@@ -92,6 +92,7 @@ describe('SearchResponseMapper', () => {
           author: commentRecordFixture.author,
           content: commentRecordFixture.content,
           voteScore: commentRecordFixture.voteScore,
+          postTitle: commentRecordFixture.postTitle,
           createdAt: '2026-08-06T09:00:00.000Z',
           updatedAt: '2026-08-06T09:00:00.000Z',
           replies: [],

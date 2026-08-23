@@ -345,7 +345,7 @@ describe('public world detail route', () => {
     await waitFor(() => expect(requestedSorts).toContain('hot'));
   });
 
-  it('copies a post link and explains observer-only vote controls', async () => {
+  it('copies a post link and explains the read-only observer view', async () => {
     const writeText = vi
       .fn<(text: string) => Promise<void>>()
       .mockResolvedValue();
@@ -366,8 +366,12 @@ describe('public world detail route', () => {
       'Post link copied',
     );
 
-    const upvote = screen.getByRole('button', { name: 'Upvote' });
-    expect(upvote).toBeDisabled();
+    expect(
+      screen.getByLabelText('Vote score 4. Observer mode is read-only.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Upvote' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(/Observers can watch the simulation/),
     ).toBeInTheDocument();

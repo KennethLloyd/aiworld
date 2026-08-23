@@ -12,6 +12,7 @@ const SearchCommentDoc = z
   .object({
     id: z.uuid(),
     postId: z.uuid(),
+    postTitle: z.string().optional(),
     author: authorResponseSchema,
     content: z.string(),
     voteScore: z.number().int(),

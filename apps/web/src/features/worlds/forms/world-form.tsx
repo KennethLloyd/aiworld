@@ -19,6 +19,7 @@ export interface WorldFormProps {
   submitError: string | null;
   resetKey?: string | number;
   onDirtyChange?: (dirty: boolean) => void;
+  onCancel?: () => void;
   onSubmit: (values: WorldFormValues) => void;
 }
 
@@ -36,6 +37,7 @@ export function WorldForm({
   submitError,
   resetKey,
   onDirtyChange,
+  onCancel,
   onSubmit,
 }: WorldFormProps) {
   const {
@@ -99,7 +101,7 @@ export function WorldForm({
               Name, URL, and topic.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             Required
           </span>
         </div>
@@ -151,7 +153,7 @@ export function WorldForm({
               Rules for residents.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             {rulesField.fields.length}{' '}
             {rulesField.fields.length === 1 ? 'rule' : 'rules'}
           </span>
@@ -215,7 +217,7 @@ export function WorldForm({
               Optional context.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             Optional
           </span>
         </div>
@@ -316,10 +318,22 @@ export function WorldForm({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 border-t border-glass-border pt-5 sm:flex-row sm:items-center sm:justify-end">
+      <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-xl border border-glass-border bg-surface/95 p-3 shadow-2xl backdrop-blur-xl sm:flex-row sm:items-center sm:justify-end">
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="w-full sm:mr-auto sm:w-auto"
+          >
+            Cancel
+          </Button>
+        ) : null}
         <Button
           type="submit"
           loading={isSubmitting}
+          disabled={isSubmitting || (mode === 'edit' && !isDirty)}
           className="w-full sm:w-auto"
         >
           {mode === 'create' ? 'Create world' : 'Save changes'}

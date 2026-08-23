@@ -20,7 +20,7 @@ import {
   Square,
   Terminal,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { useAdminResidents } from '@/features/admin/query/use-admin-residents';
@@ -54,7 +54,13 @@ interface Feedback {
   message: string;
 }
 
-export function SimulationStatusTab({ world }: { world: WorldResponse }) {
+export function SimulationStatusTab({
+  world,
+  onOpenLog,
+}: {
+  world: WorldResponse;
+  onOpenLog?: (logId: string) => void;
+}) {
   const simulationQuery = useSimulation(world.slug);
   const telemetryQuery = useSimulationTelemetry(world.slug);
   const logsQuery = useSimulationLogs(world.slug);
@@ -68,6 +74,29 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
   const [selectedAction, setSelectedAction] =
     useState<ManualAction>(automaticAction);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [actionStartedAt, setActionStartedAt] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const manualActionPending =
+    runOneAction.isPending || runCustomAction.isPending;
+  const commandPending = updateState.isPending || manualActionPending;
+
+  useEffect(() => {
+    if (!commandPending) {
+      setActionStartedAt(null);
+      setElapsedSeconds(0);
+      return;
+    }
+    setActionStartedAt((current) => current ?? Date.now());
+  }, [commandPending]);
+
+  useEffect(() => {
+    if (actionStartedAt === null) return;
+    const updateElapsed = () =>
+      setElapsedSeconds(Math.floor((Date.now() - actionStartedAt) / 1000));
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1_000);
+    return () => window.clearInterval(timer);
+  }, [actionStartedAt]);
 
   if (simulationQuery.isPending && simulationQuery.data === undefined) {
     return <StatusSkeleton />;
@@ -93,14 +122,12 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
   const residentsUnavailable = residentsQuery.isError;
   const manualControlsBlocked =
     !hasActiveResidents || residentsQuery.isPending || residentsUnavailable;
-  const manualActionPending =
-    runOneAction.isPending || runCustomAction.isPending;
 
   const handleStateChange = (state: SimulationState) => {
     if (
       state === 'HALTED' &&
       !window.confirm(
-        'HALT is permanent for this World. The simulation cannot be resumed after this action. Continue?',
+        'HALT stops this World until an administrator explicitly chooses Run. Continue?',
       )
     ) {
       return;
@@ -217,23 +244,48 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
             state="RUNNING"
             currentState={config.state}
             pending={updateState.isPending}
+            blocked={manualActionPending}
+            available={isTransitionAvailable(config.state, 'RUNNING')}
             onClick={handleStateChange}
           />
           <StateButton
             state="PAUSED"
             currentState={config.state}
             pending={updateState.isPending}
+            blocked={manualActionPending}
+            available={isTransitionAvailable(config.state, 'PAUSED')}
             onClick={handleStateChange}
           />
           <StateButton
             state="HALTED"
             currentState={config.state}
             pending={updateState.isPending}
+            blocked={manualActionPending}
+            available={isTransitionAvailable(config.state, 'HALTED')}
             onClick={handleStateChange}
           />
         </div>
       </div>
 
+      {commandPending ? (
+        <output
+          className="flex items-center gap-3 rounded-lg border border-brand-sentinel/40 bg-brand-sentinel/10 p-4 text-sm text-brand-sentinel"
+          aria-live="polite"
+        >
+          <Clock3
+            className="h-4 w-4 shrink-0 animate-pulse"
+            aria-hidden="true"
+          />
+          <span>
+            {updateState.isPending
+              ? 'Saving simulation state…'
+              : runOneAction.isPending
+                ? 'Running one resident action…'
+                : 'Running custom action…'}{' '}
+            <span className="font-mono text-xs">{elapsedSeconds}s elapsed</span>
+          </span>
+        </output>
+      ) : null}
       {feedback ? <FeedbackMessage feedback={feedback} /> : null}
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-3">
@@ -269,7 +321,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
                 value: String(speed),
                 label: `${speed}x`,
               }))}
-              disabled={updateSpeed.isPending}
+              disabled={updateSpeed.isPending || commandPending}
               onChange={(event) => handleSpeedChange(event.target.value)}
             />
             <p className="-mt-3 text-xs leading-relaxed text-ink/50">
@@ -280,7 +332,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
             <Button
               variant="primary"
               loading={runOneAction.isPending}
-              disabled={manualControlsBlocked}
+              disabled={manualControlsBlocked || commandPending}
               onClick={handleRunOneAction}
               className="w-full uppercase tracking-wider"
             >
@@ -315,7 +367,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
                     label: `${resident.name} (${resident.classification ?? 'Resident'})`,
                   })),
                 ]}
-                disabled={manualControlsBlocked}
+                disabled={manualControlsBlocked || commandPending}
                 onChange={(event) => setTargetCharacterId(event.target.value)}
               />
               <Select
@@ -329,7 +381,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
                     label: titleCaseAction(action),
                   })),
                 ]}
-                disabled={manualControlsBlocked}
+                disabled={manualControlsBlocked || commandPending}
                 onChange={(event) =>
                   setSelectedAction(event.target.value as ManualAction)
                 }
@@ -337,7 +389,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
               <Button
                 variant="outline"
                 loading={runCustomAction.isPending}
-                disabled={manualControlsBlocked || manualActionPending}
+                disabled={manualControlsBlocked || commandPending}
                 onClick={handleCustomAction}
                 className="w-full uppercase tracking-wider"
               >
@@ -355,6 +407,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
           isPending={logsQuery.isPending && logsQuery.data === undefined}
           isError={logsQuery.isError}
           onRetry={() => void logsQuery.refetch()}
+          onOpenLog={onOpenLog}
         />
       </div>
     </div>
@@ -365,11 +418,15 @@ function StateButton({
   state,
   currentState,
   pending,
+  blocked,
+  available,
   onClick,
 }: {
   state: SimulationState;
   currentState: SimulationState;
   pending: boolean;
+  blocked: boolean;
+  available: boolean;
   onClick: (state: SimulationState) => void;
 }) {
   const icon =
@@ -380,7 +437,7 @@ function StateButton({
       variant={currentState === state ? 'primary' : 'ghost'}
       size="sm"
       loading={pending && currentState !== state}
-      disabled={pending}
+      disabled={pending || blocked || !available}
       aria-pressed={currentState === state}
       onClick={() => onClick(state)}
       className="font-mono uppercase tracking-wider"
@@ -451,7 +508,7 @@ function TelemetryPanel({
           <TelemetryRow label="Token Burn">
             <span>{formatNumber(telemetry?.totalTokensUsed)}</span>
           </TelemetryRow>
-          <TelemetryRow label="Estimated API Cost">
+          <TelemetryRow label="Local Cost Estimate">
             <span>{formatCost(telemetry?.totalCostEstimateUsd)}</span>
           </TelemetryRow>
           <TelemetryRow label="Last Run">
@@ -476,11 +533,13 @@ function RecentActivityPanel({
   isPending,
   isError,
   onRetry,
+  onOpenLog,
 }: {
   logs: readonly SimulationLogResponse[];
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
+  onOpenLog?: (logId: string) => void;
 }) {
   return (
     <GlassPanel
@@ -545,7 +604,18 @@ function RecentActivityPanel({
                 {logs.map((log) => (
                   <tr key={log.id}>
                     <td className="px-4 py-3 font-mono text-xs">
-                      {log.action}
+                      {onOpenLog ? (
+                        <button
+                          type="button"
+                          className="rounded text-left text-brand-sentinel underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+                          onClick={() => onOpenLog(log.id)}
+                          aria-label={`View details for ${log.action} execution`}
+                        >
+                          {log.action}
+                        </button>
+                      ) : (
+                        log.action
+                      )}
                     </td>
                     <td className="px-4 py-3 text-ink/70">
                       {log.executionSource}
@@ -724,4 +794,13 @@ function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.toUserMessage();
   if (error instanceof Error) return error.message;
   return fallback;
+}
+
+function isTransitionAvailable(
+  currentState: SimulationState,
+  nextState: SimulationState,
+): boolean {
+  if (currentState === nextState) return false;
+  if (currentState === 'HALTED') return nextState === 'RUNNING';
+  return true;
 }

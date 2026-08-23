@@ -19,6 +19,9 @@ export const commentSearchResultSchema = z.object({
   comment: commentResponseSchema.extend({
     // Search comments need their parent so the dropdown can open the post.
     postId: z.uuid(),
+    // The parent title lets the observer identify the discussion without
+    // opening a second request for every search result.
+    postTitle: z.string().optional(),
   }),
 });
 

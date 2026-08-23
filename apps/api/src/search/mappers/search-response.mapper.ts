@@ -31,7 +31,11 @@ export class SearchResponseMapper {
         return {
           type: 'comment' as const,
           // Search results are flat: comments never carry replies here.
-          comment: { ...comment, postId: record.comment.postId },
+          comment: {
+            ...comment,
+            postId: record.comment.postId,
+            postTitle: record.comment.postTitle,
+          },
         };
       }),
       meta: records.meta,

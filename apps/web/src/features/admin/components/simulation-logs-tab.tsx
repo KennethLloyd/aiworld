@@ -11,7 +11,7 @@ import {
 } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   adminErrorMessage,
@@ -37,7 +37,13 @@ interface LogFilters {
   executionSource?: SimulationExecutionSource;
 }
 
-export function SimulationLogsTab({ world }: { world: WorldResponse }) {
+export function SimulationLogsTab({
+  world,
+  selectedLogId,
+}: {
+  world: WorldResponse;
+  selectedLogId?: string;
+}) {
   const [filters, setFilters] = useState<LogFilters>({});
   const [page, setPage] = useState(1);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -55,6 +61,12 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
     () => new Map(residents.map((resident) => [resident.id, resident.name])),
     [residents],
   );
+
+  useEffect(() => {
+    if (selectedLogId !== undefined) {
+      setExpandedLogId(selectedLogId);
+    }
+  }, [selectedLogId]);
 
   const updateFilter = <K extends keyof LogFilters>(
     key: K,

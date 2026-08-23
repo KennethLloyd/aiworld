@@ -1,14 +1,29 @@
 import { useBlocker } from '@tanstack/react-router';
+import { useRef } from 'react';
 
 import { Button } from '@/shared/ui/button';
 import { Modal } from '@/shared/ui/modal';
 
 export function useUnsavedChangesBlocker(isDirty: boolean) {
-  return useBlocker({
-    shouldBlockFn: () => isDirty,
+  const allowNavigationRef = useRef(false);
+  const blocker = useBlocker({
+    shouldBlockFn: () => {
+      if (allowNavigationRef.current) {
+        allowNavigationRef.current = false;
+        return false;
+      }
+      return isDirty;
+    },
     withResolver: true,
     enableBeforeUnload: isDirty,
   });
+
+  return {
+    ...blocker,
+    allowNextNavigation: () => {
+      allowNavigationRef.current = true;
+    },
+  };
 }
 
 export interface UnsavedChangesDialogProps {

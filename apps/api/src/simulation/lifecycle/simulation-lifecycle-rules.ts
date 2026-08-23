@@ -1,12 +1,12 @@
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { InvalidSimulationStateTransitionError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 
-/** HALTED is terminal for the MVP lifecycle: no transition leaves it. */
+/** HALTED can only be restarted through the explicit Run transition. */
 const allowedTransitions: Record<SimulationState, readonly SimulationState[]> =
   {
     RUNNING: ['PAUSED', 'HALTED'],
     PAUSED: ['RUNNING', 'HALTED'],
-    HALTED: [],
+    HALTED: ['RUNNING'],
   };
 
 /** Scheduled ticks run only while RUNNING; PAUSED and HALTED stop them. */

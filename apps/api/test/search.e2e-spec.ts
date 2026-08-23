@@ -700,6 +700,7 @@ describe('World discussion search (HTTP boundary)', () => {
         'createdAt',
         'id',
         'postId',
+        'postTitle',
         'replies',
         'updatedAt',
         'voteScore',

@@ -2,6 +2,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesBlocker,
+} from '@/features/admin/components/unsaved-changes-dialog';
 import { WorldForm } from '@/features/worlds/forms/world-form';
 import {
   toCreateWorld,
@@ -32,12 +36,16 @@ function NewWorldPage() {
   const { toast } = useToast();
   const createWorld = useCreateWorld();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const blocker = useUnsavedChangesBlocker(isDirty && !createWorld.isPending);
 
   const handleSubmit = (values: WorldFormValues) => {
     setSubmitError(null);
     const input = toCreateWorld(values);
     createWorld.mutate(input, {
       onSuccess: () => {
+        setIsDirty(false);
+        blocker.allowNextNavigation();
         toast({ tone: 'success', title: 'World saved' });
         void navigate({ to: '/admin/worlds', search: adminWorldsDefaults });
       },
@@ -65,7 +73,16 @@ function NewWorldPage() {
         initialValues={blankFormValues()}
         isSubmitting={createWorld.isPending}
         submitError={submitError}
+        onDirtyChange={setIsDirty}
+        onCancel={() =>
+          void navigate({ to: '/admin/worlds', search: adminWorldsDefaults })
+        }
         onSubmit={handleSubmit}
+      />
+      <UnsavedChangesDialog
+        open={blocker.status === 'blocked'}
+        onContinue={() => blocker.reset?.()}
+        onDiscard={() => blocker.proceed?.()}
       />
     </div>
   );

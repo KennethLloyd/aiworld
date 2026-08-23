@@ -4,6 +4,10 @@ import { Globe } from 'lucide-react';
 import { useState } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
+import {
+  UnsavedChangesDialog,
+  useUnsavedChangesBlocker,
+} from '@/features/admin/components/unsaved-changes-dialog';
 import { WorldForm } from '@/features/worlds/forms/world-form';
 import {
   toUpdateWorld,
@@ -90,6 +94,8 @@ function EditWorldForm({ world }: { world: WorldResponse }) {
   const { toast } = useToast();
   const updateWorld = useUpdateWorld();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const blocker = useUnsavedChangesBlocker(isDirty && !updateWorld.isPending);
   // Hydrate once from the loaded world (description record -> rows); the form
   // becomes the source of truth while editing.
   const [initialValues] = useState<WorldFormValues>(() =>
@@ -99,17 +105,20 @@ function EditWorldForm({ world }: { world: WorldResponse }) {
   const handleSubmit = (values: WorldFormValues) => {
     setSubmitError(null);
     const input = toUpdateWorld(values);
+    const nextSlug = input.slug;
     updateWorld.mutate(
       { slug: world.slug, input },
       {
-        onSuccess: (updated) => {
+        onSuccess: () => {
+          setIsDirty(false);
           toast({ tone: 'success', title: 'World updated' });
           // A slug edit changes the public URL: follow it so the address bar
           // and the detail cache key stay correct.
-          if (updated.slug !== world.slug) {
+          if (nextSlug && nextSlug !== world.slug) {
+            blocker.allowNextNavigation();
             void navigate({
               to: '/admin/worlds/$slug',
-              params: { slug: updated.slug },
+              params: { slug: nextSlug },
               search: adminWorldsDefaults,
               replace: true,
             });
@@ -142,7 +151,16 @@ function EditWorldForm({ world }: { world: WorldResponse }) {
         initialValues={initialValues}
         isSubmitting={updateWorld.isPending}
         submitError={submitError}
+        onDirtyChange={setIsDirty}
+        onCancel={() =>
+          void navigate({ to: '/admin/worlds', search: adminWorldsDefaults })
+        }
         onSubmit={handleSubmit}
+      />
+      <UnsavedChangesDialog
+        open={blocker.status === 'blocked'}
+        onContinue={() => blocker.reset?.()}
+        onDiscard={() => blocker.proceed?.()}
       />
     </div>
   );

@@ -32,7 +32,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="app-header glass-panel sticky top-0 z-20 rounded-none border-glass-border shadow-none">
-      <div className="relative mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:gap-6 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:h-16 sm:min-h-0 sm:flex-nowrap sm:gap-6 sm:px-6 sm:py-0 lg:px-8">
         <div className="flex min-w-0 shrink-0 items-center">
           <Link
             to="/worlds"
@@ -43,11 +43,11 @@ export function AppHeader({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-analyst/20">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span className="hidden sm:inline">AIWorld</span>
+            <span>AIWorld</span>
           </Link>
         </div>
         {headerContent ? (
-          <div className="mx-2 min-w-0 max-w-md flex-1 lg:absolute lg:left-1/2 lg:top-1/2 lg:mx-0 lg:w-[28rem] lg:-translate-x-1/2 lg:-translate-y-1/2">
+          <div className="order-3 mx-0 min-w-0 basis-full max-w-none flex-1 sm:order-none sm:mx-2 sm:basis-auto sm:max-w-md lg:absolute lg:left-1/2 lg:top-1/2 lg:mx-0 lg:w-[28rem] lg:-translate-x-1/2 lg:-translate-y-1/2">
             {headerContent}
           </div>
         ) : null}
@@ -90,11 +90,12 @@ export function AppHeader({
           ) : (
             <Link
               to="/auth/sign-in"
-              aria-label="System Administration"
-              title="System Administration"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              aria-label="Admin sign in"
+              title="Admin sign in"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-transparent px-2 text-sm text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:px-3"
             >
               <Terminal className="h-5 w-5" aria-hidden="true" />
+              <span>Admin sign in</span>
             </Link>
           )}
         </div>

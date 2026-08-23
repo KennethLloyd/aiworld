@@ -1,6 +1,7 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
+import { Link } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, UserPlus, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -20,13 +21,14 @@ import {
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/button';
+import { buttonClasses, Button } from '@/shared/ui/button';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Input } from '@/shared/ui/input';
 import { Modal } from '@/shared/ui/modal';
+import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 const MEMBER_PAGE_SIZE = 20;
@@ -36,6 +38,7 @@ interface MemberRow {
   member: WorldMemberResponse;
   character: AdminCharacterResponse | undefined;
 }
+type MemberFilter = 'all' | 'active' | 'inactive';
 
 export function WorldMembersTab({ world }: { world: WorldResponse }) {
   const membersQuery = useWorldMembers(world.slug);
@@ -43,6 +46,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
   const [memberPage, setMemberPage] = useState(1);
   const [candidatePage, setCandidatePage] = useState(1);
   const [candidateSearch, setCandidateSearch] = useState('');
+  const [memberFilter, setMemberFilter] = useState<MemberFilter>('all');
   const debouncedCandidateSearch = useDebouncedValue(candidateSearch, 300);
   const candidateQuery = useAdminCharacters({
     page: candidatePage,
@@ -86,9 +90,20 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
   );
   const memberPageCount = Math.max(
     1,
-    Math.ceil(memberRows.length / MEMBER_PAGE_SIZE),
+    Math.ceil(
+      memberRows.filter(({ member }) =>
+        memberFilter === 'all'
+          ? true
+          : member.isActive === (memberFilter === 'active'),
+      ).length / MEMBER_PAGE_SIZE,
+    ),
   );
-  const visibleMembers = memberRows.slice(
+  const filteredMemberRows = memberRows.filter(({ member }) =>
+    memberFilter === 'all'
+      ? true
+      : member.isActive === (memberFilter === 'active'),
+  );
+  const visibleMembers = filteredMemberRows.slice(
     (memberPage - 1) * MEMBER_PAGE_SIZE,
     memberPage * MEMBER_PAGE_SIZE,
   );
@@ -195,6 +210,20 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
               Character and membership status are separate.
             </p>
           </div>
+          <Select
+            id="world-member-status-filter"
+            label="Membership status"
+            value={memberFilter}
+            options={[
+              { value: 'all', label: 'All memberships' },
+              { value: 'active', label: 'Active only' },
+              { value: 'inactive', label: 'Inactive only' },
+            ]}
+            onChange={(event) => {
+              setMemberFilter(event.target.value as MemberFilter);
+              setMemberPage(1);
+            }}
+          />
           {membersQuery.isFetching ? (
             <span className="font-mono text-xs text-ink/50" aria-live="polite">
               Refreshing…
@@ -231,8 +260,16 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
             emptySlot={
               <EmptyState
                 icon={Users}
-                title="No AI Residents assigned"
-                description="Assign an active Character to add the first resident."
+                title={
+                  memberFilter === 'all'
+                    ? 'No AI Residents assigned'
+                    : `No ${memberFilter} memberships`
+                }
+                description={
+                  memberFilter === 'all'
+                    ? 'Assign an active Character to add the first resident.'
+                    : 'Clear the membership filter to see every assigned resident.'
+                }
               />
             }
           />
@@ -324,7 +361,30 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                     description={
                       candidateSearch.trim().length > 0
                         ? 'Try another search.'
-                        : 'No unassigned Characters in this result.'
+                        : candidateQuery.data?.items.length
+                          ? candidatePageCount === 1
+                            ? 'Every matching Character is already assigned to this World.'
+                            : `No unassigned Characters on page ${candidatePage}. Use pagination or search to find another candidate.`
+                          : 'Assign an active Character to add the first resident.'
+                    }
+                    action={
+                      candidateSearch.trim().length > 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCandidateSearch('')}
+                        >
+                          Clear search
+                        </Button>
+                      ) : (
+                        <Link
+                          to="/admin"
+                          search={{ tab: 'characters' }}
+                          className={buttonClasses('outline', 'sm')}
+                        >
+                          Open Character registry
+                        </Link>
+                      )
                     }
                   />
                 }

@@ -105,6 +105,11 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
         submitError={submitError}
         resetKey={formVersion}
         onDirtyChange={onDirtyChange}
+        onCancel={() =>
+          void navigate({
+            search: (previous) => ({ ...previous, tab: 'status' }),
+          })
+        }
         onSubmit={handleSubmit}
       />
       <UnsavedChangesDialog

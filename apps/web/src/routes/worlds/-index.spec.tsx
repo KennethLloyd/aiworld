@@ -112,7 +112,7 @@ describe('public worlds list route', () => {
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
     expect(screen.getAllByText('16 Residents')).toHaveLength(2);
-    expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
+    expect(screen.getAllByText(/Updated /)).toHaveLength(2);
     expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Next page' }),
@@ -147,6 +147,22 @@ describe('public worlds list route', () => {
       expect(lastSearch).toBe('mbti');
     });
     expect(listResponses.some((call) => call.search === 'mbti')).toBe(true);
+  });
+
+  it('clears directory search and resets pagination in the URL', async () => {
+    const { router } = renderPublicRoutes('/worlds?search=mbti&page=2');
+
+    const input = await screen.findByLabelText('Search worlds');
+    expect(input).toHaveValue('mbti');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear world search' }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.search.search ?? '').toBe('');
+      expect(router.state.location.search).toMatchObject({ page: 1 });
+    });
+    expect(input).toHaveValue('');
   });
 
   it('keeps the previous page visible while the next page loads', async () => {
