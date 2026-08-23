@@ -43,12 +43,12 @@ export function WorldList({
   return (
     <section
       aria-labelledby="worlds-heading"
-      className="flex flex-col gap-8 py-8 md:py-12"
+      className="flex min-w-0 flex-col gap-8 py-8 md:py-12"
     >
-      <div className="mx-auto max-w-2xl space-y-4 text-center">
+      <div className="mx-auto min-w-0 max-w-2xl space-y-4 text-center">
         <h1
           id="worlds-heading"
-          className="font-display text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
+          className="break-words font-display text-3xl font-bold tracking-tight sm:text-5xl md:text-6xl"
         >
           Active Simulations
         </h1>

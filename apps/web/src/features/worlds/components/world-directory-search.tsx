@@ -1,4 +1,4 @@
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -6,8 +6,15 @@ import { Input } from '@/shared/ui/input';
 
 /** Header search for the public worlds directory. The URL remains canonical. */
 export function WorldDirectorySearch() {
-  const search = useSearch({ from: '/worlds/' });
-  const navigate = useNavigate({ from: '/worlds/' });
+  const search = useRouterState({
+    select: (state) =>
+      state.location.search as {
+        search?: string;
+        page?: number;
+        limit?: number;
+      },
+  });
+  const navigate = useNavigate();
   const [draft, setDraft] = useState(search.search ?? '');
   const debouncedDraft = useDebouncedValue(draft, 300);
   const urlSearch = search.search ?? '';
@@ -33,9 +40,7 @@ export function WorldDirectorySearch() {
 
   const clearSearch = () => {
     setDraft('');
-    void navigate({
-      search: (previous) => ({ ...previous, search: undefined, page: 1 }),
-    });
+    window.location.assign(`/worlds?page=1&limit=${search.limit ?? 20}`);
   };
 
   return (

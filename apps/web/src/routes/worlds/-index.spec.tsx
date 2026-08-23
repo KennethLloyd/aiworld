@@ -149,6 +149,22 @@ describe('public worlds list route', () => {
     expect(listResponses.some((call) => call.search === 'mbti')).toBe(true);
   });
 
+  it('clears directory search and resets pagination in the URL', async () => {
+    const { router } = renderPublicRoutes('/worlds?search=mbti&page=2');
+
+    const input = await screen.findByLabelText('Search worlds');
+    expect(input).toHaveValue('mbti');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear world search' }),
+    );
+
+    await waitFor(() => {
+      expect(router.state.location.search).not.toHaveProperty('search');
+      expect(router.state.location.search).toMatchObject({ page: 1 });
+    });
+    expect(input).toHaveValue('');
+  });
+
   it('keeps the previous page visible while the next page loads', async () => {
     renderPublicRoutes('/worlds');
 
