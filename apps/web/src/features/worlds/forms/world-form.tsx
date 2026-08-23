@@ -101,7 +101,7 @@ export function WorldForm({
               Name, URL, and topic.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             Required
           </span>
         </div>
@@ -153,7 +153,7 @@ export function WorldForm({
               Rules for residents.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             {rulesField.fields.length}{' '}
             {rulesField.fields.length === 1 ? 'rule' : 'rules'}
           </span>
@@ -217,7 +217,7 @@ export function WorldForm({
               Optional context.
             </p>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink/60">
             Optional
           </span>
         </div>
