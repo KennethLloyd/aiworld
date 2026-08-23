@@ -508,7 +508,7 @@ function TelemetryPanel({
           <TelemetryRow label="Token Burn">
             <span>{formatNumber(telemetry?.totalTokensUsed)}</span>
           </TelemetryRow>
-          <TelemetryRow label="Estimated API Cost">
+          <TelemetryRow label="Local Cost Estimate">
             <span>{formatCost(telemetry?.totalCostEstimateUsd)}</span>
           </TelemetryRow>
           <TelemetryRow label="Last Run">

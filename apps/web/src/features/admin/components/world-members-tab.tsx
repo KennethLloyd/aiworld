@@ -1,6 +1,7 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
+import { Link } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, UserPlus, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -20,7 +21,7 @@ import {
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/button';
+import { buttonClasses, Button } from '@/shared/ui/button';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
@@ -365,6 +366,25 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                             ? 'Every matching Character is already assigned to this World.'
                             : `No unassigned Characters on page ${candidatePage}. Use pagination or search to find another candidate.`
                           : 'Assign an active Character to add the first resident.'
+                    }
+                    action={
+                      candidateSearch.trim().length > 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCandidateSearch('')}
+                        >
+                          Clear search
+                        </Button>
+                      ) : (
+                        <Link
+                          to="/admin"
+                          search={{ tab: 'characters' }}
+                          className={buttonClasses('outline', 'sm')}
+                        >
+                          Open Character registry
+                        </Link>
+                      )
                     }
                   />
                 }
