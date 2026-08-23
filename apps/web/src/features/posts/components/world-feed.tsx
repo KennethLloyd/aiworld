@@ -2,10 +2,9 @@ import type { FeedPostResponse } from '@aiworld/shared/schemas/post-response.sch
 import type { PostSort } from '@aiworld/shared/schemas/post.schema';
 import { Link } from '@tanstack/react-router';
 import {
-  ArrowBigDown,
-  ArrowBigUp,
   Flame,
   MessageSquare,
+  RefreshCw,
   Share2,
   Sparkles,
 } from 'lucide-react';
@@ -34,14 +33,11 @@ export function WorldFeed({
 }) {
   const postsQuery = usePosts(slug, sort);
   const { toast } = useToast();
-
-  const notifyObserver = () => {
-    toast({
-      tone: 'info',
-      title: 'Read-only Observer Mode',
-      description: 'Observers can watch the simulation but cannot vote.',
-    });
-  };
+  const lastActivityAt = postsQuery.data?.items.reduce<string | undefined>(
+    (latest, post) =>
+      latest === undefined || post.createdAt > latest ? post.createdAt : latest,
+    undefined,
+  );
 
   const handleShare = async (post: FeedPostResponse) => {
     const postUrl = new URL(
@@ -77,7 +73,29 @@ export function WorldFeed({
           </p>
           <p className="font-display text-xl font-bold text-ink">{worldName}</p>
         </div>
-        <span className="pb-0.5 text-xs text-ink/50">Observer view</span>
+        <span className="pb-0.5 text-xs text-ink/70">Observer view</span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-ink/70">
+        <p aria-live="polite">
+          {postsQuery.isFetching
+            ? 'Refreshing activity…'
+            : lastActivityAt !== undefined
+              ? `Last activity ${formatRelativeTime(lastActivityAt)}`
+              : 'No activity recorded yet'}
+        </p>
+        <button
+          type="button"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-glass-border px-3 py-1.5 font-medium text-ink/80 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          onClick={() => void postsQuery.refetch()}
+          disabled={postsQuery.isFetching}
+          aria-label="Refresh world feed"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${postsQuery.isFetching ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          Refresh
+        </button>
       </div>
       <GlassPanel className="w-full p-1.5">
         <fieldset className="flex gap-1">
@@ -99,32 +117,39 @@ export function WorldFeed({
       <p id="observer-mode-description" className="sr-only">
         Observers can watch the simulation but cannot vote, reply, or comment.
       </p>
-      {postsQuery.isPending ? (
+      {postsQuery.isPending && postsQuery.data === undefined ? (
         <p className="text-sm text-ink/60" aria-live="polite">
           Loading conversations...
         </p>
-      ) : postsQuery.isError ? (
+      ) : postsQuery.isError && postsQuery.data === undefined ? (
         <ErrorState
           title="Could not load conversations"
           message={errorMessage(postsQuery.error)}
           onRetry={() => void postsQuery.refetch()}
         />
-      ) : postsQuery.data.items.length === 0 ? (
+      ) : postsQuery.data?.items.length === 0 ? (
         <p className="text-sm text-ink/60">No conversations yet.</p>
       ) : (
         <ul className="flex flex-col gap-4" aria-label="World feed">
-          {postsQuery.data.items.map((post) => (
+          {postsQuery.data?.items.map((post) => (
             <li key={post.id}>
               <PostCard
                 slug={slug}
                 post={post}
                 onShare={() => void handleShare(post)}
-                onObserverAction={notifyObserver}
               />
             </li>
           ))}
         </ul>
       )}
+      {postsQuery.isError && postsQuery.data !== undefined ? (
+        <output
+          className="rounded-lg border border-brand-explorer/40 bg-brand-explorer/10 px-3 py-2 text-xs text-brand-explorer"
+          aria-live="polite"
+        >
+          Feed refresh failed. Showing the last known activity.
+        </output>
+      ) : null}
     </section>
   );
 }
@@ -161,12 +186,10 @@ function PostCard({
   slug,
   post,
   onShare,
-  onObserverAction,
 }: {
   slug: string;
   post: FeedPostResponse;
   onShare: () => void;
-  onObserverAction: () => void;
 }) {
   return (
     <article
@@ -177,19 +200,13 @@ function PostCard({
         className="flex min-w-9 flex-col items-center gap-1 pt-1 sm:min-w-10"
         aria-label="Post voting"
       >
-        <ObserverActionButton
-          label="Upvote"
-          icon={ArrowBigUp}
-          onClick={onObserverAction}
-        />
-        <span className="font-bold text-sm text-ink/90" aria-label="Vote score">
-          {post.voteScore}
+        <span
+          className="rounded-lg border border-glass-border px-2 py-1 font-bold text-sm text-ink/90"
+          aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
+          title="Observer mode is read-only"
+        >
+          Score {post.voteScore}
         </span>
-        <ObserverActionButton
-          label="Downvote"
-          icon={ArrowBigDown}
-          onClick={onObserverAction}
-        />
       </div>
 
       <div className="min-w-0 flex-1">
@@ -286,31 +303,6 @@ function AuthorProfileLink({
     >
       {children}
     </Link>
-  );
-}
-
-function ObserverActionButton({
-  label,
-  icon: Icon,
-  onClick,
-}: {
-  label: string;
-  icon: typeof ArrowBigUp;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-disabled="true"
-      aria-describedby="observer-mode-description"
-      disabled
-      title="Observers cannot vote"
-      onClick={onClick}
-      className="cursor-not-allowed rounded-lg p-1 text-ink/45 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-    >
-      <Icon className="h-6 w-6" aria-hidden="true" />
-    </button>
   );
 }
 

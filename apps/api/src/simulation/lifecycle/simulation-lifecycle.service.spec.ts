@@ -90,7 +90,7 @@ describe('SimulationLifecycleService', () => {
     });
 
     it('rejects an invalid transition without persisting', async () => {
-      const { service, repository, persisted } = createService('HALTED');
+      const { service, repository, persisted } = createService('RUNNING');
       repository.findByWorldId.mockResolvedValue(persisted);
 
       await expect(service.transitionTo('world-1', 'RUNNING')).rejects.toThrow(
@@ -229,7 +229,7 @@ describe('SimulationLifecycleService', () => {
         createService('HALTED');
       repository.findByWorldId.mockResolvedValue(persisted);
 
-      await expect(service.transitionTo('world-1', 'RUNNING')).rejects.toThrow(
+      await expect(service.transitionTo('world-1', 'PAUSED')).rejects.toThrow(
         'Invalid simulation state transition',
       );
 

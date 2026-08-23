@@ -95,7 +95,7 @@ describe('DiscussionSearch', () => {
     );
 
     expect(
-      await screen.findByText('A quillfox conversation'),
+      await screen.findByRole('option', { name: /A quillfox conversation/ }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Discussion search results')).toHaveClass(
       'bg-surface/95',

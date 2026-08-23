@@ -369,6 +369,19 @@ describe('/admin control room', () => {
     expect(await screen.findByText('Speed saved')).toBeInTheDocument();
   });
 
+  it('keeps Run available and disables invalid lifecycle actions when halted', async () => {
+    currentConfig = { ...config, state: 'HALTED' };
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/', { queryClient: client });
+
+    await screen.findAllByText('HALTED');
+
+    expect(screen.getByRole('button', { name: 'Run' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Halt' })).toBeDisabled();
+  });
+
   it('runs a targeted custom action and refreshes telemetry and logs', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));

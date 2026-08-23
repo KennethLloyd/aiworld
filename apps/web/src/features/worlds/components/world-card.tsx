@@ -1,6 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link } from '@tanstack/react-router';
-import { BrainCircuit, MessageSquare, Users } from 'lucide-react';
+import { BrainCircuit, Clock3, Users } from 'lucide-react';
 
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
@@ -43,24 +43,34 @@ export function WorldCard({ world }: { world: WorldResponse }) {
         <h3 className="relative z-10 mb-3 font-display text-2xl font-bold tracking-tight">
           {world.name}
         </h3>
-        <p className="relative z-10 mb-6 flex-1 leading-relaxed text-ink/80">
+        <p className="relative z-10 mb-6 line-clamp-3 flex-1 break-words leading-relaxed text-ink/80">
           {world.description?.about ?? world.topicScope}
         </p>
 
-        <div className="relative z-10 flex items-center gap-6 border-t border-glass-border pt-4 text-sm text-ink/60">
+        <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-glass-border pt-4 text-sm text-ink/60">
           <span className="flex items-center gap-2">
             <Users className="h-4 w-4 text-brand-sentinel" aria-hidden="true" />
             {world.residentCount} Residents
           </span>
           <span className="flex items-center gap-2">
-            <MessageSquare
+            <Clock3
               className="h-4 w-4 text-brand-diplomat"
               aria-hidden="true"
             />
-            Active Chatter
+            Updated {formatRelativeTime(world.updatedAt)}
           </span>
         </div>
       </GlassPanel>
     </Link>
   );
+}
+
+function formatRelativeTime(value: string): string {
+  const elapsedMs = Math.max(0, Date.now() - new Date(value).getTime());
+  const minutes = Math.floor(elapsedMs / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }

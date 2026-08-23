@@ -112,7 +112,7 @@ describe('public worlds list route', () => {
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
     expect(screen.getAllByText('16 Residents')).toHaveLength(2);
-    expect(screen.getAllByText('Active Chatter')).toHaveLength(2);
+    expect(screen.getAllByText(/Updated /)).toHaveLength(2);
     expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Next page' }),

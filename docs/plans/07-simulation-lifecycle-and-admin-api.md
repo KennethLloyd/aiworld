@@ -156,8 +156,7 @@ engineering contract for 07-2 (also recorded in the ticket body).
   `speedMultiplier: 1` (~48 actions/day/world; demo uses the speed multiplier
   and the manual controls).
 - **Failure escalation**: manual-only HALT for MVP; auto-HALT is a Known Risk
-  (07-1 models HALTED as terminal, so it touches the allowed-transitions
-  table).
+  (the explicit Run transition is the recovery path).
 - **Naming**: UI labels "Run One Action" / "Custom Action"; executionSource
   `scheduled | one-action | custom`; glossary gains **Iteration** and **Tick**.
 
@@ -176,8 +175,8 @@ The lifecycle vocabulary (`SimulationState`) is a plain union in the domain so
 ports and services never depend on the generated Prisma enum; only the Prisma
 adapter maps to and from the database enum. The state machine owns the rules:
 scheduled ticks run only while RUNNING, manual work (Run One Action / Custom
-Action) is allowed in RUNNING and PAUSED and rejected in HALTED, and
-HALTED is terminal for the MVP. The service always reads configuration from the
+Action) is allowed in RUNNING and PAUSED and rejected in HALTED. HALTED can
+only leave through an explicit Run transition. The service always reads configuration from the
 repository — never from process memory — validates a transition against the
 persisted state, and persists the new state before success is reported; the
 repository's `transitionState` update is conditional on the persisted state, so
@@ -232,9 +231,8 @@ Not applicable to 07-1 (no HTTP surface yet; the admin API lands in 07-3).
 - The admin API (07-3) should map lifecycle errors (not-found, invalid
   transition, manual-work rejected) to HTTP responses and add e2e coverage for
   the repository adapter.
-- HALTED is modeled as terminal for the MVP; if product later requires
-  re-enabling a halted simulation, the allowed-transitions table is the single
-  place to change.
+- HALTED can be restarted only through the explicit Run transition; manual
+  actions remain rejected until the persisted state is RUNNING.
 
 ### 07-2 Scheduler Port Implementation (2026-08-13)
 
@@ -354,7 +352,7 @@ Review findings were resolved before merge; each finding and its resolution:
   open); `--detectOpenHandles` found nothing in the scheduler suites — worth a
   follow-up to close the worker/queue connection cleanly.
 - Auto-HALT after consecutive failures remains a follow-up (triage decision 9;
-  touches the allowed-transitions table because 07-1 models HALTED as terminal).
+  the existing explicit Run transition is the recovery path).
 - Local dev on the OCI box: honcho's redis owns 127.0.0.1:6379, so aiworld's
   redis runs on 6380 via `~/aiworld-compose.override.yml` and
   `REDIS_URL=redis://localhost:6380` (repo default stays 6379).

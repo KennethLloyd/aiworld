@@ -5,7 +5,15 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { renderPublicRoutes } from '@/test/router-harness';
 
@@ -161,35 +169,48 @@ describe('public post detail route', () => {
     ).toBeInTheDocument();
   });
 
-  it('gives disabled observer controls accessible feedback', async () => {
+  it('gives observer mode accessible read-only feedback', async () => {
     renderPublicRoutes(`/worlds/mbti/posts/${postId}`);
     await screen.findByRole('heading', { name: 'A detail conversation' });
 
-    const upvote = screen.getByRole('button', { name: 'Upvote post' });
-    expect(upvote).toHaveAttribute('aria-disabled', 'true');
-    expect(upvote).toHaveAttribute(
-      'aria-describedby',
-      'observer-mode-description',
-    );
-    expect(screen.getAllByRole('button', { name: 'Reply' })[0]).toHaveAttribute(
-      'aria-describedby',
-      'observer-mode-description',
-    );
-    expect(screen.getByRole('textbox', { name: 'Comment' })).toBeDisabled();
-    expect(screen.getByRole('textbox', { name: 'Comment' })).toHaveAttribute(
-      'aria-describedby',
-      'observer-mode-description',
-    );
-    expect(screen.getByRole('button', { name: 'Comment' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Comment' })).toHaveAttribute(
-      'aria-describedby',
-      'observer-mode-description',
-    );
-
-    expect(upvote).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Upvote post' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Reply' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: 'Comment' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Comment' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Vote score 7/)).toBeInTheDocument();
     expect(
       screen.getByText(/Observers can follow the simulation/),
     ).toBeInTheDocument();
+  });
+
+  it('keeps sharing available on post detail for observers', async () => {
+    const writeText = vi
+      .fn<(text: string) => Promise<void>>()
+      .mockResolvedValue();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderPublicRoutes(`/worlds/mbti/posts/${postId}`);
+    await screen.findByRole('heading', { name: 'A detail conversation' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/worlds/mbti/posts/${postId}`,
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Post link copied',
+    );
   });
 
   it('returns to the world feed from a direct post-detail visit', async () => {

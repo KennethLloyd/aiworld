@@ -123,12 +123,9 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           </div>
         </div>
 
-        <nav
-          className="mt-6 overflow-x-auto scroll-smooth [scrollbar-width:thin]"
-          aria-label="Admin sections"
-        >
+        <nav className="mt-6" aria-label="Admin sections">
           <div
-            className="flex min-w-max gap-6 border-b border-glass-border"
+            className="grid grid-cols-2 gap-2 border-b border-glass-border pb-2 sm:flex sm:min-w-max sm:gap-6 sm:pb-0"
             role="tablist"
           >
             {tabs.map((tab, index) => {
@@ -137,6 +134,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                 <button
                   key={tab.value}
                   type="button"
+                  id={`admin-tab-${tab.value}`}
                   role="tab"
                   aria-selected={active}
                   aria-controls="admin-tab-panel"
@@ -148,8 +146,8 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                   onClick={() => selectTab(tab.value)}
                   className={
                     active
-                      ? 'border-b-2 border-brand-diplomat px-1 pb-3 text-sm font-bold text-brand-diplomat outline-none'
-                      : 'border-b-2 border-transparent px-1 pb-3 text-sm font-bold text-ink/50 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60'
+                      ? 'rounded-lg border-b-2 border-brand-diplomat bg-brand-diplomat/10 px-3 py-2 text-left text-sm font-bold text-brand-diplomat outline-none sm:rounded-none sm:bg-transparent sm:px-1 sm:pb-3 sm:pt-2'
+                      : 'rounded-lg border-b-2 border-transparent px-3 py-2 text-left text-sm font-bold text-ink/70 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:rounded-none sm:px-1 sm:pb-3 sm:pt-2 sm:hover:bg-transparent'
                   }
                 >
                   {tab.label}
@@ -162,6 +160,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
         <div
           id="admin-tab-panel"
           role="tabpanel"
+          aria-labelledby={`admin-tab-${search.tab}`}
           aria-label={activeTabLabel(search.tab)}
           className="mt-6"
         >
@@ -195,13 +194,27 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
               message="Choose another World."
             />
           ) : search.tab === 'status' ? (
-            <SimulationStatusTab world={selectedWorld} />
+            <SimulationStatusTab
+              world={selectedWorld}
+              onOpenLog={(logId) =>
+                void navigate({
+                  search: (previous) => ({
+                    ...previous,
+                    tab: 'logs',
+                    log: logId,
+                  }),
+                })
+              }
+            />
           ) : search.tab === 'world' ? (
             <WorldConfigTab world={selectedWorld} />
           ) : search.tab === 'members' ? (
             <WorldMembersTab world={selectedWorld} />
           ) : search.tab === 'logs' ? (
-            <SimulationLogsTab world={selectedWorld} />
+            <SimulationLogsTab
+              world={selectedWorld}
+              selectedLogId={search.log}
+            />
           ) : (
             <EmptyState
               icon={Cpu}
@@ -377,10 +390,6 @@ function WorldPicker({
                 role="option"
                 aria-selected={selected}
                 onMouseEnter={() => setActiveIndex(index)}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  chooseWorld(world.slug);
-                }}
                 onClick={() => chooseWorld(world.slug)}
                 className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${active ? 'bg-glass-20 text-ink' : 'text-ink/80 hover:bg-glass-20 hover:text-ink'} ${selected ? 'font-semibold text-brand-diplomat' : ''}`}
               >

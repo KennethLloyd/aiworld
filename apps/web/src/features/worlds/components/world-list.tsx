@@ -59,7 +59,7 @@ export function WorldList({
         </p>
       </div>
 
-      {isError ? (
+      {isError && data === undefined ? (
         <ErrorState
           title="Could not load worlds"
           message={errorMessage(error)}
@@ -69,7 +69,23 @@ export function WorldList({
 
       {!isError && data === undefined ? <WorldListSkeleton /> : null}
 
-      {!isError && data !== undefined && data.items.length === 0 ? (
+      {isError && data !== undefined ? (
+        <output
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-explorer/40 bg-brand-explorer/10 px-3 py-2 text-xs text-brand-explorer"
+          aria-live="polite"
+        >
+          <span>Directory refresh failed. Showing the last known worlds.</span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className={buttonClasses('outline', 'sm')}
+          >
+            Retry
+          </button>
+        </output>
+      ) : null}
+
+      {data !== undefined && data.items.length === 0 && !isError ? (
         <EmptyState
           title={
             search === '' ? 'No worlds yet' : 'No worlds match your search'
@@ -83,7 +99,7 @@ export function WorldList({
         />
       ) : null}
 
-      {!isError && data !== undefined && data.items.length > 0 ? (
+      {data !== undefined && data.items.length > 0 ? (
         <>
           <ul
             className={cn(

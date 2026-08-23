@@ -33,6 +33,7 @@ describe('simulation lifecycle rules', () => {
       ['RUNNING', 'PAUSED'],
       ['RUNNING', 'HALTED'],
       ['PAUSED', 'HALTED'],
+      ['HALTED', 'RUNNING'],
     ])('accepts %s -> %s', (from, to) => {
       expect(canTransition(from, to)).toBe(true);
     });
@@ -43,8 +44,8 @@ describe('simulation lifecycle rules', () => {
       expect(canTransition('HALTED', 'HALTED')).toBe(false);
     });
 
-    it('treats HALTED as terminal', () => {
-      expect(canTransition('HALTED', 'RUNNING')).toBe(false);
+    it('allows only an explicit restart from HALTED', () => {
+      expect(canTransition('HALTED', 'RUNNING')).toBe(true);
       expect(canTransition('HALTED', 'PAUSED')).toBe(false);
     });
   });
@@ -53,10 +54,11 @@ describe('simulation lifecycle rules', () => {
     it('returns the target state for a valid transition', () => {
       expect(transitionSimulationState('PAUSED', 'RUNNING')).toBe('RUNNING');
       expect(transitionSimulationState('RUNNING', 'HALTED')).toBe('HALTED');
+      expect(transitionSimulationState('HALTED', 'RUNNING')).toBe('RUNNING');
     });
 
     it('throws for an invalid transition', () => {
-      expect(() => transitionSimulationState('HALTED', 'RUNNING')).toThrow(
+      expect(() => transitionSimulationState('HALTED', 'PAUSED')).toThrow(
         InvalidSimulationStateTransitionError,
       );
       expect(() => transitionSimulationState('RUNNING', 'RUNNING')).toThrow(

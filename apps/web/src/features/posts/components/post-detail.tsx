@@ -2,15 +2,7 @@ import type { AuthorResponse } from '@aiworld/shared/schemas/author-response.sch
 import type { CommentResponse } from '@aiworld/shared/schemas/comment-response.schema';
 import type { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
 import { Link } from '@tanstack/react-router';
-import {
-  ArrowBigDown,
-  ArrowBigUp,
-  ArrowLeft,
-  Eye,
-  MessageSquare,
-  Reply,
-  type LucideIcon,
-} from 'lucide-react';
+import { ArrowLeft, Eye, MessageSquare, Share2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useToast } from '@/shared/feedback/toaster';
@@ -32,13 +24,26 @@ export interface PostDetailProps {
 export function PostDetail({ slug, post, onBack }: PostDetailProps) {
   const { toast } = useToast();
 
-  const notifyObserver = () => {
-    toast({
-      tone: 'info',
-      title: 'Read-only Observer Mode',
-      description:
-        'Observers can watch the simulation but cannot vote, reply, or comment.',
-    });
+  const handleShare = async () => {
+    const postUrl = new URL(
+      `/worlds/${encodeURIComponent(slug)}/posts/${encodeURIComponent(post.id)}`,
+      window.location.origin,
+    ).toString();
+
+    try {
+      await copyToClipboard(postUrl);
+      toast({
+        tone: 'success',
+        title: 'Post link copied',
+        description: 'The conversation link is ready to share.',
+      });
+    } catch {
+      toast({
+        tone: 'error',
+        title: 'Could not copy post link',
+        description: 'Your browser did not allow clipboard access.',
+      });
+    }
   };
 
   return (
@@ -69,29 +74,32 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             {post.content}
           </p>
         </div>
-        <div className="flex items-center justify-between border-t border-glass-border pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border pt-4">
           <div
             className="flex items-center gap-2 text-sm text-ink/70"
             aria-label="Post voting"
           >
-            <ObserverActionButton
-              label="Upvote post"
-              icon={ArrowBigUp}
-              onClick={notifyObserver}
-            />
-            <span className="font-bold text-ink" aria-label="Vote score">
-              {post.voteScore}
+            <span
+              className="rounded-lg border border-glass-border px-2 py-1 font-bold text-ink"
+              aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
+            >
+              Score {post.voteScore}
             </span>
-            <ObserverActionButton
-              label="Downvote post"
-              icon={ArrowBigDown}
-              onClick={notifyObserver}
-            />
           </div>
-          <span className="flex items-center gap-1.5 text-xs text-ink/50">
-            <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {commentLabel(countComments(post.comments))}
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-1.5 text-xs text-ink/50">
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+              {commentLabel(countComments(post.comments))}
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            >
+              <Share2 className="h-4 w-4" aria-hidden="true" />
+              Share
+            </button>
+          </div>
         </div>
       </article>
 
@@ -109,7 +117,6 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             comments={post.comments}
             postAuthorId={post.author.id}
             worldSlug={slug}
-            onObserverAction={notifyObserver}
           />
         ) : (
           <GlassPanel className="p-5 text-sm text-ink/60">
@@ -118,7 +125,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
         )}
       </section>
 
-      <ObserverComposer onObserverAction={notifyObserver} />
+      <ObserverComposer />
     </div>
   );
 }
@@ -177,12 +184,10 @@ function CommentTree({
   comments,
   postAuthorId,
   worldSlug,
-  onObserverAction,
 }: {
   comments: CommentResponse[];
   postAuthorId: string;
   worldSlug: string;
-  onObserverAction: () => void;
 }) {
   return (
     <ol className="flex flex-col gap-3" aria-label="Comments">
@@ -193,7 +198,6 @@ function CommentTree({
             depth={0}
             postAuthorId={postAuthorId}
             worldSlug={worldSlug}
-            onObserverAction={onObserverAction}
           />
         </li>
       ))}
@@ -206,13 +210,11 @@ function CommentNode({
   depth,
   postAuthorId,
   worldSlug,
-  onObserverAction,
 }: {
   comment: CommentResponse;
   depth: number;
   postAuthorId: string;
   worldSlug: string;
-  onObserverAction: () => void;
 }) {
   const isOriginalPoster = comment.author.id === postAuthorId;
   const commentLabel = `comment by ${comment.author.name}`;
@@ -278,36 +280,14 @@ function CommentNode({
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">
             {comment.content}
           </p>
-          <div className="mt-3 flex items-center gap-3 text-xs font-medium text-ink/50">
-            <span className="flex items-center gap-1.5">
-              <ObserverActionButton
-                label={`Upvote ${commentLabel}`}
-                icon={ArrowBigUp}
-                onClick={onObserverAction}
-                compact
-              />
-              <span aria-label={`${commentLabel} vote score`}>
-                {comment.voteScore}
-              </span>
-              <ObserverActionButton
-                label={`Downvote ${commentLabel}`}
-                icon={ArrowBigDown}
-                onClick={onObserverAction}
-                compact
-              />
-            </span>
-            <button
-              type="button"
-              aria-disabled="true"
-              aria-describedby="observer-mode-description"
-              disabled
-              onClick={onObserverAction}
-              title="Observers cannot reply"
-              className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg px-2 py-1 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-ink/70">
+            <span
+              className="rounded border border-glass-border px-1.5 py-0.5"
+              aria-label={`${commentLabel} vote score ${comment.voteScore}. Observer mode is read-only.`}
             >
-              <Reply className="h-3.5 w-3.5" aria-hidden="true" />
-              Reply
-            </button>
+              Score {comment.voteScore}
+            </span>
+            <span>Read-only · replies disabled</span>
           </div>
           {comment.replies.length > 0 && depth < MAX_COMMENT_DEPTH ? (
             <ol
@@ -321,7 +301,6 @@ function CommentNode({
                     depth={depth + 1}
                     postAuthorId={postAuthorId}
                     worldSlug={worldSlug}
-                    onObserverAction={onObserverAction}
                   />
                 </li>
               ))}
@@ -333,38 +312,7 @@ function CommentNode({
   );
 }
 
-function ObserverActionButton({
-  label,
-  icon: Icon,
-  onClick,
-  compact = false,
-}: {
-  label: string;
-  icon: LucideIcon;
-  onClick: () => void;
-  compact?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-disabled="true"
-      aria-describedby="observer-mode-description"
-      disabled
-      onClick={onClick}
-      title="Observers cannot vote"
-      className="cursor-not-allowed rounded-lg p-1 text-ink/45 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-    >
-      <Icon className={compact ? 'h-4 w-4' : 'h-6 w-6'} aria-hidden="true" />
-    </button>
-  );
-}
-
-function ObserverComposer({
-  onObserverAction,
-}: {
-  onObserverAction: () => void;
-}) {
+function ObserverComposer() {
   return (
     <GlassPanel
       as="section"
@@ -392,27 +340,9 @@ function ObserverComposer({
           </p>
         </div>
       </div>
-      <div className="mt-4 flex flex-col gap-3 opacity-60">
-        <label htmlFor="observer-comment" className="sr-only">
-          Comment
-        </label>
-        <textarea
-          id="observer-comment"
-          disabled
-          aria-describedby="observer-mode-description"
-          placeholder="What are your thoughts?"
-          className="min-h-24 w-full resize-none rounded-xl border border-glass-border bg-glass-20 p-3 text-sm text-ink outline-none placeholder:text-ink/40"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          aria-describedby="observer-mode-description"
-          onClick={onObserverAction}
-          className="self-end"
-        >
-          Comment
-        </Button>
+      <div className="mt-4 rounded-xl border border-dashed border-glass-border bg-glass-20 p-3 text-xs text-ink/70">
+        Posting, replying, and voting are unavailable to observers. Sign in with
+        an eligible World membership to participate when enabled.
       </div>
     </GlassPanel>
   );
@@ -466,4 +396,25 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
     new Date(value),
   );
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const input = document.createElement('textarea');
+  input.value = value;
+  input.setAttribute('readonly', '');
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.select();
+  const copied = document.execCommand('copy');
+  input.remove();
+
+  if (!copied) {
+    throw new Error('Clipboard access is unavailable');
+  }
 }

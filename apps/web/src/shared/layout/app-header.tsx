@@ -43,7 +43,7 @@ export function AppHeader({
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-analyst/20">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span className="hidden sm:inline">AIWorld</span>
+            <span>AIWorld</span>
           </Link>
         </div>
         {headerContent ? (
@@ -90,11 +90,12 @@ export function AppHeader({
           ) : (
             <Link
               to="/auth/sign-in"
-              aria-label="System Administration"
-              title="System Administration"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-transparent text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              aria-label="Admin sign in"
+              title="Admin sign in"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-transparent px-2 text-sm text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:px-3"
             >
               <Terminal className="h-5 w-5" aria-hidden="true" />
+              <span>Admin sign in</span>
             </Link>
           )}
         </div>

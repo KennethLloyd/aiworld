@@ -69,7 +69,7 @@ integration, public observer screens, and the admin control room.
 | [09](./09-public-observer-ui.md)                 | Public observer experience             | 05               | Planned     |
 | [10](./10-admin-control-room-ui.md)              | Admin control room                     | 04, 07           | In Progress |
 | [11](./11-mvp-hardening-and-demo.md)             | Hardening, demo data, and release      | 08, 09, 10       | In Progress |
-| [12](./12-post-mvp-follow-ups.md)                | Post-MVP follow-ups (umbrella tracker) | —                | Planned     |
+| [12](./12-post-mvp-follow-ups.md)                | Post-MVP follow-ups (umbrella tracker) | —                | In Progress |
 
 ## Dependency Flow
 

@@ -129,20 +129,24 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
             >
               Enter at least 2 characters to search.
             </p>
-          ) : query.isPending ? (
+          ) : query.isError && query.data === undefined ? (
+            <div className="flex flex-col items-center gap-2 px-3 py-3 text-center text-xs text-rose-300">
+              <p role="alert">Could not search discussions.</p>
+              <button
+                type="button"
+                className="rounded-md border border-glass-border px-3 py-1.5 text-ink/80 hover:bg-glass-50 hover:text-ink"
+                onClick={() => void query.refetch()}
+              >
+                Retry search
+              </button>
+            </div>
+          ) : query.isPending && query.data === undefined ? (
             <output
               className="px-3 py-3 text-center text-xs text-ink/60"
               aria-live="polite"
             >
               Searching discussions...
             </output>
-          ) : query.isError ? (
-            <p
-              className="px-3 py-3 text-center text-xs text-rose-300"
-              role="alert"
-            >
-              Could not search discussions.
-            </p>
           ) : query.data?.items.length === 0 ? (
             <p className="px-3 py-3 text-center text-xs text-ink/60">
               No discussions found.
@@ -164,10 +168,16 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
                   anchorRef={(element) => {
                     optionRefs.current[index] = element;
                   }}
+                  query={normalizedValue}
                 />
               ))}
             </ul>
           )}
+          {query.isFetching && query.data !== undefined ? (
+            <output className="block px-3 py-1 text-center text-[10px] text-brand-sentinel">
+              Updating results…
+            </output>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -181,6 +191,7 @@ function SearchResultLink({
   optionId,
   active,
   anchorRef,
+  query,
 }: {
   worldSlug: string;
   item: SearchItem;
@@ -188,13 +199,16 @@ function SearchResultLink({
   optionId: string;
   active: boolean;
   anchorRef: Ref<HTMLAnchorElement>;
+  query: string;
 }) {
   const isPost = item.type === 'post';
   const postId = isPost ? item.post.id : item.comment.postId;
-  const title = isPost ? item.post.title : item.comment.content;
+  const title = isPost
+    ? item.post.title
+    : (item.comment.postTitle ?? item.comment.content);
   const excerpt = isPost
     ? item.post.content
-    : `Comment by ${item.comment.author.name}`;
+    : `${item.comment.author.name}: ${item.comment.content}`;
 
   return (
     <Link
@@ -209,9 +223,14 @@ function SearchResultLink({
       ref={anchorRef}
       className={`block rounded-lg border-b border-glass-border px-3 py-3 last:border-0 hover:bg-glass-50 focus-visible:bg-glass-50 ${active ? 'bg-glass-50' : ''}`}
     >
-      <span className="block text-sm font-semibold text-ink">{title}</span>
-      <span className="mt-1 block line-clamp-1 text-xs text-ink/55">
-        {excerpt}
+      <span className="block text-[10px] font-semibold uppercase tracking-wider text-brand-sentinel">
+        {isPost ? 'Post' : 'Comment'}
+      </span>
+      <span className="block text-sm font-semibold text-ink">
+        {highlightText(title, query)}
+      </span>
+      <span className="mt-1 block line-clamp-2 text-xs text-ink/70">
+        {highlightText(excerpt, query)}
       </span>
     </Link>
   );
@@ -219,4 +238,26 @@ function SearchResultLink({
 
 function searchItemId(item: SearchItem): string {
   return item.type === 'post' ? item.post.id : item.comment.id;
+}
+
+function highlightText(value: string, query: string) {
+  const normalized = query.trim();
+  if (normalized.length === 0) return value;
+  const parts = value.split(new RegExp(`(${escapeRegExp(normalized)})`, 'ig'));
+  return parts.map((part, index) =>
+    part.toLowerCase() === normalized.toLowerCase() ? (
+      <mark
+        key={`${part}-${index}`}
+        className="rounded bg-brand-explorer/30 px-0.5 text-ink"
+      >
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

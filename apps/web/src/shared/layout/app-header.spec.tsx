@@ -28,12 +28,10 @@ describe('AppHeader', () => {
     await router.load();
     render(<RouterProvider router={router} />);
 
-    const adminSignIn = screen.getByRole('link', {
-      name: 'System Administration',
-    });
+    const adminSignIn = screen.getByRole('link', { name: 'Admin sign in' });
     expect(adminSignIn).toHaveAttribute('href', '/auth/sign-in');
-    expect(adminSignIn).toHaveAttribute('title', 'System Administration');
-    expect(adminSignIn).not.toHaveTextContent('System Administration');
+    expect(adminSignIn).toHaveAttribute('title', 'Admin sign in');
+    expect(adminSignIn).toHaveTextContent('Admin sign in');
     expect(adminSignIn).toHaveClass('opacity-100', 'text-ink/90');
     expect(adminSignIn.querySelector('svg')).toHaveClass('lucide-terminal');
     expect(adminSignIn.querySelector('svg')).toHaveClass('h-5', 'w-5');
