@@ -243,21 +243,24 @@ export function SimulationStatusTab({
           <StateButton
             state="RUNNING"
             currentState={config.state}
-            pending={commandPending}
+            pending={updateState.isPending}
+            blocked={manualActionPending}
             available={isTransitionAvailable(config.state, 'RUNNING')}
             onClick={handleStateChange}
           />
           <StateButton
             state="PAUSED"
             currentState={config.state}
-            pending={commandPending}
+            pending={updateState.isPending}
+            blocked={manualActionPending}
             available={isTransitionAvailable(config.state, 'PAUSED')}
             onClick={handleStateChange}
           />
           <StateButton
             state="HALTED"
             currentState={config.state}
-            pending={commandPending}
+            pending={updateState.isPending}
+            blocked={manualActionPending}
             available={isTransitionAvailable(config.state, 'HALTED')}
             onClick={handleStateChange}
           />
@@ -415,12 +418,14 @@ function StateButton({
   state,
   currentState,
   pending,
+  blocked,
   available,
   onClick,
 }: {
   state: SimulationState;
   currentState: SimulationState;
   pending: boolean;
+  blocked: boolean;
   available: boolean;
   onClick: (state: SimulationState) => void;
 }) {
@@ -432,7 +437,7 @@ function StateButton({
       variant={currentState === state ? 'primary' : 'ghost'}
       size="sm"
       loading={pending && currentState !== state}
-      disabled={pending || !available}
+      disabled={pending || blocked || !available}
       aria-pressed={currentState === state}
       onClick={() => onClick(state)}
       className="font-mono uppercase tracking-wider"
