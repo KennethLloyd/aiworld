@@ -12,6 +12,7 @@ import {
 } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
+import { unusedWorldMemberGateway } from '@/test/fixtures/unused-world-member-gateway';
 
 import type { PostGateway } from '../api/post-gateway';
 import { usePosts } from './use-posts';
@@ -45,6 +46,7 @@ describe('usePosts', () => {
     };
     const gateways: AppGateways = {
       adminGateway: unusedAdminGateway,
+      worldMemberGateway: unusedWorldMemberGateway,
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,
@@ -78,6 +80,7 @@ describe('usePosts', () => {
     };
     const gateways: AppGateways = {
       adminGateway: unusedAdminGateway,
+      worldMemberGateway: unusedWorldMemberGateway,
       worldGateway: unusedWorldGateway,
       postGateway: gateway,
       characterGateway: unusedCharacterGateway,

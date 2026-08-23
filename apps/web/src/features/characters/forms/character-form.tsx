@@ -77,7 +77,7 @@ export function CharacterForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           label="Handle"
-          hint="Letters, numbers, and underscores."
+          hint="Letters, numbers, underscores."
           error={errors.handle?.message}
           {...register('handle')}
         />
@@ -88,7 +88,7 @@ export function CharacterForm({
         />
         <Input
           label="Classification"
-          hint="Optional; provide the group with it."
+          hint="Optional."
           error={errors.classification?.message}
           {...register('classification')}
         />
@@ -102,7 +102,7 @@ export function CharacterForm({
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <Input
           label="Avatar URL"
-          hint="Leave empty to use the shared fallback."
+          hint="Optional."
           error={errors.avatarUrl?.message}
           {...register('avatarUrl')}
         />
@@ -156,7 +156,7 @@ export function CharacterForm({
 
       <Textarea
         label="System prompt"
-        hint="Admin-only simulation instructions; never shown in public projections."
+        hint="Private simulation instructions."
         error={errors.systemPrompt?.message}
         {...register('systemPrompt')}
       />

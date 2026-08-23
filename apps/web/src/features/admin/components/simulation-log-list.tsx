@@ -119,10 +119,7 @@ function LogDetails({ log }: { log: SimulationLogResponse }) {
       <DetailItem label="Tokens" value={formatNumber(log.tokensUsed)} />
       <DetailItem label="Cost" value={formatCost(log.costEstimate)} />
       <DetailItem label="Status" value={titleCase(log.status)} />
-      <DetailItem
-        label="Execution source"
-        value={titleCase(log.executionSource)}
-      />
+      <DetailItem label="Source" value={titleCase(log.executionSource)} />
       <DetailItem label="Execution time" value={formatDate(log.executedAt)} />
       <DetailItem
         label="Reasoning"

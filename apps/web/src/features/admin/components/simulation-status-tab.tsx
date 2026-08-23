@@ -77,10 +77,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
     return (
       <ErrorState
         title="Could not load simulation"
-        message={errorMessage(
-          simulationQuery.error,
-          'The selected World simulation could not be loaded.',
-        )}
+        message={errorMessage(simulationQuery.error, 'Simulation unavailable.')}
         onRetry={() => void simulationQuery.refetch()}
       />
     );
@@ -231,7 +228,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
 
       {feedback ? <FeedbackMessage feedback={feedback} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <TelemetryPanel
           config={config}
           world={world}
@@ -248,7 +245,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
         <GlassPanel
           as="section"
           aria-labelledby="demo-controls-heading"
-          className="p-5 lg:col-span-2"
+          className="min-w-0 p-5 lg:col-span-2"
         >
           <PanelHeading
             id="demo-controls-heading"
@@ -258,7 +255,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
           <div className="mt-5 flex flex-col gap-5">
             <Select
               id="simulation-speed"
-              label="Simulation speed"
+              label="Speed"
               value={String(config.speedMultiplier)}
               options={speedPresets.map((speed) => ({
                 value: String(speed),
@@ -268,8 +265,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
               onChange={(event) => handleSpeedChange(event.target.value)}
             />
             <p className="-mt-3 text-xs leading-relaxed text-ink/50">
-              Presets submit the shared 0.1–100 multiplier. The scheduler owns
-              pacing and action selection.
+              Choose a speed preset.
             </p>
 
             <Button
@@ -284,21 +280,21 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
             </Button>
             {residentsUnavailable ? (
               <ErrorState
-                title="Could not load active AI Residents"
-                message="Manual controls are unavailable until the resident directory is reachable."
+                title="Active Characters unavailable"
+                message="Try again to enable manual controls."
                 onRetry={() => void residentsQuery.refetch()}
                 className="-mt-3 p-4"
               />
             ) : !hasActiveResidents && !residentsQuery.isPending ? (
               <p className="-mt-3 text-xs text-brand-explorer">
-                No active AI Residents are available for manual work.
+                No active Characters.
               </p>
             ) : null}
 
             <div className="flex flex-col gap-4 border-t border-glass-border pt-5">
               <Select
                 id="target-ai-resident"
-                label="Target AI Resident"
+                label="Character"
                 value={targetCharacterId}
                 options={[
                   { value: '', label: 'Any Character' },
@@ -401,7 +397,7 @@ function TelemetryPanel({
     <GlassPanel
       as="section"
       aria-labelledby="telemetry-heading"
-      className="p-5 lg:col-span-1"
+      className="min-w-0 p-5 lg:col-span-1"
     >
       <PanelHeading id="telemetry-heading" icon={Activity} title="Telemetry" />
       {isPending ? (
@@ -417,7 +413,7 @@ function TelemetryPanel({
       ) : isError ? (
         <ErrorState
           title="Could not load telemetry"
-          message="Telemetry will retry on the next polling interval."
+          message="Telemetry unavailable."
           onRetry={onRetry}
           className="mt-4 p-4"
         />
@@ -448,7 +444,7 @@ function TelemetryPanel({
           </TelemetryRow>
           <TelemetryRow label="World ID">
             <code
-              className="max-w-[9rem] truncate font-mono text-xs text-ink/50"
+              className="block max-w-full truncate font-mono text-xs text-ink/50"
               title={world.id}
             >
               {world.id}
@@ -475,7 +471,7 @@ function RecentActivityPanel({
     <GlassPanel
       as="section"
       aria-labelledby="recent-activity-heading"
-      className="p-5 lg:col-span-4"
+      className="min-w-0 p-5 lg:col-span-3"
     >
       <PanelHeading
         id="recent-activity-heading"
@@ -494,17 +490,12 @@ function RecentActivityPanel({
       ) : isError ? (
         <ErrorState
           title="Could not load recent execution"
-          message="Recent logs will retry on the next polling interval."
+          message="Try again to reload recent activity."
           onRetry={onRetry}
           className="mt-4 p-4"
         />
       ) : logs.length === 0 ? (
-        <EmptyState
-          icon={Clock3}
-          title="No simulation activity yet"
-          description="Run one action or a custom action to create the first execution record."
-          className="mt-4"
-        />
+        <EmptyState icon={Clock3} title="No activity yet" className="mt-4" />
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-glass-border">
           <table className="w-full min-w-[42rem] text-left text-sm">
@@ -582,9 +573,11 @@ function TelemetryRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-end justify-between gap-3 border-b border-glass-border pb-2 last:border-b-0">
-      <dt className="text-ink/70">{label}</dt>
-      <dd className="text-right font-medium text-ink">{children}</dd>
+    <div className="flex min-w-0 items-end justify-between gap-3 border-b border-glass-border pb-2 last:border-b-0">
+      <dt className="min-w-0 text-ink/70">{label}</dt>
+      <dd className="min-w-0 max-w-[65%] text-right font-medium text-ink">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -609,7 +602,7 @@ function FeedbackMessage({ feedback }: { feedback: Feedback }) {
 function StatusSkeleton() {
   return (
     <div
-      className="grid gap-6 lg:grid-cols-4"
+      className="grid min-w-0 gap-6 lg:grid-cols-3"
       aria-label="Loading simulation"
       aria-busy="true"
     >

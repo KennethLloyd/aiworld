@@ -8,6 +8,8 @@ export const characterKeys = {
   adminLists: () => [...characterKeys.all, 'admin-list'] as const,
   adminList: (query: ListCharactersQuery) =>
     [...characterKeys.adminLists(), query] as const,
+  adminDirectory: (query: Pick<ListCharactersQuery, 'search'> = {}) =>
+    [...characterKeys.adminLists(), 'directory', query] as const,
   details: () => [...characterKeys.all, 'detail'] as const,
   detail: (characterId: string) =>
     [...characterKeys.details(), characterId] as const,

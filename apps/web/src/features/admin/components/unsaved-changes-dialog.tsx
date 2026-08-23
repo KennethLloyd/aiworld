@@ -39,7 +39,7 @@ export function UnsavedChangesDialog({
       }
     >
       <p className="text-sm leading-relaxed text-ink/70">
-        Your draft has not been saved. Continue editing or discard the draft?
+        Unsaved changes. Continue editing or discard?
       </p>
     </Modal>
   );

@@ -5,6 +5,7 @@ import type {
 import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
+import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -55,6 +56,17 @@ const character: CharacterResponse = {
 const adminCharacter: AdminCharacterResponse = {
   ...character,
   systemPrompt: 'You are a thoughtful resident of the MBTI House.',
+};
+
+const worldMember: WorldMemberResponse = {
+  id: 'ba3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f15',
+  worldId: world.id,
+  worldSlug: world.slug,
+  characterId: character.id,
+  userId: null,
+  role: 'AI',
+  isActive: true,
+  joinedAt: '2026-07-15T10:00:00.000Z',
 };
 
 const config: SimulationConfigResponse = {
@@ -133,6 +145,12 @@ const server = setupServer(
   http.get('*/api/characters', () =>
     HttpResponse.json({
       items: [adminCharacter],
+      meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    }),
+  ),
+  http.get('*/api/world-members', () =>
+    HttpResponse.json({
+      items: [worldMember],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
     }),
   ),
@@ -277,9 +295,20 @@ describe('/admin control room', () => {
     expect(
       screen.getByRole('tab', { name: 'Simulation Status' }),
     ).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByLabelText('Selected World')).toHaveValue(
-      'mbti-house',
+    const worldPicker = await screen.findByRole('combobox', {
+      name: 'Selected World',
+    });
+    expect(worldPicker).toHaveAttribute('data-value', 'mbti-house');
+    await userEvent.click(worldPicker);
+    expect(
+      screen.getByRole('listbox', { name: 'World options' }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: 'The MBTI House (mbti-house)',
+      }),
     );
+    expect(worldPicker).toHaveAttribute('aria-expanded', 'false');
     expect(await screen.findAllByText('PAUSED')).not.toHaveLength(0);
     expect(await screen.findByText('8')).toBeInTheDocument();
     expect(
@@ -302,14 +331,10 @@ describe('/admin control room', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Could not load active AI Residents',
+        name: 'Active Characters unavailable',
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        'No active AI Residents are available for manual work.',
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No active Characters.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
@@ -339,10 +364,7 @@ describe('/admin control room', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(stateRequests).toEqual(['RUNNING']));
 
-    await userEvent.selectOptions(
-      screen.getByLabelText('Simulation speed'),
-      '2',
-    );
+    await userEvent.selectOptions(screen.getByLabelText('Speed'), '2');
     await waitFor(() => expect(speedRequests).toEqual([2]));
     expect(await screen.findByText('Speed saved')).toBeInTheDocument();
   });
@@ -354,7 +376,7 @@ describe('/admin control room', () => {
 
     await screen.findAllByText('PAUSED');
     await userEvent.selectOptions(
-      screen.getByLabelText('Target AI Resident'),
+      screen.getByLabelText('Character'),
       character.id,
     );
     await userEvent.selectOptions(screen.getByLabelText('Action'), 'COMMENT');
@@ -410,15 +432,12 @@ describe('/admin control room', () => {
     ).toBeInTheDocument();
 
     await userEvent.selectOptions(
-      screen.getByLabelText('Character / AI Resident'),
+      screen.getByLabelText('Character'),
       character.id,
     );
     await userEvent.selectOptions(screen.getByLabelText('Action'), 'COMMENT');
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'FAILED');
-    await userEvent.selectOptions(
-      screen.getByLabelText('Execution source'),
-      'custom',
-    );
+    await userEvent.selectOptions(screen.getByLabelText('Source'), 'custom');
 
     await waitFor(() => {
       const latest = logQueryRequests.at(-1);
@@ -577,6 +596,29 @@ describe('/admin control room', () => {
     expect(currentWorld.name).toBe('The Updated House');
   });
 
+  it('opens the selected World Members tab with separate status controls', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=members', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'World Members' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Members' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect((await screen.findAllByText('Mystic Aura')).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText('1 AI Resident')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button', {
+        name: 'Deactivate membership for Mystic Aura',
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+
   it('blocks leaving a dirty World Config draft until the admin decides', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
@@ -587,7 +629,7 @@ describe('/admin control room', () => {
     const nameInput = await screen.findByLabelText('Name');
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, 'Unsaved World');
-    await userEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Characters' }));
 
     expect(
       await screen.findByRole('dialog', { name: 'Unsaved changes' }),
@@ -598,7 +640,7 @@ describe('/admin control room', () => {
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Unsaved World');
 
-    await userEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Characters' }));
     await userEvent.click(
       screen.getByRole('button', { name: 'Discard changes' }),
     );
@@ -729,9 +771,7 @@ describe('/admin control room', () => {
     expect(
       await screen.findByRole('heading', { name: 'World not found' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/requested World is not in the admin directory/),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Choose another World.')).toBeInTheDocument();
   });
 
   it('creates an unassigned Character through the existing admin API flow', async () => {

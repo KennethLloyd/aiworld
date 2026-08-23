@@ -113,8 +113,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
             Simulation Logs
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Inspect persisted execution outcomes without exposing prompts or raw
-            provider responses.
+            Review execution history.
           </p>
         </div>
         <p className="font-mono text-xs text-ink/50" aria-live="polite">
@@ -148,7 +147,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               id="simulation-log-character"
-              label="Character / AI Resident"
+              label="Character"
               value={filters.characterId ?? ''}
               placeholder="Any Character"
               options={residents.map((resident) => ({
@@ -193,7 +192,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
             />
             <Select
               id="simulation-log-execution-source"
-              label="Execution source"
+              label="Source"
               value={filters.executionSource ?? ''}
               placeholder="All sources"
               options={simulationExecutionSources.map((source) => ({
@@ -216,12 +215,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-200"
         >
-          <span>
-            {adminErrorMessage(
-              logsQuery.error,
-              'The log list could not be refreshed. Showing the last successful snapshot.',
-            )}
-          </span>
+          <span>{adminErrorMessage(logsQuery.error, 'Logs unavailable.')}</span>
           <Button
             variant="outline"
             size="sm"
@@ -239,7 +233,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
           description={
             hasFilters
               ? 'No execution records match the selected filters.'
-              : 'Run one action or a custom action to create the first execution record.'
+              : 'No execution records yet.'
           }
         />
       ) : (
@@ -261,6 +255,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
           <Button
             variant="outline"
             size="sm"
+            aria-label="Previous page"
             disabled={page <= 1 || logsQuery.isFetching}
             onClick={() => {
               setPage((current) => Math.max(1, current - 1));
@@ -268,7 +263,7 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
             }}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            Previous page
+            <span className="hidden sm:inline">Previous page</span>
           </Button>
           <output className="text-xs text-ink/60">
             Page {data.meta.page} of {data.meta.totalPages}
@@ -276,13 +271,14 @@ export function SimulationLogsTab({ world }: { world: WorldResponse }) {
           <Button
             variant="outline"
             size="sm"
+            aria-label="Next page"
             disabled={page >= data.meta.totalPages || logsQuery.isFetching}
             onClick={() => {
               setPage((current) => Math.min(data.meta.totalPages, current + 1));
               setExpandedLogId(null);
             }}
           >
-            Next page
+            <span className="hidden sm:inline">Next page</span>
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </nav>
