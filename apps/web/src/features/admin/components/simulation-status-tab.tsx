@@ -231,7 +231,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
 
       {feedback ? <FeedbackMessage feedback={feedback} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <TelemetryPanel
           config={config}
           world={world}
@@ -248,7 +248,7 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
         <GlassPanel
           as="section"
           aria-labelledby="demo-controls-heading"
-          className="p-5 lg:col-span-2"
+          className="min-w-0 p-5 lg:col-span-2"
         >
           <PanelHeading
             id="demo-controls-heading"
@@ -401,7 +401,7 @@ function TelemetryPanel({
     <GlassPanel
       as="section"
       aria-labelledby="telemetry-heading"
-      className="p-5 lg:col-span-1"
+      className="min-w-0 p-5 lg:col-span-1"
     >
       <PanelHeading id="telemetry-heading" icon={Activity} title="Telemetry" />
       {isPending ? (
@@ -448,7 +448,7 @@ function TelemetryPanel({
           </TelemetryRow>
           <TelemetryRow label="World ID">
             <code
-              className="max-w-[9rem] truncate font-mono text-xs text-ink/50"
+              className="block max-w-full truncate font-mono text-xs text-ink/50"
               title={world.id}
             >
               {world.id}
@@ -475,7 +475,7 @@ function RecentActivityPanel({
     <GlassPanel
       as="section"
       aria-labelledby="recent-activity-heading"
-      className="p-5 lg:col-span-4"
+      className="min-w-0 p-5 lg:col-span-3"
     >
       <PanelHeading
         id="recent-activity-heading"
@@ -582,9 +582,11 @@ function TelemetryRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-end justify-between gap-3 border-b border-glass-border pb-2 last:border-b-0">
-      <dt className="text-ink/70">{label}</dt>
-      <dd className="text-right font-medium text-ink">{children}</dd>
+    <div className="flex min-w-0 items-end justify-between gap-3 border-b border-glass-border pb-2 last:border-b-0">
+      <dt className="min-w-0 text-ink/70">{label}</dt>
+      <dd className="min-w-0 max-w-[65%] text-right font-medium text-ink">
+        {children}
+      </dd>
     </div>
   );
 }
@@ -609,7 +611,7 @@ function FeedbackMessage({ feedback }: { feedback: Feedback }) {
 function StatusSkeleton() {
   return (
     <div
-      className="grid gap-6 lg:grid-cols-4"
+      className="grid min-w-0 gap-6 lg:grid-cols-3"
       aria-label="Loading simulation"
       aria-busy="true"
     >

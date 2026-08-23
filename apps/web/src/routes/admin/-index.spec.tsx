@@ -610,6 +610,7 @@ describe('/admin control room', () => {
     expect((await screen.findAllByText('Mystic Aura')).length).toBeGreaterThan(
       0,
     );
+    expect(screen.getByText('1 AI Resident')).toBeInTheDocument();
     expect(
       screen.getAllByRole('button', {
         name: 'Deactivate membership for Mystic Aura',

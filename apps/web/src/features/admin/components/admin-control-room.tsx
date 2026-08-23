@@ -78,7 +78,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     <div className="flex flex-col gap-6">
       <GlassPanel className="overflow-hidden p-4 sm:p-6 lg:p-8">
         <AdminHeader />
-        <div className="mt-6 flex flex-col gap-4 border-y border-glass-border py-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mt-6 flex min-w-0 flex-col gap-4 border-b border-glass-border pb-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink/50">
               Selected World Context
@@ -202,7 +202,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
 
 function AdminHeader() {
   return (
-    <header className="flex flex-col gap-5 border-b border-glass-border pb-6 md:flex-row md:items-center md:justify-between">
+    <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 className="flex items-center gap-3 font-mono text-xl font-bold tracking-tight text-ink sm:text-2xl">
           <Terminal

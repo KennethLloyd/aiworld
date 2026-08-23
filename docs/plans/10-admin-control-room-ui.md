@@ -154,7 +154,7 @@ reimplementing simulation behavior.
 
 ## Implementation Record
 
-Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / issue #54 are implemented; ticket 10-4 / issue #55 is implemented on its review branch.
+Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / issue #54 are implemented; ticket 10-4 / issue #55 is implemented on its review branch with a follow-up visual QA pass in progress.
 
 ### Senior-Level Summary
 
@@ -277,13 +277,26 @@ Character status. Anonymous access was verified to redirect to sign-in; API
 error, forbidden, loading, and independent panel states remain covered by the
 focused automated tests.
 
+The follow-up visual QA pass verified all changed admin tabs at the same desktop
+and mobile sizes. It removed the duplicate Selected World divider, contained
+the UUID inside Telemetry, refactored World Config into responsive identity,
+rules, description, and visibility sections, and confirmed the canonical local
+seed shows 16 AI Residents. Mobile verification also caught and fixed a
+min-content grid overflow in Simulation Status; the final document width equals
+the viewport at both sizes.
+
 The complementary `agent-browser` CLI launched the local admin route and
 captured the accessible sign-in/admin surface. Its isolated Chrome profile
 could not be kept alive between sandbox command invocations, so authenticated
 interaction was completed in the in-app browser instead.
 
 Review screenshots were captured and inspected for secrets at:
-`/tmp/aiworld-issue-55-desktop.png` and `/tmp/aiworld-issue-55-mobile.png`.
+`/tmp/aiworld-issue-55-fix-desktop-config.png`,
+`/tmp/aiworld-issue-55-fix-desktop-status.png`,
+`/tmp/aiworld-issue-55-fix-desktop-members.png`,
+`/tmp/aiworld-issue-55-fix-mobile-config.png`,
+`/tmp/aiworld-issue-55-fix-mobile-status.png`, and
+`/tmp/aiworld-issue-55-fix-mobile-members.png`.
 
 ### Known Risks and Follow-Up Work
 
