@@ -59,7 +59,7 @@ export class CommentAction extends SimulationAction<
     return composeActionPrompt({
       action: 'COMMENT',
       instructions:
-        "Write a COMMENT on the target post from this character's perspective, using the bounded thread context below.",
+        "Write a concise COMMENT on the target post from this character's perspective. Address one concrete point from the post or bounded thread, preserve continuity, and use parentCommentId only when replying to a supplied comment ID.",
       outputFormat:
         '{"content": string, "parentCommentId": string | null, "reasoning": string}',
       contextSections: [

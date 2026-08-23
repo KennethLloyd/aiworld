@@ -1,9 +1,8 @@
 import { MockLlmFixture } from '@/simulation/providers/mock/mock-llm.provider';
 
-// Order matters: `selectFixture` picks the first fixture whose id appears in
-// the prompt as a whole word. Vote and comment prompts also mention the post
-// they target, so `vote` and `comment` must come before `post`. A post prompt
-// only ever mentions `post`, so it still matches after the earlier entries.
+// Declared actions are matched before the legacy whole-prompt fallback. The
+// fixture order remains explicit so minimal prompts can still select the
+// intended action without matching incidental grounded-context words.
 export const mockLlmFixtures: readonly MockLlmFixture[] = [
   {
     id: 'vote',
@@ -15,17 +14,19 @@ export const mockLlmFixtures: readonly MockLlmFixture[] = [
   {
     id: 'comment',
     output: {
-      content: 'I see it the same way.',
+      content: 'The kitchen schedule makes that point worth discussing.',
       parentCommentId: null,
-      reasoning: 'Agreement keeps the thread warm.',
+      reasoning: 'The reply stays grounded in the shared-house thread.',
     },
   },
   {
     id: 'post',
     output: {
       title: 'The quiet power of a pause',
-      content: 'Sometimes the strongest move is to wait before you speak.',
-      reasoning: 'A reflective character values timing over noise.',
+      content:
+        'The shared kitchen schedule needs a quiet pause before we speak.',
+      reasoning:
+        'The resident ties a reflective point to a concrete house detail.',
     },
   },
 ];

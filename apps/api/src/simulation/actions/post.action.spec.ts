@@ -182,4 +182,18 @@ describe('PostAction', () => {
       failure: { code: 'MALFORMED_RESPONSE', retryable: false },
     });
   });
+
+  it('returns an unsafe-output failure before a writer could persist content', async () => {
+    const provider = new StubLlmProvider(mockConfig(), {
+      title: 'A household note',
+      content: '<script>alert(1)</script>',
+      reasoning: 'The generated text is unsafe.',
+    });
+    const action = createAction({ provider });
+
+    await expect(action.execute(command)).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'UNSAFE_OUTPUT', retryable: false },
+    });
+  });
 });

@@ -126,8 +126,20 @@ export class MockLlmProvider extends LlmProvider {
   }
 
   private selectFixture(prompt: LlmProviderPrompt): MockLlmFixture | undefined {
-    // The prompt text selects the fixture by its id as a whole word.
-    // Same prompt, same result.
+    // The composed system prompt declares the action explicitly. Prefer that
+    // contract over scanning the whole prompt: grounded context legitimately
+    // mentions words such as "comments" and "posts" that are not the action.
+    const declaredAction = prompt.system.match(
+      /performing an? (POST|VOTE|COMMENT) action\b/i,
+    )?.[1];
+    if (declaredAction !== undefined) {
+      return this.fixtures.find(
+        (fixture) =>
+          fixture.id.toLocaleLowerCase() === declaredAction.toLocaleLowerCase(),
+      );
+    }
+
+    // Keep the legacy whole-prompt fallback for minimal fixture prompts.
     const promptText = `${prompt.system}\n${prompt.user}`.toLocaleLowerCase();
     return this.fixtures.find((fixture) => {
       const pattern = new RegExp(

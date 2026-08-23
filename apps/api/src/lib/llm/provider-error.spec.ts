@@ -59,10 +59,14 @@ describe('mapProviderError', () => {
   });
 
   it('maps unknown errors to a non-retryable safe error', () => {
-    expect(mapProviderError(new Error('provider detail'))).toMatchObject({
+    expect(
+      mapProviderError(
+        new Error('authorization: Bearer secret https://provider.test/body'),
+      ),
+    ).toMatchObject({
       code: 'UNKNOWN',
       retryable: false,
-      message: 'provider detail',
+      message: 'Provider request failed',
     });
   });
 

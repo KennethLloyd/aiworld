@@ -23,9 +23,10 @@ export class SimulationSchedulerBootstrap implements OnModuleInit {
       running = await this.configRepository.findAllByState('RUNNING');
     } catch (error) {
       this.logger.warn(
-        `Failed to read simulation state at boot: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
+        JSON.stringify({
+          event: 'simulation_bootstrap_read_failed',
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        }),
       );
       return;
     }
@@ -35,9 +36,11 @@ export class SimulationSchedulerBootstrap implements OnModuleInit {
         await this.scheduler.start(config.worldId);
       } catch (error) {
         this.logger.warn(
-          `Failed to resume scheduled ticks for world ${config.worldId}: ${
-            error instanceof Error ? error.message : 'unknown error'
-          }`,
+          JSON.stringify({
+            event: 'simulation_bootstrap_resume_failed',
+            worldId: config.worldId,
+            errorName: error instanceof Error ? error.name : 'UnknownError',
+          }),
         );
       }
     }

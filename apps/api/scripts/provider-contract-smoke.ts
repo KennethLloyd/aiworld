@@ -1,13 +1,14 @@
+import 'dotenv/config';
 import { z } from 'zod';
 
 import {
   extractAssistantContent,
   openAiCompatibleChatRequestSchema,
   parseOpenAiCompatibleChatCompletion,
-  parseStructuredAssistantContent,
 } from '../src/lib/llm/openai-compatible-contract.js';
 import { loadProviderConfig } from '../src/lib/llm/provider-config.js';
 import { mapProviderError } from '../src/lib/llm/provider-error.js';
+import { parseStructuredOutputByMode } from '../src/simulation/providers/llm-provider.output.js';
 
 async function main(): Promise<void> {
   const config = loadProviderConfig();
@@ -35,7 +36,9 @@ async function main(): Promise<void> {
       },
     ],
     temperature: 0,
-    response_format: { type: 'json_object' },
+    ...(config.capabilities.structuredOutput === 'json-object'
+      ? { response_format: { type: 'json_object' as const } }
+      : {}),
   });
 
   const controller = new AbortController();
@@ -62,8 +65,11 @@ async function main(): Promise<void> {
     const completion = parseOpenAiCompatibleChatCompletion(
       await response.json(),
     );
-    const structured = parseStructuredAssistantContent(
+    const assistantContent = extractAssistantContent(completion);
+    const structured = parseStructuredOutputByMode(
+      config.capabilities.structuredOutput,
       completion,
+      assistantContent,
       z.object({ ok: z.literal(true) }),
     );
 
@@ -72,8 +78,8 @@ async function main(): Promise<void> {
         providerId: config.providerId,
         model: completion.model,
         object: completion.object,
-        assistantContent: extractAssistantContent(completion),
-        structured,
+        structuredOutput: structured,
+        parseSucceeded: true,
         usage: completion.usage,
       }),
     );

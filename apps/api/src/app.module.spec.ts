@@ -20,6 +20,30 @@ import { RetryingLlmProvider } from './simulation/providers/retry/retrying-llm.p
 
 describe('AppModule', () => {
   let module: TestingModule;
+  const configuredProvider = process.env.LLM_PROVIDER;
+  const configuredSchedulerAdapter = process.env.SCHEDULER_ADAPTER;
+
+  beforeAll(() => {
+    process.env.LLM_PROVIDER = 'mock';
+    process.env.SCHEDULER_ADAPTER = 'in-process';
+  });
+
+  afterAll(() => {
+    if (configuredProvider === undefined) {
+      delete process.env.LLM_PROVIDER;
+    } else {
+      process.env.LLM_PROVIDER = configuredProvider;
+    }
+    if (configuredSchedulerAdapter === undefined) {
+      delete process.env.SCHEDULER_ADAPTER;
+    } else {
+      process.env.SCHEDULER_ADAPTER = configuredSchedulerAdapter;
+    }
+  });
+
+  afterEach(async () => {
+    await module.close();
+  });
 
   beforeEach(async () => {
     module = await Test.createTestingModule({

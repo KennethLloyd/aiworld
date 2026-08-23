@@ -11,6 +11,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { POLLING_OPTIONS } from '@/core/query/public-polling';
 import { useGateways } from '@/providers/gateways-provider';
 
 import { adminKeys } from './admin-keys';
@@ -26,7 +27,7 @@ export function useSimulation(slug: string) {
     queryFn: () => adminGateway.getSimulation(slug),
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...POLLING_OPTIONS,
   });
 }
 
@@ -37,7 +38,7 @@ export function useSimulationTelemetry(slug: string) {
     queryFn: () => adminGateway.getSimulationTelemetry(slug),
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...POLLING_OPTIONS,
   });
 }
 
@@ -52,7 +53,7 @@ export function useSimulationLogs(
     placeholderData: keepPreviousData,
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...POLLING_OPTIONS,
   });
 }
 

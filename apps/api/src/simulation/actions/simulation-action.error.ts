@@ -9,6 +9,7 @@ export const simulationActionErrorCodes = [
   'COMMENT_PARENT_POST_MISMATCH',
   'COMMENT_DEPTH_EXCEEDED',
   'NO_ACTIVE_TARGET',
+  'UNSAFE_OUTPUT',
 ] as const;
 export type SimulationActionErrorCode =
   (typeof simulationActionErrorCodes)[number];
@@ -36,6 +37,16 @@ export class SimulationActionError extends Error {
  * Subclasses SimulationActionError so the shared failure mapper handles it. */
 export class SimulationWriteError extends SimulationActionError {}
 
+/** A provider returned syntactically valid data that is not safe to publish.
+ * Keeping this separate from MALFORMED_RESPONSE makes operator logs useful
+ * without exposing provider payloads to the public API. */
+export class SimulationOutputSafetyError extends SimulationActionError {
+  constructor(message: string) {
+    super('UNSAFE_OUTPUT', message);
+    this.name = 'SimulationOutputSafetyError';
+  }
+}
+
 function toFailure(
   code: ActionFailureCode,
   message: string,
@@ -52,7 +63,5 @@ export function toActionFailure(error: unknown): ActionFailure {
     return toFailure(error.code, error.message, error.retryable);
   }
 
-  const message =
-    error instanceof Error ? error.message : 'Unknown action failure';
-  return toFailure('UNKNOWN', message, false);
+  return toFailure('UNKNOWN', 'Simulation action failed', false);
 }

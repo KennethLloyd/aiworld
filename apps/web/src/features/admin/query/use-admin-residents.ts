@@ -1,6 +1,7 @@
 import type { ListCharactersQuery } from '@aiworld/shared/schemas/character.schema';
 import { useQuery } from '@tanstack/react-query';
 
+import { POLLING_OPTIONS } from '@/core/query/public-polling';
 import { characterKeys } from '@/features/characters/query/character-keys';
 import { useGateways } from '@/providers/gateways-provider';
 
@@ -25,6 +26,6 @@ export function useAdminResidents(worldSlug: string) {
     queryFn: () => characterGateway.list(query),
     enabled: worldSlug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...POLLING_OPTIONS,
   });
 }

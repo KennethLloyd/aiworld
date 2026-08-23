@@ -1,4 +1,5 @@
 import { characterActivityResponseSchema } from '@aiworld/shared/schemas/activity-response.schema';
+import type { CharacterActivityResponse } from '@aiworld/shared/schemas/activity-response.schema';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -17,6 +18,14 @@ import type { MockAuthSessionHolder } from './__mocks__/nestjs-better-auth';
 const databaseUrl =
   process.env.DATABASE_URL ??
   'postgres://postgres:postgres@localhost:5432/aiworld';
+
+async function requestActivityPage(
+  app: INestApplication<App>,
+  url: string,
+): Promise<CharacterActivityResponse> {
+  const response = await request(app.getHttpServer()).get(url).expect(200);
+  return characterActivityResponseSchema.parse(response.body);
+}
 
 /**
  * Fixture worlds stay out of the seeded canonical world, so tests that
@@ -602,18 +611,15 @@ describe('Character activity (real database)', () => {
     const walked: Array<{ id: string; kind: string }> = [];
 
     for (let page = 0; page < 10; page += 1) {
-      const url =
+      const url: string =
         cursor === null
           ? `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=2`
           : `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=2&cursor=${encodeURIComponent(cursor)}`;
-      const res = await request(app.getHttpServer()).get(url).expect(200);
+      const res = await requestActivityPage(app, url);
 
-      expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
-        true,
-      );
-      expect(res.body.items.length).toBeLessThanOrEqual(2);
-      walked.push(...res.body.items);
-      cursor = res.body.nextCursor;
+      expect(res.items.length).toBeLessThanOrEqual(2);
+      walked.push(...res.items);
+      cursor = res.nextCursor;
       if (cursor === null) {
         break;
       }
@@ -631,16 +637,15 @@ describe('Character activity (real database)', () => {
     const walked: Array<{ id: string }> = [];
 
     for (let page = 0; page < 10; page += 1) {
-      const suffix =
+      const suffix: string =
         cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`;
-      const res = await request(app.getHttpServer())
-        .get(
-          `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=1${suffix}`,
-        )
-        .expect(200);
+      const res = await requestActivityPage(
+        app,
+        `/api/characters/${author.id}/activity?worldSlug=${worldAKey}&limit=1${suffix}`,
+      );
 
-      walked.push(...res.body.items);
-      cursor = res.body.nextCursor;
+      walked.push(...res.items);
+      cursor = res.nextCursor;
       if (cursor === null) {
         break;
       }

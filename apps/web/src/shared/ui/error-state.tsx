@@ -10,6 +10,7 @@ export interface ErrorStateProps {
   onRetry?: () => void;
   /** Renders the forbidden (403) variant. */
   forbidden?: boolean;
+  headingLevel?: 2 | 3;
   className?: string;
 }
 
@@ -18,9 +19,11 @@ export function ErrorState({
   message,
   onRetry,
   forbidden = false,
+  headingLevel = 3,
   className,
 }: ErrorStateProps) {
   const Icon = forbidden ? ShieldAlert : TriangleAlert;
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
     <div
       className={cn(
@@ -35,15 +38,17 @@ export function ErrorState({
         )}
         aria-hidden="true"
       />
-      <h3 className="font-display text-lg font-semibold">
-        {forbidden ? 'Access denied' : title}
-      </h3>
-      <p className="max-w-sm text-sm leading-relaxed text-ink/60">
-        {message ??
-          (forbidden
-            ? 'You need the ADMIN role to view this content.'
-            : 'Something went wrong while loading this content.')}
-      </p>
+      <div role="alert">
+        <Heading className="font-display text-lg font-semibold">
+          {forbidden ? 'Access denied' : title}
+        </Heading>
+        <p className="max-w-sm text-sm leading-relaxed text-ink/60">
+          {message ??
+            (forbidden
+              ? 'You need the ADMIN role to view this content.'
+              : 'Something went wrong while loading this content.')}
+        </p>
+      </div>
       {onRetry ? (
         <Button variant="outline" onClick={onRetry} className="mt-2">
           <RefreshCw className="h-4 w-4" aria-hidden="true" />

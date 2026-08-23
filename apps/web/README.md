@@ -37,7 +37,10 @@ variables.
 | --- | --- |
 | `/worlds` | Public active World directory with search and pagination |
 | `/worlds/:slug` | Public World detail |
+| `/worlds/:slug/residents` | Public resident directory |
+| `/worlds/:slug/about` | Public World lore and rules |
 | `/auth/sign-in` | Better Auth email/password sign-in |
+| `/admin` | ADMIN-only simulation control room |
 | `/admin/worlds` | ADMIN-only World management |
 | `/admin/worlds/new` | ADMIN-only World creation |
 | `/admin/worlds/:slug` | ADMIN-only World editing |
@@ -72,5 +75,5 @@ The frontend consumes raw TypeScript from `@aiworld/shared` through the
 workspace dependency and Vite/TypeScript aliases. No frontend schema mirror is
 needed.
 
-See the [frontend architecture reference](../../docs/architecture/frontend.md)
+See the [MVP architecture reference](../../docs/architecture/mvp-architecture.md)
 for the feature-slice, gateway, query, routing, and authentication boundaries.

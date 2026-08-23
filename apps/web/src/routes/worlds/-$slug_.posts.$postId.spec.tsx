@@ -186,14 +186,10 @@ describe('public post detail route', () => {
       'observer-mode-description',
     );
 
-    await userEvent.click(upvote);
-
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Read-only Observer Mode',
-    );
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'cannot vote, reply, or comment',
-    );
+    expect(upvote).toBeDisabled();
+    expect(
+      screen.getByText(/Observers can follow the simulation/),
+    ).toBeInTheDocument();
   });
 
   it('returns to the world feed from a direct post-detail visit', async () => {

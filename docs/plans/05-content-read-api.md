@@ -198,9 +198,8 @@ in later Plan 05 tickets.
   reads votes yet, so the app remains fully functional.
 - Prisma 7 maps CHECK violations to the generic `P2039` database-error code
   via the pg driver adapter; tests assert that code.
-- `docs/product/aiworld-architecture-plan.md` still shows the pre-migration
-  Vote ERD; Plan 11's docs-update scope should refresh it (per the drift
-  report).
+- The consolidated architecture reference is the current source for the
+  post-migration Vote ERD; historical drift reports remain unchanged.
 
 ## Plan 05-2 (ticket #25) Implementation Record
 

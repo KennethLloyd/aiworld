@@ -8,6 +8,7 @@ import {
   SimulationActionResult,
   SimulationDecision,
 } from '@/simulation/actions/simulation-decision';
+import { assertSafeSimulationOutput } from '@/simulation/actions/simulation-output-safety';
 import {
   LlmProvider,
   LlmProviderPrompt,
@@ -54,6 +55,7 @@ export abstract class SimulationAction<
         prompt,
         schema: this.outputSchema,
       });
+      assertSafeSimulationOutput(command.action, output);
       return {
         status: 'success',
         decision: this.toDecision(context, output, command),

@@ -31,6 +31,6 @@ describe('LoggingInterceptor', () => {
 
     interceptor.intercept(context, callHandler).subscribe();
 
-    expect(logSpy).toHaveBeenCalledWith('GET /worlds?page=2 -> 201 +12ms');
+    expect(logSpy).toHaveBeenCalledWith('GET /worlds -> 201 +12ms');
   });
 });

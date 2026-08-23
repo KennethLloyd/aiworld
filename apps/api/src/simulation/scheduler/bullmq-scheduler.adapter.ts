@@ -9,6 +9,7 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 
+import { redactDiagnostics } from '@/common/diagnostics';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -31,6 +32,14 @@ function tickJobName(worldId: string): string {
 
 function tickJobId(worldId: string): string {
   return `${tickJobName(worldId)}_${randomUUID()}`;
+}
+
+function safeSchedulerError(error: unknown, fallback: string): Error {
+  const safeError = new Error(
+    redactDiagnostics(error instanceof Error ? error.message : fallback),
+  );
+  safeError.name = error instanceof Error ? error.name : 'SchedulerError';
+  return safeError;
 }
 
 /** The runtime scheduler adapter. Each World has at most one pending delayed
@@ -120,19 +129,23 @@ export class BullMqSchedulerAdapter
       // example the database is down); retry transient errors, dead-letter
       // permanent ones.
       if (isTransientSchedulerError(error)) {
-        throw error;
+        throw safeSchedulerError(error, 'Simulation tick failed');
       }
       throw new UnrecoverableError(
-        error instanceof Error ? error.message : 'Simulation tick failed',
+        safeSchedulerError(error, 'Simulation tick failed').message,
       );
     }
 
     if (result.status === 'failed') {
       if (result.failure.retryable) {
-        throw new Error(`${result.failure.code}: ${result.failure.message}`);
+        throw new Error(
+          redactDiagnostics(
+            `${result.failure.code}: ${result.failure.message}`,
+          ),
+        );
       }
       throw new UnrecoverableError(
-        `${result.failure.code}: ${result.failure.message}`,
+        redactDiagnostics(`${result.failure.code}: ${result.failure.message}`),
       );
     }
 
@@ -154,7 +167,11 @@ export class BullMqSchedulerAdapter
       // command and duplicates content. A scheduling failure dead-letters
       // instead; the World's cadence resumes on the next start or boot.
       throw new UnrecoverableError(
-        error instanceof Error ? error.message : 'Failed to schedule next tick',
+        redactDiagnostics(
+          error instanceof Error
+            ? error.message
+            : 'Failed to schedule next tick',
+        ),
       );
     }
   }
@@ -215,7 +232,7 @@ export class BullMqSchedulerAdapter
       {
         command: job.data ?? null,
         jobId: job.id,
-        reason: error?.message ?? 'Unknown failure',
+        reason: redactDiagnostics(error?.message ?? 'Unknown failure'),
         failedAt: new Date().toISOString(),
       },
       { removeOnComplete: true },

@@ -99,8 +99,94 @@ describe('useWorlds', () => {
       queryKey: ['worlds', 'list', { page: 1, limit: 20 }],
     });
 
-    const pollingOptions = query?.options as { refetchInterval?: number };
+    const pollingOptions = query?.options as {
+      refetchInterval?: number;
+      refetchIntervalInBackground?: boolean;
+    };
     expect(pollingOptions.refetchInterval).toBe(30_000);
+    expect(pollingOptions.refetchIntervalInBackground).toBe(false);
+  });
+
+  it('replaces a refreshed snapshot instead of appending duplicate worlds', async () => {
+    let responseVersion = 0;
+    server.use(
+      http.get('*/api/worlds', () =>
+        HttpResponse.json({
+          items: [
+            {
+              ...worldOnPage(1),
+              name: `World refresh ${responseVersion}`,
+            },
+          ],
+          meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        }),
+      ),
+    );
+    const client = createQueryClient();
+    const { result } = renderHook(
+      () =>
+        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <QueryClientProvider client={client}>
+            <GatewaysProvider>{children}</GatewaysProvider>
+          </QueryClientProvider>
+        ),
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.data?.items[0]?.name).toBe('World refresh 0'),
+    );
+    responseVersion = 1;
+    await result.current.refetch();
+
+    await waitFor(() =>
+      expect(result.current.data?.items[0]?.name).toBe('World refresh 1'),
+    );
+    expect(result.current.data?.items).toHaveLength(1);
+    expect(
+      new Set(result.current.data?.items.map((world) => world.id)).size,
+    ).toBe(1);
+  });
+
+  it('deduplicates concurrent refreshes into one in-flight request', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    server.use(
+      http.get('*/api/worlds', async () => {
+        listRequests += 1;
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 35));
+        inFlight -= 1;
+        return HttpResponse.json({
+          items: [worldOnPage(1)],
+          meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        });
+      }),
+    );
+    const client = createQueryClient();
+    const { result } = renderHook(
+      () =>
+        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) => (
+          <QueryClientProvider client={client}>
+            <GatewaysProvider>{children}</GatewaysProvider>
+          </QueryClientProvider>
+        ),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await Promise.all([
+      result.current.refetch({ cancelRefetch: false }),
+      result.current.refetch({ cancelRefetch: false }),
+    ]);
+
+    expect(listRequests).toBe(2);
+    expect(maxInFlight).toBe(1);
   });
 
   it('keeps previous data visible while a page change is in flight', async () => {

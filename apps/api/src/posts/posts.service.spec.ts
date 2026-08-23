@@ -24,6 +24,7 @@ describe('PostsService', () => {
     description: { about: '16 personality types in a shared space' },
     rules: [],
     topicScope: 'MBTI theory and house life',
+    residentCount: 16,
     isActive: true,
     createdAt: new Date('2026-08-01T00:00:00.000Z'),
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),

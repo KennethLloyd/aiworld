@@ -1,7 +1,10 @@
 import type { ListCharactersQuery } from '@aiworld/shared/schemas/character.schema';
 import { useQuery } from '@tanstack/react-query';
 
-import { PUBLIC_POLL_INTERVAL_MS } from '@/core/query/public-polling';
+import {
+  POLLING_OPTIONS,
+  PUBLIC_POLL_INTERVAL_MS,
+} from '@/core/query/public-polling';
 import { useGateways } from '@/providers/gateways-provider';
 
 import { characterKeys } from './character-keys';
@@ -21,6 +24,6 @@ export function useCharacters(worldSlug: string) {
     queryFn: () => characterGateway.list(query),
     enabled: worldSlug.length > 0,
     refetchInterval: PUBLIC_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    ...POLLING_OPTIONS,
   });
 }

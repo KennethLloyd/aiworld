@@ -22,6 +22,7 @@ const world: WorldRecord = {
   description: null,
   rules: [],
   topicScope: 'MBTI',
+  residentCount: 16,
   isActive: true,
   createdAt: new Date('2026-08-01T00:00:00.000Z'),
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -268,6 +269,38 @@ describe('SimulationTickRunner', () => {
         }),
       );
       expect(result).toMatchObject({ status: 'failed' });
+    });
+
+    it('records unsafe provider output as a visible permanent failure', async () => {
+      const { runner, executor, contentWriter, logService } = createRunner();
+      executor.execute.mockResolvedValue({
+        status: 'failed',
+        failure: {
+          code: 'UNSAFE_OUTPUT',
+          message: 'Generated output did not pass the safety checks',
+          retryable: false,
+        },
+      });
+
+      const result = await runner.runScheduledTick(
+        scheduledCommand(),
+        'job-unsafe',
+      );
+
+      expect(contentWriter.persist).not.toHaveBeenCalled();
+      expect(logService.writeFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId: 'job-unsafe',
+          failure: expect.objectContaining({
+            code: 'UNSAFE_OUTPUT',
+            retryable: false,
+          }),
+        }),
+      );
+      expect(result).toMatchObject({
+        status: 'failed',
+        failure: { code: 'UNSAFE_OUTPUT', retryable: false },
+      });
     });
 
     it('returns a non-retryable failure when no post exists to act on', async () => {

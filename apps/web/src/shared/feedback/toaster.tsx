@@ -154,7 +154,7 @@ export function Toaster({ children }: { children: ReactNode }) {
       {children}
       <section
         aria-label="Notifications"
-        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-3 px-4 sm:px-0"
+        className="pointer-events-none fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[60] flex w-full max-w-sm flex-col gap-3 px-4 sm:bottom-4 sm:px-0"
       >
         {toasts.map((item) => (
           <ToastCard

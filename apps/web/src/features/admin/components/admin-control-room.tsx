@@ -65,6 +65,13 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     });
   };
 
+  useEffect(() => {
+    const activeTab = tabRefs.current[search.tab];
+    if (activeTab !== null && typeof activeTab.scrollIntoView === 'function') {
+      activeTab.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+  }, [search.tab]);
+
   const handleTabKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
     index: number,
@@ -91,7 +98,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
         <div className="mt-6 flex min-w-0 flex-col gap-4 border-b border-glass-border pb-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink/50">
-              Selected World
+              Choose world
             </p>
             <p className="mt-1 text-sm text-ink/70">
               All controls use this World.
@@ -116,7 +123,10 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           </div>
         </div>
 
-        <nav className="mt-6 overflow-x-auto" aria-label="Admin sections">
+        <nav
+          className="mt-6 overflow-x-auto scroll-smooth [scrollbar-width:thin]"
+          aria-label="Admin sections"
+        >
           <div
             className="flex min-w-max gap-6 border-b border-glass-border"
             role="tablist"

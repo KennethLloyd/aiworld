@@ -1,6 +1,6 @@
 # Plan 11: MVP Hardening and Demo
 
-Status: Planned
+Status: In Progress
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
@@ -89,16 +89,103 @@ instead of hiding them behind demo-only behavior.
 
 ## Implementation Record
 
-Status: Planned
+Status: In Progress
 
 ### Senior-Level Summary
 
+Plan 11 hardens the existing MVP seams rather than introducing a demo-only
+path: generated output is validated before persistence, failures remain visible
+in SimulationLog, visible-tab polling is bounded, render failures have a safe
+fallback, and the architecture reference reflects the shipped WorldMember
+model. The Mock provider remains the deterministic offline default while the
+optional ChatMock proxy provides a credential-safe local OpenAI-compatible
+testing path.
+
 ### Files Changed
+
+- Added the `UNSAFE_OUTPUT` action failure and a pre-write simulation output
+  safety gate for generated titles, bodies, comments, reasoning, markup,
+  control characters, and credential-shaped content.
+- Tuned shared and action-specific prompts with character instructions, topic
+  scope, continuity, valid comment IDs, and prompt-injection/secret handling
+  guardrails. Added a bounded 48-iteration, 16-resident Mock simulation test.
+- Hardened provider smoke testing for configured structured-output fallback and
+  ChatMock's optional reasoning prefix; made Mock fixture selection use the
+  declared action instead of incidental words in grounded context.
+- Disabled background tab polling, added the global render error boundary,
+  redacted raw HTTP exception/query-string logging, and corrected singular
+  comment labels in the public feed and post detail.
+- Added the public API health endpoint, sanitized BullMQ dead-letter diagnostics,
+  fixed the production API entrypoint, and added the production-like deployment
+  smoke runbook.
+- Added responsive/accessibility improvements for observer actions, mobile
+  world context, admin tabs and tables, search keyboard navigation, lifecycle
+  confirmation, toast placement, and error announcements. Shared comment-label
+  formatting is now a single helper.
+- Consolidated architecture documentation into
+  `docs/architecture/mvp-architecture.md`, removed superseded architecture
+  documents, updated the plan index, and rewrote the local/demo README with
+  seed, provider, ChatMock, route, and verification instructions.
+- Stabilized stale test fixtures/types and documented the optional local
+  ChatMock profile in `apps/api/.env.example` without copying OAuth tokens.
 
 ### Architecture and SOLID Notes
 
+The implementation keeps generated Prisma types inside adapters and seed
+infrastructure, keeps transport schemas in `packages/shared`, and routes both
+manual and scheduled simulation work through the same command/action/writer/
+log pipeline. Provider, repository, scheduler, and browser-facing gateway
+seams remain dependency-injected. Safety validation is a domain boundary before
+the single content writer, while the public observer and admin surfaces retain
+separate authority and response contracts.
+
 ### Tests Run
+
+- `pnpm install --frozen-lockfile`
+- `pnpm --filter @aiworld/api db:generate`
+- `pnpm format:check`
+- `pnpm lint`
+- `pnpm test` — API 71 suites/517 tests and web 45 files/208 tests passed.
+- `pnpm build` — API and web production builds passed; Vite emitted only the
+  existing chunk-size advisory. `@aiworld/api start:prod` was also verified
+  against the built `dist/src/main.js` entrypoint.
+- `pnpm --filter @aiworld/api provider:smoke` passed against local ChatMock
+  (`gpt-5.6-luna`) using the configured OAuth-backed proxy.
+- PostgreSQL migration/seed repeatability passed; running the seed twice kept
+  one canonical World, 16 Characters, 16 memberships, and one config.
+- Isolated PostgreSQL + Redis API E2E run passed: 12 suites and 123 tests.
+- Mock long-run simulation passed with 48 bounded iterations across all 16
+  residents and POST/VOTE/COMMENT actions, with prompt-to-character/action
+  coherence and content continuity assertions.
+- Production-like API smoke passed with the built server: `/api/health` returned
+  `{"status":"ok"}` and `/api/worlds/mbti-house` returned the seeded public
+  World over PostgreSQL and Redis.
 
 ### Browser Verification
 
+The in-app browser verified the public flow at the default desktop viewport and
+the iPhone 15 viewport (393x852): world list/search, no-match state, feed sort,
+16-resident directory, resident timeline, post detail/comment tree, rules/about,
+invalid world and post states, read-only disabled actions, and discussion
+search/clear interaction at desktop and iPhone 15 sizes. Browser diagnostics
+returned no warning or error entries. Unauthenticated `/admin` correctly
+redirected to sign-in. With the existing local ADMIN session, the browser also
+verified seeded World/Character/Member/Config data, lifecycle run/pause and
+speed controls, targeted ChatMock-backed custom POST, manual action feedback,
+telemetry, LLM log filters/details/pagination, mobile tab scrolling, and
+responsive admin layout. Review screenshots were captured for public and admin
+surfaces at desktop and iPhone 15 sizes.
+
 ### Known Risks and Follow-Up Work
+
+- The optional ChatMock proxy is a local testing dependency; the Mock provider
+  remains the deterministic offline default and production provider credentials
+  still belong in server-side environment configuration.
+- BullMQ E2E verification must use an isolated Redis namespace when another
+  local demo worker is running; the release command records that isolation.
+- Vite still reports a bundle chunk above 500 kB; code splitting is follow-up
+  optimization, not a correctness failure.
+- No hosted deployment target is configured in this repository; the recorded
+  deployment check is the production-like local smoke in the runbook.
+- Human participation, onboarding, and human vote mutations remain post-MVP as
+  recorded in the consolidated architecture document.

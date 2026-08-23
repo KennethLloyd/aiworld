@@ -38,6 +38,7 @@ const mbtiWorld: WorldResponse = {
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
 };
+const postId = '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11';
 
 const server = setupServer(
   http.get('*/api/worlds/mbti', () => HttpResponse.json(mbtiWorld)),
@@ -64,6 +65,26 @@ const server = setupServer(
         },
       ],
       meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+    }),
+  ),
+  http.get(`*/api/worlds/mbti/posts/${postId}`, () =>
+    HttpResponse.json({
+      id: postId,
+      title: 'A latest conversation',
+      content: 'A new discussion from the world feed.',
+      voteScore: 4,
+      author: {
+        id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+        characterId: '9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
+        handle: 'mystic-aura',
+        name: 'Mystic Aura',
+        avatarUrl: null,
+        classification: 'INFJ',
+        classificationGroup: 'NF',
+      },
+      comments: [],
+      createdAt: '2026-07-15T10:00:00.000Z',
+      updatedAt: '2026-07-15T10:00:00.000Z',
     }),
   ),
   http.get('*/api/characters', () =>
@@ -215,9 +236,12 @@ describe('public world detail route', () => {
 
     await waitFor(() =>
       expect(router.state.location.pathname).toBe(
-        '/worlds/mbti/posts/7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
+        `/worlds/mbti/posts/${postId}`,
       ),
     );
+    expect(
+      await screen.findByRole('heading', { name: 'A latest conversation' }),
+    ).toBeInTheDocument();
   });
 
   it('renders the not-found visual with a link back to /worlds for a missing slug', async () => {
@@ -342,9 +366,10 @@ describe('public world detail route', () => {
       'Post link copied',
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Upvote' }));
+    const upvote = screen.getByRole('button', { name: 'Upvote' });
+    expect(upvote).toBeDisabled();
     expect(
-      await screen.findByText('Read-only Observer Mode'),
+      screen.getByText(/Observers can watch the simulation/),
     ).toBeInTheDocument();
   });
 

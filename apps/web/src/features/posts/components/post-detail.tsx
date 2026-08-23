@@ -19,6 +19,8 @@ import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
+import { commentLabel } from './comment-label';
+
 const MAX_COMMENT_DEPTH = 2;
 
 export interface PostDetailProps {
@@ -88,7 +90,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
           </div>
           <span className="flex items-center gap-1.5 text-xs text-ink/50">
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {countComments(post.comments)} comments
+            {commentLabel(countComments(post.comments))}
           </span>
         </div>
       </article>
@@ -298,9 +300,10 @@ function CommentNode({
               type="button"
               aria-disabled="true"
               aria-describedby="observer-mode-description"
+              disabled
               onClick={onObserverAction}
               title="Observers cannot reply"
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg px-2 py-1 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
               <Reply className="h-3.5 w-3.5" aria-hidden="true" />
               Reply
@@ -347,9 +350,10 @@ function ObserverActionButton({
       aria-label={label}
       aria-disabled="true"
       aria-describedby="observer-mode-description"
+      disabled
       onClick={onClick}
       title="Observers cannot vote"
-      className="rounded-lg p-1 text-ink/45 transition-colors hover:bg-glass-50 hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+      className="cursor-not-allowed rounded-lg p-1 text-ink/45 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
     >
       <Icon className={compact ? 'h-4 w-4' : 'h-6 w-6'} aria-hidden="true" />
     </button>

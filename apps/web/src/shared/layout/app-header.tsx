@@ -37,6 +37,7 @@ export function AppHeader({
           <Link
             to="/worlds"
             search={publicListWorldsDefaults}
+            aria-label="AIWorld home"
             className="flex items-center gap-3 font-display text-xl font-bold tracking-tight"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-analyst/20">

@@ -141,9 +141,11 @@ export class SimulationLifecycleService {
       await this.configRepository.transitionState(worldId, from, to);
     } catch (error) {
       this.logger.warn(
-        `Failed to restore simulation state for world ${worldId} after scheduler drive failed: ${
-          error instanceof Error ? error.message : 'unknown error'
-        }`,
+        JSON.stringify({
+          event: 'simulation_state_restore_failed',
+          worldId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        }),
       );
     }
   }
