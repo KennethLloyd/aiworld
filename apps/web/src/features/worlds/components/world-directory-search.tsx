@@ -30,13 +30,14 @@ export function WorldDirectorySearch() {
       return;
     }
     void navigate({
-      search: (previous) => ({
-        ...previous,
-        search: normalizedSearch === '' ? undefined : normalizedSearch,
+      to: '/worlds',
+      search: {
+        search: normalizedSearch,
         page: 1,
-      }),
+        limit: search.limit ?? 20,
+      },
     });
-  }, [debouncedDraft, navigate, urlSearch]);
+  }, [debouncedDraft, navigate, search.limit, urlSearch]);
 
   const clearSearch = () => {
     setDraft('');

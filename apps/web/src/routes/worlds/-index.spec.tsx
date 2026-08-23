@@ -159,7 +159,7 @@ describe('public worlds list route', () => {
     );
 
     await waitFor(() => {
-      expect(router.state.location.search).not.toHaveProperty('search');
+      expect(router.state.location.search.search ?? '').toBe('');
       expect(router.state.location.search).toMatchObject({ page: 1 });
     });
     expect(input).toHaveValue('');
