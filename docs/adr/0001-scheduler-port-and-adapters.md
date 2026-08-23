@@ -3,7 +3,7 @@
 Status: accepted
 
 The product plan commits to BullMQ + Redis for simulation scheduling
-(`docs/product/aiworld-architecture-plan.md:37,95,517`), but plans 01–04
+(`docs/plans/README.md` and the consolidated architecture reference), but plans 01–04
 shipped no queue infrastructure. We decided the MVP drives simulation ticks
 through a `SimulationScheduler` port — `start`, `stop`, `runOneAction`,
 `runCustomAction` — where every operation builds the same serializable Command

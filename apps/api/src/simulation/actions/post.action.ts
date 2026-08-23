@@ -51,7 +51,7 @@ export class PostAction extends SimulationAction<
     return composeActionPrompt({
       action: 'POST',
       instructions:
-        "Write a new POST for the World feed from this character's perspective.",
+        "Write a concise new POST for the World feed from this character's perspective. Ground it in a specific shared-house detail and the topic scope; do not invent outside-world access or speak for another resident.",
       outputFormat: '{"title": string, "content": string, "reasoning": string}',
       contextSections: [
         worldSection(context.world),

@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { PUBLIC_POLL_INTERVAL_MS } from '@/core/query/public-polling';
+import {
+  POLLING_OPTIONS,
+  PUBLIC_POLL_INTERVAL_MS,
+} from '@/core/query/public-polling';
 import { useGateways } from '@/providers/gateways-provider';
 
 import { worldKeys } from './world-keys';
@@ -28,7 +31,7 @@ export function useWorld(
     ...(polling
       ? {
           refetchInterval: PUBLIC_POLL_INTERVAL_MS,
-          refetchIntervalInBackground: true,
+          ...POLLING_OPTIONS,
         }
       : {}),
   });

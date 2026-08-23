@@ -16,11 +16,12 @@ export class LoggingInterceptor implements NestInterceptor {
     const response = http.getResponse<Response>();
 
     const now = Date.now();
+    const requestPath = request.path ?? request.url.split('?')[0];
 
     return next.handle().pipe(
       tap(() => {
         console.log(
-          `${request.method} ${request.url} -> ${response.statusCode} +${Date.now() - now}ms`,
+          `${request.method} ${requestPath} -> ${response.statusCode} +${Date.now() - now}ms`,
         );
       }),
     );

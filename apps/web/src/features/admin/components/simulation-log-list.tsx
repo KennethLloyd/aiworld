@@ -19,90 +19,98 @@ export function LogList({
   onToggle: (logId: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-glass-border">
-      <table className="w-full min-w-[60rem] text-left text-sm">
-        <caption className="sr-only">Simulation log records</caption>
-        <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
-          <tr>
-            <th scope="col" className="px-4 py-3 font-medium">
-              Character
-            </th>
-            <th scope="col" className="px-4 py-3 font-medium">
-              Action
-            </th>
-            <th scope="col" className="px-4 py-3 font-medium">
-              Source
-            </th>
-            <th scope="col" className="px-4 py-3 font-medium">
-              Status
-            </th>
-            <th scope="col" className="px-4 py-3 font-medium">
-              Executed
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-glass-border">
-          {logs.map((log) => {
-            const residentName = residentNames.get(log.characterId);
-            const label = residentName ?? log.characterId;
-            const expanded = expandedLogId === log.id;
-            const detailsId = `simulation-log-details-${log.id}`;
-            return (
-              <Fragment key={log.id}>
-                <tr className="align-top transition-colors hover:bg-glass-20">
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      className="group inline-flex items-center gap-2 text-left font-medium text-brand-sentinel hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-                      aria-expanded={expanded}
-                      aria-controls={detailsId}
-                      aria-label={`${expanded ? 'Hide' : 'Show'} details for ${label}`}
-                      onClick={() => onToggle(log.id)}
-                    >
-                      {expanded ? (
-                        <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                      )}
-                      <span>{residentName ?? 'Unknown Character'}</span>
-                    </button>
-                    {residentName === undefined ? (
-                      <code className="mt-1 block max-w-[15rem] truncate font-mono text-[10px] text-ink/50">
-                        {log.characterId}
-                      </code>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs">
-                    {titleCase(log.action)}
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {titleCase(log.executionSource)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={statusTone(log.status)}>
-                      {titleCase(log.status)}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {formatDate(log.executedAt)}
-                  </td>
-                </tr>
-                {expanded ? (
-                  <tr id={detailsId}>
-                    <td
-                      colSpan={5}
-                      className="border-t border-glass-border bg-glass-20 px-4 py-4"
-                    >
-                      <LogDetails log={log} />
+    <>
+      <p className="mb-3 text-xs text-ink/50 sm:hidden">
+        Swipe horizontally to view all log columns.
+      </p>
+      <section
+        className="overflow-x-auto rounded-xl border border-glass-border"
+        aria-label="Simulation log records table"
+      >
+        <table className="w-full min-w-[60rem] text-left text-sm">
+          <caption className="sr-only">Simulation log records</caption>
+          <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
+            <tr>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Character
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Action
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Source
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Status
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Executed
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-glass-border">
+            {logs.map((log) => {
+              const residentName = residentNames.get(log.characterId);
+              const label = residentName ?? log.characterId;
+              const expanded = expandedLogId === log.id;
+              const detailsId = `simulation-log-details-${log.id}`;
+              return (
+                <Fragment key={log.id}>
+                  <tr className="align-top transition-colors hover:bg-glass-20">
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        className="group inline-flex items-center gap-2 text-left font-medium text-brand-sentinel hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+                        aria-expanded={expanded}
+                        aria-controls={detailsId}
+                        aria-label={`${expanded ? 'Hide' : 'Show'} details for ${label}`}
+                        onClick={() => onToggle(log.id)}
+                      >
+                        {expanded ? (
+                          <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        <span>{residentName ?? 'Unknown Character'}</span>
+                      </button>
+                      {residentName === undefined ? (
+                        <code className="mt-1 block max-w-[15rem] truncate font-mono text-[10px] text-ink/50">
+                          {log.characterId}
+                        </code>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      {titleCase(log.action)}
+                    </td>
+                    <td className="px-4 py-3 text-ink/70">
+                      {titleCase(log.executionSource)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={statusTone(log.status)}>
+                        {titleCase(log.status)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-ink/70">
+                      {formatDate(log.executedAt)}
                     </td>
                   </tr>
-                ) : null}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  {expanded ? (
+                    <tr id={detailsId}>
+                      <td
+                        colSpan={5}
+                        className="border-t border-glass-border bg-glass-20 px-4 py-4"
+                      >
+                        <LogDetails log={log} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+    </>
   );
 }
 

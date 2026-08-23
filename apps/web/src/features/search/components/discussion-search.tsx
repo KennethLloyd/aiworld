@@ -1,7 +1,10 @@
+// The results use the WAI-ARIA combobox/listbox pattern because native
+// datalists cannot expose links to the parent post.
+/* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role, jsx-a11y/control-has-associated-label */
 import type { SearchItem } from '@aiworld/shared/schemas/search-response.schema';
 import { Link } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Ref } from 'react';
 
 import {
   MIN_SEARCH_QUERY_LENGTH,
@@ -12,13 +15,16 @@ import {
 export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
   const [value, setValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const query = useSearch(worldSlug, value);
   const normalizedValue = normalizeSearchQuery(value);
   const isTooShort =
     normalizedValue.length > 0 &&
     normalizedValue.length < MIN_SEARCH_QUERY_LENGTH;
   const showDropdown = isOpen && normalizedValue.length > 0;
+  const results = query.data?.items ?? [];
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -37,6 +43,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
   const clear = () => {
     setValue('');
     setIsOpen(false);
+    setActiveIndex(-1);
   };
 
   return (
@@ -55,6 +62,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
         onChange={(event) => {
           setValue(event.target.value);
           setIsOpen(true);
+          setActiveIndex(-1);
         }}
         onFocus={() => {
           if (value.length > 0) {
@@ -64,6 +72,22 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             clear();
+            return;
+          }
+          if (!showDropdown || results.length === 0) {
+            return;
+          }
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActiveIndex((index) => (index + 1) % results.length);
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActiveIndex(
+              (index) => (index - 1 + results.length) % results.length,
+            );
+          } else if (event.key === 'Enter' && activeIndex >= 0) {
+            event.preventDefault();
+            optionRefs.current[activeIndex]?.click();
           }
         }}
         placeholder="Search discussions..."
@@ -71,6 +95,14 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
         aria-label="Search discussions"
         aria-invalid={isTooShort || undefined}
         aria-describedby={isTooShort ? 'discussion-search-hint' : undefined}
+        role="combobox"
+        aria-expanded={showDropdown}
+        aria-controls="discussion-search-results"
+        aria-activedescendant={
+          activeIndex >= 0
+            ? `discussion-search-option-${activeIndex}`
+            : undefined
+        }
         className="h-10 w-full rounded-xl border border-glass-border bg-glass-50 pl-10 pr-10 text-sm text-ink shadow-inner outline-none transition-colors placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:bg-glass-100 focus:ring-2 focus:ring-brand-sentinel/30"
       />
       {value.length > 0 ? (
@@ -116,15 +148,23 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
               No discussions found.
             </p>
           ) : (
-            <ul className="flex flex-col" aria-label="Matching discussions">
-              {query.data?.items.map((item) => (
-                <li key={`${item.type}-${searchItemId(item)}`}>
-                  <SearchResultLink
-                    worldSlug={worldSlug}
-                    item={item}
-                    onSelect={() => setIsOpen(false)}
-                  />
-                </li>
+            <ul
+              className="flex flex-col"
+              aria-label="Matching discussions"
+              role="listbox"
+            >
+              {results.map((item, index) => (
+                <SearchResultLink
+                  key={`${item.type}-${searchItemId(item)}`}
+                  worldSlug={worldSlug}
+                  item={item}
+                  onSelect={() => setIsOpen(false)}
+                  optionId={`discussion-search-option-${index}`}
+                  active={activeIndex === index}
+                  anchorRef={(element) => {
+                    optionRefs.current[index] = element;
+                  }}
+                />
               ))}
             </ul>
           )}
@@ -138,10 +178,16 @@ function SearchResultLink({
   worldSlug,
   item,
   onSelect,
+  optionId,
+  active,
+  anchorRef,
 }: {
   worldSlug: string;
   item: SearchItem;
   onSelect: () => void;
+  optionId: string;
+  active: boolean;
+  anchorRef: Ref<HTMLAnchorElement>;
 }) {
   const isPost = item.type === 'post';
   const postId = isPost ? item.post.id : item.comment.postId;
@@ -152,10 +198,16 @@ function SearchResultLink({
 
   return (
     <Link
+      id={optionId}
+      role="option"
+      aria-label={title}
+      aria-selected={active}
+      tabIndex={-1}
       to="/worlds/$slug/posts/$postId"
       params={{ slug: worldSlug, postId }}
       onClick={onSelect}
-      className="block rounded-lg border-b border-glass-border px-3 py-3 last:border-0 hover:bg-glass-50 focus-visible:bg-glass-50"
+      ref={anchorRef}
+      className={`block rounded-lg border-b border-glass-border px-3 py-3 last:border-0 hover:bg-glass-50 focus-visible:bg-glass-50 ${active ? 'bg-glass-50' : ''}`}
     >
       <span className="block text-sm font-semibold text-ink">{title}</span>
       <span className="mt-1 block line-clamp-1 text-xs text-ink/55">

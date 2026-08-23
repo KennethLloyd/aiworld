@@ -20,6 +20,7 @@ const world: WorldRecord = {
   description: null,
   rules: [],
   topicScope: 'MBTI',
+  residentCount: 16,
   isActive: true,
   createdAt: new Date('2026-08-01T00:00:00.000Z'),
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -358,7 +359,7 @@ describe('BullMqSchedulerAdapter', () => {
     const job = fakeJob({ id: 'job-7' });
     await (handler as (job: unknown, error: Error) => void)(
       job,
-      new Error('boom'),
+      new Error('authorization: Bearer secret https://provider.test/body'),
     );
 
     expect(dlq.add).toHaveBeenCalledWith(
@@ -366,7 +367,7 @@ describe('BullMqSchedulerAdapter', () => {
       expect.objectContaining({
         command: expect.any(Object),
         jobId: 'job-7',
-        reason: 'boom',
+        reason: 'authorization: Bearer [REDACTED] [URL_REDACTED]',
       }),
       expect.anything(),
     );

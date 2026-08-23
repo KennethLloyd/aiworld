@@ -43,9 +43,9 @@ describe('threadSection', () => {
     const section = threadSection(thread, 'leaf');
 
     expect(section.body.split('\n')).toEqual([
-      '@root: Root.',
-      '@mid: Middle.',
-      '@leaf: Leaf.',
+      '[commentId=root] @root: Root.',
+      '[commentId=mid] @mid: Middle.',
+      '[commentId=leaf] @leaf: Leaf.',
     ]);
   });
 

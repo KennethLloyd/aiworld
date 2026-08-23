@@ -26,6 +26,7 @@ export function characterSection(character: CharacterRecord): PromptSection {
       character.traits.length > 0
         ? `Traits: ${character.traits.join(', ')}`
         : '',
+      `Personality instructions: ${character.systemPrompt}`,
     ]
       .filter(Boolean)
       .join('\n'),
@@ -71,7 +72,8 @@ export function threadSection(
   }
 
   const lines = selected.map(
-    (comment) => `@${comment.author.handle}: ${comment.content}`,
+    (comment) =>
+      `[commentId=${comment.id}] @${comment.author.handle}: ${comment.content}`,
   );
 
   return {

@@ -1,7 +1,6 @@
 import type { ActivityQuery } from '@aiworld/shared/schemas/activity.schema';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { PUBLIC_POLL_INTERVAL_MS } from '@/core/query/public-polling';
 import { useGateways } from '@/providers/gateways-provider';
 
 import { characterKeys } from './character-keys';
@@ -24,7 +23,8 @@ export function useCharacterActivity(worldSlug: string, characterId: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: worldSlug.length > 0 && characterId.length > 0,
-    refetchInterval: PUBLIC_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    // This is an infinite historical timeline. It refreshes through the
+    // route's explicit refresh control so polling cannot refetch every page
+    // the observer has loaded.
   });
 }

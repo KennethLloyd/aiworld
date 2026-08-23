@@ -22,6 +22,11 @@ describe('HttpExceptionFilter', () => {
     ({
       switchToHttp: () => ({
         getResponse: () => ({ status, json }) as unknown as Response,
+        getRequest: () => ({
+          method: 'GET',
+          path: '/api/private',
+          url: '/api/private?token=hidden',
+        }),
       }),
     }) as unknown as ArgumentsHost;
 
@@ -53,11 +58,22 @@ describe('HttpExceptionFilter', () => {
     const errorSpy = jest
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const error = new Error('boom');
+    const error = new Error(
+      'authorization: Bearer secret access_token=another-secret https://provider.test/body',
+    );
 
     filter.catch(error, createHost());
 
-    expect(errorSpy).toHaveBeenCalledWith(error);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Unhandled HTTP exception',
+      expect.stringContaining('"errorName":"Error"'),
+    );
+    const diagnostics = errorSpy.mock.calls[0]?.[1] as string;
+    expect(diagnostics).toContain('"path":"/api/private"');
+    expect(diagnostics).toContain('[REDACTED]');
+    expect(diagnostics).not.toContain('Bearer secret');
+    expect(diagnostics).not.toContain('another-secret');
+    expect(diagnostics).not.toContain('provider.test');
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith({
       statusCode: 500,

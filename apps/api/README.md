@@ -15,7 +15,7 @@ From the repository root:
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env
-docker compose -f apps/api/docker-compose.yml up -d postgres
+docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
 
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate
@@ -38,8 +38,9 @@ Required environment variables are documented in `.env.example`:
 
 ## Database And Admin User
 
-The included compose file starts PostgreSQL 17 with the default local database
-`aiworld`. The World seed is idempotent and upserts the `mbti` World.
+The included compose file starts PostgreSQL 17 and Redis with the default local
+database `aiworld`. The World seed is idempotent and upserts the `mbti-house`
+World.
 
 Create or promote a repeatable local ADMIN account after migrations:
 
@@ -81,7 +82,7 @@ from this directory with `pnpm <script>`.
 | --- | --- |
 | `pnpm dev` | Start NestJS in watch mode |
 | `pnpm build` | Create the production API build |
-| `pnpm start:prod` | Run `dist/main.js` |
+| `pnpm start:prod` | Run `dist/src/main.js` |
 | `pnpm test` | Run Jest unit tests |
 | `pnpm test:e2e` | Run Supertest end-to-end tests |
 | `pnpm lint` | Check with oxlint without modifying files |
@@ -116,6 +117,6 @@ Prisma repository imports generated Prisma types. Shared request, response, and
 pagination contracts live in `packages/shared/` and are consumed through
 `workspace:*`.
 
-See the [backend architecture reference](../../docs/architecture/backend.md)
+See the [MVP architecture reference](../../docs/architecture/mvp-architecture.md)
 for the full request flow, dependency direction, security boundary, and
 testing model.

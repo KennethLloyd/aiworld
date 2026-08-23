@@ -97,6 +97,14 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
     runOneAction.isPending || runCustomAction.isPending;
 
   const handleStateChange = (state: SimulationState) => {
+    if (
+      state === 'HALTED' &&
+      !window.confirm(
+        'HALT is permanent for this World. The simulation cannot be resumed after this action. Continue?',
+      )
+    ) {
+      return;
+    }
     setFeedback(null);
     updateState.mutate(
       { slug: world.slug, input: { state } },
@@ -265,7 +273,8 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
               onChange={(event) => handleSpeedChange(event.target.value)}
             />
             <p className="-mt-3 text-xs leading-relaxed text-ink/50">
-              Choose a speed preset.
+              Choose a speed preset for scheduled work. Manual actions run
+              immediately through the same pipeline.
             </p>
 
             <Button
@@ -278,6 +287,9 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
               <SkipForward className="h-4 w-4" aria-hidden="true" />
               Run One Action
             </Button>
+            <p className="-mt-3 text-xs leading-relaxed text-ink/50">
+              Runs one automatic resident action now and records its result.
+            </p>
             {residentsUnavailable ? (
               <ErrorState
                 title="Active Characters unavailable"
@@ -332,6 +344,9 @@ export function SimulationStatusTab({ world }: { world: WorldResponse }) {
                 <Terminal className="h-4 w-4" aria-hidden="true" />
                 Custom Action
               </Button>
+              <p className="-mt-3 text-xs leading-relaxed text-ink/50">
+                Runs the selected resident and action immediately.
+              </p>
             </div>
           </div>
         </GlassPanel>
@@ -497,49 +512,61 @@ function RecentActivityPanel({
       ) : logs.length === 0 ? (
         <EmptyState icon={Clock3} title="No activity yet" className="mt-4" />
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-glass-border">
-          <table className="w-full min-w-[42rem] text-left text-sm">
-            <caption className="sr-only">Recent simulation execution</caption>
-            <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
-              <tr>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Action
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Source
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Status
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Latency
-                </th>
-                <th scope="col" className="px-4 py-3 font-medium">
-                  Executed
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-glass-border">
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td className="px-4 py-3 font-mono text-xs">{log.action}</td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {log.executionSource}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={logStatusTone(log.status)}>{log.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {log.latencyMs === null ? '—' : `${log.latencyMs} ms`}
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {formatDate(log.executedAt)}
-                  </td>
+        <>
+          <p className="mt-3 text-xs text-ink/50 sm:hidden">
+            Swipe horizontally to view all execution columns.
+          </p>
+          <section
+            className="mt-4 overflow-x-auto rounded-lg border border-glass-border"
+            aria-label="Recent simulation execution table"
+          >
+            <table className="w-full min-w-[42rem] text-left text-sm">
+              <caption className="sr-only">Recent simulation execution</caption>
+              <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Action
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Source
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Status
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Latency
+                  </th>
+                  <th scope="col" className="px-4 py-3 font-medium">
+                    Executed
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-glass-border">
+                {logs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      {log.action}
+                    </td>
+                    <td className="px-4 py-3 text-ink/70">
+                      {log.executionSource}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={logStatusTone(log.status)}>
+                        {log.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-ink/70">
+                      {log.latencyMs === null ? '—' : `${log.latencyMs} ms`}
+                    </td>
+                    <td className="px-4 py-3 text-ink/70">
+                      {formatDate(log.executedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </>
       )}
     </GlassPanel>
   );

@@ -6,21 +6,19 @@ changes, test evidence, and implementation summaries can be reviewed together.
 
 ## Source Material
 
-- [Architecture plan](../product/aiworld-architecture-plan.md)
+- [Implemented MVP architecture](../architecture/mvp-architecture.md)
 - [MVP prototype](../product/aiworld_mvp.html)
-- [Current backend architecture](../architecture/backend.md)
-- [Current frontend architecture](../architecture/frontend.md)
 
 The repository architecture references describe implemented behavior. These
 plans describe work that extends that behavior. Update the architecture
 references only after a planned capability is implemented and stable.
 
-Plan 11 consolidates these references: it writes
+Plan 11 consolidates the architecture reference: it writes
 [`docs/architecture/mvp-architecture.md`](../architecture/mvp-architecture.md)
 as the single implemented-architecture document for the MVP and removes the
 architecture plan, `backend.md`, and `frontend.md` (all preserved in git
-history and the starter repo upstream). Until then the files above remain
-valid guides; post-MVP extensions are documented in new documents.
+history and the starter repo upstream). Post-MVP extensions are documented in
+new documents.
 
 ## Current Baseline
 
@@ -70,7 +68,7 @@ integration, public observer screens, and the admin control room.
 | [08](./08-opencode-go-adapter.md)                | OpenCode Go provider adapter           | 03, 06           | In Progress |
 | [09](./09-public-observer-ui.md)                 | Public observer experience             | 05               | Planned     |
 | [10](./10-admin-control-room-ui.md)              | Admin control room                     | 04, 07           | In Progress |
-| [11](./11-mvp-hardening-and-demo.md)             | Hardening, demo data, and release      | 08, 09, 10       | Planned     |
+| [11](./11-mvp-hardening-and-demo.md)             | Hardening, demo data, and release      | 08, 09, 10       | In Progress |
 | [12](./12-post-mvp-follow-ups.md)                | Post-MVP follow-ups (umbrella tracker) | —                | Planned     |
 
 ## Dependency Flow
@@ -125,7 +123,7 @@ Every implementation plan must meet this standard:
 From the repository root:
 
 ```bash
-docker compose -f apps/api/docker-compose.yml up -d postgres
+docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate
 pnpm --filter @aiworld/api db:seed

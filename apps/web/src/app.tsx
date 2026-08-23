@@ -1,7 +1,12 @@
 import { RouterProvider } from '@tanstack/react-router';
 
 import { router } from '@/router/router';
+import { AppErrorBoundary } from '@/shared/feedback/app-error-boundary';
 
 export function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <AppErrorBoundary>
+      <RouterProvider router={router} />
+    </AppErrorBoundary>
+  );
 }

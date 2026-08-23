@@ -129,7 +129,7 @@ active state so historical post and comment authors remain intact.
 - `packages/shared/src/schemas/query.schema.ts` removed; query booleans use the
   native `z.stringbool()` helper
 - `packages/shared/src/index.ts` removed; importers now use direct schema paths
-- `docs/architecture/backend.md`
+- `docs/architecture/mvp-architecture.md`
 - `docs/plans/README.md`
 - `docs/plans/02-domain-model-and-seed.md`
 - `docs/plans/04-character-management.md`

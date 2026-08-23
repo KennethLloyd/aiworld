@@ -19,6 +19,8 @@ import { Badge } from '@/shared/ui/badge';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
+import { commentLabel } from './comment-label';
+
 export function WorldFeed({
   slug,
   worldName,
@@ -68,6 +70,15 @@ export function WorldFeed({
       <h1 id="world-feed-heading" className="sr-only">
         {worldName}
       </h1>
+      <div className="flex items-end justify-between gap-3 px-1 lg:hidden">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink/50">
+            World feed
+          </p>
+          <p className="font-display text-xl font-bold text-ink">{worldName}</p>
+        </div>
+        <span className="pb-0.5 text-xs text-ink/50">Observer view</span>
+      </div>
       <GlassPanel className="w-full p-1.5">
         <fieldset className="flex gap-1">
           <legend className="sr-only">Feed sorting</legend>
@@ -230,11 +241,11 @@ function PostCard({
           <Link
             to="/worlds/$slug/posts/$postId"
             params={{ slug, postId: post.id }}
-            aria-label={`${post.commentCount} comments`}
+            aria-label={commentLabel(post.commentCount)}
             className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
           >
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {post.commentCount} comments
+            {commentLabel(post.commentCount)}
           </Link>
           <button
             type="button"
@@ -293,9 +304,10 @@ function ObserverActionButton({
       aria-label={label}
       aria-disabled="true"
       aria-describedby="observer-mode-description"
+      disabled
       title="Observers cannot vote"
       onClick={onClick}
-      className="rounded-lg p-1 text-ink/45 transition-colors hover:bg-glass-50 hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+      className="cursor-not-allowed rounded-lg p-1 text-ink/45 opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
     >
       <Icon className="h-6 w-6" aria-hidden="true" />
     </button>

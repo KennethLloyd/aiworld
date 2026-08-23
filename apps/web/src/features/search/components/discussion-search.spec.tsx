@@ -74,7 +74,7 @@ describe('DiscussionSearch', () => {
     await renderSearch(search);
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Search discussions' }),
+      screen.getByRole('combobox', { name: 'Search discussions' }),
       'a',
     );
 
@@ -90,7 +90,7 @@ describe('DiscussionSearch', () => {
     await renderSearch(search);
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Search discussions' }),
+      screen.getByRole('combobox', { name: 'Search discussions' }),
       'quillfox',
     );
 
@@ -102,10 +102,10 @@ describe('DiscussionSearch', () => {
     );
     expect(screen.getByText('The matching comment.')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /A quillfox conversation/ }),
+      screen.getByRole('option', { name: /A quillfox conversation/ }),
     ).toHaveAttribute('href', `/worlds/mbti/posts/${postId}`);
     expect(
-      screen.getByRole('link', { name: /The matching comment/ }),
+      screen.getByRole('option', { name: /The matching comment/ }),
     ).toHaveAttribute('href', `/worlds/mbti/posts/${postId}`);
     expect(search).toHaveBeenCalledWith('mbti', {
       q: 'quillfox',
@@ -124,7 +124,7 @@ describe('DiscussionSearch', () => {
     await renderSearch(search);
 
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'Search discussions' }),
+      screen.getByRole('combobox', { name: 'Search discussions' }),
       'zebra',
     );
 

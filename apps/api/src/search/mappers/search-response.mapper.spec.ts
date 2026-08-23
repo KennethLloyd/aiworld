@@ -30,6 +30,7 @@ describe('SearchResponseMapper', () => {
     id: '00000000-0000-4000-8000-000000000002',
     postId: postRecordFixture.id,
     parentCommentId: null,
+    postTitle: 'A fixture post',
     author: postRecordFixture.author,
     content: 'Never trust a quillfox.',
     voteScore: 2,

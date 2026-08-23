@@ -83,10 +83,6 @@ export function mapProviderError(error: unknown): ProviderError {
   }
 
   const details = toErrorLike(error);
-  const message =
-    typeof details.message === 'string'
-      ? details.message
-      : 'Provider request failed';
   const name = typeof details.name === 'string' ? details.name : '';
   const code = typeof details.code === 'string' ? details.code : '';
   const statusCode = getStatusCode(details);
@@ -150,5 +146,13 @@ export function mapProviderError(error: unknown): ProviderError {
     );
   }
 
-  return new ProviderError('UNKNOWN', message, false, statusCode);
+  // Unknown provider messages can contain response bodies, URLs, or copied
+  // authorization material. Keep the operator-facing contract stable and
+  // generic; the adapter logger owns any separately redacted diagnostics.
+  return new ProviderError(
+    'UNKNOWN',
+    'Provider request failed',
+    false,
+    statusCode,
+  );
 }

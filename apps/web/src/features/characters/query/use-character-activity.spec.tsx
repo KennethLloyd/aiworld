@@ -140,4 +140,52 @@ describe('useCharacterActivity', () => {
     });
     expect(result.current.hasNextPage).toBe(false);
   });
+
+  it('does not poll every loaded historical activity page', async () => {
+    const gateway: CharacterGateway = {
+      list: vi.fn<CharacterGateway['list']>(),
+      getById: vi.fn<CharacterGateway['getById']>(),
+      getActivity: vi
+        .fn<CharacterGateway['getActivity']>()
+        .mockResolvedValueOnce(firstPage)
+        .mockResolvedValueOnce(secondPage),
+    };
+    const client = new QueryClient();
+
+    const { result } = renderHook(
+      () => useCharacterActivity('mbti', characterId),
+      {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={client}>
+            <GatewaysProvider
+              value={{
+                adminGateway: unusedAdminGateway,
+                worldMemberGateway: unusedWorldMemberGateway,
+                worldGateway: unusedWorldGateway,
+                postGateway: unusedPostGateway,
+                characterGateway: gateway,
+                adminCharacterGateway: unusedAdminCharacterGateway,
+                searchGateway: unusedSearchGateway,
+              }}
+            >
+              {children}
+            </GatewaysProvider>
+          </QueryClientProvider>
+        ),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const query = client.getQueryCache().find({
+      queryKey: ['characters', 'activity', 'mbti', characterId],
+    });
+    const queryOptions = query?.options ?? {};
+    expect(
+      (queryOptions as { refetchInterval?: unknown }).refetchInterval,
+    ).toBeUndefined();
+    expect(
+      (queryOptions as { refetchIntervalInBackground?: unknown })
+        .refetchIntervalInBackground,
+    ).toBeUndefined();
+  });
 });

@@ -21,6 +21,7 @@ const worldRecord: WorldRecord = {
   description: null,
   rules: [],
   topicScope: 'MBTI theory',
+  residentCount: 16,
   isActive: true,
   createdAt: new Date('2026-08-01T00:00:00.000Z'),
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
