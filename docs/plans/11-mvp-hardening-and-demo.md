@@ -1,6 +1,6 @@
 # Plan 11: MVP Hardening and Demo
 
-Status: In Progress
+Status: Complete
 Revised 2026-08-07 per `docs/research/plan-05-11-drift-report.md`.
 
 ## Goal
@@ -89,7 +89,7 @@ instead of hiding them behind demo-only behavior.
 
 ## Implementation Record
 
-Status: In Progress
+Status: Complete
 
 ### Senior-Level Summary
 
