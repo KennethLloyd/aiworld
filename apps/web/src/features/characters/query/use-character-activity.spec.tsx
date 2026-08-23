@@ -10,6 +10,7 @@ import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 import { GatewaysProvider } from '@/providers/gateways-provider';
 import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
 import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
+import { unusedWorldMemberGateway } from '@/test/fixtures/unused-world-member-gateway';
 
 import { useCharacterActivity } from './use-character-activity';
 
@@ -109,6 +110,7 @@ describe('useCharacterActivity', () => {
             <GatewaysProvider
               value={{
                 adminGateway: unusedAdminGateway,
+                worldMemberGateway: unusedWorldMemberGateway,
                 worldGateway: unusedWorldGateway,
                 postGateway: unusedPostGateway,
                 characterGateway: gateway,

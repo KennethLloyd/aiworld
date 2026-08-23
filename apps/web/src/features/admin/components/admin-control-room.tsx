@@ -16,6 +16,7 @@ import { CharacterRegistryTab } from './character-registry-tab';
 import { SimulationLogsTab } from './simulation-logs-tab';
 import { SimulationStatusTab } from './simulation-status-tab';
 import { WorldConfigTab } from './world-config-tab';
+import { WorldMembersTab } from './world-members-tab';
 
 const adminWorldsQuery = { page: 1, limit: 100 } as const;
 
@@ -23,6 +24,7 @@ const tabs = [
   { value: 'status', label: 'Simulation Status' },
   { value: 'world', label: 'World Config' },
   { value: 'characters', label: 'Agents' },
+  { value: 'members', label: 'Members' },
   { value: 'logs', label: 'LLM Logs' },
 ] as const;
 
@@ -34,6 +36,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
     status: null,
     world: null,
     characters: null,
+    members: null,
     logs: null,
   });
   const worldsQuery = useWorlds(adminWorldsQuery);
@@ -180,6 +183,8 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
             <SimulationStatusTab world={selectedWorld} />
           ) : search.tab === 'world' ? (
             <WorldConfigTab world={selectedWorld} />
+          ) : search.tab === 'members' ? (
+            <WorldMembersTab world={selectedWorld} />
           ) : search.tab === 'logs' ? (
             <SimulationLogsTab world={selectedWorld} />
           ) : (

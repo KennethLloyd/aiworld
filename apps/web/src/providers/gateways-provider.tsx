@@ -4,6 +4,8 @@ import { HttpClient } from '@/core/api/http-client';
 import { env } from '@/core/config/env';
 import type { AdminGateway } from '@/features/admin/api/admin-gateway';
 import { HttpAdminGateway } from '@/features/admin/api/http-admin-gateway';
+import { HttpWorldMemberGateway } from '@/features/admin/api/http-world-member-gateway';
+import type { WorldMemberGateway } from '@/features/admin/api/world-member-gateway';
 import type {
   AdminCharacterGateway,
   CharacterGateway,
@@ -19,6 +21,7 @@ import type { WorldGateway } from '@/features/worlds/api/world-gateway';
 /** The application-level adapter object assembled by the composition root. */
 export interface AppGateways {
   adminGateway: AdminGateway;
+  worldMemberGateway: WorldMemberGateway;
   worldGateway: WorldGateway;
   postGateway: PostGateway;
   characterGateway: CharacterGateway;
@@ -29,6 +32,7 @@ export interface AppGateways {
 const apiClient = new HttpClient(env.apiBaseUrl);
 const gateways: AppGateways = {
   adminGateway: new HttpAdminGateway(apiClient),
+  worldMemberGateway: new HttpWorldMemberGateway(apiClient),
   worldGateway: new HttpWorldGateway(apiClient),
   postGateway: new HttpPostGateway(apiClient),
   characterGateway: new HttpCharacterGateway(apiClient),

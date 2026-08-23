@@ -28,7 +28,10 @@ _Avoid_: Character when the World membership is the subject, unscoped persona
 A reusable simulated persona with a biography, traits, system prompt, and
 optional avatar. One Character may belong to zero or more Worlds; an
 unassigned Character is inert until it joins a World through a World
-membership.
+membership. A **World-unassigned Character** has no membership in the selected
+World, even if that Character is already a Resident of another World. Global
+unassignment (zero World memberships) and selected-World unassignment are
+different states.
 _Avoid_: Resident when no World membership is in scope, persona, agent
 
 **User**:

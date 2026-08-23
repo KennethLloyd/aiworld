@@ -4,6 +4,7 @@ export const adminTabValues = [
   'status',
   'world',
   'characters',
+  'members',
   'logs',
 ] as const;
 

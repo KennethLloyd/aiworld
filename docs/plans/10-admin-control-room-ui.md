@@ -58,10 +58,11 @@ boundary and the shared Zod contracts.
 - Telemetry, demo controls, and the log viewer poll Plan 07's endpoints; no
   real-time streaming in the MVP
 - World member management is a separate child ticket (10-4) and includes the
-  join flow: assigning an unassigned Character (zero World memberships, per
-  `CONTEXT.md`) to a World creates a Character-backed AI membership. The
-  WorldMember contract also supports future User-backed HUMAN membership and
-  participation without coupling User identity to Character.
+  join flow: assigning a Character with no membership in the selected World
+  creates a Character-backed AI membership. That Character may be assigned to
+  other Worlds; global unassignment is a separate concept. The WorldMember
+  contract also supports future User-backed HUMAN membership and participation
+  without coupling User identity to Character.
 
 Re-confirm every tab's request and response contracts against the finalized
 shared schemas before implementation. The existing `/admin` route guard and
@@ -153,7 +154,7 @@ reimplementing simulation behavior.
 
 ## Implementation Record
 
-Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / issue #54 are implemented; ticket 10-4 remains.
+Status: In Progress — tickets 10-1 / issue #52, 10-2 / issue #53, and 10-3 / issue #54 are implemented; ticket 10-4 / issue #55 is implemented on its review branch.
 
 ### Senior-Level Summary
 
@@ -178,6 +179,13 @@ authorized SimulationLog response fields. Tab orchestration stays in
 live in `simulation-log-list.tsx`. Provider prompts and raw responses never
 enter the rendered detail surface.
 
+Ticket 10-4 now fills the Members extension point with a typed, selected-World
+AI membership manager. It loads all selected-World AI membership pages before
+filtering the reusable Character registry, debounces server-side candidate
+search, preserves Character and membership activity as separate states, and
+uses server-authoritative assignment and activation mutations. HUMAN onboarding
+controls remain absent from the MVP surface.
+
 ### Files Changed
 
 - Added the admin feature slice: endpoint builders, HTTP gateway, query keys,
@@ -190,6 +198,14 @@ enter the rendered detail surface.
 - Added the Simulation Logs tab with Character, action, status, and execution
   source filters; expandable authorized details; empty/error states; and
   paginated polling with stable snapshot replacement.
+- Added the Members tab with WorldMember gateway/query/mutation boundaries,
+  complete selected-World membership loading, joined Character identities,
+  responsive member and candidate tables, debounced candidate search,
+  assignment, independent Character/membership status, and deactivation
+  confirmation.
+- Clarified the distinction between globally unassigned and World-unassigned
+  Characters in `CONTEXT.md` and recorded the assignment semantics in
+  ADR-0004.
 - Updated the admin route/search contract, app header navigation, and gateway
   composition.
 - Added gateway, form-mapping, route, mutation, dirty-draft, log filtering,
@@ -221,6 +237,11 @@ enter the rendered detail surface.
 - Dirty editor state is observed at the form boundary and guarded through
   TanStack Router navigation blocking plus an accessible Continue editing /
   Discard changes dialog.
+- WorldMember assignment is filtered against a complete selected-World AI
+  membership snapshot, while candidate data remains a server-side Character
+  registry query. Mutations invalidate WorldMember, admin/public Character,
+  World, and active-resident query families; duplicate assignment conflicts
+  refresh the same reads without optimistic state.
 - The route guard remains UX behavior; NestJS authorization remains the
   security boundary. Public observer payloads are not used by the tab.
 
@@ -234,32 +255,38 @@ enter the rendered detail surface.
 - `pnpm format:check`
 - `pnpm lint`
 - `pnpm build`
-- `pnpm test` — 68 API suites / 504 tests and 39 web files / 191 tests passed
-- `pnpm build`
+- `pnpm test` — 68 API suites / 504 tests and 43 web files / 202 tests passed
 - Focused `/admin` route coverage for log filters, pagination, detail rows,
   empty state, forbidden state, and prompt/raw-response absence.
+- Focused WorldMember gateway, pagination, Character identity joining,
+  server-side candidate debounce, assignment conflicts, mutation invalidation,
+  activation/deactivation, independent forbidden states, and status-distinction
+  coverage.
 
 ### Browser Verification
 
-The in-app browser verified the authenticated `/admin?tab=logs` flow against
-the seeded local API: a real Run One Action created a persisted log; all four
-filters submitted the expected query values; authorized details expanded
-without prompt/raw-provider fields; page 2 replaced page 1 without duplicate
-rows; background polling replaced the active page after a new log; the
-Rejected filter produced the empty state; and a clean mobile-width render had
-no console errors. Stopping the API also exercised the existing session-load
-error boundary, then the API was restored and a fresh Logs tab loaded with no
-warnings.
+The in-app browser verified the authenticated `/admin?tab=members` flow against
+the seeded local API at 2560x1440 and an iPhone 15-sized 393x852 viewport. The
+flow covered the selected World context, navigation across every admin tab,
+the assigned AI resident table, the World-unassigned empty state, server-side
+candidate search with the 300ms debounce, assignment of a Character, inactive
+candidate disablement, and responsive mobile cards without horizontal
+overflow. It also opened the deactivation confirmation, exercised Escape and
+Keep active, deactivated a membership, and reactivated it without changing the
+Character status. Anonymous access was verified to redirect to sign-in; API
+error, forbidden, loading, and independent panel states remain covered by the
+focused automated tests.
 
-The complementary `agent-browser` flow authenticated against the local app,
-opened the Logs tab, confirmed the accessible filter/options surface, selected
-Rejected, and confirmed the zero-match state and absence of prompt/raw fields
-in the DOM output.
+The complementary `agent-browser` CLI launched the local admin route and
+captured the accessible sign-in/admin surface. Its isolated Chrome profile
+could not be kept alive between sandbox command invocations, so authenticated
+interaction was completed in the in-app browser instead.
+
+Review screenshots were captured and inspected for secrets at:
+`/tmp/aiworld-issue-55-desktop.png` and `/tmp/aiworld-issue-55-mobile.png`.
 
 ### Known Risks and Follow-Up Work
 
-- The remaining child ticket owns World member management; the shell still
-  exposes that tab as the next extension point.
 - The browser flow used seeded local data, so the production API error path
   remains covered by the automated forbidden/error tests rather than by
   changing deployed server state.

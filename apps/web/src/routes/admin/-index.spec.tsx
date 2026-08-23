@@ -5,6 +5,7 @@ import type {
 import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
+import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { QueryClient } from '@tanstack/react-query';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -55,6 +56,17 @@ const character: CharacterResponse = {
 const adminCharacter: AdminCharacterResponse = {
   ...character,
   systemPrompt: 'You are a thoughtful resident of the MBTI House.',
+};
+
+const worldMember: WorldMemberResponse = {
+  id: 'ba3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f15',
+  worldId: world.id,
+  worldSlug: world.slug,
+  characterId: character.id,
+  userId: null,
+  role: 'AI',
+  isActive: true,
+  joinedAt: '2026-07-15T10:00:00.000Z',
 };
 
 const config: SimulationConfigResponse = {
@@ -133,6 +145,12 @@ const server = setupServer(
   http.get('*/api/characters', () =>
     HttpResponse.json({
       items: [adminCharacter],
+      meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
+    }),
+  ),
+  http.get('*/api/world-members', () =>
+    HttpResponse.json({
+      items: [worldMember],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
     }),
   ),
@@ -575,6 +593,28 @@ describe('/admin control room', () => {
 
     expect(await screen.findByText('World updated')).toBeInTheDocument();
     expect(currentWorld.name).toBe('The Updated House');
+  });
+
+  it('opens the selected World Members tab with separate status controls', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=members', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'World Members' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Members' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect((await screen.findAllByText('Mystic Aura')).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      screen.getAllByRole('button', {
+        name: 'Deactivate membership for Mystic Aura',
+      }).length,
+    ).toBeGreaterThan(0);
   });
 
   it('blocks leaving a dirty World Config draft until the admin decides', async () => {
