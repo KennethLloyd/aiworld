@@ -1,10 +1,17 @@
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from 'vite';
 import waitOn from 'wait-on';
 
-const env = { ...loadEnv('development', process.cwd()), ...process.env };
-const apiPort = env.VITE_API_PORT ?? '3000';
+const webRoot = fileURLToPath(new URL('../', import.meta.url));
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
+const env = {
+  ...loadEnv('development', webRoot, ''),
+  ...loadEnv('development', repoRoot, ''),
+  ...process.env,
+};
+const apiPort = env.AIWORLD_API_PORT ?? env.VITE_API_PORT ?? env.PORT ?? '3000';
 
 await waitOn({
   resources: [`http://localhost:${apiPort}/api/docs`],

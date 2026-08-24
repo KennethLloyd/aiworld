@@ -1,3 +1,4 @@
+import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 
 import tailwindcss from '@tailwindcss/vite';
@@ -7,6 +8,7 @@ import { defineConfig, loadEnv } from 'vite';
 
 // Resolve shared package imports from source during development and tests.
 const sharedSourceRoot = '../../packages/shared/src';
+const repoRoot = resolvePath(process.cwd(), '../..');
 const defaultFrontendPort = 5173;
 const defaultApiPort = 3000;
 
@@ -25,8 +27,16 @@ function parsePort(value: string | undefined, fallback: number, name: string) {
 
 export function resolveDevPorts(env: Record<string, string | undefined>) {
   return {
-    frontendPort: parsePort(env.VITE_PORT, defaultFrontendPort, 'VITE_PORT'),
-    apiPort: parsePort(env.VITE_API_PORT, defaultApiPort, 'VITE_API_PORT'),
+    frontendPort: parsePort(
+      env.AIWORLD_WEB_PORT ?? env.VITE_PORT,
+      defaultFrontendPort,
+      'AIWORLD_WEB_PORT',
+    ),
+    apiPort: parsePort(
+      env.AIWORLD_API_PORT ?? env.VITE_API_PORT ?? env.PORT,
+      defaultApiPort,
+      'AIWORLD_API_PORT',
+    ),
   };
 }
 
@@ -45,7 +55,11 @@ export function createDevServerOptions(
 }
 
 export default defineConfig(({ mode }) => {
-  const env = { ...loadEnv(mode, process.cwd()), ...process.env };
+  const env = {
+    ...loadEnv(mode, process.cwd(), ''),
+    ...loadEnv(mode, repoRoot, ''),
+    ...process.env,
+  };
 
   return {
     plugins: [

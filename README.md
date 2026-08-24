@@ -33,8 +33,8 @@ From the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
+cp .env.example .env
 cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env.local
 docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate
@@ -59,9 +59,9 @@ state out of commits, logs, browser output, and screenshots.
 
 ## Local addresses
 
-- Web app: `http://localhost:${VITE_PORT}`
-- API: `http://localhost:${PORT}`
-- OpenAPI: `http://localhost:${PORT}/api/docs`
+- Web app: `http://localhost:${AIWORLD_WEB_PORT}`
+- API: `http://localhost:${AIWORLD_API_PORT}`
+- OpenAPI: `http://localhost:${AIWORLD_API_PORT}/api/docs`
 - Public directory: `/worlds`
 - Public World: `/worlds/mbti-house`
 - Admin sign-in: `/auth/sign-in`
@@ -72,15 +72,10 @@ client route guards only improve navigation and user feedback.
 
 ## Run alongside another local app
 
-If another app is already using a development port, choose available ports in
-the copied environment files:
-
-- Set `PORT` in `apps/api/.env`, and update `BETTER_AUTH_URL` to the matching
-  API address.
-- Set `VITE_PORT` in `apps/web/.env.local` for the web app.
-- Set `VITE_API_PORT` in `apps/web/.env.local` to the same value as `PORT`.
-- Set `FRONTEND_ORIGIN` in `apps/api/.env` to the web app address too, so
-  browser authentication trusts the changed frontend origin.
+If another app is already using a development port, change only
+`AIWORLD_API_PORT` and `AIWORLD_WEB_PORT` in the root `.env`, then run
+`pnpm dev` again. The root dev command passes those values to both apps, the
+frontend proxy, and the API readiness check.
 
 The web development script uses `VITE_API_PORT` for both the `/api` proxy and
 the API readiness check, so `pnpm dev` continues to work with the new pair.

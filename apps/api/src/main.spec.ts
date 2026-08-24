@@ -24,8 +24,10 @@ describe('main.ts', () => {
     expect(content).toContain("setGlobalPrefix('api')");
   });
 
-  it('should listen on PORT environment variable or default to 3000', () => {
+  it('should listen on the development API port, PORT, or default to 3000', () => {
     const content = fs.readFileSync(mainPath, 'utf-8');
-    expect(content).toContain('process.env.PORT ?? 3000');
+    expect(content).toContain(
+      'process.env.AIWORLD_API_PORT ?? process.env.PORT ?? 3000',
+    );
   });
 });
