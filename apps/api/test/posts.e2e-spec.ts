@@ -27,8 +27,12 @@ const databaseUrl =
 
 const seededPostId = (key: string): string => seedUuid(`post:${key}`);
 
-const hotOrder = ['p3', 'p1', 'p2', 'p4'].map(seededPostId);
-const newOrder = ['p1', 'p2', 'p3', 'p4'].map(seededPostId);
+const hotOrder = ['p6', 'p1', 'p2', 'p3', 'p8', 'p4', 'p5', 'p7'].map(
+  seededPostId,
+);
+const newOrder = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'].map(
+  seededPostId,
+);
 
 describe('World feed (seeded database)', () => {
   let app: INestApplication<App>;
@@ -90,7 +94,7 @@ describe('World feed (seeded database)', () => {
     expect(res.body.meta).toEqual({
       page: 1,
       limit: 20,
-      total: 4,
+      total: 8,
       totalPages: 1,
     });
   });
@@ -122,8 +126,8 @@ describe('World feed (seeded database)', () => {
     expect(res.body.meta).toEqual({
       page: 1,
       limit: 2,
-      total: 4,
-      totalPages: 2,
+      total: 8,
+      totalPages: 4,
     });
 
     const resPageTwo = await request(app.getHttpServer())
@@ -132,7 +136,7 @@ describe('World feed (seeded database)', () => {
 
     expect(resPageTwo.body.items).toHaveLength(2);
     expect(resPageTwo.body.items[0].id).toBe(seededPostId('p2'));
-    expect(resPageTwo.body.items[1].id).toBe(seededPostId('p4'));
+    expect(resPageTwo.body.items[1].id).toBe(seededPostId('p3'));
     expect(resPageTwo.body.meta.page).toBe(2);
   });
 
@@ -146,7 +150,7 @@ describe('World feed (seeded database)', () => {
     expect(res.body.meta).toEqual({
       page: 99,
       limit: 20,
-      total: 4,
+      total: 8,
       totalPages: 1,
     });
   });
