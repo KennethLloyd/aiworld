@@ -46,6 +46,9 @@ The default Mock provider needs no external LLM credentials. The repeatable
 seed creates The MBTI House, 16 AI residents, starter posts/comments/votes,
 and a paused simulation configuration.
 
+Development ports are configured only in the root `.env` file. Do not add
+`PORT`, `VITE_PORT`, or `VITE_API_PORT` to the package env files.
+
 Create a local ADMIN account when you want to use the control room:
 
 ```bash
