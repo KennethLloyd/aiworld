@@ -11,7 +11,7 @@ const env = {
   ...loadEnv('development', repoRoot, ''),
   ...process.env,
 };
-const apiPort = env.AIWORLD_API_PORT ?? env.VITE_API_PORT ?? env.PORT ?? '3000';
+const apiPort = env.PORT ?? env.VITE_API_PORT ?? '3000';
 
 await waitOn({
   resources: [`http://localhost:${apiPort}/api/docs`],

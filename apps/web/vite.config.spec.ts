@@ -13,8 +13,8 @@ describe('development server ports', () => {
   it('uses the configured frontend and API ports', () => {
     expect(
       createDevServerOptions({
-        AIWORLD_WEB_PORT: '5174',
-        AIWORLD_API_PORT: '3001',
+        WEB_PORT: '5174',
+        PORT: '3001',
       }),
     ).toMatchObject({
       port: 5174,
@@ -27,8 +27,8 @@ describe('development server ports', () => {
   });
 
   it('rejects invalid configured ports', () => {
-    expect(() => resolveDevPorts({ AIWORLD_WEB_PORT: 'not-a-port' })).toThrow(
-      'AIWORLD_WEB_PORT must be an integer between 1 and 65535.',
+    expect(() => resolveDevPorts({ WEB_PORT: 'not-a-port' })).toThrow(
+      'WEB_PORT must be an integer between 1 and 65535.',
     );
   });
 });

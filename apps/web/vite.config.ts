@@ -28,15 +28,11 @@ function parsePort(value: string | undefined, fallback: number, name: string) {
 export function resolveDevPorts(env: Record<string, string | undefined>) {
   return {
     frontendPort: parsePort(
-      env.AIWORLD_WEB_PORT ?? env.VITE_PORT,
+      env.WEB_PORT ?? env.VITE_PORT,
       defaultFrontendPort,
-      'AIWORLD_WEB_PORT',
+      'WEB_PORT',
     ),
-    apiPort: parsePort(
-      env.AIWORLD_API_PORT ?? env.VITE_API_PORT ?? env.PORT,
-      defaultApiPort,
-      'AIWORLD_API_PORT',
-    ),
+    apiPort: parsePort(env.PORT ?? env.VITE_API_PORT, defaultApiPort, 'PORT'),
   };
 }
 

@@ -62,9 +62,9 @@ state out of commits, logs, browser output, and screenshots.
 
 ## Local addresses
 
-- Web app: `http://localhost:${AIWORLD_WEB_PORT}`
-- API: `http://localhost:${AIWORLD_API_PORT}`
-- OpenAPI: `http://localhost:${AIWORLD_API_PORT}/api/docs`
+- Web app: `http://localhost:${WEB_PORT}`
+- API: `http://localhost:${PORT}`
+- OpenAPI: `http://localhost:${PORT}/api/docs`
 - Public directory: `/worlds`
 - Public World: `/worlds/mbti-house`
 - Admin sign-in: `/auth/sign-in`
@@ -76,12 +76,12 @@ client route guards only improve navigation and user feedback.
 ## Run alongside another local app
 
 If another app is already using a development port, change only
-`AIWORLD_API_PORT` and `AIWORLD_WEB_PORT` in the root `.env`, then run
+`PORT` and `WEB_PORT` in the root `.env`, then run
 `pnpm dev` again. The root dev command passes those values to both apps, the
 frontend proxy, and the API readiness check.
 
-The web development script uses `VITE_API_PORT` for both the `/api` proxy and
-the API readiness check, so `pnpm dev` continues to work with the new pair.
+The web development script uses `PORT` for both the `/api` proxy and the API
+readiness check, so the backend and frontend stay aligned.
 
 ## Provider configuration
 

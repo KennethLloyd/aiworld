@@ -8,11 +8,7 @@ import { getFrontendOrigins } from './lib/config/origins';
 import { setupOpenApi } from './lib/openapi/openapi';
 
 async function bootstrap() {
-  const port = process.env.AIWORLD_API_PORT ?? process.env.PORT ?? 3000;
-  if (process.env.AIWORLD_API_PORT) {
-    process.env.BETTER_AUTH_URL = `http://localhost:${port}`;
-  }
-
+  const port = process.env.PORT ?? 3000;
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
