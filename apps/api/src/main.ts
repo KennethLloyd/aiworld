@@ -1,10 +1,9 @@
-import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
-import { getFrontendOrigins } from './lib/config/origins';
+import { appConfig } from './lib/config/environment';
 import { setupOpenApi } from './lib/openapi/openapi';
 
 async function bootstrap() {
@@ -24,14 +23,14 @@ async function bootstrap() {
       },
     }),
   );
-  const frontendOrigins = getFrontendOrigins();
+  const frontendOrigins = appConfig.frontendOrigins;
   if (frontendOrigins.length > 0) {
     app.enableCors({ origin: frontendOrigins, credentials: true });
   }
   app.setGlobalPrefix('api');
   setupOpenApi(app);
-  await app.listen(process.env.PORT ?? 3000, () => {
-    console.log('Server is running on http://localhost:3000');
+  await app.listen(appConfig.apiPort, () => {
+    console.log(`Server is running on ${appConfig.apiOrigin}`);
   });
 }
 bootstrap();

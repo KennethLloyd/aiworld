@@ -1,1 +1,1 @@
-import 'dotenv/config';
+import '../src/lib/config/environment';

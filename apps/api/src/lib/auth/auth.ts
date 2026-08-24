@@ -4,14 +4,18 @@ import type { DBFieldAttribute } from 'better-auth/db';
 import { openAPI } from 'better-auth/plugins';
 
 import { PrismaClient } from '@/generated/prisma/client';
-import { getFrontendOrigins } from '@/lib/config/origins';
+import { appConfig, type AppConfig } from '@/lib/config/environment';
 import { UserRole } from '@/types/userRole';
 
-export const createAuth = (prisma: PrismaClient) => {
-  const frontendOrigins = getFrontendOrigins();
+export const createAuth = (
+  prisma: PrismaClient,
+  config: AppConfig = appConfig,
+) => {
+  const frontendOrigins = config.frontendOrigins;
 
   return betterAuth({
-    ...(frontendOrigins.length > 0 ? { trustedOrigins: frontendOrigins } : {}),
+    baseURL: config.betterAuthUrl,
+    trustedOrigins: frontendOrigins,
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     emailAndPassword: {
       enabled: true,
