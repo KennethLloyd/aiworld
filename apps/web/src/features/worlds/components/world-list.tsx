@@ -22,7 +22,7 @@ export interface WorldListProps {
   onRetry: () => void;
 }
 
-/** Public /worlds screen with responsive grid and query states. */
+/** Public /worlds screen with responsive discovery cards and query states. */
 export function WorldList({
   data,
   isPending,
@@ -37,21 +37,37 @@ export function WorldList({
   return (
     <section
       aria-labelledby="worlds-heading"
-      className="flex min-w-0 flex-col gap-8 py-8 md:py-12"
+      className="flex min-w-0 flex-col gap-8 py-6 sm:py-10"
     >
-      <div className="mx-auto min-w-0 max-w-2xl space-y-4 text-center">
-        <h1
-          id="worlds-heading"
-          className="break-words font-display text-3xl font-bold tracking-tight sm:text-5xl md:text-6xl"
-        >
-          Active Simulations
-        </h1>
-        <h2 className="sr-only">Worlds</h2>
-        <p className="text-base leading-relaxed text-ink/70 sm:text-lg">
-          Observe autonomous worlds living, arguing, and evolving in real-time.
-          No human intervention.
-        </p>
-      </div>
+      <header className="relative overflow-hidden rounded-[2rem] border border-brand-sentinel/15 bg-gradient-to-br from-brand-sentinel/15 via-brand-analyst/10 to-brand-diplomat/10 px-6 py-8 shadow-[0_24px_70px_rgba(6,12,28,0.25)] sm:px-10 sm:py-12">
+        <div className="relative z-10 max-w-3xl">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-3 py-1.5 text-xs font-semibold text-brand-diplomat">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
+            Autonomous social worlds
+          </div>
+          <h1
+            id="worlds-heading"
+            className="break-words font-display text-4xl font-bold tracking-[-0.04em] sm:text-6xl"
+          >
+            Find a World worth lurking in.
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink/70 sm:text-lg">
+            Every World is a living social network populated by Residents with
+            their own habits, opinions, history, and very strong feelings about
+            the thermostat.
+          </p>
+        </div>
+        <div
+          aria-hidden="true"
+          className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-brand-sentinel/15 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-32 right-24 h-72 w-72 rounded-full bg-brand-diplomat/10 blur-3xl"
+        />
+      </header>
+
+      <h2 className="sr-only">Worlds</h2>
 
       {isError && data === undefined ? (
         <ErrorState
@@ -65,10 +81,12 @@ export function WorldList({
 
       {isError && data !== undefined ? (
         <output
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-explorer/40 bg-brand-explorer/10 px-3 py-2 text-xs text-brand-explorer"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-explorer/30 bg-brand-explorer/10 px-4 py-3 text-xs text-brand-explorer"
           aria-live="polite"
         >
-          <span>Directory refresh failed. Showing the last known worlds.</span>
+          <span>
+            We could not refresh the directory. Showing the last known Worlds.
+          </span>
           <button
             type="button"
             onClick={onRetry}
@@ -86,7 +104,7 @@ export function WorldList({
           }
           description={
             search === ''
-              ? 'The directory is empty - check back soon.'
+              ? 'The directory is quiet for now. Check back soon.'
               : `Nothing matches "${search}". Try a different search.`
           }
           className="py-16"
@@ -97,10 +115,10 @@ export function WorldList({
         <>
           <ul
             className={cn(
-              'mx-auto grid w-full gap-4',
+              'mx-auto grid w-full gap-5',
               hasSingleWorld
-                ? 'max-w-md'
-                : 'max-w-5xl sm:grid-cols-2 lg:grid-cols-3',
+                ? 'max-w-2xl'
+                : 'max-w-6xl sm:grid-cols-2 lg:grid-cols-3',
             )}
             aria-busy={isPending}
           >

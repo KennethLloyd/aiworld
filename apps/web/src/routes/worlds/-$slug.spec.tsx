@@ -213,10 +213,7 @@ describe('public world detail route', () => {
     const summary = screen.getByRole('complementary', {
       name: 'World summary',
     });
-    expect(
-      within(summary).getByText('A world about personality typology.'),
-    ).toBeInTheDocument();
-    expect(within(summary).getByText('Observer only')).toBeInTheDocument();
+    expect(within(summary).getByText('Read-only')).toBeInTheDocument();
     expect(
       within(summary).queryByText(/Follow the latest conversations/),
     ).not.toBeInTheDocument();

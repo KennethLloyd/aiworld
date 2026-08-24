@@ -1,59 +1,67 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link } from '@tanstack/react-router';
-import { BrainCircuit, Clock3, Users } from 'lucide-react';
+import { ArrowUpRight, Orbit, Users } from 'lucide-react';
 
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
-/** Public World card linking to the canonical detail route. */
+/** Public World card: a doorway into a living social space, not a database row. */
 export function WorldCard({ world }: { world: WorldResponse }) {
+  const description =
+    world.description?.premise ?? world.description?.about ?? world.topicScope;
+
   return (
     <Link
       to="/worlds/$slug"
       params={{ slug: world.slug }}
       search={{ sort: 'hot' }}
-      className="group block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+      className="group block h-full rounded-[1.5rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel/70"
       aria-label={`View ${world.name}`}
     >
       <GlassPanel
         hover
-        className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl p-6 md:p-8"
+        className="relative flex h-full min-h-[21rem] flex-col overflow-hidden rounded-[1.5rem] p-5 sm:p-6"
       >
-        <div className="absolute right-0 top-0 z-20 p-4">
-          {world.isActive ? (
-            <Badge
-              tone="success"
-              dot
-              className="shadow-[0_0_10px_rgba(16,185,129,0.2)]"
-            >
-              Live
-            </Badge>
-          ) : null}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-sentinel/10 to-brand-analyst/10 opacity-0 transition-opacity group-hover:opacity-100" />
-
-        <div className="relative z-10 mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-sentinel/25">
-          <BrainCircuit className="h-8 w-8" aria-hidden="true" />
-        </div>
-
-        <h3 className="relative z-10 mb-3 font-display text-2xl font-bold tracking-tight">
-          {world.name}
-        </h3>
-        <p className="relative z-10 mb-6 line-clamp-3 flex-1 break-words leading-relaxed text-ink/80">
-          {world.description?.about ?? world.topicScope}
-        </p>
-
-        <div className="relative z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-glass-border pt-4 text-sm text-ink/60">
-          <span className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-brand-sentinel" aria-hidden="true" />
-            {world.residentCount} Residents
+        <div
+          aria-hidden="true"
+          className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-brand-sentinel/12 blur-3xl transition-transform duration-500 group-hover:scale-125"
+        />
+        <div className="relative z-10 flex items-start justify-between gap-4">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-brand-sentinel/20 bg-gradient-to-br from-brand-sentinel/25 to-brand-analyst/15 text-brand-sentinel shadow-inner">
+            <Orbit className="h-7 w-7" aria-hidden="true" />
           </span>
-          <span className="flex items-center gap-2">
-            <Clock3
-              className="h-4 w-4 text-brand-diplomat"
+          {world.isActive ? (
+            <Badge tone="success" dot className="bg-brand-diplomat/10">
+              Live now
+            </Badge>
+          ) : (
+            <Badge tone="neutral" dot>
+              Quiet
+            </Badge>
+          )}
+        </div>
+
+        <div className="relative z-10 mt-6 flex-1">
+          <h3 className="break-words font-display text-2xl font-bold tracking-[-0.03em]">
+            {world.name}
+          </h3>
+          <p className="mt-3 line-clamp-4 break-words text-sm leading-relaxed text-ink/70">
+            {description}
+          </p>
+        </div>
+
+        <div className="relative z-10 mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-glass-border pt-4 text-xs text-ink/55">
+          <span className="flex items-center gap-1.5">
+            <Users
+              className="h-3.5 w-3.5 text-brand-sentinel"
               aria-hidden="true"
             />
-            Updated {formatRelativeTime(world.updatedAt)}
+            {world.residentCount} Residents
+          </span>
+          <span>Last activity {formatRelativeTime(world.updatedAt)}</span>
+          <span className="ml-auto inline-flex items-center gap-1 font-semibold text-ink/80 transition-colors group-hover:text-brand-sentinel">
+            Enter
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
         </div>
       </GlassPanel>

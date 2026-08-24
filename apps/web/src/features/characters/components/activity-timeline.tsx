@@ -7,6 +7,8 @@ import { Link } from '@tanstack/react-router';
 import { FileText, MessageSquare, Vote } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
+import { Avatar } from '@/shared/ui/avatar';
+import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
 export function ActivityTimeline({
@@ -39,28 +41,29 @@ export function ActivityTimeline({
   }, [hasNextPage, isFetchingNextPage, onLoadMore]);
 
   return (
-    <section aria-labelledby="activity-timeline-heading" className="mt-8">
-      <h2
-        id="activity-timeline-heading"
-        className="flex items-center gap-2 font-display text-xl font-bold tracking-tight"
-      >
-        <MessageSquare
-          className="h-5 w-5 text-brand-sentinel"
-          aria-hidden="true"
-        />
-        Activity Timeline
-      </h2>
+    <section aria-labelledby="activity-timeline-heading" className="mt-2">
+      <div className="mb-4 px-1">
+        <p className="text-xs font-semibold tracking-wide text-brand-diplomat">
+          A TRACE OF THEIR LIFE HERE
+        </p>
+        <h2
+          id="activity-timeline-heading"
+          className="mt-1 flex items-center gap-2 font-display text-2xl font-bold tracking-[-0.03em]"
+        >
+          Activity Timeline
+        </h2>
+      </div>
 
       {items.length > 0 ? (
         <ol
-          className="relative mt-5 flex flex-col gap-4 before:absolute before:bottom-4 before:left-4 before:top-4 before:w-px before:bg-glass-border"
+          className="relative flex flex-col gap-3 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-px before:bg-brand-sentinel/20"
           aria-label="Activity timeline"
         >
           {items.map((item) => (
-            <li key={`${item.kind}-${item.id}`} className="relative pl-10">
+            <li key={`${item.kind}-${item.id}`} className="relative pl-11">
               <span
                 aria-hidden="true"
-                className="absolute left-0 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-glass-border bg-surface text-brand-sentinel"
+                className="absolute left-0 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-2xl border border-brand-sentinel/20 bg-surface text-brand-sentinel shadow-sm"
               >
                 {item.kind === 'post' ? (
                   <FileText className="h-4 w-4" />
@@ -90,7 +93,7 @@ export function ActivityTimeline({
       ) : null}
       {isFetchingNextPage ? (
         <p className="mt-3 text-center text-sm text-ink/60" aria-live="polite">
-          Loading more activity...
+          Loading more activity…
         </p>
       ) : null}
     </section>
@@ -108,26 +111,44 @@ function ActivityCard({
   const action = item.kind === 'post' ? 'Started a discussion' : 'Commented on';
 
   return (
-    <GlassPanel hover className="flex flex-col gap-3 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/60">
+    <GlassPanel
+      hover
+      className="flex flex-col gap-3 rounded-[1.25rem] p-4 sm:p-5"
+    >
+      <div className="flex flex-wrap items-center gap-2 text-xs text-ink/55">
+        <Avatar
+          src={item.author.avatarUrl}
+          alt={item.author.name}
+          name={item.author.name}
+          size="sm"
+        />
+        <span className="font-semibold text-ink/80">{item.author.name}</span>
+        {item.author.classification ? (
+          <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
+            {item.author.classification}
+          </Badge>
+        ) : null}
         <span>{action}</span>
         <Link
           to="/worlds/$slug/posts/$postId"
           params={{ slug: worldSlug, postId: getPostId(item) }}
           aria-label={`Open post: ${targetTitle}`}
-          className="font-medium text-ink transition-colors hover:text-brand-sentinel"
+          className="min-w-0 truncate font-medium text-brand-sentinel transition-colors hover:text-brand-sentinel/75"
         >
           &quot;{targetTitle}&quot;
         </Link>
-        <time className="ml-auto" dateTime={item.createdAt}>
+        <time
+          className="ml-auto shrink-0 text-ink/40"
+          dateTime={item.createdAt}
+        >
           {formatDate(item.createdAt)}
         </time>
       </div>
-      <p className="line-clamp-3 text-sm leading-relaxed text-ink/75">
+      <p className="line-clamp-3 text-sm leading-7 text-ink/70">
         &quot;{item.content}&quot;
       </p>
       <span
-        className="flex items-center gap-1.5 text-xs font-medium text-ink/55"
+        className="flex items-center gap-1.5 text-xs font-medium text-ink/50"
         aria-label={`${item.voteScore} vote score`}
       >
         <Vote className="h-4 w-4" aria-hidden="true" />

@@ -137,6 +137,7 @@ export function WorldDetailScreen({
         <WorldFeed
           slug={data.slug}
           worldName={data.name}
+          residentCount={data.residentCount}
           sort={sort}
           onSortChange={onSortChange}
         />

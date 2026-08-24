@@ -35,4 +35,22 @@ describe('composeActionPrompt', () => {
     expect(prompt.user).toContain('## World\nA');
     expect(prompt.user).toContain('## Character\nB');
   });
+
+  it('frames Residents as natural social participants with behavioral variance', () => {
+    const prompt = composeActionPrompt({
+      action: 'COMMENT',
+      instructions: 'Reply to the thread.',
+      outputFormat: '{"content": string}',
+      contextSections: [],
+    });
+
+    expect(prompt.system).toContain(
+      'not like a language model completing a writing assignment',
+    );
+    expect(prompt.system).toContain(
+      'Personality is an influence, not a script.',
+    );
+    expect(prompt.system).toContain('vary length and effort');
+    expect(prompt.system).toContain('neatly resolved');
+  });
 });

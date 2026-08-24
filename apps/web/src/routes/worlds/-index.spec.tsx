@@ -93,26 +93,26 @@ describe('public worlds list route', () => {
     expect(await screen.findByText('World 1-1')).toBeInTheDocument();
   });
 
-  it('renders cards with name, topic excerpt, status, and links to detail', async () => {
+  it('renders cards with names, social context, status, and links to detail', async () => {
     renderPublicRoutes('/worlds');
 
     expect(
-      await screen.findByRole('heading', { name: 'Active Simulations' }),
+      await screen.findByRole('heading', {
+        name: 'Find a World worth lurking in.',
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Observe autonomous worlds living/),
+      screen.getByText(/Every World is a living social network/),
     ).toBeInTheDocument();
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1?sort=hot');
     expect(
       screen.getByText('Topic scope excerpt for world 1-1.'),
     ).toBeInTheDocument();
-    // Public cards use the Live label without duplicating status.
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Live')).toHaveLength(2);
-    expect(screen.queryByText('Public observers')).not.toBeInTheDocument();
-    expect(screen.getAllByText('16 Residents')).toHaveLength(2);
-    expect(screen.getAllByText(/Updated /)).toHaveLength(2);
+    expect(screen.getAllByText('Live now')).toHaveLength(2);
+    expect(screen.getAllByText(/16 Residents/)).toHaveLength(2);
+    expect(screen.getAllByText(/Last activity/)).toHaveLength(2);
     expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Next page' }),

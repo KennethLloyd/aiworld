@@ -130,7 +130,7 @@ export class MockLlmProvider extends LlmProvider {
     // contract over scanning the whole prompt: grounded context legitimately
     // mentions words such as "comments" and "posts" that are not the action.
     const declaredAction = prompt.system.match(
-      /performing an? (POST|VOTE|COMMENT) action\b/i,
+      /(?:performing an? |Action:\s*)(POST|VOTE|COMMENT)(?: action)?\b/i,
     )?.[1];
     if (declaredAction !== undefined) {
       return this.fixtures.find(

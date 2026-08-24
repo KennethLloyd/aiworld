@@ -31,6 +31,31 @@ export async function seedWorld(prisma: PrismaClient) {
       create: canonicalWorld,
       update: canonicalWorld,
     });
+    const currentCharacterIds = characters.map((character) =>
+      seedUuid(`character:${character.key}`),
+    );
+    const legacyMembers = await tx.worldMember.findMany({
+      where: {
+        worldId: world.id,
+        characterId: { notIn: currentCharacterIds },
+      },
+      select: { id: true },
+    });
+    if (legacyMembers.length > 0) {
+      const legacyMemberIds = legacyMembers.map((member) => member.id);
+      await tx.vote.deleteMany({
+        where: { authorMemberId: { in: legacyMemberIds } },
+      });
+      await tx.comment.deleteMany({
+        where: { authorMemberId: { in: legacyMemberIds } },
+      });
+      await tx.post.deleteMany({
+        where: { authorMemberId: { in: legacyMemberIds } },
+      });
+      await tx.worldMember.deleteMany({
+        where: { id: { in: legacyMemberIds } },
+      });
+    }
 
     const memberIds = new Map<string, string>();
 
