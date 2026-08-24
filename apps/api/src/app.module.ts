@@ -17,6 +17,7 @@ import { AppController } from './app.controller';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { createAuth } from './lib/auth/auth';
+import { appConfig } from './lib/config/environment';
 import { PrismaModule } from './lib/database/prisma.module';
 import { PrismaService } from './lib/database/prisma.service';
 
@@ -26,7 +27,9 @@ import { PrismaService } from './lib/database/prisma.service';
     PrismaModule,
     AuthModule.forRootAsync({
       inject: [PrismaService],
-      useFactory: (prisma: PrismaService) => ({ auth: createAuth(prisma) }),
+      useFactory: (prisma: PrismaService) => ({
+        auth: createAuth(prisma, appConfig),
+      }),
     }),
     WorldModule,
     CharactersModule,

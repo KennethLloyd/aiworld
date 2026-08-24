@@ -1,3 +1,5 @@
+@baseUrl = http://localhost:{{$dotenv API_PORT}}
+
 @slug = mbti
 @createdSlug = test-world
 

@@ -24,8 +24,9 @@ describe('main.ts', () => {
     expect(content).toContain("setGlobalPrefix('api')");
   });
 
-  it('should listen on PORT environment variable or default to 3000', () => {
+  it('should use the resolved API port and origin', () => {
     const content = fs.readFileSync(mainPath, 'utf-8');
-    expect(content).toContain('process.env.PORT ?? 3000');
+    expect(content).toContain('appConfig.apiPort');
+    expect(content).toContain('appConfig.apiOrigin');
   });
 });

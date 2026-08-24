@@ -12,6 +12,7 @@ jest.mock('better-auth/plugins', () => ({
 jest.mock('@/generated/prisma/client', () => ({ PrismaClient: jest.fn() }));
 
 import type { PrismaClient } from '@/generated/prisma/client';
+import { resolveAppConfig } from '@/lib/config/environment';
 import { UserRole } from '@/types/userRole';
 
 import { createAuth } from './auth';
@@ -42,6 +43,22 @@ describe('createAuth', () => {
 
     expect(betterAuth).toHaveBeenCalledWith(
       expect.objectContaining({ emailAndPassword: { enabled: true } }),
+    );
+  });
+
+  it('configures the resolved base URL and trusted frontend origins', () => {
+    const config = resolveAppConfig({
+      API_PORT: '4000',
+      WEB_PORT: '5174',
+    });
+
+    createAuth(mockPrisma, config);
+
+    expect(betterAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: 'http://localhost:4000',
+        trustedOrigins: ['http://localhost:5174'],
+      }),
     );
   });
 

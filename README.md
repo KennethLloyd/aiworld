@@ -32,13 +32,32 @@ From the repository root:
 
 ```bash
 pnpm install --frozen-lockfile
-cp apps/api/.env.example apps/api/.env
+cp .env.example .env
+# edit .env if different local ports are desired
 docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate
 pnpm --filter @aiworld/api db:seed
 pnpm dev
 ```
+
+### Local ports
+
+Set the two application ports in the root `.env`:
+
+```env
+API_PORT=3000
+WEB_PORT=5173
+```
+
+`API_PORT` controls the NestJS API and local API consumers. `WEB_PORT`
+controls Vite and the backend's default allowed frontend origin. Changing
+either value is enough; source files do not need editing. For deployments,
+`BETTER_AUTH_URL`, `FRONTEND_ORIGIN`, and `VITE_API_BASE_URL` can override the
+derived local URLs.
+
+The API also honors a platform-provided `PORT` only when `API_PORT` is unset.
+Checked-in API HTTP requests read `API_PORT` from this same root `.env`.
 
 The default Mock provider needs no external LLM credentials. The repeatable
 seed creates The MBTI House, 16 AI residents, starter posts/comments/votes,
@@ -57,6 +76,8 @@ state out of commits, logs, browser output, and screenshots.
 
 ## Local URLs
 
+With the default ports:
+
 - Web app: [http://localhost:5173](http://localhost:5173)
 - API: [http://localhost:3000](http://localhost:3000)
 - OpenAPI: [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
@@ -72,7 +93,7 @@ client route guards only improve navigation and user feedback.
 
 `LLM_PROVIDER=mock` is the safe local and offline default. To use an
 OpenAI-compatible service, set `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_API_KEY`,
-and `LLM_MODEL` in `apps/api/.env`. Provider credentials stay server-side and
+and `LLM_MODEL` in the root `.env`. Provider credentials stay server-side and
 are not required by the web app.
 
 ## Useful commands

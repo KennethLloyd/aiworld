@@ -7,7 +7,7 @@
   "author": "",
   "type": "module",
   "scripts": {
-    "dev": "wait-on --timeout 60000 http-get://localhost:3000/api/docs && vite",
+    "dev": "node --env-file=../../.env node_modules/wait-on/bin/wait-on --config wait-on.config.cjs && vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "oxlint .",
