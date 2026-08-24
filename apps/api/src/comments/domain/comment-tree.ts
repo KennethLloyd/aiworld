@@ -3,10 +3,7 @@ import {
   FlatCommentRecord,
 } from '@/comments/domain/comment-record';
 
-/**
- * Replies never nest deeper than three levels.
- * Plan 06 enforces the same rule on writes.
- */
+/** Replies never nest deeper than three levels. */
 export const MAX_COMMENT_DEPTH = 3;
 
 export function buildCommentTree(

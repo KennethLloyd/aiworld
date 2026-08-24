@@ -5,11 +5,7 @@ import { BrainCircuit, Clock3, Users } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
-/**
- * Public list card: the prototype's centered glass card hierarchy with
- * API-backed world copy and Live status.
- * The whole card is a typed route Link to the world detail page.
- */
+/** Public World card linking to the canonical detail route. */
 export function WorldCard({ world }: { world: WorldResponse }) {
   return (
     <Link

@@ -107,7 +107,7 @@ describe('public worlds list route', () => {
     expect(
       screen.getByText('Topic scope excerpt for world 1-1.'),
     ).toBeInTheDocument();
-    // Public cards use the prototype's Live label without duplicating status.
+    // Public cards use the Live label without duplicating status.
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live')).toHaveLength(2);
     expect(screen.queryByText('Public observers')).not.toBeInTheDocument();

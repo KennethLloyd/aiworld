@@ -1,8 +1,6 @@
 import { LlmProviderTokenUsage } from '@/simulation/providers/llm-provider.port';
 
-/** Configurable per-model cost rates used to turn token usage into a dollar
- * estimate. Read from the environment with these defaults; the real adapter
- * (Plan 08) will replace the estimate with provider-reported cost. */
+/** Configured per-model rates used to estimate simulation cost. */
 export type SimulationCostConfig = {
   /** USD per 1,000,000 input (prompt) tokens. */
   inputPerMillionUsd: number;

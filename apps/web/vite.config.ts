@@ -5,8 +5,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// Shared raw-source alias (must be declared before the package root so
-// subpath imports like @aiworld/shared/schemas/* resolve to .ts source).
+// Resolve shared package imports from source during development and tests.
 const sharedSourceRoot = '../../packages/shared/src';
 
 export default defineConfig({

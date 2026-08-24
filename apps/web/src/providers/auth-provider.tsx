@@ -12,18 +12,12 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/**
- * Derives { session, isSignedIn, isAdmin } from the ['session','current'] query
- * cache entry - the cache stays the single source of truth (no Redux/Zustand
- * mirror). Phase D moves the session query hook into
- * features/auth/query/use-session.ts and this provider consumes it.
- */
+/** Keeps auth state in the TanStack Query session cache. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data } = useQuery({
     queryKey: sessionKeys.current,
     queryFn: () => authApi.getSession(),
-    // Better Auth handles token refresh itself; the 60s staleTime is periodic
-    // revalidation only (architecture plan 6.6).
+    // Better Auth handles token refresh; staleTime controls revalidation.
     staleTime: 60_000,
     retry: false,
   });

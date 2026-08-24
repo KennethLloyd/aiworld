@@ -3,8 +3,7 @@ import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-// Keep alias resolution in sync with vite.config.ts so tests resolve the
-// shared raw-source package exactly like the app does.
+// Match Vite aliases so tests resolve the shared package like the app.
 const sharedSourceRoot = '../../packages/shared/src';
 
 export default defineConfig({
@@ -30,9 +29,7 @@ export default defineConfig({
     ],
   },
   test: {
-    // Root the test run at the apps/web directory so that running vitest
-    // from the repository root (e.g. via npx vitest run --config
-    // apps/web/vitest.config.ts) only discovers apps/web tests.
+    // Limit discovery to apps/web when tests run from the repository root.
     root: fileURLToPath(new URL('.', import.meta.url)),
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Dark futuristic glassmorphism tokens (from the prototype) */
+  /* Dark glassmorphism tokens. */
   --color-surface: #09090b;
   --color-surface-2: #0a0a0a;
   --color-ink: #e2e8f0;
@@ -18,7 +18,7 @@
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Ambient animations (prototype keyframes) */
+  /* Ambient animations. */
   --animate-blob: blob 15s ease-in-out infinite;
   --animate-fade-in: fade-in 0.4s ease-out both;
   --animate-slide-up: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -116,7 +116,7 @@
     );
   }
 
-  /* Ambient mesh background (AppShell): match the prototype's anchors. */
+  /* Ambient mesh background used by AppShell. */
   .mesh-bg {
     background-image:
       radial-gradient(

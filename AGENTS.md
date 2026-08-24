@@ -1,76 +1,38 @@
 # AIWorld Agent Instructions
 
-## Work Tracking
+## Work tracking
 
-- Use `docs/plans/README.md` as the plan index and dependency order.
-- Treat the relevant file under `docs/plans/` as the detailed engineering
-  contract for that plan.
-- Use the public [AIWorld MVP GitHub Project](https://github.com/users/KennethLloyd/projects/1)
-  for execution status; issues and tickets live in GitHub Issues via the `gh`
-  CLI (see `docs/agents/issue-tracker.md`).
-- Treat each plan issue as the parent tracker. Split substantial plans into
-  child tickets with `/to-tickets` before implementation — tracer-bullet
-  vertical slices, each declaring its blocking edges (native GitHub blocking
-  links). Work the frontier: a ticket is grabbable when every blocker is
-  closed.
-- Assign every plan and ticket to `KennethLloyd` before implementation.
-- Move the plan or task to `In Progress` before starting work and to `Done`
-  only after its pull request is open, required checks pass, implementation and
-  verification are complete, you have reviewed and merged the pull request, and
-  the review handoff is complete.
-- Link pull requests to child tickets with `Refs #<number>`. Use `Closes
-#<number>` only when the whole parent plan is complete.
+- Use GitHub Issues and the public AIWorld project for status. Use `gh` for
+  issue and pull request operations.
+- Assign implementation tickets to `KennethLloyd` before starting.
+- Move a ticket to `In Progress` before implementation. Mark it `Done` only
+  after the pull request is open, checks pass, review is complete, and the
+  pull request is merged.
+- Use a dedicated `codex/` branch for each ticket. Keep commits focused and
+  link pull requests with `Refs #<ticket>` or `Closes #<ticket>` when the
+  ticket is complete.
+- Split substantial work into child tickets before implementation. Represent
+  blocking relationships with native GitHub issue dependencies.
 
-## Implementation Workflow
+## Implementation workflow
 
-1. Follow the complete workflow as defined inside the `/implement` skill
-2. Always use web search for latest online docs instead of digging through `node_modules`.
-3. Before declaring authenticated UI verification blocked, inspect local config
-   such as `apps/api/.env` for configured test credentials without printing
-   secrets. Treat `control-in-app-browser` verification as a required UI
-   acceptance step and report authenticated and unauthenticated coverage
-   separately.
-4. For every UI change, exhaustively test the changed route and its surrounding
-   navigation/layout states with the `control-in-app-browser` skill before
-   creating a pull request. Exercise the relevant happy path, loading, empty,
-   error, unauthorized/forbidden, responsive, and interaction states; direct
-   browser verification is required in addition to automated tests.
-5. Capture and attach review screenshots before opening the pull request: at
-   minimum include one desktop screenshot and one iPhone 15/mobile viewport
-   screenshot that showcase the new change. If the change spans multiple pages
-   or states, include enough screenshots to show every distinct page/state; two
-   screenshots are sufficient only when they fully cover the changed surface.
-   Inspect screenshots for secrets before posting them. Every UI pull request
-   must also include a `What to expect` section in simplified technical,
-   product-facing English that explains the visible change, key interactions,
-   responsive behavior, and any demo-data limitations. Put it in the PR
-   description or a PR comment alongside the screenshots.
-6. Comments should be concise and straightforward, simple (max 1-2 lines only)
-7. Update the ticket and the plan implementation record in the same task as
-   the code.
-8. Create a dedicated branch for the ticket; never complete implementation on
-   `main`.
-9. Commit only the focused ticket changes, push the branch, and open a review
-   pull request.
-10. Confirm required CI checks pass and wait for the user to review and merge
-   the pull request; do not mark the ticket or plan `Done`/`Complete` before
-   then.
+1. Follow the complete workflow defined by the `/implement` skill.
+2. Use current online documentation when external library or platform facts
+   are needed.
+3. Before declaring authenticated UI verification blocked, inspect local
+   configuration for test credentials without printing secrets.
+4. For UI changes, use the in-app browser to exercise affected routes and
+   surrounding navigation states in addition to automated tests.
+5. Capture desktop and iPhone 15 review screenshots for UI pull requests,
+   inspect them for secrets, and include a concise “What to expect” section.
+6. Write code comments that are concise, straightforward, and no longer than
+   one or two lines unless a longer explanation is essential.
+7. Update the ticket and pull request with implementation and verification
+   details in the same task.
+8. Run the relevant checks, push the branch, open the pull request, and wait
+   for review and merge before closing the ticket.
 
-## Pull Request Strategy
-
-- Use normal pull requests between independent plans or plan boundaries.
-- Use stacked pull requests only for tightly coupled tasks within one plan.
-- Build a stacked branch from the preceding branch and target each dependent
-  pull request at its immediate predecessor.
-- Merge stacked pull requests from foundational work upward, then retarget or
-  rebase the remaining branches onto `main`.
-- Keep each pull request reviewable and linked to its child issue; do not use a
-  stack to avoid breaking down an oversized task.
-- The completion gate is ordered: `In Progress` -> dedicated branch -> focused
-  commit -> pushed branch -> open PR -> passing checks -> user review -> user
-  merge -> plan record marked `Complete` and project item marked `Done`.
-
-## Required Boundaries
+## Architecture boundaries
 
 - Keep transport schemas in `packages/shared` when data crosses the API
   boundary; do not duplicate them in the web app.
@@ -78,22 +40,20 @@
   infrastructure.
 - Use dependency injection and repository or provider ports at genuine
   infrastructure seams.
-- Enforce authorization on the NestJS server. Client route guards are only UX
-  behavior.
+- Enforce authorization on the NestJS server. Client route guards are UX
+  behavior only.
 - Keep public observer responses separate from admin prompts, raw provider
   responses, and telemetry.
-- Add focused unit tests for domain decisions and integration or e2e tests for
-  boundary behavior.
+- Add focused unit tests for domain decisions and integration or end-to-end
+  tests for boundary behavior.
 
-## Architecture and Idiomaticity
+## Engineering standard
 
-- Treat idiomatic, framework-native architecture as a hard project constraint.
-- Prefer the capabilities already provided by Turborepo, Vite, React,
-  TanStack Query, Tailwind, and the existing feature boundaries before adding
-  custom scripts, monkey patches, test harnesses, or other workaround layers.
-- Do not add noisy or non-idiomatic scaffolding to hide a race condition or
-  paper over an unclear ownership boundary. If a workaround is unavoidable,
-  document the architectural reason and keep it isolated and minimal.
+- Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS
+  capabilities before adding custom infrastructure.
+- Keep existing feature boundaries and dependency direction intact.
+- Avoid ceremonial indirection, duplicated schemas, direct controller-to-Prisma
+  access, and workaround layers that hide unclear ownership.
 
 ## Verification
 
@@ -108,42 +68,29 @@ pnpm test
 pnpm build
 ```
 
-For API e2e work, PostgreSQL must be available:
+For API end-to-end work, PostgreSQL and Redis must be available:
 
 ```bash
-docker compose -f apps/api/docker-compose.yml up -d --wait postgres
+docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
 DATABASE_URL='postgres://postgres:postgres@localhost:5432/aiworld' \
-  pnpm --filter @aiworld/api exec prisma migrate deploy
+pnpm --filter @aiworld/api exec prisma migrate deploy
 pnpm --filter @aiworld/api test:e2e
 ```
 
-For UI work, prefer the `control-in-app-browser` skill when it is available:
-use it to inspect the rendered page, exercise the affected interactions, and
-spot responsive or visual UX regressions directly. Run the relevant
-`agent-browser` flow from the plan as a complementary automated check or as a
-fallback when the in-app browser is unavailable. Re-snapshot after navigation
-or dynamic UI changes; automated tests do not replace direct browser
-verification for UI behavior.
+For UI work, verify the affected public, authenticated, loading, empty, error,
+unauthorized, forbidden, interaction, keyboard, and responsive states directly
+in the browser. Automated tests do not replace direct browser verification.
 
-## Security and Git Hygiene
+## Security and Git hygiene
 
 - Never commit credentials, `.env` files, cookies, auth state, provider keys,
   or screenshots containing secrets.
 - Inspect `git status`, `git diff`, and recent history before committing.
-- Stage only files related to the requested change.
+- Stage only files related to the requested ticket.
 - Do not reset, checkout, revert, or modify unrelated user changes.
-- Keep commits focused and use the repository's conventional commit style.
 
-## Agent skills
+## Project context
 
-### Issue tracker
-
-Issues live in this repo's GitHub Issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` at the repo root plus `docs/adr/`. See `docs/agents/domain.md`.
+`CONTEXT.md` is the source of truth for AIWorld domain vocabulary. Runtime
+configuration, package scripts, and the repository layout are the source of
+truth for commands and supported local services.

@@ -17,7 +17,6 @@
     "build",
     "build/**",
     "node_modules/**",
-    "docs/**",
     ".agents/**",
     "*.yml",
     "*.md",

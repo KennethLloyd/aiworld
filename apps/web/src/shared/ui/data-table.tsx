@@ -23,11 +23,7 @@ export interface DataTableProps<T> {
   footer?: ReactNode;
 }
 
-/**
- * Responsive data table: a real <table> on sm+ screens, stacked cards below
- * (matching the prototype's small-screen collapse). Loading/empty/error are
- * delegated to slots so callers compose Skeleton/EmptyState/ErrorState.
- */
+/** Responsive table with caller-provided loading, empty, and error slots. */
 export function DataTable<T>({
   rows,
   columns,

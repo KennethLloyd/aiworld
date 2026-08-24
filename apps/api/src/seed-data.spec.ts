@@ -18,7 +18,7 @@ describe('canonical MBTI House seed data', () => {
     expect(new Set(types).size).toBe(16);
   });
 
-  it('contains the prototype posts and threaded comments', () => {
+  it('contains seeded posts and threaded comments', () => {
     const comments = posts.flatMap((post) => flattenComments(post.comments));
 
     expect(posts).toHaveLength(4);

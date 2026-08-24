@@ -5,11 +5,7 @@ import {
   simulationExecutionSources,
 } from './simulation-command.schema.ts';
 
-// The filtered simulation log contract: one log row as an admin reads it, the
-// filter query for the list endpoint, and the paginated response. The log
-// response carries the post-hoc `reasoning` that was already persisted with the
-// run, but deliberately excludes promptUsed and responseRaw — the actual
-// provider secrets.
+// Admin logs omit prompts and raw provider responses.
 
 export const simulationLogStatuses = [
   "SUCCESS",

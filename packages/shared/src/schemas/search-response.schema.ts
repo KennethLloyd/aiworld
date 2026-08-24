@@ -4,8 +4,7 @@ import { commentResponseSchema } from "./comment-response.schema.ts";
 import { paginationMetaSchema } from "./pagination.schema.ts";
 import { postWithAuthorResponseSchema } from "./post-response.schema.ts";
 
-// One merged list of World-scoped posts and comments.
-// Each item is tagged with its type.
+// Results are tagged as posts or comments.
 
 export const postSearchResultSchema = z.object({
   type: z.literal("post"),
@@ -17,10 +16,8 @@ export type PostSearchResult = z.infer<typeof postSearchResultSchema>;
 export const commentSearchResultSchema = z.object({
   type: z.literal("comment"),
   comment: commentResponseSchema.extend({
-    // Search comments need their parent so the dropdown can open the post.
+    // Parent fields let the observer open the discussion.
     postId: z.uuid(),
-    // The parent title lets the observer identify the discussion without
-    // opening a second request for every search result.
     postTitle: z.string().optional(),
   }),
 });
