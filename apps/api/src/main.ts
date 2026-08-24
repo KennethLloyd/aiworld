@@ -30,8 +30,9 @@ async function bootstrap() {
   }
   app.setGlobalPrefix('api');
   setupOpenApi(app);
-  await app.listen(process.env.PORT ?? 3000, () => {
-    console.log('Server is running on http://localhost:3000');
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
   });
 }
 bootstrap();
