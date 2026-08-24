@@ -2,11 +2,12 @@ import type { FeedPostResponse } from '@aiworld/shared/schemas/post-response.sch
 import type { PostSort } from '@aiworld/shared/schemas/post.schema';
 import { Link } from '@tanstack/react-router';
 import {
+  ArrowUpRight,
   Flame,
   MessageSquare,
   RefreshCw,
-  Share2,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -16,18 +17,19 @@ import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { ErrorState } from '@/shared/ui/error-state';
-import { GlassPanel } from '@/shared/ui/glass-panel';
 
 import { commentLabel } from './comment-label';
 
 export function WorldFeed({
   slug,
   worldName,
+  residentCount,
   sort,
   onSortChange,
 }: {
   slug: string;
   worldName: string;
+  residentCount?: number;
   sort: PostSort;
   onSortChange: (sort: PostSort) => void;
 }) {
@@ -61,44 +63,63 @@ export function WorldFeed({
     }
   };
 
+  const postCount = postsQuery.data?.items.length ?? 0;
+
   return (
-    <section aria-label="World feed" className="flex flex-col gap-4">
-      <h1 id="world-feed-heading" className="sr-only">
-        {worldName}
-      </h1>
-      <div className="flex items-end justify-between gap-3 px-1 lg:hidden">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-ink/50">
-            World feed
-          </p>
-          <p className="font-display text-xl font-bold text-ink">{worldName}</p>
+    <section aria-label="World feed" className="flex flex-col gap-5">
+      <header className="flex flex-col gap-4 px-1">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 text-xs font-semibold tracking-wide text-brand-sentinel">
+              THE HOUSE FEED
+            </p>
+            <h1
+              id="world-feed-heading"
+              className="break-words font-display text-3xl font-bold tracking-[-0.04em] sm:text-4xl"
+            >
+              {worldName}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/60">
+              The Residents are carrying on. You just happen to be here for it.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-3 py-1.5 text-xs font-semibold text-brand-diplomat">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
+            LIVE
+          </div>
         </div>
-        <span className="pb-0.5 text-xs text-ink/70">Observer view</span>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-ink/70">
-        <p aria-live="polite">
-          {postsQuery.isFetching
-            ? 'Refreshing activity…'
-            : lastActivityAt !== undefined
-              ? `Last activity ${formatRelativeTime(lastActivityAt)}`
-              : 'No activity recorded yet'}
-        </p>
-        <button
-          type="button"
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-glass-border px-3 py-1.5 font-medium text-ink/80 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-          onClick={() => void postsQuery.refetch()}
-          disabled={postsQuery.isFetching}
-          aria-label="Refresh world feed"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${postsQuery.isFetching ? 'animate-spin' : ''}`}
-            aria-hidden="true"
-          />
-          Refresh
-        </button>
-      </div>
-      <GlassPanel className="w-full p-1.5">
-        <fieldset className="flex gap-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink/55">
+          <span aria-live="polite">
+            {postsQuery.isFetching
+              ? 'Catching up…'
+              : lastActivityAt !== undefined
+                ? `Last activity ${formatRelativeTime(lastActivityAt)}`
+                : 'Waiting for the first conversation'}
+          </span>
+          {residentCount !== undefined ? (
+            <span>{residentCount} Residents active</span>
+          ) : null}
+          {postCount > 0 ? (
+            <span>{postCount} conversations in view</span>
+          ) : null}
+          <button
+            type="button"
+            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-glass-border px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            onClick={() => void postsQuery.refetch()}
+            disabled={postsQuery.isFetching}
+            aria-label="Refresh world feed"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${postsQuery.isFetching ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <div className="flex items-center justify-between gap-3 border-b border-glass-border px-1 pb-3">
+        <fieldset className="flex gap-1 rounded-xl border border-glass-border bg-glass-20 p-1">
           <legend className="sr-only">Feed sorting</legend>
           <SortButton
             active={sort === 'hot'}
@@ -113,13 +134,17 @@ export function WorldFeed({
             onClick={() => onSortChange('new')}
           />
         </fieldset>
-      </GlassPanel>
+        <span className="hidden text-xs text-ink/45 sm:inline">
+          Scroll the latest conversations
+        </span>
+      </div>
+
       <p id="observer-mode-description" className="sr-only">
         Observers can watch the simulation but cannot vote, reply, or comment.
       </p>
       {postsQuery.isPending && postsQuery.data === undefined ? (
         <p className="text-sm text-ink/60" aria-live="polite">
-          Loading conversations...
+          Loading conversations…
         </p>
       ) : postsQuery.isError && postsQuery.data === undefined ? (
         <ErrorState
@@ -128,7 +153,9 @@ export function WorldFeed({
           onRetry={() => void postsQuery.refetch()}
         />
       ) : postsQuery.data?.items.length === 0 ? (
-        <p className="text-sm text-ink/60">No conversations yet.</p>
+        <p className="rounded-2xl border border-dashed border-glass-border p-8 text-center text-sm text-ink/60">
+          No conversations yet.
+        </p>
       ) : (
         <ul className="flex flex-col gap-4" aria-label="World feed">
           {postsQuery.data?.items.map((post) => (
@@ -144,7 +171,7 @@ export function WorldFeed({
       )}
       {postsQuery.isError && postsQuery.data !== undefined ? (
         <output
-          className="rounded-lg border border-brand-explorer/40 bg-brand-explorer/10 px-3 py-2 text-xs text-brand-explorer"
+          className="rounded-xl border border-brand-explorer/30 bg-brand-explorer/10 px-4 py-3 text-xs text-brand-explorer"
           aria-live="polite"
         >
           Feed refresh failed. Showing the last known activity.
@@ -161,7 +188,7 @@ function SortButton({
   onClick,
 }: {
   active: boolean;
-  icon: typeof Flame;
+  icon: LucideIcon;
   label: string;
   onClick: () => void;
 }) {
@@ -172,8 +199,8 @@ function SortButton({
       onClick={onClick}
       className={
         active
-          ? 'flex min-h-9 items-center gap-1.5 rounded-lg bg-glass-100 px-4 py-1.5 text-sm font-medium text-ink shadow-inner'
-          : 'flex min-h-9 items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink'
+          ? 'flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-sentinel/15 px-4 py-1.5 text-sm font-semibold text-brand-sentinel shadow-inner'
+          : 'flex min-h-9 items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/55 transition-colors hover:bg-glass-50 hover:text-ink'
       }
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
@@ -191,87 +218,111 @@ function PostCard({
   post: FeedPostResponse;
   onShare: () => void;
 }) {
+  const isPopular = post.voteScore >= 8;
+
   return (
     <article
       aria-labelledby={`post-title-${post.id}`}
-      className="glass-panel glass-panel-hover flex gap-3 p-4 sm:gap-4 sm:p-5"
+      className="group relative overflow-hidden rounded-[1.25rem] border border-glass-border bg-[rgba(25,31,46,0.8)] p-4 shadow-[0_12px_34px_rgba(4,8,20,0.16)] transition duration-200 hover:-translate-y-0.5 hover:border-brand-sentinel/25 hover:bg-[rgba(31,39,58,0.9)] sm:p-5"
     >
       <div
-        className="flex min-w-9 flex-col items-center gap-1 pt-1 sm:min-w-10"
-        aria-label="Post voting"
-      >
-        <span
-          className="rounded-lg border border-glass-border px-2 py-1 font-bold text-sm text-ink/90"
-          aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
-          title="Observer mode is read-only"
+        aria-hidden="true"
+        className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-sentinel/60 via-brand-analyst/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
+      />
+      <div className="flex gap-3 sm:gap-4">
+        <div
+          className="flex min-w-10 flex-col items-center gap-1 pt-1"
+          aria-label="Post voting"
         >
-          Score {post.voteScore}
-        </span>
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <AuthorProfileLink slug={slug} author={post.author}>
-            <Avatar
-              src={post.author.avatarUrl}
-              alt={post.author.name}
-              name={post.author.name}
-              size="sm"
-            />
-            <span className="min-w-0 truncate font-bold text-ink">
-              {post.author.name}
-            </span>
-          </AuthorProfileLink>
-          <span className="sr-only" title={`@${post.author.handle}`}>
-            @{post.author.handle}
+          <span
+            className={`min-w-10 rounded-xl px-2 py-1.5 text-center text-sm font-bold ${
+              post.voteScore >= 0
+                ? 'bg-brand-sentinel/10 text-brand-sentinel'
+                : 'bg-brand-explorer/10 text-brand-explorer'
+            }`}
+            aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
+            title="Observer mode is read-only"
+          >
+            {post.voteScore}
           </span>
-          {post.author.classification ? (
-            <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
-              {post.author.classification}
-            </Badge>
-          ) : null}
-          <time
-            className="text-ink/50"
-            dateTime={post.createdAt}
-            title={formatDate(post.createdAt)}
-            aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
-          >
-            · {formatRelativeTime(post.createdAt)}
-          </time>
+          <span className="text-[10px] text-ink/40">score</span>
         </div>
-        <h3
-          id={`post-title-${post.id}`}
-          className="break-words font-display text-base font-bold leading-tight tracking-tight sm:text-lg"
-        >
-          <Link
-            to="/worlds/$slug/posts/$postId"
-            params={{ slug, postId: post.id }}
-            className="transition-colors hover:text-brand-sentinel"
+
+        <div className="min-w-0 flex-1">
+          <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-2">
+            <AuthorProfileLink slug={slug} author={post.author}>
+              <Avatar
+                src={post.author.avatarUrl}
+                alt={post.author.name}
+                name={post.author.name}
+                size="md"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-ink">
+                  {post.author.name}
+                </span>
+                <span className="block truncate text-[11px] text-ink/45">
+                  @{post.author.handle}
+                </span>
+              </span>
+            </AuthorProfileLink>
+            {post.author.classification ? (
+              <Badge
+                tone="info"
+                dot={false}
+                className="px-2 py-0.5 text-[10px]"
+              >
+                {post.author.classification}
+              </Badge>
+            ) : null}
+            {isPopular ? (
+              <Badge tone="warning" dot className="px-2 py-0.5 text-[10px]">
+                Popular
+              </Badge>
+            ) : null}
+            <time
+              className="text-xs text-ink/45"
+              dateTime={post.createdAt}
+              title={formatDate(post.createdAt)}
+              aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
+            >
+              {formatRelativeTime(post.createdAt)}
+            </time>
+          </div>
+          <h3
+            id={`post-title-${post.id}`}
+            className="break-words font-display text-lg font-bold leading-snug tracking-[-0.02em] sm:text-xl"
           >
-            {post.title}
-          </Link>
-        </h3>
-        <p className="mt-2 line-clamp-3 break-words text-sm leading-relaxed text-ink/70">
-          {post.content}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50 sm:mt-4">
-          <Link
-            to="/worlds/$slug/posts/$postId"
-            params={{ slug, postId: post.id }}
-            aria-label={commentLabel(post.commentCount)}
-            className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
-          >
-            <MessageSquare className="h-4 w-4" aria-hidden="true" />
-            {commentLabel(post.commentCount)}
-          </Link>
-          <button
-            type="button"
-            onClick={onShare}
-            className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-glass-50 hover:text-ink"
-          >
-            <Share2 className="h-4 w-4" aria-hidden="true" />
-            Share
-          </button>
+            <Link
+              to="/worlds/$slug/posts/$postId"
+              params={{ slug, postId: post.id }}
+              className="transition-colors hover:text-brand-sentinel"
+            >
+              {post.title}
+            </Link>
+          </h3>
+          <p className="mt-2 line-clamp-5 break-words text-sm leading-7 text-ink/70">
+            {post.content}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50">
+            <Link
+              to="/worlds/$slug/posts/$postId"
+              params={{ slug, postId: post.id }}
+              aria-label={commentLabel(post.commentCount)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink"
+            >
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+              {commentLabel(post.commentCount)}
+            </Link>
+            <button
+              type="button"
+              onClick={onShare}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink"
+            >
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              Share
+            </button>
+          </div>
         </div>
       </div>
     </article>
@@ -288,7 +339,7 @@ function AuthorProfileLink({
   children: ReactNode;
 }) {
   const className =
-    'flex min-w-0 max-w-full items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
+    'flex min-w-0 max-w-full items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
 
   if (author.characterId === undefined) {
     return <span className={className}>{children}</span>;

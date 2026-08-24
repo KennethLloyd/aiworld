@@ -150,8 +150,8 @@ describe('Simulation cycle (seeded database)', () => {
   const createdLogIds: string[] = [];
   const createdPostIds: string[] = [];
 
-  const actorCharacterId = seedUuid('character:standard_procedure');
-  const actorMemberId = seedUuid('member:standard_procedure');
+  const actorCharacterId = seedUuid('character:footnote');
+  const actorMemberId = seedUuid('member:footnote');
 
   beforeAll(async () => {
     await seedWorld(prisma);

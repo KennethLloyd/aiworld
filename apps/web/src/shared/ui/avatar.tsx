@@ -5,10 +5,18 @@ import { cn } from './cn';
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
 const sizeClasses: Record<AvatarSize, string> = {
-  sm: 'h-8 w-8 rounded-lg text-[10px]',
-  md: 'h-10 w-10 rounded-xl text-xs',
-  lg: 'h-16 w-16 rounded-2xl text-base',
+  sm: 'h-8 w-8 rounded-xl text-[10px]',
+  md: 'h-11 w-11 rounded-2xl text-xs',
+  lg: 'h-20 w-20 rounded-[1.5rem] text-lg',
 };
+
+const avatarGradients = [
+  'from-indigo-300/35 via-indigo-500/20 to-cyan-400/25 text-indigo-100',
+  'from-violet-300/35 via-purple-500/20 to-fuchsia-400/25 text-violet-100',
+  'from-teal-300/35 via-emerald-500/20 to-sky-400/25 text-teal-100',
+  'from-amber-300/35 via-orange-500/20 to-rose-400/25 text-amber-100',
+  'from-sky-300/35 via-blue-500/20 to-violet-400/25 text-sky-100',
+];
 
 export interface AvatarProps {
   /** Optional remote avatar. Missing or broken images use the shared fallback. */
@@ -21,7 +29,7 @@ export interface AvatarProps {
   className?: string;
 }
 
-/** Presentation-only avatar with a shared fallback for observer and admin surfaces. */
+/** Presentation-only avatar with a distinct, deterministic fallback for every resident. */
 export function Avatar({
   src,
   alt,
@@ -34,11 +42,13 @@ export function Avatar({
     setHasLoadError(false);
   }, [src]);
   const showImage = Boolean(src) && !hasLoadError;
+  const gradient = avatarGradients[hashCode(name) % avatarGradients.length];
 
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-brand-sentinel/30 bg-gradient-to-br from-brand-sentinel/20 to-brand-analyst/20 text-brand-sentinel shadow-inner',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-gradient-to-br shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]',
+        gradient,
         sizeClasses[size],
         className,
       )}
@@ -61,6 +71,13 @@ export function Avatar({
         </span>
       )}
     </span>
+  );
+}
+
+function hashCode(value: string): number {
+  return Array.from(value).reduce(
+    (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
+    0,
   );
 }
 

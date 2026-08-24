@@ -52,7 +52,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
         Search discussions
       </label>
       <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
         aria-hidden="true"
       />
       <input
@@ -90,7 +90,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
             optionRefs.current[activeIndex]?.click();
           }
         }}
-        placeholder="Search discussions..."
+        placeholder="Search this World"
         autoComplete="off"
         aria-label="Search discussions"
         aria-invalid={isTooShort || undefined}
@@ -103,14 +103,14 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
             ? `discussion-search-option-${activeIndex}`
             : undefined
         }
-        className="h-10 w-full rounded-xl border border-glass-border bg-glass-50 pl-10 pr-10 text-sm text-ink shadow-inner outline-none transition-colors placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:bg-glass-100 focus:ring-2 focus:ring-brand-sentinel/30"
+        className="h-11 w-full rounded-2xl border border-glass-border bg-glass-20 pl-11 pr-10 text-sm text-ink shadow-inner outline-none transition-colors placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:bg-glass-50 focus:ring-2 focus:ring-brand-sentinel/20"
       />
       {value.length > 0 ? (
         <button
           type="button"
           onClick={clear}
           aria-label="Clear discussion search"
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink/45 transition-colors hover:bg-glass-50 hover:text-ink"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink/45 transition-colors hover:bg-glass-50 hover:text-ink"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -120,21 +120,21 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
           id="discussion-search-results"
           aria-label="Discussion search results"
           aria-live="polite"
-          className="glass-panel absolute inset-x-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl bg-surface/95 py-2 shadow-2xl"
+          className="glass-panel absolute inset-x-0 top-full z-50 mt-2 max-h-80 overflow-y-auto rounded-2xl bg-surface/95 py-2 shadow-2xl"
         >
           {isTooShort ? (
             <p
               id="discussion-search-hint"
-              className="px-3 py-3 text-center text-xs text-ink/60"
+              className="px-4 py-4 text-center text-xs text-ink/60"
             >
               Enter at least 2 characters to search.
             </p>
           ) : query.isError && query.data === undefined ? (
-            <div className="flex flex-col items-center gap-2 px-3 py-3 text-center text-xs text-rose-300">
+            <div className="flex flex-col items-center gap-2 px-4 py-4 text-center text-xs text-rose-300">
               <p role="alert">Could not search discussions.</p>
               <button
                 type="button"
-                className="rounded-md border border-glass-border px-3 py-1.5 text-ink/80 hover:bg-glass-50 hover:text-ink"
+                className="rounded-lg border border-glass-border px-3 py-1.5 text-ink/80 hover:bg-glass-50 hover:text-ink"
                 onClick={() => void query.refetch()}
               >
                 Retry search
@@ -142,13 +142,13 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
             </div>
           ) : query.isPending && query.data === undefined ? (
             <output
-              className="px-3 py-3 text-center text-xs text-ink/60"
+              className="px-4 py-4 text-center text-xs text-ink/60"
               aria-live="polite"
             >
-              Searching discussions...
+              Searching discussions…
             </output>
           ) : query.data?.items.length === 0 ? (
-            <p className="px-3 py-3 text-center text-xs text-ink/60">
+            <p className="px-4 py-4 text-center text-xs text-ink/60">
               No discussions found.
             </p>
           ) : (
@@ -174,7 +174,7 @@ export function DiscussionSearch({ worldSlug }: { worldSlug: string }) {
             </ul>
           )}
           {query.isFetching && query.data !== undefined ? (
-            <output className="block px-3 py-1 text-center text-[10px] text-brand-sentinel">
+            <output className="block px-4 py-1.5 text-center text-[10px] text-brand-sentinel">
               Updating results…
             </output>
           ) : null}
@@ -221,15 +221,15 @@ function SearchResultLink({
       params={{ slug: worldSlug, postId }}
       onClick={onSelect}
       ref={anchorRef}
-      className={`block rounded-lg border-b border-glass-border px-3 py-3 last:border-0 hover:bg-glass-50 focus-visible:bg-glass-50 ${active ? 'bg-glass-50' : ''}`}
+      className={`block border-b border-glass-border px-4 py-3.5 transition-colors last:border-0 hover:bg-glass-50 focus-visible:bg-glass-50 ${active ? 'bg-glass-50' : ''}`}
     >
-      <span className="block text-[10px] font-semibold uppercase tracking-wider text-brand-sentinel">
-        {isPost ? 'Post' : 'Comment'}
+      <span className="mb-1 block text-[10px] font-semibold tracking-wide text-brand-sentinel">
+        {isPost ? 'POST' : 'COMMENT'}
       </span>
       <span className="block text-sm font-semibold text-ink">
         {highlightText(title, query)}
       </span>
-      <span className="mt-1 block line-clamp-2 text-xs text-ink/70">
+      <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-ink/65">
         {highlightText(excerpt, query)}
       </span>
     </Link>

@@ -12,21 +12,22 @@ import {
 
 describe('canonical MBTI House seed data', () => {
   it('contains each MBTI type exactly once', () => {
-    const types = characters.map((character) => character.classification);
-
     expect(characters).toHaveLength(16);
-    expect(new Set(types).size).toBe(16);
+    expect(
+      new Set(characters.map((character) => character.classification)).size,
+    ).toBe(16);
+    expect(new Set(characters.map((character) => character.key)).size).toBe(16);
   });
 
-  it('contains seeded posts and threaded comments', () => {
+  it('contains varied seeded posts and threaded comments', () => {
     const comments = posts.flatMap((post) => flattenComments(post.comments));
 
-    expect(posts).toHaveLength(4);
-    expect(comments).toHaveLength(14);
-    expect(comments.filter((comment) => comment.parentKey)).toHaveLength(1);
+    expect(posts).toHaveLength(8);
+    expect(comments).toHaveLength(36);
+    expect(comments.filter((comment) => comment.parentKey)).toHaveLength(5);
     expect(
       new Set(posts.map((post) => seedUuid(`post:${post.key}`))).size,
-    ).toBe(4);
+    ).toBe(posts.length);
   });
 
   it('round-trips the world description through the shared response contract', () => {

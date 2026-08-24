@@ -50,7 +50,7 @@ describe('public About World route', () => {
     expect(screen.getByText('Be kind')).toBeInTheDocument();
     expect(screen.getByText('Stay on topic')).toBeInTheDocument();
     expect(
-      screen.getByText(/cannot post, vote, or comment/),
+      screen.getByText(/without posting, voting, or commenting/),
     ).toBeInTheDocument();
 
     const navigation = screen.getByRole('navigation', {

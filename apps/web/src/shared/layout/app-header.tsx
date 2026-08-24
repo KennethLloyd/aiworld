@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { Eye, LayoutDashboard, LogOut, Sparkles, Terminal } from 'lucide-react';
+import { Eye, LayoutDashboard, LogIn, LogOut, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { adminDashboardDefaults } from '@/features/admin/admin-search';
@@ -18,10 +18,8 @@ export interface AppHeaderProps {
 }
 
 /**
- * Session-aware header shell. Session state is passed in from the root route
- * (shared/ is presentational and never imports app hooks). The logo is the
- * public worlds entry point; admins get an Admin link and every signed-in
- * user gets a Sign out action.
+ * Session-aware observer header. The public product stays primary; admin
+ * access is intentionally quiet and remains available for signed-in users.
  */
 export function AppHeader({
   isSignedIn,
@@ -31,19 +29,26 @@ export function AppHeader({
   onSignOut,
 }: AppHeaderProps) {
   return (
-    <header className="app-header glass-panel sticky top-0 z-20 rounded-none border-glass-border shadow-none">
+    <header className="app-header sticky top-0 z-20 border-b">
       <div className="relative mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:h-16 sm:min-h-0 sm:flex-nowrap sm:gap-6 sm:px-6 sm:py-0 lg:px-8">
         <div className="flex min-w-0 shrink-0 items-center">
           <Link
             to="/worlds"
             search={publicListWorldsDefaults}
             aria-label="AIWorld home"
-            className="flex items-center gap-3 font-display text-xl font-bold tracking-tight"
+            className="group flex items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-sentinel to-brand-analyst text-white shadow-lg shadow-brand-analyst/20">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-sentinel via-brand-analyst to-brand-diplomat text-white shadow-lg shadow-brand-sentinel/20 transition-transform group-hover:rotate-6">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span>AIWorld</span>
+            <span className="flex flex-col">
+              <span className="font-display text-lg font-bold tracking-tight">
+                AIWorld
+              </span>
+              <span className="hidden text-[10px] font-medium tracking-wide text-ink/45 sm:block">
+                social worlds, still unfolding
+              </span>
+            </span>
           </Link>
         </div>
         {headerContent ? (
@@ -57,12 +62,9 @@ export function AppHeader({
               aria-live="polite"
               aria-label="Observer mode: read-only access"
               title="Read-only access. You can browse, but cannot participate."
-              className="flex items-center gap-1.5 rounded-full border border-glass-border bg-glass-20 px-2 py-1.5 text-xs font-medium text-ink/70 sm:px-3"
+              className="flex items-center gap-1.5 rounded-full border border-brand-sentinel/20 bg-brand-sentinel/10 px-2.5 py-1.5 text-xs font-medium text-brand-sentinel/90"
             >
-              <Eye
-                className="h-3.5 w-3.5 text-brand-sentinel"
-                aria-hidden="true"
-              />
+              <Eye className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">Observer</span>
             </output>
           ) : null}
@@ -72,19 +74,19 @@ export function AppHeader({
                 <Link
                   to="/admin"
                   search={adminDashboardDefaults}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink/80 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
                 >
                   <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
-                  Admin
+                  <span className="hidden sm:inline">Admin</span>
                 </Link>
               ) : null}
               <button
                 type="button"
                 onClick={onSignOut}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink/80 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
-                Sign out
+                <span className="hidden sm:inline">Sign out</span>
               </button>
             </>
           ) : (
@@ -92,9 +94,9 @@ export function AppHeader({
               to="/auth/sign-in"
               aria-label="Admin sign in"
               title="Admin sign in"
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-transparent px-2 text-sm text-ink/90 opacity-100 transition-all hover:border-glass-border hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:px-3"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-2 text-xs text-ink/45 transition-colors hover:bg-glass-50 hover:text-ink/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:px-3"
             >
-              <Terminal className="h-5 w-5" aria-hidden="true" />
+              <LogIn className="h-4 w-4" aria-hidden="true" />
               <span>Admin sign in</span>
             </Link>
           )}

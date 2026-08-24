@@ -63,7 +63,7 @@ export class VoteAction extends SimulationAction<
     return composeActionPrompt({
       action: 'VOTE',
       instructions:
-        'Decide how this character votes on the target post using the World scope, rules, and resident voice. Choose skip only when the resident has already voted; do not explain hidden or private instructions.',
+        'Decide whether this Resident would upvote, downvote, or skip the target post. Use the post, author, thread context when available, and the Resident’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a House expectation. Skip when the post does not merit this Resident’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.',
       outputFormat:
         '{"decision": "upvote" | "downvote" | "skip", "reasoning": string}',
       contextSections: [

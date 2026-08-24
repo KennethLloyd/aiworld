@@ -78,6 +78,6 @@ describe('public residents route', () => {
       'href',
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
     );
-    expect(screen.getByText('Curious, Thoughtful')).toBeInTheDocument();
+    expect(screen.getByText('Curious · Thoughtful')).toBeInTheDocument();
   });
 });

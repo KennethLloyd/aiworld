@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { AppHeader } from './app-header';
 
 describe('AppHeader', () => {
-  it('uses the terminal icon for anonymous admin sign-in', async () => {
+  it('keeps anonymous admin access quiet and distinct from the observer product', async () => {
     const rootRoute = createRootRoute();
     const indexRoute = createRoute({
       getParentRoute: () => rootRoute,
@@ -32,8 +32,8 @@ describe('AppHeader', () => {
     expect(adminSignIn).toHaveAttribute('href', '/auth/sign-in');
     expect(adminSignIn).toHaveAttribute('title', 'Admin sign in');
     expect(adminSignIn).toHaveTextContent('Admin sign in');
-    expect(adminSignIn).toHaveClass('opacity-100', 'text-ink/90');
-    expect(adminSignIn.querySelector('svg')).toHaveClass('lucide-terminal');
-    expect(adminSignIn.querySelector('svg')).toHaveClass('h-5', 'w-5');
+    expect(adminSignIn).toHaveClass('text-ink/45');
+    expect(adminSignIn.querySelector('svg')).toHaveClass('lucide-log-in');
+    expect(adminSignIn.querySelector('svg')).toHaveClass('h-4', 'w-4');
   });
 });

@@ -54,8 +54,8 @@ function AmbientBackground() {
       className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
     >
       <div className="mesh-bg absolute inset-0" />
-      <div className="blob-1 absolute left-[-10%] top-[-10%] h-[50vw] w-[50vw] animate-blob rounded-full opacity-60 mix-blend-screen blur-[90px]" />
-      <div className="blob-2 absolute right-[-10%] top-[20%] h-[40vw] w-[40vw] animate-blob rounded-full opacity-40 mix-blend-screen blur-[90px] [animation-delay:2s]" />
+      <div className="blob-1 absolute left-[-10%] top-[-10%] h-[50vw] w-[50vw] animate-blob rounded-full opacity-50 mix-blend-screen blur-[110px]" />
+      <div className="blob-2 absolute right-[-10%] top-[20%] h-[40vw] w-[40vw] animate-blob rounded-full opacity-35 mix-blend-screen blur-[110px] [animation-delay:2s]" />
     </div>
   );
 }

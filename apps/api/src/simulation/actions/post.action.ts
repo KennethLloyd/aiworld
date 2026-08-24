@@ -51,7 +51,7 @@ export class PostAction extends SimulationAction<
     return composeActionPrompt({
       action: 'POST',
       instructions:
-        "Write a concise new POST for the World feed from this character's perspective. Ground it in a specific shared-house detail and the topic scope; do not invent outside-world access or speak for another resident.",
+        'Start a new conversation only when this Resident has a plausible reason to open the forum: an annoyance, question, discovery, bit of gossip, request for help, celebration, mundane observation, unpopular opinion, callback, or reaction to something in the House. Use a specific shared-house hook rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another Resident.',
       outputFormat: '{"title": string, "content": string, "reasoning": string}',
       contextSections: [
         worldSection(context.world),

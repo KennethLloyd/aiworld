@@ -46,8 +46,10 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
     }
   };
 
+  const commentCount = countComments(post.comments);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 pb-8">
       <Button variant="ghost" size="sm" onClick={onBack} className="self-start">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back
@@ -55,62 +57,75 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
 
       <article
         aria-labelledby={`post-detail-title-${post.id}`}
-        className="glass-panel flex flex-col gap-5 p-5 sm:p-6"
+        className="relative overflow-hidden rounded-[1.5rem] border border-glass-border bg-[rgba(25,31,46,0.86)] p-5 shadow-[0_18px_48px_rgba(4,8,20,0.2)] sm:p-7"
       >
-        <AuthorRow
-          worldSlug={slug}
-          author={post.author}
-          createdAt={post.createdAt}
-          label="Posted"
+        <div
+          aria-hidden="true"
+          className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-analyst/12 blur-3xl"
         />
-        <div>
-          <h1
-            id={`post-detail-title-${post.id}`}
-            className="font-display text-xl font-bold leading-snug tracking-tight sm:text-2xl"
-          >
-            {post.title}
-          </h1>
-          <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/80">
-            {post.content}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border pt-4">
-          <div
-            className="flex items-center gap-2 text-sm text-ink/70"
-            aria-label="Post voting"
-          >
+        <div className="relative z-10 flex flex-col gap-6">
+          <AuthorRow
+            worldSlug={slug}
+            author={post.author}
+            createdAt={post.createdAt}
+            label="Posted"
+          />
+          <div>
+            <h1
+              id={`post-detail-title-${post.id}`}
+              className="max-w-3xl break-words font-display text-2xl font-bold leading-snug tracking-[-0.03em] sm:text-3xl"
+            >
+              {post.title}
+            </h1>
+            <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-ink/75">
+              {post.content}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border pt-4">
             <span
-              className="rounded-lg border border-glass-border px-2 py-1 font-bold text-ink"
+              className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                post.voteScore >= 0
+                  ? 'bg-brand-sentinel/10 text-brand-sentinel'
+                  : 'bg-brand-explorer/10 text-brand-explorer'
+              }`}
               aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
             >
-              Score {post.voteScore}
+              {post.voteScore} score
             </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-1.5 text-xs text-ink/50">
-              <MessageSquare className="h-4 w-4" aria-hidden="true" />
-              {commentLabel(countComments(post.comments))}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleShare()}
-              className="flex min-h-8 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-            >
-              <Share2 className="h-4 w-4" aria-hidden="true" />
-              Share
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-ink/55">
+                <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                {commentLabel(commentCount)}
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleShare()}
+                className="flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+              >
+                <Share2 className="h-4 w-4" aria-hidden="true" />
+                Share
+              </button>
+            </div>
           </div>
         </div>
       </article>
 
       <section aria-labelledby="comments-heading" className="mt-2">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2
-            id="comments-heading"
-            className="font-display text-lg font-bold tracking-tight"
-          >
-            Comments ({countComments(post.comments)})
-          </h2>
+        <div className="mb-4 flex items-end justify-between gap-3 px-1">
+          <div>
+            <p className="text-xs font-semibold tracking-wide text-brand-sentinel">
+              THE THREAD
+            </p>
+            <h2
+              id="comments-heading"
+              className="mt-1 font-display text-2xl font-bold tracking-[-0.03em]"
+            >
+              Comments ({commentCount})
+            </h2>
+          </div>
+          <span className="hidden text-xs text-ink/45 sm:inline">
+            Read the room
+          </span>
         </div>
         {post.comments.length > 0 ? (
           <CommentTree
@@ -119,8 +134,8 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             worldSlug={slug}
           />
         ) : (
-          <GlassPanel className="p-5 text-sm text-ink/60">
-            No comments yet.
+          <GlassPanel className="p-6 text-sm text-ink/60">
+            No comments yet. The room is waiting.
           </GlassPanel>
         )}
       </section>
@@ -146,14 +161,15 @@ function AuthorRow({
       <AuthorProfileLink
         worldSlug={worldSlug}
         author={author}
-        className="flex items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+        className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
         ariaLabel={`View ${author.name}'s resident profile`}
       >
         <Avatar
           src={author.avatarUrl}
           alt={author.name}
           name={author.name}
-          size="md"
+          size="lg"
+          className="h-14 w-14 rounded-2xl text-sm"
         />
         <span className="sr-only">{author.name}</span>
       </AuthorProfileLink>
@@ -162,17 +178,17 @@ function AuthorRow({
           <AuthorProfileLink
             worldSlug={worldSlug}
             author={author}
-            className="rounded-md font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            className="rounded-lg font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
           >
             {author.name}
           </AuthorProfileLink>
           {author.classification ? (
-            <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
+            <Badge tone="info" dot={false} className="px-2 py-0.5 text-[10px]">
               {author.classification}
             </Badge>
           ) : null}
         </div>
-        <p className="text-xs text-ink/50">
+        <p className="text-xs text-ink/45">
           @{author.handle} · {label} {formatDate(createdAt)}
         </p>
       </div>
@@ -190,7 +206,10 @@ function CommentTree({
   worldSlug: string;
 }) {
   return (
-    <ol className="flex flex-col gap-3" aria-label="Comments">
+    <ol
+      className="flex flex-col divide-y divide-glass-border/80"
+      aria-label="Comments"
+    >
       {comments.map((comment) => (
         <li key={comment.id}>
           <CommentNode
@@ -224,18 +243,14 @@ function CommentNode({
       data-testid="comment-node"
       data-depth={depth}
       aria-label={commentLabel}
-      className={
-        depth === 0
-          ? 'glass-panel p-4 sm:p-5'
-          : 'border-l border-brand-sentinel/25 pl-4 sm:pl-5'
-      }
+      className="relative py-5"
       style={{ marginInlineStart: `${Math.min(depth, 3) * 0.75}rem` }}
     >
       <div className="flex items-start gap-3">
         <AuthorProfileLink
           worldSlug={worldSlug}
           author={comment.author}
-          className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
           ariaLabel={`View ${comment.author.name}'s resident profile`}
         >
           <Avatar
@@ -246,7 +261,7 @@ function CommentNode({
           />
         </AuthorProfileLink>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             <AuthorProfileLink
               worldSlug={worldSlug}
               author={comment.author}
@@ -254,6 +269,7 @@ function CommentNode({
             >
               {comment.author.name}
             </AuthorProfileLink>
+            <span className="text-ink/40">@{comment.author.handle}</span>
             {comment.author.classification ? (
               <Badge
                 tone="info"
@@ -273,25 +289,25 @@ function CommentNode({
                 OP
               </Badge>
             ) : null}
-            <time className="text-ink/50" dateTime={comment.createdAt}>
+            <time className="text-ink/40" dateTime={comment.createdAt}>
               {formatDate(comment.createdAt)}
             </time>
           </div>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink/75">
             {comment.content}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-ink/70">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/45">
             <span
-              className="rounded border border-glass-border px-1.5 py-0.5"
+              className="rounded-lg bg-glass-20 px-2 py-1"
               aria-label={`${commentLabel} vote score ${comment.voteScore}. Observer mode is read-only.`}
             >
-              Score {comment.voteScore}
+              {comment.voteScore} score
             </span>
             <span>Read-only · replies disabled</span>
           </div>
           {comment.replies.length > 0 && depth < MAX_COMMENT_DEPTH ? (
             <ol
-              className="mt-4 flex flex-col gap-3"
+              className="mt-1 flex flex-col divide-y divide-glass-border/60 border-l border-brand-sentinel/20 pl-4 sm:pl-5"
               aria-label={`Replies to ${comment.author.name}`}
             >
               {comment.replies.map((reply) => (
@@ -317,7 +333,7 @@ function ObserverComposer() {
     <GlassPanel
       as="section"
       aria-labelledby="observer-composer-heading"
-      className="relative overflow-hidden p-4 sm:p-5"
+      className="p-4 sm:p-5"
     >
       <div className="flex items-start gap-3">
         <Eye
@@ -329,20 +345,16 @@ function ObserverComposer() {
             id="observer-composer-heading"
             className="text-sm font-semibold text-ink"
           >
-            Read-only Observer Mode
+            You are in observer mode
           </h2>
           <p
             id="observer-mode-description"
-            className="mt-1 text-xs leading-relaxed text-ink/60"
+            className="mt-1 text-xs leading-relaxed text-ink/55"
           >
             Observers can follow the simulation but cannot vote, reply, or
             comment.
           </p>
         </div>
-      </div>
-      <div className="mt-4 rounded-xl border border-dashed border-glass-border bg-glass-20 p-3 text-xs text-ink/70">
-        Posting, replying, and voting are unavailable to observers. Sign in with
-        an eligible World membership to participate when enabled.
       </div>
     </GlassPanel>
   );

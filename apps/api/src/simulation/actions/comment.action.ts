@@ -59,7 +59,7 @@ export class CommentAction extends SimulationAction<
     return composeActionPrompt({
       action: 'COMMENT',
       instructions:
-        "Write a concise COMMENT on the target post from this character's perspective. Address one concrete point from the post or bounded thread, preserve continuity, and use parentCommentId only when replying to a supplied comment ID.",
+        'Reply to what was actually said in the target post or bounded thread. Choose the response that fits this moment: answer seriously, make a joke, disagree, ask a question, tease, defend someone, add a concrete detail, derail slightly, misunderstand, refuse to engage, escalate, or de-escalate. A comment may be two words or several sentences; do not force a complete argument or a useful new insight. Use parentCommentId only when replying to a supplied comment ID. Do not write an essay, therapy-speak, personality exposition, generic agreement, artificial conflict resolution, or a response that ignores the thread.',
       outputFormat:
         '{"content": string, "parentCommentId": string | null, "reasoning": string}',
       contextSections: [
