@@ -4,8 +4,6 @@ import { authorResponseSchema } from "./author-response.schema.ts";
 import { commentResponseSchema } from "./comment-response.schema.ts";
 import { paginationMetaSchema } from "./pagination.schema.ts";
 
-// Response contracts
-
 export const postResponseSchema = z.object({
   id: z.uuid(),
   title: z.string(),

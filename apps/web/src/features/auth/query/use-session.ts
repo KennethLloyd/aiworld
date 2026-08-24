@@ -3,12 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi, type AuthSession } from '@/core/auth/auth-client';
 import { sessionKeys } from '@/core/auth/session-keys';
 
-/**
- * Session query + mutations (architecture plan 6.6). The session lives in the
- * TanStack Query cache under sessionKeys.current: sign-in writes the fetched
- * session, sign-out writes null. No Redux/Zustand mirror and no raw Better
- * Auth response wrappers leak past the authApi boundary.
- */
+/** Reads and mutates the current session through TanStack Query. */
 export function useSession() {
   return useQuery({
     queryKey: sessionKeys.current,

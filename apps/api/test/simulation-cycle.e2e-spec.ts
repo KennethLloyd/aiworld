@@ -24,11 +24,7 @@ import { seedWorld } from '../prisma/seed-world';
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://postgres:***@localhost:5432/aiworld';
 
-/** A full mock cycle — POST, then VOTE, then COMMENT on the created post —
- * driven through the real DI graph (executor → writer → log service). The
- * former SimulationCycleService orchestrated this in production code; with no
- * product caller for a fixed triple (Plan 07's Run One Action is a single
- * scheduler iteration), the orchestration now lives here as a test helper. */
+/** Runs POST, VOTE, and COMMENT through the real test dependency graph. */
 type FullCycleStep =
   | {
       step: 'POST' | 'VOTE' | 'COMMENT';

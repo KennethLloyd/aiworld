@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-// The transport contract for simulated work. Scheduled ticks, Run One Action,
-// and Custom Action all share one serializable command shape that both queue
-// adapters (BullMQ and in-process) serialize and deserialize identically.
+// Queue adapters share this serializable command shape.
 
 export const simulationActionTypes = ["POST", "VOTE", "COMMENT"] as const;
 
@@ -26,8 +24,7 @@ export const simulationCommandSchema = z.object({
 
 export type SimulationCommand = z.infer<typeof simulationCommandSchema>;
 
-// Speed multiplier range. The presets shown in the admin UI are vocabulary,
-// not schema values; the shared contract owns the 0.1-100 boundary.
+// UI presets map to this shared 0.1-100 range.
 export const simulationSpeedMultiplierSchema = z
   .number()
   .min(0.1)
@@ -37,12 +34,7 @@ export type SimulationSpeedMultiplier = z.infer<
   typeof simulationSpeedMultiplierSchema
 >;
 
-/**
- * Completion-to-start cadence math: the next scheduled tick fires after the
- * effective interval plus a uniform jitter. The speed multiplier scales both
- * the interval and the jitter so the pacing stays proportional. `random`
- * returns a value in [0, 1) and is injectable for deterministic tests.
- */
+/** Computes the next tick delay with speed-scaled jitter. */
 export function deriveScheduledDelayMs(input: {
   intervalMs: number;
   jitterMs: number;

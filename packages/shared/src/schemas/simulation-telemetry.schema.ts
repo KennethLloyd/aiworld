@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-// The admin telemetry contract: aggregate counters and averages derived from
-// SimulationLog rows. It carries no provider identifiers, keys, prompts, or raw
-// responses — only what an operator needs to watch pacing and spend.
+// Admin telemetry excludes provider keys, prompts, and raw responses.
 
 export const simulationTelemetryResponseSchema = z.object({
   worldId: z.uuid(),

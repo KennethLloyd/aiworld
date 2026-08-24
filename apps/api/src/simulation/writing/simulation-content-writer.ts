@@ -13,9 +13,7 @@ import {
 } from '@/simulation/actions/simulation-decision';
 import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
 
-/** Persists validated action decisions. The only place generated content is
- * written; repositories come in through ports so tests can inject doubles and
- * the schema boundary stays inside the adapters. */
+/** Persists validated decisions through repository ports. */
 @Injectable()
 export class SimulationContentWriter {
   constructor(
@@ -56,9 +54,7 @@ export class SimulationContentWriter {
     });
   }
 
-  /** Rejects replies that would nest deeper than three levels and parents that
-   * do not exist or belong to another post. Enforced here, on the write path,
-   * not truncated on read (Plan 06). */
+  /** Enforces parent and depth checks before persisting a comment. */
   async persistComment(decision: CommentDecision): Promise<{ id: string }> {
     await this.assertAllowedParent(decision.postId, decision.parentCommentId);
     return this.commentRepository.create({
@@ -100,8 +96,7 @@ export class SimulationContentWriter {
     }
   }
 
-  /** Depth is 1 for a top-level comment, growing by one per ancestor. Because
-   * writes already enforce the limit, the walk is at most three hops. */
+  /** Returns the comment depth; writes cap it at three levels. */
   private async depthOf(comment: CommentLinkRecord): Promise<number> {
     let depth = 1;
     let parentCommentId = comment.parentCommentId;

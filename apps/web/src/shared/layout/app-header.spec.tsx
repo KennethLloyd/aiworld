@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { AppHeader } from './app-header';
 
 describe('AppHeader', () => {
-  it('uses the prototype terminal icon for anonymous admin sign-in', async () => {
+  it('uses the terminal icon for anonymous admin sign-in', async () => {
     const rootRoute = createRootRoute();
     const indexRoute = createRoute({
       getParentRoute: () => rootRoute,

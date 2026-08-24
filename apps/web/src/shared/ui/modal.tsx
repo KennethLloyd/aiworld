@@ -5,9 +5,7 @@ import { createPortal } from 'react-dom';
 import { FocusTrap } from '@/shared/accessibility/focus-trap';
 import { cn } from '@/shared/ui/cn';
 
-/* eslint-disable jsx-a11y/prefer-tag-over-role -- The architecture plan (9.2)
-   mandates role="dialog" + aria-modal; the native <dialog> element is
-   intentionally not used in this modal implementation. */
+/* eslint-disable jsx-a11y/prefer-tag-over-role -- Custom focus management uses a div dialog. */
 
 export interface ModalProps {
   open: boolean;

@@ -2,10 +2,7 @@ import { z } from "zod";
 import { simulationActionTypes } from './simulation-command.schema.ts';
 import { simulationLogResponseSchema } from './simulation-log.schema.ts';
 
-// The manual-run contract: the Custom Action body (character and action are
-// optional — Any Character / Automatic) and the shared Run One Action / Custom
-// Action result. The result reflects exactly what the scheduler returned: a
-// completed iteration with its logged outcome, or a logged failure.
+// Manual runs share the scheduler result shape.
 
 export const runCustomActionSchema = z.object({
   characterId: z.uuid().optional(),

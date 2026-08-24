@@ -22,13 +22,7 @@ export interface WorldListProps {
   onRetry: () => void;
 }
 
-/**
- * Public /worlds screen: responsive card grid and the four universal states
- * (loading skeleton, error + retry, empty, content). Search is owned by the
- * header so the page matches the prototype while the URL remains canonical.
- * placeholderData keeps the previous grid visible while search/pagination
- * changes load, so the skeleton only appears on the first load (no data).
- */
+/** Public /worlds screen with responsive grid and query states. */
 export function WorldList({
   data,
   isPending,

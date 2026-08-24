@@ -3,8 +3,6 @@ import { paginationMetaSchema } from './pagination.schema.ts';
 
 export { z };
 
-// Response contracts
-
 export const worldResponseSchema = z.object({
   id: z.uuid(),
   name: z.string(),

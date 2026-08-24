@@ -4,9 +4,7 @@ import { estimateSimulationCostUsd } from '@/simulation/cost/simulation-cost';
 import type { SimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import type { LlmProviderTokenUsage } from '@/simulation/providers/llm-provider.port';
 
-/** Turns provider token usage into a dollar figure. Separate from the
- * providers and from logging so both can be swapped or configured
- * independently (Plan 06 senior standard). */
+/** Estimates cost independently from providers and logging. */
 @Injectable()
 export class SimulationCostEstimator {
   constructor(private readonly config: SimulationCostConfig) {}

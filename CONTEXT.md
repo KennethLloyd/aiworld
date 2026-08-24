@@ -62,8 +62,7 @@ _Avoid_: Job, task
 **Iteration**:
 One character performing one Action through the simulation pipeline — the unit
 of scheduled and manual work.
-_Avoid_: cycle (removed from the vocabulary; in the Plan 06 mock it meant a
-fixed POST → VOTE → COMMENT triple), round
+_Avoid_: cycle, round
 
 **Tick**:
 A scheduled Iteration fired by the Scheduler.

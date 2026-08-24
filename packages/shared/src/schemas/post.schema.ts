@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import { paginationQueryFields } from "./pagination.schema.ts";
 
-// Request DTOs
-
 export const postSortSchema = z.enum(["hot", "new"]);
 export type PostSort = z.infer<typeof postSortSchema>;
 
@@ -16,8 +14,6 @@ export const postDetailParamsSchema = z.object({
   slug: z.string(),
   postId: z.uuid(),
 });
-
-// Inferred types
 
 export type ListPostsQuery = z.infer<typeof listPostsQuerySchema>;
 export type PostDetailParams = z.infer<typeof postDetailParamsSchema>;

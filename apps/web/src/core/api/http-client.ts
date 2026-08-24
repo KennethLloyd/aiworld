@@ -1,11 +1,6 @@
 import { parseErrorEnvelope } from './api-error';
 
-/**
- * Typed fetch wrapper - the only file in the app allowed to call fetch during
- * Phase B. Every request sends the session cookie (credentials: 'include');
- * responses are returned as raw unknown JSON and Zod-parsed by the gateway
- * adapters before anything enters the query cache.
- */
+/** Sends credentialed requests; gateway adapters validate responses. */
 export class HttpClient {
   constructor(private readonly baseUrl: string) {}
 
@@ -47,8 +42,7 @@ export class HttpClient {
       throw parseErrorEnvelope(response.status, await readJson(response));
     }
 
-    // 204 No Content (e.g. DELETE /api/worlds/:slug) resolves void without
-    // attempting to parse an empty body as JSON.
+    // 204 responses have no JSON body.
     if (response.status === 204) {
       return undefined as T;
     }

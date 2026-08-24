@@ -3,11 +3,6 @@ import { z } from "zod";
 import { commentResponseSchema } from "./comment-response.schema.ts";
 import { postWithAuthorResponseSchema } from "./post-response.schema.ts";
 
-// Merged timeline: posts and comments interleave in one createdAt-desc
-// stream. Keyset paginated: the page carries nextCursor (nullable), the
-// client returns it from getNextPageParam, and hasNextPage derives from a
-// non-null cursor (TanStack Query useInfiniteQuery contract).
-
 export const postActivityItemSchema = postWithAuthorResponseSchema.extend({
   kind: z.literal("post"),
 });

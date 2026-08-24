@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { simulationSpeedMultiplierSchema } from './simulation-command.schema.ts';
 
-// The admin simulation lifecycle contract: the persisted WorldSimulationConfig
-// transport shape, the state-mutation body, and the speed-mutation body. The
-// state values mirror the lifecycle vocabulary and the speed multiplier reuses
-// the shared 0.1-100 boundary owned by the command schema.
+// Shared lifecycle and speed contracts for admin simulation controls.
 
 export const simulationStates = ["RUNNING", "PAUSED", "HALTED"] as const;
 
