@@ -40,19 +40,19 @@ export function WorldLayout({
   return (
     <div
       data-testid="world-layout"
-      className="relative flex flex-col gap-6 pb-24 md:gap-8 md:pb-0"
+      className="relative flex flex-col gap-4 pb-24 md:gap-8 md:pb-0"
     >
-      <header className="relative overflow-hidden rounded-[1.75rem] border border-brand-sentinel/15 bg-gradient-to-br from-brand-sentinel/14 via-brand-analyst/10 to-brand-diplomat/8 px-5 py-6 shadow-[0_22px_60px_rgba(6,12,28,0.22)] sm:px-8 sm:py-7">
+      <header className="glass-panel relative overflow-hidden rounded-[1.25rem] px-4 py-4 sm:px-7 sm:py-6">
         <div
           aria-hidden="true"
           className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-analyst/15 blur-3xl"
         />
-        <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-diplomat/25 bg-brand-diplomat/10 px-2.5 py-1 text-[11px] font-semibold text-brand-diplomat">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
-                {world.isActive ? 'LIVE WORLD' : 'WORLD PAUSED'}
+                {world.isActive ? 'LIVE' : 'PAUSED'}
               </span>
               <span className="text-xs text-ink/50">Observer view</span>
             </div>
@@ -62,16 +62,16 @@ export function WorldLayout({
                 aria-hidden="true"
               />
               <div className="min-w-0">
-                <h1 className="break-words font-display text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
+                <h1 className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-4xl">
                   {world.name}
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70 sm:text-base">
+                <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-ink/70 sm:line-clamp-2 sm:block sm:text-base">
                   {premise}
                 </p>
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-4 text-xs text-ink/60 sm:pb-1">
+          <div className="flex shrink-0 items-center gap-3 text-[11px] text-ink/60 sm:pb-1 sm:text-xs">
             <span className="flex items-center gap-1.5">
               <Users
                 className="h-4 w-4 text-brand-sentinel"
@@ -84,7 +84,7 @@ export function WorldLayout({
                 className="h-4 w-4 text-brand-diplomat"
                 aria-hidden="true"
               />
-              {world.isActive ? 'Making their own noise' : 'Taking a breather'}
+              {world.isActive ? 'Activity is unfolding' : 'Between moments'}
             </span>
           </div>
         </div>
@@ -116,7 +116,7 @@ export function WorldLayout({
 
       <nav
         aria-label="Mobile world navigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-glass-border bg-surface/80 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_40px_rgba(45,102,139,0.12)] backdrop-blur-xl md:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around p-2.5">
           <WorldNavLink
@@ -221,15 +221,15 @@ function WorldNavLink({
   const active = activeSection === section;
   const linkClass = mobile
     ? active
-      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-glass-100 px-3 py-2 text-[10px] font-medium text-white transition-colors'
-      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-slate-400 transition-colors hover:bg-glass-50 hover:text-white'
+      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-brand-sentinel/12 px-3 py-2 text-[10px] font-semibold text-brand-sentinel transition-colors'
+      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/55 transition-colors hover:bg-glass-50 hover:text-ink'
     : active
-      ? 'flex items-center gap-3 rounded-xl bg-glass-100 px-3 py-2.5 text-sm font-medium text-white transition-colors'
-      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-slate-400 transition-colors hover:bg-glass-50 hover:text-white';
+      ? 'flex items-center gap-3 rounded-xl bg-brand-sentinel/10 px-3 py-2.5 text-sm font-semibold text-brand-sentinel transition-colors'
+      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink';
   const iconColor = {
-    feed: 'text-indigo-400',
-    residents: 'text-emerald-400',
-    'about-world': 'text-amber-400',
+    feed: 'text-brand-sentinel',
+    residents: 'text-brand-diplomat',
+    'about-world': 'text-brand-explorer',
   }[section];
   const iconClass = `h-5 w-5 ${iconColor}`;
 
@@ -304,7 +304,7 @@ function WorldSummary({ world }: { world: WorldResponse }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold tracking-wide text-ink/45">
-            HOUSE PULSE
+            WORLD PULSE
           </p>
           <h2 className="mt-1 font-display font-semibold tracking-tight">
             {world.name}
@@ -343,7 +343,7 @@ function WorldSummary({ world }: { world: WorldResponse }) {
           aria-hidden="true"
         />
         {world.isActive
-          ? 'The Residents are making their own decisions.'
+          ? 'The social graph is active.'
           : 'This World is between moments.'}
       </p>
       <Link
@@ -351,7 +351,7 @@ function WorldSummary({ world }: { world: WorldResponse }) {
         params={{ slug: world.slug }}
         className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-glass-border bg-glass-20 px-3 py-2.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink"
       >
-        Read the lore
+        Explore context
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
     </GlassPanel>

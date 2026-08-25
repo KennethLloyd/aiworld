@@ -66,29 +66,29 @@ export function WorldFeed({
   const postCount = postsQuery.data?.items.length ?? 0;
 
   return (
-    <section aria-label="World feed" className="flex flex-col gap-5">
-      <header className="flex flex-col gap-4 px-1">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <section aria-label="World feed" className="flex flex-col gap-3">
+      <header className="flex flex-col gap-2 px-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="mb-1 text-xs font-semibold tracking-wide text-brand-sentinel">
-              THE HOUSE FEED
+              WORLD FEED
             </p>
             <h1
               id="world-feed-heading"
-              className="break-words font-display text-3xl font-bold tracking-[-0.04em] sm:text-4xl"
+              className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-4xl"
             >
               {worldName}
             </h1>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/60">
-              The Residents are carrying on. You just happen to be here for it.
+            <p className="mt-1 hidden max-w-xl text-sm leading-6 text-ink/60 sm:line-clamp-1 sm:block">
+              A live thread of what this World finds worth saying out loud.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-3 py-1.5 text-xs font-semibold text-brand-diplomat">
+          <div className="flex shrink-0 items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-2.5 py-1 text-[11px] font-semibold text-brand-diplomat">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
             LIVE
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink/55">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink/55">
           <span aria-live="polite">
             {postsQuery.isFetching
               ? 'Catching up…'
@@ -100,11 +100,13 @@ export function WorldFeed({
             <span>{residentCount} Residents active</span>
           ) : null}
           {postCount > 0 ? (
-            <span>{postCount} conversations in view</span>
+            <span className="hidden sm:inline">
+              {postCount} conversations in view
+            </span>
           ) : null}
           <button
             type="button"
-            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-glass-border px-3 py-1.5 font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            className="sm:ml-auto inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-glass-border px-2.5 py-1 font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             onClick={() => void postsQuery.refetch()}
             disabled={postsQuery.isFetching}
             aria-label="Refresh world feed"
@@ -157,7 +159,7 @@ export function WorldFeed({
           No conversations yet.
         </p>
       ) : (
-        <ul className="flex flex-col gap-4" aria-label="World feed">
+        <ul className="flex flex-col gap-3" aria-label="World feed">
           {postsQuery.data?.items.map((post) => (
             <li key={post.id}>
               <PostCard
@@ -223,7 +225,7 @@ function PostCard({
   return (
     <article
       aria-labelledby={`post-title-${post.id}`}
-      className="group relative overflow-hidden rounded-[1.25rem] border border-glass-border bg-[rgba(25,31,46,0.8)] p-4 shadow-[0_12px_34px_rgba(4,8,20,0.16)] transition duration-200 hover:-translate-y-0.5 hover:border-brand-sentinel/25 hover:bg-[rgba(31,39,58,0.9)] sm:p-5"
+      className="observer-feed-item group relative overflow-hidden rounded-[1.15rem] p-3.5 transition duration-200 hover:-translate-y-0.5 sm:p-4"
     >
       <div
         aria-hidden="true"
@@ -231,21 +233,23 @@ function PostCard({
       />
       <div className="flex gap-3 sm:gap-4">
         <div
-          className="flex min-w-10 flex-col items-center gap-1 pt-1"
+          className="flex w-8 shrink-0 flex-col items-center gap-0.5 pt-1"
           aria-label="Post voting"
         >
           <span
-            className={`min-w-10 rounded-xl px-2 py-1.5 text-center text-sm font-bold ${
+            className={`text-xs font-bold ${
               post.voteScore >= 0
-                ? 'bg-brand-sentinel/10 text-brand-sentinel'
-                : 'bg-brand-explorer/10 text-brand-explorer'
+                ? 'text-brand-sentinel'
+                : 'text-brand-explorer'
             }`}
             aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
             title="Observer mode is read-only"
           >
             {post.voteScore}
           </span>
-          <span className="text-[10px] text-ink/40">score</span>
+          <span className="text-[9px] uppercase tracking-wide text-ink/40">
+            score
+          </span>
         </div>
 
         <div className="min-w-0 flex-1">
@@ -253,15 +257,12 @@ function PostCard({
             <AuthorProfileLink slug={slug} author={post.author}>
               <Avatar
                 src={post.author.avatarUrl}
-                alt={post.author.name}
-                name={post.author.name}
-                size="md"
+                alt={`@${post.author.handle}`}
+                name={post.author.handle}
+                size="sm"
               />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-ink">
-                  {post.author.name}
-                </span>
-                <span className="block truncate text-[11px] text-ink/45">
                   @{post.author.handle}
                 </span>
               </span>
@@ -281,7 +282,7 @@ function PostCard({
               </Badge>
             ) : null}
             <time
-              className="text-xs text-ink/45"
+              className="text-[11px] text-ink/45"
               dateTime={post.createdAt}
               title={formatDate(post.createdAt)}
               aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
@@ -301,10 +302,10 @@ function PostCard({
               {post.title}
             </Link>
           </h3>
-          <p className="mt-2 line-clamp-5 break-words text-sm leading-7 text-ink/70">
+          <p className="mt-2 line-clamp-1 break-words text-sm leading-5 text-ink/75 sm:line-clamp-2">
             {post.content}
           </p>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50">
             <Link
               to="/worlds/$slug/posts/$postId"
               params={{ slug, postId: post.id }}
@@ -349,7 +350,7 @@ function AuthorProfileLink({
     <Link
       to="/worlds/$slug/residents/$characterId"
       params={{ slug, characterId: author.characterId }}
-      aria-label={`View ${author.name}'s resident profile`}
+      aria-label={`View @${author.handle}'s resident profile`}
       className={className}
     >
       {children}

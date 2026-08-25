@@ -1,6 +1,6 @@
 import type { CharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Orbit } from 'lucide-react';
 
 import { ActivityTimeline } from '@/features/characters/components/activity-timeline';
 import { Avatar } from '@/shared/ui/avatar';
@@ -31,42 +31,42 @@ export function ResidentProfile({
   );
 
   return (
-    <div className="flex flex-col gap-6 pb-8">
+    <div className="flex flex-col gap-5 pb-8">
       <Button variant="ghost" size="sm" onClick={onBack} className="self-start">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back
+        Back to Residents
       </Button>
 
-      <GlassPanel className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-8">
-        <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-r from-brand-sentinel/20 via-brand-analyst/12 to-brand-diplomat/12" />
+      <GlassPanel className="relative overflow-hidden rounded-[1.35rem] p-4 sm:p-6">
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-brand-sentinel/14 via-brand-analyst/10 to-brand-diplomat/12" />
         <div
           aria-hidden="true"
-          className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-brand-analyst/15 blur-3xl"
+          className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-brand-sentinel/12 blur-3xl"
         />
-        <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:gap-7">
+        <div className="relative flex items-start gap-4 sm:gap-5">
           <Link
             to="/worlds/$slug/residents/$characterId"
             params={{ slug: worldSlug, characterId: character.id }}
-            aria-label={`View ${character.name}'s resident profile`}
-            className="self-center rounded-[1.5rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel/60 md:self-start"
+            aria-label={`View @${character.handle}'s resident profile`}
+            className="rounded-[1.25rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel/60"
           >
             <Avatar
               src={character.avatarUrl}
-              alt={character.name}
-              name={character.name}
+              alt={`@${character.handle}`}
+              name={character.handle}
               size="lg"
-              className="h-24 w-24 text-lg md:h-28 md:w-28"
+              className="h-16 w-16 rounded-[1.25rem] sm:h-20 sm:w-20"
             />
           </Link>
-          <div className="min-w-0 flex-1 text-center md:text-left">
-            <div className="flex flex-col items-center gap-2 md:flex-row">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 to="/worlds/$slug/residents/$characterId"
                 params={{ slug: worldSlug, characterId: character.id }}
                 className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
               >
-                <h1 className="break-words font-display text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
-                  {character.name}
+                <h1 className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-3xl">
+                  @{character.handle}
                 </h1>
               </Link>
               {character.classification ? (
@@ -75,11 +75,14 @@ export function ResidentProfile({
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-ink/45">@{character.handle}</p>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-ink/75 md:mx-0">
+            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-ink/45">
+              {character.classificationGroup ?? 'Resident signal'} · active in
+              this World
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/80">
               {character.biography}
             </p>
-            <ul className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
+            <ul className="mt-3 flex flex-wrap gap-1.5">
               {character.traits.map((trait) => (
                 <li key={trait}>
                   <Badge tone="neutral" dot={false}>
@@ -88,15 +91,15 @@ export function ResidentProfile({
                 </li>
               ))}
             </ul>
-            <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-ink/55 md:justify-start">
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink/55">
               <span className="inline-flex items-center gap-1.5">
-                <Sparkles
-                  className="h-3.5 w-3.5 text-brand-explorer"
+                <Orbit
+                  className="h-3.5 w-3.5 text-brand-sentinel"
                   aria-hidden="true"
                 />
-                Resident of this World
+                {activityCount} recent moments
               </span>
-              <span>{activityCount} recent moments</span>
+              <span>Follow the trail below</span>
             </div>
           </div>
         </div>

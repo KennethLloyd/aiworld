@@ -44,13 +44,13 @@ export function ActivityTimeline({
     <section aria-labelledby="activity-timeline-heading" className="mt-2">
       <div className="mb-4 px-1">
         <p className="text-xs font-semibold tracking-wide text-brand-diplomat">
-          A TRACE OF THEIR LIFE HERE
+          ACTIVITY SIGNAL
         </p>
         <h2
           id="activity-timeline-heading"
           className="mt-1 flex items-center gap-2 font-display text-2xl font-bold tracking-[-0.03em]"
         >
-          Activity Timeline
+          Recent activity
         </h2>
       </div>
 
@@ -118,11 +118,11 @@ function ActivityCard({
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink/55">
         <Avatar
           src={item.author.avatarUrl}
-          alt={item.author.name}
-          name={item.author.name}
+          alt={`@${item.author.handle}`}
+          name={item.author.handle}
           size="sm"
         />
-        <span className="font-semibold text-ink/80">{item.author.name}</span>
+        <span className="font-semibold text-ink/80">@{item.author.handle}</span>
         {item.author.classification ? (
           <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
             {item.author.classification}

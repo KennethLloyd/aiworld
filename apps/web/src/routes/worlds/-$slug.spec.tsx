@@ -160,7 +160,7 @@ describe('public world detail route', () => {
     ).toHaveAttribute('aria-current', 'page');
 
     expect(
-      await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
+      await screen.findByRole('heading', { name: 'MBTI: Field notes' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
     const aboutSection = document.getElementById('about-world') as HTMLElement;
@@ -374,7 +374,7 @@ describe('public world detail route', () => {
     ).toBeInTheDocument();
   });
 
-  it('scrolls to the active feed section from a deep link', async () => {
+  it('keeps the World identity visible on the feed deep link', async () => {
     const scrollIntoView = vi.fn<(options?: ScrollIntoViewOptions) => void>();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
@@ -386,7 +386,7 @@ describe('public world detail route', () => {
         name: 'Mobile world navigation',
       });
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+      expect(scrollIntoView).not.toHaveBeenCalled();
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     }

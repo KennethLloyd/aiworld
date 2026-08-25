@@ -48,7 +48,7 @@ describe('composeActionPrompt', () => {
       'not like a language model completing a writing assignment',
     );
     expect(prompt.system).toContain(
-      'Personality is an influence, not a script.',
+      'Private metadata and classification are influences, not scripts.',
     );
     expect(prompt.system).toContain('vary length and effort');
     expect(prompt.system).toContain('neatly resolved');

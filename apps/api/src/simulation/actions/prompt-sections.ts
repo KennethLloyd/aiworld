@@ -5,10 +5,15 @@ import { PromptSection } from '@/simulation/actions/action-prompt';
 import { WorldRecord } from '@/world/domain/world-record';
 
 export function worldSection(world: WorldRecord): PromptSection {
+  const description = Object.entries(world.description ?? {})
+    .map(([label, value]) => `${label}: ${value}`)
+    .join('\n');
+
   return {
     heading: 'World',
     body: [
-      world.name,
+      `Name: ${world.name}`,
+      description ? `Description:\n${description}` : '',
       `Topic scope: ${world.topicScope}`,
       world.rules.length > 0 ? `Rules:\n- ${world.rules.join('\n- ')}` : '',
     ]
@@ -21,7 +26,10 @@ export function characterSection(character: CharacterRecord): PromptSection {
   return {
     heading: 'Character',
     body: [
-      `@${character.handle} (${character.name})`,
+      `Identity: @${character.handle}${character.name !== character.handle ? ` (${character.name})` : ''}`,
+      character.classification
+        ? `Classification: ${character.classification}`
+        : '',
       `Biography: ${character.biography}`,
       character.traits.length > 0
         ? `Traits: ${character.traits.join(', ')}`

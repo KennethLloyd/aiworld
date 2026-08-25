@@ -66,7 +66,7 @@ export async function seedWorld(prisma: PrismaClient) {
         where: { id: characterId },
         create: {
           id: characterId,
-          handle: character.key,
+          handle: character.handle,
           name: character.name,
           classification: character.classification,
           classificationGroup: character.classificationGroup,
@@ -77,7 +77,7 @@ export async function seedWorld(prisma: PrismaClient) {
           isActive: true,
         },
         update: {
-          handle: character.key,
+          handle: character.handle,
           name: character.name,
           classification: character.classification,
           classificationGroup: character.classificationGroup,

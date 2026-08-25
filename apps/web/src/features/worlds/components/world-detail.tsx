@@ -18,6 +18,9 @@ export function WorldDetail({
   feed: ReactNode;
 }) {
   useEffect(() => {
+    if (activeSection === 'feed') {
+      return;
+    }
     document.getElementById(activeSection)?.scrollIntoView?.({
       block: 'start',
     });

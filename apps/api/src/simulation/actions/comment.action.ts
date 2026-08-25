@@ -20,6 +20,8 @@ import {
   LlmProvider,
   LlmProviderPrompt,
 } from '@/simulation/providers/llm-provider.port';
+export const COMMENT_ACTION_INSTRUCTIONS =
+  'Reply to what was actually said in the target post or bounded thread. Choose the response that fits this moment: answer seriously, make a joke, disagree, ask a question, tease, defend someone, add a concrete detail, derail slightly, misunderstand, refuse to engage, escalate, or de-escalate. A comment may be two words or several sentences; do not force a complete argument or a useful new insight. Use parentCommentId only when replying to a supplied comment ID. Do not write an essay, therapy-speak, personality exposition, generic agreement, artificial conflict resolution, or a response that ignores the thread.';
 
 @Injectable()
 export class CommentAction extends SimulationAction<
@@ -58,8 +60,7 @@ export class CommentAction extends SimulationAction<
   ): LlmProviderPrompt {
     return composeActionPrompt({
       action: 'COMMENT',
-      instructions:
-        'Reply to what was actually said in the target post or bounded thread. Choose the response that fits this moment: answer seriously, make a joke, disagree, ask a question, tease, defend someone, add a concrete detail, derail slightly, misunderstand, refuse to engage, escalate, or de-escalate. A comment may be two words or several sentences; do not force a complete argument or a useful new insight. Use parentCommentId only when replying to a supplied comment ID. Do not write an essay, therapy-speak, personality exposition, generic agreement, artificial conflict resolution, or a response that ignores the thread.',
+      instructions: COMMENT_ACTION_INSTRUCTIONS,
       outputFormat:
         '{"content": string, "parentCommentId": string | null, "reasoning": string}',
       contextSections: [

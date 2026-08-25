@@ -65,7 +65,7 @@ function RootContent({
       <AppShell
         isSignedIn={isSignedIn}
         isAdmin={isAdmin}
-        showObserverMode={!isAdmin}
+        showObserverMode={isWorldDirectory || publicWorldSlug !== undefined}
         headerContent={
           isWorldDirectory ? (
             <WorldDirectorySearch />

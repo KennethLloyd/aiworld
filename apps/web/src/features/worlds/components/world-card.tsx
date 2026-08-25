@@ -20,7 +20,7 @@ export function WorldCard({ world }: { world: WorldResponse }) {
     >
       <GlassPanel
         hover
-        className="relative flex h-full min-h-[21rem] flex-col overflow-hidden rounded-[1.5rem] p-5 sm:p-6"
+        className="relative flex h-full min-h-[15rem] flex-col overflow-hidden rounded-[1.5rem] p-4 sm:p-5"
       >
         <div
           aria-hidden="true"
@@ -41,16 +41,16 @@ export function WorldCard({ world }: { world: WorldResponse }) {
           )}
         </div>
 
-        <div className="relative z-10 mt-6 flex-1">
+        <div className="relative z-10 mt-5 flex-1">
           <h3 className="break-words font-display text-2xl font-bold tracking-[-0.03em]">
             {world.name}
           </h3>
-          <p className="mt-3 line-clamp-4 break-words text-sm leading-relaxed text-ink/70">
+          <p className="mt-2 line-clamp-3 break-words text-sm leading-relaxed text-ink/70">
             {description}
           </p>
         </div>
 
-        <div className="relative z-10 mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-glass-border pt-4 text-xs text-ink/55">
+        <div className="relative z-10 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-glass-border pt-3 text-xs text-ink/55">
           <span className="flex items-center gap-1.5">
             <Users
               className="h-3.5 w-3.5 text-brand-sentinel"
@@ -58,7 +58,7 @@ export function WorldCard({ world }: { world: WorldResponse }) {
             />
             {world.residentCount} Residents
           </span>
-          <span>Last activity {formatRelativeTime(world.updatedAt)}</span>
+          <span>Active {formatRelativeTime(world.updatedAt)}</span>
           <span className="ml-auto inline-flex items-center gap-1 font-semibold text-ink/80 transition-colors group-hover:text-brand-sentinel">
             Enter
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />

@@ -57,7 +57,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
 
       <article
         aria-labelledby={`post-detail-title-${post.id}`}
-        className="relative overflow-hidden rounded-[1.5rem] border border-glass-border bg-[rgba(25,31,46,0.86)] p-5 shadow-[0_18px_48px_rgba(4,8,20,0.2)] sm:p-7"
+        className="observer-detail-surface relative overflow-hidden rounded-[1.5rem] p-4 sm:p-6"
       >
         <div
           aria-hidden="true"
@@ -77,7 +77,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             >
               {post.title}
             </h1>
-            <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-ink/75">
+            <p className="mt-4 max-w-3xl whitespace-pre-wrap text-base leading-8 text-ink/80">
               {post.content}
             </p>
           </div>
@@ -114,7 +114,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
         <div className="mb-4 flex items-end justify-between gap-3 px-1">
           <div>
             <p className="text-xs font-semibold tracking-wide text-brand-sentinel">
-              THE THREAD
+              THREAD
             </p>
             <h2
               id="comments-heading"
@@ -124,7 +124,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             </h2>
           </div>
           <span className="hidden text-xs text-ink/45 sm:inline">
-            Read the room
+            Follow the thread
           </span>
         </div>
         {post.comments.length > 0 ? (
@@ -135,7 +135,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
           />
         ) : (
           <GlassPanel className="p-6 text-sm text-ink/60">
-            No comments yet. The room is waiting.
+            No comments yet. The thread is waiting.
           </GlassPanel>
         )}
       </section>
@@ -162,16 +162,16 @@ function AuthorRow({
         worldSlug={worldSlug}
         author={author}
         className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-        ariaLabel={`View ${author.name}'s resident profile`}
+        ariaLabel={`View @${author.handle}'s resident profile`}
       >
         <Avatar
           src={author.avatarUrl}
-          alt={author.name}
-          name={author.name}
+          alt={`@${author.handle}`}
+          name={author.handle}
           size="lg"
           className="h-14 w-14 rounded-2xl text-sm"
         />
-        <span className="sr-only">{author.name}</span>
+        <span className="sr-only">@{author.handle}</span>
       </AuthorProfileLink>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -180,7 +180,7 @@ function AuthorRow({
             author={author}
             className="rounded-lg font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
           >
-            {author.name}
+            @{author.handle}
           </AuthorProfileLink>
           {author.classification ? (
             <Badge tone="info" dot={false} className="px-2 py-0.5 text-[10px]">
@@ -189,7 +189,7 @@ function AuthorRow({
           ) : null}
         </div>
         <p className="text-xs text-ink/45">
-          @{author.handle} · {label} {formatDate(createdAt)}
+          {label} {formatDate(createdAt)}
         </p>
       </div>
     </div>
@@ -236,7 +236,7 @@ function CommentNode({
   worldSlug: string;
 }) {
   const isOriginalPoster = comment.author.id === postAuthorId;
-  const commentLabel = `comment by ${comment.author.name}`;
+  const commentLabel = `comment by @${comment.author.handle}`;
 
   return (
     <article
@@ -251,12 +251,12 @@ function CommentNode({
           worldSlug={worldSlug}
           author={comment.author}
           className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-          ariaLabel={`View ${comment.author.name}'s resident profile`}
+          ariaLabel={`View @${comment.author.handle}'s resident profile`}
         >
           <Avatar
             src={comment.author.avatarUrl}
-            alt={comment.author.name}
-            name={comment.author.name}
+            alt={`@${comment.author.handle}`}
+            name={comment.author.handle}
             size="sm"
           />
         </AuthorProfileLink>
@@ -267,9 +267,8 @@ function CommentNode({
               author={comment.author}
               className="rounded-md font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
-              {comment.author.name}
+              @{comment.author.handle}
             </AuthorProfileLink>
-            <span className="text-ink/40">@{comment.author.handle}</span>
             {comment.author.classification ? (
               <Badge
                 tone="info"

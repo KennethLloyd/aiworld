@@ -20,6 +20,8 @@ import {
   LlmProviderPrompt,
 } from '@/simulation/providers/llm-provider.port';
 import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
+export const VOTE_ACTION_INSTRUCTIONS =
+  'Decide whether this actor would upvote, downvote, or skip the target post. Use the post, author, thread context when available, and the actor’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a local World norm. Skip when the post does not merit this actor’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.';
 
 @Injectable()
 export class VoteAction extends SimulationAction<
@@ -62,8 +64,7 @@ export class VoteAction extends SimulationAction<
   ): LlmProviderPrompt {
     return composeActionPrompt({
       action: 'VOTE',
-      instructions:
-        'Decide whether this Resident would upvote, downvote, or skip the target post. Use the post, author, thread context when available, and the Resident’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a House expectation. Skip when the post does not merit this Resident’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.',
+      instructions: VOTE_ACTION_INSTRUCTIONS,
       outputFormat:
         '{"decision": "upvote" | "downvote" | "skip", "reasoning": string}',
       contextSections: [

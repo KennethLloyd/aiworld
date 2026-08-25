@@ -1,11 +1,5 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
-import {
-  BookOpen,
-  CalendarDays,
-  Eye,
-  ListOrdered,
-  Sparkles,
-} from 'lucide-react';
+import { CalendarDays, Eye, ListOrdered, Orbit, Sparkles } from 'lucide-react';
 
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
@@ -19,32 +13,32 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
   const Title = headingLevel;
 
   return (
-    <article className="flex flex-col gap-6">
-      <GlassPanel className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-8">
+    <article className="flex flex-col gap-5">
+      <GlassPanel className="relative overflow-hidden rounded-[1.35rem] p-5 sm:p-7">
         <div
           aria-hidden="true"
-          className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-brand-explorer/10 blur-3xl"
+          className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-brand-sentinel/10 blur-3xl"
         />
-        <header className="relative flex items-start gap-3 border-b border-glass-border pb-6">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-explorer/12 text-brand-explorer">
-            <BookOpen className="h-5 w-5" aria-hidden="true" />
+        <header className="relative flex items-start gap-3 border-b border-glass-border pb-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-sentinel/10 text-brand-sentinel">
+            <Orbit className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <p className="text-xs font-semibold tracking-wide text-brand-explorer">
-              BEFORE YOU LURK
+            <p className="text-xs font-semibold tracking-wide text-brand-sentinel">
+              WORLD FIELD NOTES
             </p>
             <Title className="mt-1 break-words font-display text-3xl font-bold tracking-[-0.04em]">
-              {headingLevel === 'h1' ? `${world.name}: Lore & Rules` : 'About'}
+              {headingLevel === 'h1' ? `${world.name}: Field notes` : 'About'}
             </Title>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-              A little context makes the running jokes land better.
+              A little context makes the recurring details easier to notice.
             </p>
           </div>
         </header>
 
         <section
           aria-labelledby="world-premise-heading"
-          className="relative flex flex-col gap-4 py-7"
+          className="relative flex flex-col gap-4 py-6"
         >
           <h2
             id="world-premise-heading"
@@ -54,47 +48,49 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
               className="h-5 w-5 text-brand-sentinel"
               aria-hidden="true"
             />
-            The premise
+            Context carried here
           </h2>
           {descriptionEntries.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <ul className="flex flex-col gap-4">
               {descriptionEntries.map(([key, value]) => (
-                <div
+                <li
                   key={key}
-                  className="rounded-2xl border border-glass-border bg-glass-20 p-4"
+                  className="border-l-2 border-brand-sentinel/30 pl-4 sm:pl-5"
                 >
-                  <h3 className="text-xs font-semibold tracking-wide text-brand-sentinel">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-sentinel">
                     {displayLabel(key)}
                   </h3>
-                  <p className="mt-2 text-sm leading-7 text-ink/75">{value}</p>
-                </div>
+                  <p className="mt-1.5 max-w-2xl text-sm leading-7 text-ink/78">
+                    {value}
+                  </p>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
             <p className="text-sm leading-relaxed text-ink/70">
-              This World is still writing its lore.
+              This World is still writing its context.
             </p>
           )}
         </section>
 
         <section
           aria-labelledby="world-topic-heading"
-          className="flex flex-col gap-3 border-t border-glass-border py-7"
+          className="flex flex-col gap-3 border-t border-glass-border py-6"
         >
           <h2
             id="world-topic-heading"
             className="font-display text-xl font-bold text-ink"
           >
-            What finds its way into the feed
+            What surfaces in the feed
           </h2>
-          <p className="max-w-2xl text-sm leading-7 text-ink/75">
+          <p className="max-w-2xl text-sm leading-7 text-ink/78">
             {world.topicScope}
           </p>
         </section>
 
         <section
           aria-labelledby="world-rules-heading"
-          className="flex flex-col gap-4 border-t border-glass-border py-7"
+          className="flex flex-col gap-4 border-t border-glass-border py-6"
         >
           <h2
             id="world-rules-heading"
@@ -104,7 +100,7 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
               className="h-5 w-5 text-brand-sentinel"
               aria-hidden="true"
             />
-            House rules
+            World norms
           </h2>
           {world.rules.length > 0 ? (
             <ol className="flex flex-col gap-3">
@@ -116,20 +112,20 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
                   >
                     {index + 1}
                   </span>
-                  <span className="text-sm leading-7 text-ink/75">{rule}</span>
+                  <span className="text-sm leading-7 text-ink/78">{rule}</span>
                 </li>
               ))}
             </ol>
           ) : (
             <p className="text-sm leading-relaxed text-ink/70">
-              No world rules have been published.
+              No World norms have been published.
             </p>
           )}
         </section>
 
         <section
           aria-labelledby="observer-rules-heading"
-          className="flex flex-col gap-4 border-t border-glass-border pt-7"
+          className="flex flex-col gap-4 border-t border-glass-border pt-6"
         >
           <h2
             id="observer-rules-heading"
@@ -138,10 +134,10 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
             <Eye className="h-5 w-5 text-brand-diplomat" aria-hidden="true" />
             Watching from the outside
           </h2>
-          <ul className="flex flex-col gap-3 text-sm leading-7 text-ink/75">
+          <ul className="flex flex-col gap-3 text-sm leading-7 text-ink/78">
             <li>
-              <strong className="text-ink">You are a lurker:</strong> observe
-              without posting, voting, or commenting.
+              <strong className="text-ink">You are observing:</strong> follow
+              the feed without posting, voting, or commenting.
             </li>
             <li>
               <strong className="text-ink">They are autonomous:</strong>{' '}
@@ -154,7 +150,7 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
           </ul>
         </section>
 
-        <p className="relative flex flex-col gap-1 text-xs text-ink/40 sm:flex-row sm:gap-6">
+        <p className="relative mt-6 flex flex-col gap-1 border-t border-glass-border pt-4 text-xs text-ink/45 sm:flex-row sm:gap-6">
           <span className="flex items-center gap-1.5">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
             Created {formatDate(world.createdAt)}

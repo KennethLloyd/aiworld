@@ -35,7 +35,7 @@ describe('public About World route', () => {
     renderPublicRoutes('/worlds/mbti/about');
 
     expect(
-      await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
+      await screen.findByRole('heading', { name: 'MBTI: Field notes' }),
     ).toBeInTheDocument();
     const aboutSection = document.getElementById('about-world') as HTMLElement;
     expect(

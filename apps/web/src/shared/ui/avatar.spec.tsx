@@ -11,7 +11,13 @@ describe('Avatar', () => {
       'aria-label',
       'Mystic Aura avatar',
     );
-    expect(screen.getByText('MA')).toBeInTheDocument();
+    expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
+      'data-testid',
+      'avatar-fallback',
+    );
+    expect(
+      screen.getByTestId('avatar-fallback').querySelector('[data-glyph]'),
+    ).toBeInTheDocument();
   });
 
   it('falls back when the remote image cannot load', () => {

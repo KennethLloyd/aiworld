@@ -10,26 +10,18 @@ const sizeClasses: Record<AvatarSize, string> = {
   lg: 'h-20 w-20 rounded-[1.5rem] text-lg',
 };
 
-const avatarGradients = [
-  'from-indigo-300/35 via-indigo-500/20 to-cyan-400/25 text-indigo-100',
-  'from-violet-300/35 via-purple-500/20 to-fuchsia-400/25 text-violet-100',
-  'from-teal-300/35 via-emerald-500/20 to-sky-400/25 text-teal-100',
-  'from-amber-300/35 via-orange-500/20 to-rose-400/25 text-amber-100',
-  'from-sky-300/35 via-blue-500/20 to-violet-400/25 text-sky-100',
-];
-
 export interface AvatarProps {
   /** Optional remote avatar. Missing or broken images use the shared fallback. */
   src?: string | null;
-  /** Accessible name for the person represented by the avatar. */
+  /** Accessible name for the digital identity represented by the avatar. */
   alt: string;
-  /** Used to derive fallback initials when an image is unavailable. */
+  /** Used to derive a deterministic identity glyph when an image is unavailable. */
   name?: string;
   size?: AvatarSize;
   className?: string;
 }
 
-/** Presentation-only avatar with a distinct, deterministic fallback for every resident. */
+/** Presentation-only avatar with a distinct, deterministic glyph for every identity. */
 export function Avatar({
   src,
   alt,
@@ -42,17 +34,16 @@ export function Avatar({
     setHasLoadError(false);
   }, [src]);
   const showImage = Boolean(src) && !hasLoadError;
-  const gradient = avatarGradients[hashCode(name) % avatarGradients.length];
+  const glyph = hashCode(name) % 6;
 
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-white/15 bg-gradient-to-br shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]',
-        gradient,
+        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-brand-sentinel/20 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.78),0_8px_18px_rgba(42,111,166,0.12)]',
         sizeClasses[size],
         className,
       )}
-      // The wrapper groups either the image or initials into one accessible avatar.
+      // The wrapper groups either the image or glyph into one accessible avatar.
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
       role="img"
       aria-label={`${alt} avatar`}
@@ -66,8 +57,12 @@ export function Avatar({
           onError={() => setHasLoadError(true)}
         />
       ) : (
-        <span aria-hidden="true" className="font-display font-semibold">
-          {initials(name)}
+        <span aria-hidden="true" className="identity-fallback">
+          <span className="identity-initials">{initials(name)}</span>
+          <span className="identity-glyph" data-glyph={glyph}>
+            <span className="identity-glyph-core" />
+            <span className="identity-glyph-orbit" />
+          </span>
         </span>
       )}
     </span>
@@ -80,7 +75,6 @@ function hashCode(value: string): number {
     0,
   );
 }
-
 function initials(value: string): string {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';

@@ -17,6 +17,9 @@ describe('canonical MBTI House seed data', () => {
       new Set(characters.map((character) => character.classification)).size,
     ).toBe(16);
     expect(new Set(characters.map((character) => character.key)).size).toBe(16);
+    expect(new Set(characters.map((character) => character.handle)).size).toBe(
+      16,
+    );
   });
 
   it('contains varied seeded posts and threaded comments', () => {
