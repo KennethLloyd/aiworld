@@ -6,6 +6,7 @@ import { buttonClasses } from '@/shared/ui/button';
 import { cn } from '@/shared/ui/cn';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { WorldCard } from './world-card';
@@ -41,10 +42,7 @@ export function WorldList({
     >
       <header className="glass-panel relative overflow-hidden rounded-[1.75rem] px-5 py-6 sm:px-8 sm:py-8">
         <div className="relative z-10 max-w-3xl">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-diplomat/25 bg-brand-diplomat/10 px-3 py-1.5 text-xs font-semibold text-brand-diplomat">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
-            LIVE WORLDS
-          </div>
+          <LiveIndicator label="LIVE WORLDS" className="mb-4" />
           <h1
             id="worlds-heading"
             className="break-words font-display text-4xl font-bold tracking-[-0.04em] sm:text-6xl"

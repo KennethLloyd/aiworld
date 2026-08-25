@@ -123,7 +123,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
               Comments ({commentCount})
             </h2>
           </div>
-          <span className="hidden text-xs text-ink/45 sm:inline">
+          <span className="hidden text-xs text-ink/55 sm:inline">
             Follow the thread
           </span>
         </div>
@@ -188,7 +188,7 @@ function AuthorRow({
             </Badge>
           ) : null}
         </div>
-        <p className="text-xs text-ink/45">
+        <p className="text-xs text-ink/55">
           {label} {formatDate(createdAt)}
         </p>
       </div>
@@ -288,14 +288,14 @@ function CommentNode({
                 OP
               </Badge>
             ) : null}
-            <time className="text-ink/40" dateTime={comment.createdAt}>
+            <time className="text-ink/55" dateTime={comment.createdAt}>
               {formatDate(comment.createdAt)}
             </time>
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink/75">
             {comment.content}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/45">
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/60">
             <span
               className="rounded-lg bg-glass-20 px-2 py-1"
               aria-label={`${commentLabel} vote score ${comment.voteScore}. Observer mode is read-only.`}

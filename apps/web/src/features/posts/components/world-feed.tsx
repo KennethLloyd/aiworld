@@ -2,23 +2,29 @@ import type { FeedPostResponse } from '@aiworld/shared/schemas/post-response.sch
 import type { PostSort } from '@aiworld/shared/schemas/post.schema';
 import { Link } from '@tanstack/react-router';
 import {
+  ArrowDown,
   ArrowUpRight,
   Flame,
+  LoaderCircle,
   MessageSquare,
-  RefreshCw,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 
 import { ApiError } from '@/core/api/api-error';
 import { usePosts } from '@/features/posts/query/use-posts';
+import { usePullToRefresh } from '@/features/posts/query/use-pull-to-refresh';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { ErrorState } from '@/shared/ui/error-state';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
+import { Skeleton } from '@/shared/ui/skeleton';
 
 import { commentLabel } from './comment-label';
+
+const PULL_REFRESH_THRESHOLD = 72;
 
 export function WorldFeed({
   slug,
@@ -35,11 +41,78 @@ export function WorldFeed({
 }) {
   const postsQuery = usePosts(slug, sort);
   const { toast } = useToast();
-  const lastActivityAt = postsQuery.data?.items.reduce<string | undefined>(
+  const { fetchNextPage } = postsQuery;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
+  const posts = useMemo(
+    () => dedupeFeedPosts(postsQuery.data?.pages.flatMap((page) => page.items)),
+    [postsQuery.data],
+  );
+  const pullToRefresh = usePullToRefresh({
+    enabled:
+      postsQuery.data !== undefined &&
+      !postsQuery.isRefetching &&
+      !postsQuery.isFetchingNextPage,
+    onRefresh: postsQuery.refresh,
+    threshold: PULL_REFRESH_THRESHOLD,
+  });
+  const lastActivityAt = posts.reduce<string | undefined>(
     (latest, post) =>
       latest === undefined || post.createdAt > latest ? post.createdAt : latest,
     undefined,
   );
+
+  const handleLoadMore = useCallback(() => {
+    if (
+      isLoadingMoreRef.current ||
+      !postsQuery.hasNextPage ||
+      postsQuery.isFetchingNextPage ||
+      postsQuery.isFetchNextPageError ||
+      postsQuery.isRefetching
+    ) {
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    void fetchNextPage().finally(() => {
+      isLoadingMoreRef.current = false;
+    });
+  }, [
+    fetchNextPage,
+    postsQuery.hasNextPage,
+    postsQuery.isFetchNextPageError,
+    postsQuery.isFetchingNextPage,
+    postsQuery.isRefetching,
+  ]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (
+      node === null ||
+      !postsQuery.hasNextPage ||
+      postsQuery.isFetchingNextPage ||
+      postsQuery.isFetchNextPageError
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: '0px 0px 320px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [
+    handleLoadMore,
+    postsQuery.hasNextPage,
+    postsQuery.isFetchNextPageError,
+    postsQuery.isFetchingNextPage,
+    postsQuery.isRefetching,
+  ]);
 
   const handleShare = async (post: FeedPostResponse) => {
     const postUrl = new URL(
@@ -63,10 +136,56 @@ export function WorldFeed({
     }
   };
 
-  const postCount = postsQuery.data?.items.length ?? 0;
+  const pullDistance = Math.max(
+    pullToRefresh.pullDistance,
+    pullToRefresh.isRefreshing ? 44 : 0,
+  );
+  const pullThresholdReached =
+    pullToRefresh.pullDistance >= PULL_REFRESH_THRESHOLD;
+  const isCheckingForUpdates =
+    pullToRefresh.isRefreshing ||
+    (postsQuery.isRefetching && !postsQuery.isFetchingNextPage);
+  const postCount = posts.length;
 
   return (
-    <section aria-label="World feed" className="flex flex-col gap-3">
+    <section
+      aria-label="World feed"
+      className="relative flex flex-col gap-3"
+      aria-busy={
+        postsQuery.isPending ||
+        postsQuery.isFetchingNextPage ||
+        isCheckingForUpdates
+      }
+      onTouchCancel={pullToRefresh.onTouchCancel}
+      onTouchEnd={pullToRefresh.onTouchEnd}
+      onTouchMove={pullToRefresh.onTouchMove}
+      onTouchStart={pullToRefresh.onTouchStart}
+    >
+      <div
+        className="pointer-events-none flex justify-center overflow-hidden transition-[height] duration-200"
+        style={{ height: `${pullDistance}px` }}
+      >
+        <div
+          className="flex h-11 items-center gap-2 text-xs font-medium text-brand-sentinel"
+          role={pullDistance > 0 ? 'status' : undefined}
+          aria-live={pullDistance > 0 ? 'polite' : undefined}
+        >
+          {pullToRefresh.isRefreshing ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <ArrowDown
+              className={`h-4 w-4 transition-transform ${pullThresholdReached ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          )}
+          {pullToRefresh.isRefreshing
+            ? 'Checking for new activity…'
+            : pullThresholdReached
+              ? 'Release to check for new activity'
+              : 'Pull to check for new activity'}
+        </div>
+      </div>
+
       <header className="flex flex-col gap-2 px-1">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -79,22 +198,21 @@ export function WorldFeed({
             >
               {worldName}
             </h1>
-            <p className="mt-1 hidden max-w-xl text-sm leading-6 text-ink/60 sm:line-clamp-1 sm:block">
+            <p className="mt-1 hidden max-w-xl text-sm leading-6 text-ink/65 sm:line-clamp-1 sm:block">
               A live thread of what this World finds worth saying out loud.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-2.5 py-1 text-[11px] font-semibold text-brand-diplomat">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
-            LIVE
-          </div>
+          <LiveIndicator label="LIVE" />
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink/55">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink/60">
           <span aria-live="polite">
-            {postsQuery.isFetching
-              ? 'Catching up…'
-              : lastActivityAt !== undefined
-                ? `Last activity ${formatRelativeTime(lastActivityAt)}`
-                : 'Waiting for the first conversation'}
+            {isCheckingForUpdates
+              ? 'Checking for updates…'
+              : postsQuery.isFetching && postsQuery.data === undefined
+                ? 'Catching up…'
+                : lastActivityAt !== undefined
+                  ? `Last activity ${formatRelativeTime(lastActivityAt)}`
+                  : 'Waiting for the first conversation'}
           </span>
           {residentCount !== undefined ? (
             <span>{residentCount} Residents active</span>
@@ -104,24 +222,14 @@ export function WorldFeed({
               {postCount} conversations in view
             </span>
           ) : null}
-          <button
-            type="button"
-            className="sm:ml-auto inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-glass-border px-2.5 py-1 font-medium text-ink/70 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-            onClick={() => void postsQuery.refetch()}
-            disabled={postsQuery.isFetching}
-            aria-label="Refresh world feed"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${postsQuery.isFetching ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />
-            Refresh
-          </button>
         </div>
       </header>
 
       <div className="flex items-center justify-between gap-3 border-b border-glass-border px-1 pb-3">
-        <fieldset className="flex gap-1 rounded-xl border border-glass-border bg-glass-20 p-1">
+        <fieldset
+          className="flex gap-1 rounded-xl border border-glass-border bg-glass-20 p-1"
+          aria-busy={postsQuery.isFetching && postsQuery.data === undefined}
+        >
           <legend className="sr-only">Feed sorting</legend>
           <SortButton
             active={sort === 'hot'}
@@ -136,7 +244,7 @@ export function WorldFeed({
             onClick={() => onSortChange('new')}
           />
         </fieldset>
-        <span className="hidden text-xs text-ink/45 sm:inline">
+        <span className="hidden text-xs text-ink/50 sm:inline">
           Scroll the latest conversations
         </span>
       </div>
@@ -145,22 +253,20 @@ export function WorldFeed({
         Observers can watch the simulation but cannot vote, reply, or comment.
       </p>
       {postsQuery.isPending && postsQuery.data === undefined ? (
-        <p className="text-sm text-ink/60" aria-live="polite">
-          Loading conversations…
-        </p>
+        <FeedSkeleton />
       ) : postsQuery.isError && postsQuery.data === undefined ? (
         <ErrorState
           title="Could not load conversations"
           message={errorMessage(postsQuery.error)}
           onRetry={() => void postsQuery.refetch()}
         />
-      ) : postsQuery.data?.items.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-glass-border p-8 text-center text-sm text-ink/60">
+      ) : posts.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-glass-border p-8 text-center text-sm text-ink/65">
           No conversations yet.
         </p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="World feed">
-          {postsQuery.data?.items.map((post) => (
+          {posts.map((post) => (
             <li key={post.id}>
               <PostCard
                 slug={slug}
@@ -171,16 +277,103 @@ export function WorldFeed({
           ))}
         </ul>
       )}
+
+      {postsQuery.hasNextPage ? (
+        <div
+          ref={sentinelRef}
+          data-testid="feed-pagination-sentinel"
+          aria-label="Load older conversations"
+          className="flex min-h-10 items-center justify-center"
+        >
+          {postsQuery.isFetchingNextPage ? (
+            <span
+              className="flex items-center gap-2 text-xs text-ink/60"
+              aria-live="polite"
+            >
+              <LoaderCircle
+                className="h-3.5 w-3.5 animate-spin"
+                aria-hidden="true"
+              />
+              Loading older conversations…
+            </span>
+          ) : postsQuery.isFetchNextPageError ? (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              className="rounded-lg border border-brand-explorer/35 bg-brand-explorer/10 px-3 py-1.5 text-xs font-semibold text-brand-explorer transition-colors hover:bg-brand-explorer/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            >
+              Try loading older conversations again
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              className="rounded-lg border border-glass-border bg-glass-20 px-3 py-1.5 text-xs font-semibold text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+            >
+              Load older conversations
+            </button>
+          )}
+        </div>
+      ) : posts.length > 0 ? (
+        <p className="py-2 text-center text-xs text-ink/60">
+          You&apos;re caught up with this World.
+        </p>
+      ) : null}
+
       {postsQuery.isError && postsQuery.data !== undefined ? (
         <output
-          className="rounded-xl border border-brand-explorer/30 bg-brand-explorer/10 px-4 py-3 text-xs text-brand-explorer"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-explorer/30 bg-brand-explorer/10 px-4 py-3 text-xs text-brand-explorer"
           aria-live="polite"
         >
-          Feed refresh failed. Showing the last known activity.
+          <span>
+            {postsQuery.isFetchNextPageError
+              ? 'Older conversations could not be loaded.'
+              : 'Feed update failed. Showing the last known activity.'}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              postsQuery.isFetchNextPageError
+                ? handleLoadMore()
+                : void postsQuery.refresh()
+            }
+            className="rounded-md px-2 py-1 font-semibold underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          >
+            Try again
+          </button>
         </output>
       ) : null}
     </section>
   );
+}
+function FeedSkeleton() {
+  return (
+    <div
+      aria-label="Loading conversations"
+      aria-busy="true"
+      className="flex flex-col gap-3"
+    >
+      <Skeleton variant="card" className="h-40" />
+      <Skeleton variant="card" className="h-36" />
+    </div>
+  );
+}
+
+function dedupeFeedPosts(
+  posts: FeedPostResponse[] | undefined,
+): FeedPostResponse[] {
+  if (posts === undefined) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  return posts.filter((post) => {
+    if (seen.has(post.id)) {
+      return false;
+    }
+    seen.add(post.id);
+    return true;
+  });
 }
 
 function SortButton({
@@ -201,8 +394,8 @@ function SortButton({
       onClick={onClick}
       className={
         active
-          ? 'flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-sentinel/15 px-4 py-1.5 text-sm font-semibold text-brand-sentinel shadow-inner'
-          : 'flex min-h-9 items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/55 transition-colors hover:bg-glass-50 hover:text-ink'
+          ? 'flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-sentinel/15 px-4 py-1.5 text-sm font-semibold text-brand-sentinel shadow-inner transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60'
+          : 'flex min-h-9 items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60'
       }
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
@@ -231,13 +424,13 @@ function PostCard({
         aria-hidden="true"
         className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-sentinel/60 via-brand-analyst/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
       />
-      <div className="flex gap-3 sm:gap-4">
+      <div className="flex gap-2.5 sm:gap-4">
         <div
-          className="flex w-8 shrink-0 flex-col items-center gap-0.5 pt-1"
+          className="flex w-5 shrink-0 items-start gap-0.5 pt-1 text-[11px] sm:w-8 sm:flex-col sm:items-center sm:gap-0.5"
           aria-label="Post voting"
         >
           <span
-            className={`text-xs font-bold ${
+            className={`font-bold ${
               post.voteScore >= 0
                 ? 'text-brand-sentinel'
                 : 'text-brand-explorer'
@@ -247,13 +440,13 @@ function PostCard({
           >
             {post.voteScore}
           </span>
-          <span className="text-[9px] uppercase tracking-wide text-ink/40">
+          <span className="text-[8px] uppercase tracking-wide text-ink/50 sm:text-[9px]">
             score
           </span>
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-3 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-2">
+          <div className="mb-2.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
             <AuthorProfileLink slug={slug} author={post.author}>
               <Avatar
                 src={post.author.avatarUrl}
@@ -282,7 +475,7 @@ function PostCard({
               </Badge>
             ) : null}
             <time
-              className="text-[11px] text-ink/45"
+              className="text-[11px] text-ink/55"
               dateTime={post.createdAt}
               title={formatDate(post.createdAt)}
               aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
@@ -297,7 +490,7 @@ function PostCard({
             <Link
               to="/worlds/$slug/posts/$postId"
               params={{ slug, postId: post.id }}
-              className="transition-colors hover:text-brand-sentinel"
+              className="rounded-lg transition-colors hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
               {post.title}
             </Link>
@@ -305,12 +498,12 @@ function PostCard({
           <p className="mt-2 line-clamp-1 break-words text-sm leading-5 text-ink/75 sm:line-clamp-2">
             {post.content}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/50">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/60">
             <Link
               to="/worlds/$slug/posts/$postId"
               params={{ slug, postId: post.id }}
               aria-label={commentLabel(post.commentCount)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
               <MessageSquare className="h-4 w-4" aria-hidden="true" />
               {commentLabel(post.commentCount)}
@@ -318,7 +511,7 @@ function PostCard({
             <button
               type="button"
               onClick={onShare}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
               <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               Share

@@ -4,6 +4,7 @@ import { ArrowUpRight, Orbit, Users } from 'lucide-react';
 
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
 
 /** Public World card: a doorway into a living social space, not a database row. */
 export function WorldCard({ world }: { world: WorldResponse }) {
@@ -31,9 +32,7 @@ export function WorldCard({ world }: { world: WorldResponse }) {
             <Orbit className="h-7 w-7" aria-hidden="true" />
           </span>
           {world.isActive ? (
-            <Badge tone="success" dot className="bg-brand-diplomat/10">
-              Live now
-            </Badge>
+            <LiveIndicator label="Live now" />
           ) : (
             <Badge tone="neutral" dot>
               Quiet

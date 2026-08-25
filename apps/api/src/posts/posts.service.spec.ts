@@ -1,5 +1,6 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import {
@@ -70,7 +71,7 @@ describe('PostsService', () => {
     },
   ];
 
-  const paginatedFeedFixture: Paginated<PostFeedRecord> = {
+  const paginatedFeedFixture: CursorPaginated<PostFeedRecord> = {
     items: [
       {
         ...postRecordFixture,
@@ -78,10 +79,10 @@ describe('PostsService', () => {
         commentCount: 2,
       },
     ],
-    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    nextCursor: null,
   };
 
-  const queryFixture: ListPostsQuery = { sort: 'hot', page: 1, limit: 20 };
+  const queryFixture: ListPostsQuery = { sort: 'hot', limit: 20 };
 
   const mockWorldService: jest.Mocked<Pick<WorldService, 'getBySlug'>> = {
     getBySlug: jest.fn(),
@@ -128,8 +129,24 @@ describe('PostsService', () => {
       );
       expect(mockPostRepository.findFeed).toHaveBeenCalledWith(
         worldRecordFixture.id,
-        queryFixture,
+        {
+          sort: 'hot',
+          limit: 20,
+          cursor: null,
+        },
       );
+    });
+
+    it('rejects malformed cursors before querying the repository', async () => {
+      mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
+
+      await expect(
+        service.findFeed('mbti-house', {
+          ...queryFixture,
+          cursor: 'not-a-valid-cursor',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPostRepository.findFeed).not.toHaveBeenCalled();
     });
 
     it('returns null without querying posts when the world is missing', async () => {

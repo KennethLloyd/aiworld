@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
 
 import { WorldStatusBadge } from './world-status-badge';
 
@@ -50,10 +51,10 @@ export function WorldLayout({
         <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-diplomat/25 bg-brand-diplomat/10 px-2.5 py-1 text-[11px] font-semibold text-brand-diplomat">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
-                {world.isActive ? 'LIVE' : 'PAUSED'}
-              </span>
+              <LiveIndicator
+                label={world.isActive ? 'LIVE' : 'PAUSED'}
+                active={world.isActive}
+              />
               <span className="text-xs text-ink/50">Observer view</span>
             </div>
             <div className="flex items-start gap-3">
@@ -219,13 +220,15 @@ function WorldNavLink({
   mobile?: boolean;
 }) {
   const active = activeSection === section;
+  const focusClass =
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60';
   const linkClass = mobile
     ? active
-      ? 'flex min-w-20 flex-col items-center gap-1 rounded-xl bg-brand-sentinel/12 px-3 py-2 text-[10px] font-semibold text-brand-sentinel transition-colors'
-      : 'flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/55 transition-colors hover:bg-glass-50 hover:text-ink'
+      ? `flex min-w-20 flex-col items-center gap-1 rounded-xl bg-brand-sentinel/12 px-3 py-2 text-[10px] font-semibold text-brand-sentinel transition-colors ${focusClass}`
+      : `flex min-w-20 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[10px] text-ink/55 transition-colors hover:bg-glass-50 hover:text-ink ${focusClass}`
     : active
-      ? 'flex items-center gap-3 rounded-xl bg-brand-sentinel/10 px-3 py-2.5 text-sm font-semibold text-brand-sentinel transition-colors'
-      : 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink';
+      ? `flex items-center gap-3 rounded-xl bg-brand-sentinel/10 px-3 py-2.5 text-sm font-semibold text-brand-sentinel transition-colors ${focusClass}`
+      : `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink ${focusClass}`;
   const iconColor = {
     feed: 'text-brand-sentinel',
     residents: 'text-brand-diplomat',

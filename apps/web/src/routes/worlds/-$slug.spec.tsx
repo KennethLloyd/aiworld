@@ -64,7 +64,7 @@ const server = setupServer(
           updatedAt: '2026-07-15T10:00:00.000Z',
         },
       ],
-      meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+      nextCursor: null,
     }),
   ),
   http.get(`*/api/worlds/mbti/posts/${postId}`, () =>
@@ -173,7 +173,7 @@ describe('public world detail route', () => {
       within(aboutSection).getByText('A world about personality typology.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Long Description' }),
+      screen.getByRole('heading', { name: 'What to notice here' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Explain before debating')).toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe('public world detail route', () => {
               updatedAt: '2026-07-15T10:00:00.000Z',
             },
           ],
-          meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+          nextCursor: null,
         });
       }),
     );

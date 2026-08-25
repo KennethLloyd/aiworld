@@ -1,4 +1,5 @@
 import { Badge } from '@/shared/ui/badge';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
 
 /**
  * isActive status pill for a WorldResponse. Tone + dot + text so status is
@@ -7,9 +8,7 @@ import { Badge } from '@/shared/ui/badge';
  */
 export function WorldStatusBadge({ isActive }: { isActive: boolean }) {
   return isActive ? (
-    <Badge tone="success" dot>
-      Active
-    </Badge>
+    <LiveIndicator label="Active" />
   ) : (
     <Badge tone="neutral" dot>
       Inactive

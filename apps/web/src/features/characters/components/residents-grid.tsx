@@ -2,7 +2,7 @@ import type { CharacterResponse } from '@aiworld/shared/schemas/character-respon
 import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, Sparkles } from 'lucide-react';
 
-import { Avatar } from '@/shared/ui/avatar';
+import { Avatar, identityGlyph } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 
@@ -44,7 +44,8 @@ export function ResidentsGrid({
               >
                 <GlassPanel
                   hover
-                  className="relative flex h-full min-h-[9.5rem] flex-col gap-3 overflow-hidden rounded-[1.15rem] p-3.5 sm:p-4"
+                  data-identity-glyph={identityGlyph(character.handle)}
+                  className="resident-card relative flex h-full min-h-[9.5rem] flex-col gap-3 overflow-hidden rounded-[1.15rem] p-3.5 sm:p-4"
                 >
                   <div
                     aria-hidden="true"

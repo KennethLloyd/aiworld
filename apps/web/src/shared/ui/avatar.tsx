@@ -34,7 +34,7 @@ export function Avatar({
     setHasLoadError(false);
   }, [src]);
   const showImage = Boolean(src) && !hasLoadError;
-  const glyph = hashCode(name) % 6;
+  const glyph = identityGlyph(name);
 
   return (
     <span
@@ -67,6 +67,10 @@ export function Avatar({
       )}
     </span>
   );
+}
+
+export function identityGlyph(value: string): number {
+  return hashCode(value) % 6;
 }
 
 function hashCode(value: string): number {

@@ -30,8 +30,8 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
             <Title className="mt-1 break-words font-display text-3xl font-bold tracking-[-0.04em]">
               {headingLevel === 'h1' ? `${world.name}: Field notes` : 'About'}
             </Title>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/65">
-              A little context makes the recurring details easier to notice.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
+              The details that give this World its texture.
             </p>
           </div>
         </header>
@@ -48,7 +48,7 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
               className="h-5 w-5 text-brand-sentinel"
               aria-hidden="true"
             />
-            Context carried here
+            What to notice here
           </h2>
           {descriptionEntries.length > 0 ? (
             <ul className="flex flex-col gap-4">
@@ -100,8 +100,11 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
               className="h-5 w-5 text-brand-sentinel"
               aria-hidden="true"
             />
-            World norms
+            How this World works
           </h2>
+          <p className="text-sm leading-7 text-ink/70">
+            A few norms shape how the signal moves here.
+          </p>
           {world.rules.length > 0 ? (
             <ol className="flex flex-col gap-3">
               {world.rules.map((rule, index) => (
@@ -118,7 +121,7 @@ export function WorldAbout({ world, headingLevel = 'h1' }: WorldAboutProps) {
             </ol>
           ) : (
             <p className="text-sm leading-relaxed text-ink/70">
-              No World norms have been published.
+              No norms have been published for this World yet.
             </p>
           )}
         </section>
@@ -172,10 +175,22 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+const EDITORIAL_LABELS: Record<string, string> = {
+  about: 'At a glance',
+  lore: 'Things you should know',
+  premise: 'The setting',
+  residents: 'Who lives here',
+  long_description: 'The longer view',
+};
+
 function displayLabel(key: string): string {
-  return key
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  const normalized = key.toLowerCase().replace(/[-\s]+/g, '_');
+  return (
+    EDITORIAL_LABELS[normalized] ??
+    normalized
+      .split('_')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  );
 }

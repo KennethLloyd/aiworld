@@ -14,8 +14,15 @@ import type { PostGateway } from './post-gateway';
 export class HttpPostGateway implements PostGateway {
   constructor(private readonly http: HttpClient) {}
 
-  async list(slug: string, query: ListPostsQuery): Promise<ListPostsResponse> {
-    const raw = await this.http.get<unknown>(postEndpoints.list(slug, query));
+  async list(
+    slug: string,
+    query: ListPostsQuery,
+    signal?: AbortSignal,
+  ): Promise<ListPostsResponse> {
+    const raw = await this.http.get<unknown>(
+      postEndpoints.list(slug, query),
+      signal,
+    );
     return listPostsResponseSchema.parse(raw);
   }
 

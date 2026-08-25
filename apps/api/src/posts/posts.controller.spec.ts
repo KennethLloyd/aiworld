@@ -1,4 +1,4 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsResponse } from '@aiworld/shared/schemas/post-response.schema';
 import { PostDetailResponse } from '@aiworld/shared/schemas/post-response.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
@@ -47,7 +47,7 @@ describe('PostsController', () => {
     ],
   };
 
-  const paginatedPostRecords: Paginated<PostFeedRecord> = {
+  const paginatedPostRecords: CursorPaginated<PostFeedRecord> = {
     items: [
       {
         ...postRecordFixture,
@@ -55,7 +55,7 @@ describe('PostsController', () => {
         commentCount: 2,
       },
     ],
-    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    nextCursor: null,
   };
 
   const paginatedPostResponse: ListPostsResponse = {
@@ -68,7 +68,7 @@ describe('PostsController', () => {
         updatedAt: postRecordFixture.updatedAt.toISOString(),
       },
     ],
-    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    nextCursor: null,
   };
 
   const postDetailResponse: PostDetailResponse = {
@@ -92,7 +92,7 @@ describe('PostsController', () => {
     ],
   };
 
-  const queryFixture: ListPostsQuery = { sort: 'hot', page: 1, limit: 20 };
+  const queryFixture: ListPostsQuery = { sort: 'hot', limit: 20 };
 
   const mockPostsService: jest.Mocked<
     Pick<PostsService, 'findFeed' | 'findById'>

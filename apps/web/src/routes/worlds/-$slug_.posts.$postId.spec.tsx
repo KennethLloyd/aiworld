@@ -108,7 +108,7 @@ const server = setupServer(
           commentCount: 3,
         },
       ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      nextCursor: null,
     }),
   ),
 );

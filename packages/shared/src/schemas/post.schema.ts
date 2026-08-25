@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-import { paginationQueryFields } from "./pagination.schema.ts";
+import { cursorPaginationQueryFields } from "./pagination.schema.ts";
 
 export const postSortSchema = z.enum(["hot", "new"]);
 export type PostSort = z.infer<typeof postSortSchema>;
 
 export const listPostsQuerySchema = z.object({
   sort: postSortSchema.default("hot"),
-  ...paginationQueryFields,
+  ...cursorPaginationQueryFields,
 });
 
 export const postDetailParamsSchema = z.object({

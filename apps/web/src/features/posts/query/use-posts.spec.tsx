@@ -1,6 +1,6 @@
 import type { ListPostsResponse } from '@aiworld/shared/schemas/post-response.schema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CharacterGateway } from '@/features/characters/api/character-gateway';
@@ -35,7 +35,7 @@ const response: ListPostsResponse = {
       updatedAt: '2026-07-15T10:00:00.000Z',
     },
   ],
-  meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+  nextCursor: null,
 };
 
 describe('usePosts', () => {
@@ -65,12 +65,67 @@ describe('usePosts', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data?.items[0]?.title).toBe('A latest conversation');
-    expect(gateway.list).toHaveBeenCalledWith('mbti', {
-      sort: 'new',
-      page: 1,
-      limit: 20,
+    expect(result.current.data?.pages[0]?.items[0]?.title).toBe(
+      'A latest conversation',
+    );
+    expect(gateway.list).toHaveBeenCalledWith(
+      'mbti',
+      {
+        sort: 'new',
+        limit: 5,
+        cursor: undefined,
+      },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('requests the next cursor page once and preserves the page boundary', async () => {
+    const gateway: PostGateway = {
+      list: vi
+        .fn<PostGateway['list']>()
+        .mockImplementation(async (_slug, query) => {
+          if (query.cursor === undefined) {
+            return { ...response, nextCursor: 'cursor-2' };
+          }
+          return { ...response, nextCursor: null };
+        }),
+      getById: vi.fn<PostGateway['getById']>(),
+    };
+    const gateways: AppGateways = {
+      adminGateway: unusedAdminGateway,
+      worldMemberGateway: unusedWorldMemberGateway,
+      worldGateway: unusedWorldGateway,
+      postGateway: gateway,
+      characterGateway: unusedCharacterGateway,
+      adminCharacterGateway: unusedAdminCharacterGateway,
+      searchGateway: unusedSearchGateway,
+    };
+    const client = new QueryClient();
+
+    const { result } = renderHook(() => usePosts('mbti', 'new'), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={client}>
+          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
+        </QueryClientProvider>
+      ),
     });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await act(async () => {
+      await result.current.fetchNextPage();
+    });
+
+    expect(gateway.list).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
+    expect(gateway.list).toHaveBeenLastCalledWith(
+      'mbti',
+      {
+        sort: 'new',
+        limit: 5,
+        cursor: 'cursor-2',
+      },
+      expect.any(AbortSignal),
+    );
   });
 
   it('polls the latest conversations for the public observer', async () => {

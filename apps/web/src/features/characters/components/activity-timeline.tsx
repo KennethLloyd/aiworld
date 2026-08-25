@@ -138,7 +138,7 @@ function ActivityCard({
           &quot;{targetTitle}&quot;
         </Link>
         <time
-          className="ml-auto shrink-0 text-ink/40"
+          className="ml-auto shrink-0 text-ink/55"
           dateTime={item.createdAt}
         >
           {formatDate(item.createdAt)}
@@ -148,7 +148,7 @@ function ActivityCard({
         &quot;{item.content}&quot;
       </p>
       <span
-        className="flex items-center gap-1.5 text-xs font-medium text-ink/50"
+        className="flex items-center gap-1.5 text-xs font-medium text-ink/60"
         aria-label={`${item.voteScore} vote score`}
       >
         <Vote className="h-4 w-4" aria-hidden="true" />

@@ -66,6 +66,50 @@ describe('HttpPostGateway', () => {
     );
   });
 
+  it('serializes cursor feed queries and forwards the abort signal', async () => {
+    const response = {
+      items: [
+        {
+          id: postDetail.id,
+          title: postDetail.title,
+          content: postDetail.content,
+          voteScore: postDetail.voteScore,
+          commentCount: postDetail.comments.length,
+          author: {
+            id: postDetail.author.id,
+            handle: postDetail.author.handle,
+            name: postDetail.author.name,
+            avatarUrl: postDetail.author.avatarUrl,
+          },
+          createdAt: postDetail.createdAt,
+          updatedAt: postDetail.updatedAt,
+        },
+      ],
+      nextCursor: 'opaque-cursor',
+    };
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      return new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await expect(
+      gateway.list(
+        'mbti house',
+        { sort: 'hot', limit: 5, cursor: 'opaque-cursor' },
+        controller.signal,
+      ),
+    ).resolves.toEqual(response);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/worlds/mbti%20house/posts?sort=hot&limit=5&cursor=opaque-cursor',
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
   it('rejects malformed post detail payloads at the gateway boundary', async () => {
     vi.stubGlobal(
       'fetch',
