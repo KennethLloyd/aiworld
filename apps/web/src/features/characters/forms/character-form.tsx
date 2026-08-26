@@ -21,6 +21,7 @@ export interface CharacterFormProps {
   isSubmitting: boolean;
   submitError: string | null;
   resetKey?: string | number;
+  identityId?: string;
   onDirtyChange?: (dirty: boolean) => void;
   onSubmit: (values: CharacterFormValues) => void;
 }
@@ -32,6 +33,7 @@ export function CharacterForm({
   isSubmitting,
   submitError,
   resetKey,
+  identityId,
   onDirtyChange,
   onSubmit,
 }: CharacterFormProps) {
@@ -110,6 +112,7 @@ export function CharacterForm({
           src={avatarUrl}
           alt={name || 'Character'}
           name={name || 'Character'}
+          identityId={identityId}
           size="lg"
         />
       </div>

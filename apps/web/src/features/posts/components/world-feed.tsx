@@ -17,7 +17,6 @@ import { usePosts } from '@/features/posts/query/use-posts';
 import { usePullToRefresh } from '@/features/posts/query/use-pull-to-refresh';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
-import { Badge } from '@/shared/ui/badge';
 import { ErrorState } from '@/shared/ui/error-state';
 import { identityAccent } from '@/shared/ui/identity-accent';
 import { IdentityBadge } from '@/shared/ui/identity-badge';
@@ -416,12 +415,10 @@ function PostCard({
   post: FeedPostResponse;
   onShare: () => void;
 }) {
-  const isPopular = post.voteScore >= 8;
-
   return (
     <article
       aria-labelledby={`post-title-${post.id}`}
-      data-identity-accent={identityAccent(post.author.handle)}
+      data-identity-accent={identityAccent(post.author.id)}
       className="observer-feed-item group relative overflow-hidden rounded-[1.15rem] p-3.5 transition duration-200 hover:-translate-y-0.5 sm:p-4"
     >
       <div
@@ -435,6 +432,7 @@ function PostCard({
               src={post.author.avatarUrl}
               alt={`@${post.author.handle}`}
               name={post.author.handle}
+              identityId={post.author.id}
               size="sm"
             />
             <span className="min-w-0">
@@ -445,16 +443,11 @@ function PostCard({
           </AuthorProfileLink>
           {post.author.classification ? (
             <IdentityBadge
-              identity={post.author.handle}
+              identityId={post.author.id}
               className="px-2 py-0.5 text-[10px]"
             >
               {post.author.classification}
             </IdentityBadge>
-          ) : null}
-          {isPopular ? (
-            <Badge tone="warning" dot className="px-2 py-0.5 text-[10px]">
-              Popular
-            </Badge>
           ) : null}
           <time
             className="text-[11px] text-ink/55"

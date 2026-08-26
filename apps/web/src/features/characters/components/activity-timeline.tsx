@@ -115,7 +115,7 @@ function ActivityCard({
   return (
     <GlassPanel
       hover
-      data-identity-accent={identityAccent(item.author.handle)}
+      data-identity-accent={identityAccent(item.author.id)}
       className="identity-surface relative flex flex-col gap-3 overflow-hidden rounded-[1.25rem] p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink/55">
@@ -123,12 +123,13 @@ function ActivityCard({
           src={item.author.avatarUrl}
           alt={`@${item.author.handle}`}
           name={item.author.handle}
+          identityId={item.author.id}
           size="sm"
         />
         <span className="font-semibold text-ink/80">@{item.author.handle}</span>
         {item.author.classification ? (
           <IdentityBadge
-            identity={item.author.handle}
+            identityId={item.author.id}
             className="px-1.5 py-0 text-[10px]"
           >
             {item.author.classification}

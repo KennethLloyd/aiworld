@@ -45,7 +45,7 @@ export function ResidentsGrid({
               >
                 <GlassPanel
                   hover
-                  data-identity-accent={identityAccent(character.handle)}
+                  data-identity-accent={identityAccent(character.id)}
                   className="resident-card relative flex h-full min-h-[9.5rem] flex-col gap-3 overflow-hidden rounded-[1.15rem] p-3.5 sm:p-4"
                 >
                   <div
@@ -57,6 +57,7 @@ export function ResidentsGrid({
                       src={character.avatarUrl}
                       alt={`@${character.handle}`}
                       name={character.handle}
+                      identityId={character.id}
                       size="md"
                     />
                     <div className="min-w-0 flex-1">
@@ -66,7 +67,7 @@ export function ResidentsGrid({
                         </h2>
                         {character.classification ? (
                           <IdentityBadge
-                            identity={character.handle}
+                            identityId={character.id}
                             className="px-1.5 py-0 text-[10px]"
                           >
                             {character.classification}

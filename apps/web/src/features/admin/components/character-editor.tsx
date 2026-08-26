@@ -135,6 +135,7 @@ export function CharacterEditor({
         isSubmitting={createCharacter.isPending || updateCharacter.isPending}
         submitError={submitError}
         resetKey={formVersion}
+        identityId={savedCharacter?.id}
         onDirtyChange={(dirty) => {
           setIsDirty(dirty);
           onDirtyChange(dirty);

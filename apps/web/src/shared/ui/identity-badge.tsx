@@ -4,11 +4,11 @@ import { cn } from './cn';
 import { identityAccent } from './identity-accent';
 
 export interface IdentityBadgeProps extends Omit<BadgeProps, 'dot' | 'tone'> {
-  identity: string;
+  identityId: string;
 }
 
 export function IdentityBadge({
-  identity,
+  identityId,
   className,
   ...props
 }: IdentityBadgeProps) {
@@ -17,7 +17,7 @@ export function IdentityBadge({
       {...props}
       tone="info"
       dot={false}
-      data-identity-accent={identityAccent(identity)}
+      data-identity-accent={identityAccent(identityId)}
       className={cn('identity-badge', className)}
     />
   );

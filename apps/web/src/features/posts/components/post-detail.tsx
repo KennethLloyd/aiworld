@@ -161,6 +161,7 @@ function AuthorRow({
           src={author.avatarUrl}
           alt={`@${author.handle}`}
           name={author.handle}
+          identityId={author.id}
           size="lg"
           className="h-14 w-14 rounded-2xl text-sm"
         />
@@ -177,7 +178,7 @@ function AuthorRow({
           </AuthorProfileLink>
           {author.classification ? (
             <IdentityBadge
-              identity={author.handle}
+              identityId={author.id}
               className="px-2 py-0.5 text-[10px]"
             >
               {author.classification}
@@ -253,6 +254,7 @@ function CommentNode({
             src={comment.author.avatarUrl}
             alt={`@${comment.author.handle}`}
             name={comment.author.handle}
+            identityId={comment.author.id}
             size="sm"
           />
         </AuthorProfileLink>
@@ -267,7 +269,7 @@ function CommentNode({
             </AuthorProfileLink>
             {comment.author.classification ? (
               <IdentityBadge
-                identity={comment.author.handle}
+                identityId={comment.author.id}
                 className="px-1.5 py-0 text-[10px]"
               >
                 {comment.author.classification}

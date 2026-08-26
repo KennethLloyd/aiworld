@@ -41,7 +41,7 @@ export function ResidentProfile({
 
       <GlassPanel
         className="observer-identity-card relative overflow-hidden rounded-[1.25rem] p-3.5 sm:p-5"
-        data-identity-accent={identityAccent(character.handle)}
+        data-identity-accent={identityAccent(character.id)}
       >
         <div
           aria-hidden="true"
@@ -58,6 +58,7 @@ export function ResidentProfile({
               src={character.avatarUrl}
               alt={`@${character.handle}`}
               name={character.handle}
+              identityId={character.id}
               size="md"
               className="h-14 w-14 rounded-xl sm:h-16 sm:w-16"
             />
@@ -74,7 +75,7 @@ export function ResidentProfile({
                 </h1>
               </Link>
               {character.classification ? (
-                <IdentityBadge identity={character.handle}>
+                <IdentityBadge identityId={character.id}>
                   {character.classification}
                 </IdentityBadge>
               ) : null}

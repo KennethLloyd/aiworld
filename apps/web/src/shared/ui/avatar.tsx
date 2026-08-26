@@ -16,17 +16,20 @@ export interface AvatarProps {
   src?: string | null;
   /** Accessible name for the digital identity represented by the avatar. */
   alt: string;
-  /** Used to derive a deterministic identity glyph when an image is unavailable. */
+  /** Display name used for the fallback initials. */
   name?: string;
+  /** Stable identity ID used for the fallback glyph and accent. */
+  identityId?: string;
   size?: AvatarSize;
   className?: string;
 }
 
-/** Presentation-only avatar with a distinct, deterministic glyph for every identity. */
+/** Presentation-only avatar with deterministic fallback identity styling. */
 export function Avatar({
   src,
   alt,
   name = alt,
+  identityId,
   size = 'md',
   className,
 }: AvatarProps) {
@@ -35,7 +38,8 @@ export function Avatar({
     setHasLoadError(false);
   }, [src]);
   const showImage = Boolean(src) && !hasLoadError;
-  const glyph = identityGlyph(name);
+  const identityKey = identityId ?? name;
+  const glyph = identityGlyph(identityKey);
 
   return (
     <span
@@ -49,7 +53,7 @@ export function Avatar({
       role="img"
       aria-label={`${alt} avatar`}
       data-testid={showImage ? 'avatar-image' : 'avatar-fallback'}
-      data-identity-accent={identityAccent(name)}
+      data-identity-accent={identityAccent(identityKey)}
     >
       {showImage ? (
         <img

@@ -6,7 +6,13 @@ import { identityAccent } from './identity-accent';
 
 describe('Avatar', () => {
   it('renders the shared fallback when no avatar URL is supplied', () => {
-    render(<Avatar alt="Mystic Aura" name="Mystic Aura" />);
+    render(
+      <Avatar
+        alt="Mystic Aura"
+        name="Mystic Aura"
+        identityId="7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11"
+      />,
+    );
 
     expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
       'aria-label',
@@ -14,7 +20,7 @@ describe('Avatar', () => {
     );
     expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
       'data-identity-accent',
-      identityAccent('Mystic Aura'),
+      identityAccent('7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11'),
     );
     expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
       'data-testid',

@@ -491,6 +491,7 @@ function memberColumns({
             src={character?.avatarUrl}
             alt={character?.name ?? 'Unknown Character'}
             name={character?.name ?? 'Unknown Character'}
+            identityId={character?.id ?? member.characterId ?? undefined}
             size="sm"
           />
           <div className="min-w-0">
@@ -597,6 +598,7 @@ function candidateColumns({
             src={character.avatarUrl}
             alt={character.name}
             name={character.name}
+            identityId={character.id}
             size="sm"
           />
           <div className="min-w-0">
