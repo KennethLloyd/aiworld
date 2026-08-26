@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { cn } from './cn';
+import { identityAccent, identityGlyph } from './identity-accent';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
@@ -48,6 +49,7 @@ export function Avatar({
       role="img"
       aria-label={`${alt} avatar`}
       data-testid={showImage ? 'avatar-image' : 'avatar-fallback'}
+      data-identity-accent={identityAccent(name)}
     >
       {showImage ? (
         <img
@@ -69,16 +71,6 @@ export function Avatar({
   );
 }
 
-export function identityGlyph(value: string): number {
-  return hashCode(value) % 6;
-}
-
-function hashCode(value: string): number {
-  return Array.from(value).reduce(
-    (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
-    0,
-  );
-}
 function initials(value: string): string {
   const parts = value.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';

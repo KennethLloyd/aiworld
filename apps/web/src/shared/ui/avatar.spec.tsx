@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { Avatar } from './avatar';
+import { identityAccent } from './identity-accent';
 
 describe('Avatar', () => {
   it('renders the shared fallback when no avatar URL is supplied', () => {
@@ -10,6 +11,10 @@ describe('Avatar', () => {
     expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
       'aria-label',
       'Mystic Aura avatar',
+    );
+    expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
+      'data-identity-accent',
+      identityAccent('Mystic Aura'),
     );
     expect(screen.getByTestId('avatar-fallback')).toHaveAttribute(
       'data-testid',

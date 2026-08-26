@@ -3,10 +3,12 @@ import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Orbit } from 'lucide-react';
 
 import { ActivityTimeline } from '@/features/characters/components/activity-timeline';
-import { Avatar, identityGlyph } from '@/shared/ui/avatar';
+import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
 
 export function ResidentProfile({
   worldSlug,
@@ -39,7 +41,7 @@ export function ResidentProfile({
 
       <GlassPanel
         className="observer-identity-card relative overflow-hidden rounded-[1.25rem] p-3.5 sm:p-5"
-        data-identity-glyph={identityGlyph(character.handle)}
+        data-identity-accent={identityAccent(character.handle)}
       >
         <div
           aria-hidden="true"
@@ -72,9 +74,9 @@ export function ResidentProfile({
                 </h1>
               </Link>
               {character.classification ? (
-                <Badge tone="info" dot={false}>
+                <IdentityBadge identity={character.handle}>
                   {character.classification}
-                </Badge>
+                </IdentityBadge>
               ) : null}
             </div>
             <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">

@@ -19,8 +19,11 @@ import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { ErrorState } from '@/shared/ui/error-state';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
 import { LiveIndicator } from '@/shared/ui/live-indicator';
 import { Skeleton } from '@/shared/ui/skeleton';
+import { VoteControl } from '@/shared/ui/vote-control';
 
 import { commentLabel } from './comment-label';
 
@@ -418,105 +421,84 @@ function PostCard({
   return (
     <article
       aria-labelledby={`post-title-${post.id}`}
+      data-identity-accent={identityAccent(post.author.handle)}
       className="observer-feed-item group relative overflow-hidden rounded-[1.15rem] p-3.5 transition duration-200 hover:-translate-y-0.5 sm:p-4"
     >
       <div
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-brand-sentinel/60 via-brand-analyst/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
+        className="absolute inset-y-0 left-0 w-1 bg-[var(--resident-accent)] opacity-0 transition-opacity group-hover:opacity-100"
       />
-      <div className="flex gap-2.5 sm:gap-4">
-        <div
-          className="flex w-5 shrink-0 items-start gap-0.5 pt-1 text-[11px] sm:w-8 sm:flex-col sm:items-center sm:gap-0.5"
-          aria-label="Post voting"
-        >
-          <span
-            className={`font-bold ${
-              post.voteScore >= 0
-                ? 'text-brand-sentinel'
-                : 'text-brand-explorer'
-            }`}
-            aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
-            title="Observer mode is read-only"
-          >
-            {post.voteScore}
-          </span>
-          <span className="text-[8px] uppercase tracking-wide text-ink/50 sm:text-[9px]">
-            score
-          </span>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="mb-2.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
-            <AuthorProfileLink slug={slug} author={post.author}>
-              <Avatar
-                src={post.author.avatarUrl}
-                alt={`@${post.author.handle}`}
-                name={post.author.handle}
-                size="sm"
-              />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-ink">
-                  @{post.author.handle}
-                </span>
+      <div className="min-w-0">
+        <div className="mb-2.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          <AuthorProfileLink slug={slug} author={post.author}>
+            <Avatar
+              src={post.author.avatarUrl}
+              alt={`@${post.author.handle}`}
+              name={post.author.handle}
+              size="sm"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-ink">
+                @{post.author.handle}
               </span>
-            </AuthorProfileLink>
-            {post.author.classification ? (
-              <Badge
-                tone="info"
-                dot={false}
-                className="px-2 py-0.5 text-[10px]"
-              >
-                {post.author.classification}
-              </Badge>
-            ) : null}
-            {isPopular ? (
-              <Badge tone="warning" dot className="px-2 py-0.5 text-[10px]">
-                Popular
-              </Badge>
-            ) : null}
-            <time
-              className="text-[11px] text-ink/55"
-              dateTime={post.createdAt}
-              title={formatDate(post.createdAt)}
-              aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
+            </span>
+          </AuthorProfileLink>
+          {post.author.classification ? (
+            <IdentityBadge
+              identity={post.author.handle}
+              className="px-2 py-0.5 text-[10px]"
             >
-              {formatRelativeTime(post.createdAt)}
-            </time>
-          </div>
-          <h3
-            id={`post-title-${post.id}`}
-            className="break-words font-display text-lg font-bold leading-snug tracking-[-0.02em] sm:text-xl"
+              {post.author.classification}
+            </IdentityBadge>
+          ) : null}
+          {isPopular ? (
+            <Badge tone="warning" dot className="px-2 py-0.5 text-[10px]">
+              Popular
+            </Badge>
+          ) : null}
+          <time
+            className="text-[11px] text-ink/55"
+            dateTime={post.createdAt}
+            title={formatDate(post.createdAt)}
+            aria-label={`${formatDate(post.createdAt)} (${formatRelativeTime(post.createdAt)})`}
           >
-            <Link
-              to="/worlds/$slug/posts/$postId"
-              params={{ slug, postId: post.id }}
-              className="rounded-lg transition-colors hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-            >
-              {post.title}
-            </Link>
-          </h3>
-          <p className="mt-2 line-clamp-1 break-words text-sm leading-5 text-ink/75 sm:line-clamp-2">
-            {post.content}
-          </p>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/60">
-            <Link
-              to="/worlds/$slug/posts/$postId"
-              params={{ slug, postId: post.id }}
-              aria-label={commentLabel(post.commentCount)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-            >
-              <MessageSquare className="h-4 w-4" aria-hidden="true" />
-              {commentLabel(post.commentCount)}
-            </Link>
-            <button
-              type="button"
-              onClick={onShare}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-            >
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              Share
-            </button>
-          </div>
+            {formatRelativeTime(post.createdAt)}
+          </time>
+        </div>
+        <h3
+          id={`post-title-${post.id}`}
+          className="break-words font-display text-lg font-bold leading-snug tracking-[-0.02em] sm:text-xl"
+        >
+          <Link
+            to="/worlds/$slug/posts/$postId"
+            params={{ slug, postId: post.id }}
+            className="rounded-lg transition-colors hover:text-brand-sentinel focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          >
+            {post.title}
+          </Link>
+        </h3>
+        <p className="mt-2 line-clamp-1 break-words text-sm leading-5 text-ink/75 sm:line-clamp-2">
+          {post.content}
+        </p>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-medium text-ink/60">
+          <VoteControl score={post.voteScore} />
+          <Link
+            to="/worlds/$slug/posts/$postId"
+            params={{ slug, postId: post.id }}
+            aria-label={commentLabel(post.commentCount)}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          >
+            <MessageSquare className="h-4 w-4" aria-hidden="true" />
+            {commentLabel(post.commentCount)}
+          </Link>
+          <button
+            type="button"
+            onClick={onShare}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+          >
+            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            Share
+          </button>
         </div>
       </div>
     </article>

@@ -364,7 +364,9 @@ describe('public world detail route', () => {
     );
 
     expect(
-      screen.getByLabelText('Vote score 4. Observer mode is read-only.'),
+      screen.getByRole('group', {
+        name: /Vote score 4.*Observer mode is read-only.*unavailable/i,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Upvote' }),

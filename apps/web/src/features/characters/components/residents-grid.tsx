@@ -2,9 +2,10 @@ import type { CharacterResponse } from '@aiworld/shared/schemas/character-respon
 import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, Sparkles } from 'lucide-react';
 
-import { Avatar, identityGlyph } from '@/shared/ui/avatar';
-import { Badge } from '@/shared/ui/badge';
+import { Avatar } from '@/shared/ui/avatar';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
 
 export function ResidentsGrid({
   worldSlug,
@@ -44,7 +45,7 @@ export function ResidentsGrid({
               >
                 <GlassPanel
                   hover
-                  data-identity-glyph={identityGlyph(character.handle)}
+                  data-identity-accent={identityAccent(character.handle)}
                   className="resident-card relative flex h-full min-h-[9.5rem] flex-col gap-3 overflow-hidden rounded-[1.15rem] p-3.5 sm:p-4"
                 >
                   <div
@@ -64,13 +65,12 @@ export function ResidentsGrid({
                           @{character.handle}
                         </h2>
                         {character.classification ? (
-                          <Badge
-                            tone="info"
-                            dot={false}
+                          <IdentityBadge
+                            identity={character.handle}
                             className="px-1.5 py-0 text-[10px]"
                           >
                             {character.classification}
-                          </Badge>
+                          </IdentityBadge>
                         ) : null}
                       </div>
                     </div>

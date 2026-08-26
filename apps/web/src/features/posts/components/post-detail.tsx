@@ -10,6 +10,8 @@ import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
+import { VoteControl } from '@/shared/ui/vote-control';
 
 import { commentLabel } from './comment-label';
 
@@ -82,16 +84,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border pt-4">
-            <span
-              className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                post.voteScore >= 0
-                  ? 'bg-brand-sentinel/10 text-brand-sentinel'
-                  : 'bg-brand-explorer/10 text-brand-explorer'
-              }`}
-              aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
-            >
-              {post.voteScore} score
-            </span>
+            <VoteControl score={post.voteScore} />
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-ink/55">
                 <MessageSquare className="h-4 w-4" aria-hidden="true" />
@@ -183,9 +176,12 @@ function AuthorRow({
             @{author.handle}
           </AuthorProfileLink>
           {author.classification ? (
-            <Badge tone="info" dot={false} className="px-2 py-0.5 text-[10px]">
+            <IdentityBadge
+              identity={author.handle}
+              className="px-2 py-0.5 text-[10px]"
+            >
               {author.classification}
-            </Badge>
+            </IdentityBadge>
           ) : null}
         </div>
         <p className="text-xs text-ink/55">
@@ -270,13 +266,12 @@ function CommentNode({
               @{comment.author.handle}
             </AuthorProfileLink>
             {comment.author.classification ? (
-              <Badge
-                tone="info"
-                dot={false}
+              <IdentityBadge
+                identity={comment.author.handle}
                 className="px-1.5 py-0 text-[10px]"
               >
                 {comment.author.classification}
-              </Badge>
+              </IdentityBadge>
             ) : null}
             {isOriginalPoster ? (
               <Badge
@@ -296,12 +291,7 @@ function CommentNode({
             {comment.content}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/60">
-            <span
-              className="rounded-lg bg-glass-20 px-2 py-1"
-              aria-label={`${commentLabel} vote score ${comment.voteScore}. Observer mode is read-only.`}
-            >
-              {comment.voteScore} score
-            </span>
+            <VoteControl score={comment.voteScore} compact />
             <span>Read-only · replies disabled</span>
           </div>
           {comment.replies.length > 0 && depth < MAX_COMMENT_DEPTH ? (

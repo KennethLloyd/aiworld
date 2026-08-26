@@ -349,12 +349,19 @@
   }
 
   .observer-shell .resident-card,
-  .observer-shell .observer-identity-card {
-    --resident-accent: #4384b0;
+  .observer-shell .observer-identity-card,
+  .observer-shell .identity-surface,
+  .observer-shell [data-identity-accent] {
+    --resident-accent: #177bc2;
+    --resident-accent-soft: rgba(23, 123, 194, 0.1);
+    --resident-accent-border: rgba(23, 123, 194, 0.34);
+    --resident-accent-text: #145f99;
+    --resident-accent-shadow: rgba(23, 123, 194, 0.22);
   }
 
   .observer-shell .resident-card::before,
-  .observer-shell .observer-identity-card::before {
+  .observer-shell .observer-identity-card::before,
+  .observer-shell .identity-surface::before {
     position: absolute;
     inset-block: 18%;
     left: 0;
@@ -365,24 +372,50 @@
     opacity: 0.72;
   }
 
-  .observer-shell [data-identity-glyph='1'] {
+  .observer-shell [data-identity-accent='indigo'] {
     --resident-accent: #5a68cb;
+    --resident-accent-soft: rgba(90, 104, 203, 0.1);
+    --resident-accent-border: rgba(90, 104, 203, 0.34);
+    --resident-accent-text: #4956ad;
+    --resident-accent-shadow: rgba(90, 104, 203, 0.22);
   }
 
-  .observer-shell [data-identity-glyph='2'] {
+  .observer-shell [data-identity-accent='teal'] {
     --resident-accent: #168980;
+    --resident-accent-soft: rgba(22, 137, 128, 0.1);
+    --resident-accent-border: rgba(22, 137, 128, 0.34);
+    --resident-accent-text: #14736c;
+    --resident-accent-shadow: rgba(22, 137, 128, 0.22);
   }
 
-  .observer-shell [data-identity-glyph='3'] {
+  .observer-shell [data-identity-accent='orange'] {
     --resident-accent: #b66a2b;
+    --resident-accent-soft: rgba(182, 106, 43, 0.1);
+    --resident-accent-border: rgba(182, 106, 43, 0.34);
+    --resident-accent-text: #9a581f;
+    --resident-accent-shadow: rgba(182, 106, 43, 0.22);
   }
 
-  .observer-shell [data-identity-glyph='4'] {
+  .observer-shell [data-identity-accent='blue'] {
     --resident-accent: #4384b0;
+    --resident-accent-soft: rgba(67, 132, 176, 0.1);
+    --resident-accent-border: rgba(67, 132, 176, 0.34);
+    --resident-accent-text: #326d96;
+    --resident-accent-shadow: rgba(67, 132, 176, 0.22);
   }
 
-  .observer-shell [data-identity-glyph='5'] {
+  .observer-shell [data-identity-accent='violet'] {
     --resident-accent: #725fb8;
+    --resident-accent-soft: rgba(114, 95, 184, 0.1);
+    --resident-accent-border: rgba(114, 95, 184, 0.34);
+    --resident-accent-text: #604fa0;
+    --resident-accent-shadow: rgba(114, 95, 184, 0.22);
+  }
+
+  .observer-shell .identity-badge {
+    border-color: var(--resident-accent-border) !important;
+    background: var(--resident-accent-soft) !important;
+    color: var(--resident-accent-text) !important;
   }
 
   .identity-fallback {
@@ -412,8 +445,8 @@
     display: block;
     width: 68%;
     height: 68%;
-    color: #177bc2;
-    filter: drop-shadow(0 3px 6px rgba(27, 119, 179, 0.22));
+    color: var(--resident-accent);
+    filter: drop-shadow(0 3px 6px var(--resident-accent-shadow));
   }
 
   .observer-shell .identity-glyph-core {
@@ -433,27 +466,22 @@
   }
 
   .observer-shell .identity-glyph[data-glyph='1'] {
-    color: #5a68cb;
     transform: rotate(38deg);
   }
 
   .observer-shell .identity-glyph[data-glyph='2'] {
-    color: #168980;
     transform: rotate(82deg);
   }
 
   .observer-shell .identity-glyph[data-glyph='3'] {
-    color: #b66a2b;
     transform: rotate(118deg);
   }
 
   .observer-shell .identity-glyph[data-glyph='4'] {
-    color: #4384b0;
     transform: rotate(158deg);
   }
 
   .observer-shell .identity-glyph[data-glyph='5'] {
-    color: #725fb8;
     transform: rotate(208deg);
   }
 }

@@ -4,12 +4,14 @@ import type {
   PostActivityItem,
 } from '@aiworld/shared/schemas/activity-response.schema';
 import { Link } from '@tanstack/react-router';
-import { FileText, MessageSquare, Vote } from 'lucide-react';
+import { FileText, MessageSquare } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { Avatar } from '@/shared/ui/avatar';
-import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
+import { VoteControl } from '@/shared/ui/vote-control';
 
 export function ActivityTimeline({
   worldSlug,
@@ -113,7 +115,8 @@ function ActivityCard({
   return (
     <GlassPanel
       hover
-      className="flex flex-col gap-3 rounded-[1.25rem] p-4 sm:p-5"
+      data-identity-accent={identityAccent(item.author.handle)}
+      className="identity-surface relative flex flex-col gap-3 overflow-hidden rounded-[1.25rem] p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink/55">
         <Avatar
@@ -124,9 +127,12 @@ function ActivityCard({
         />
         <span className="font-semibold text-ink/80">@{item.author.handle}</span>
         {item.author.classification ? (
-          <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
+          <IdentityBadge
+            identity={item.author.handle}
+            className="px-1.5 py-0 text-[10px]"
+          >
             {item.author.classification}
-          </Badge>
+          </IdentityBadge>
         ) : null}
         <span>{action}</span>
         <Link
@@ -147,13 +153,7 @@ function ActivityCard({
       <p className="line-clamp-3 text-sm leading-7 text-ink/70">
         &quot;{item.content}&quot;
       </p>
-      <span
-        className="flex items-center gap-1.5 text-xs font-medium text-ink/60"
-        aria-label={`${item.voteScore} vote score`}
-      >
-        <Vote className="h-4 w-4" aria-hidden="true" />
-        {item.voteScore}
-      </span>
+      <VoteControl score={item.voteScore} compact />
     </GlassPanel>
   );
 }

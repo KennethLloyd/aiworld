@@ -100,7 +100,12 @@ describe('DiscussionSearch', () => {
     expect(screen.getByLabelText('Discussion search results')).toHaveClass(
       'bg-surface/95',
     );
-    expect(screen.getByText('The matching comment.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: /Vote score 4.*read-only/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: /Vote score 2.*read-only/i }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('option', { name: /A quillfox conversation/ }),
     ).toHaveAttribute('href', `/worlds/mbti/posts/${postId}`);
