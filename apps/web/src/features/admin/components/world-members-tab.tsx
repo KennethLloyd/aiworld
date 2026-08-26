@@ -491,7 +491,7 @@ function memberColumns({
             src={character?.avatarUrl}
             alt={character?.name ?? 'Unknown Character'}
             name={character?.name ?? 'Unknown Character'}
-            identityId={character?.id ?? member.characterId ?? undefined}
+            identityId={character?.id ?? member.userId ?? member.id}
             size="sm"
           />
           <div className="min-w-0">
