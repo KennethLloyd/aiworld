@@ -99,6 +99,23 @@ describe('PrismaWorldRepository resident counts', () => {
       data: { isActive: false },
     });
   });
+  it('reactivates a World without resuming its simulation configuration', async () => {
+    const { prisma, repository } = createRepository();
+    prisma.world.findUnique.mockResolvedValue(worldRow({ isActive: false }));
+    prisma.world.update.mockResolvedValue(worldRow({ isActive: true }));
+
+    const result = await repository.update('mbti-house', { isActive: true });
+
+    expect(result?.isActive).toBe(true);
+    expect(prisma.world.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { slug: 'mbti-house' },
+        data: expect.objectContaining({ isActive: true }),
+      }),
+    );
+    expect(prisma.worldSimulationConfig.updateMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });
 
 describe('PrismaWorldRepository simulation execution lock', () => {
