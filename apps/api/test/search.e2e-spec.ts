@@ -219,6 +219,7 @@ describe('World discussion search (real database)', () => {
           authorMemberId:
             comment.key === 'search-c1' ? commenterMemberId : authorMemberId,
           content: comment.content,
+          voteScore: comment.upvotes,
           createdAt: comment.createdAt,
           updatedAt: comment.createdAt,
         },
@@ -618,6 +619,7 @@ describe('World discussion search (HTTP boundary)', () => {
     postId: postRow.id,
     parentCommentId: null,
     content: 'Never trust a quillfox with your microwave.',
+    voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     post: {
@@ -644,9 +646,6 @@ describe('World discussion search (HTTP boundary)', () => {
     comment: {
       findMany: jest.fn(),
     },
-    vote: {
-      groupBy: jest.fn(),
-    },
   };
 
   beforeEach(async () => {
@@ -659,9 +658,6 @@ describe('World discussion search (HTTP boundary)', () => {
     );
     prismaStub.post.findMany.mockResolvedValue([postRow]);
     prismaStub.comment.findMany.mockResolvedValue([commentRow]);
-    prismaStub.vote.groupBy.mockResolvedValue([
-      { commentId: commentRow.id, _sum: { value: 2 } },
-    ]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -743,7 +739,7 @@ describe('World discussion search (HTTP boundary)', () => {
     });
   });
 
-  it('queries stored Post scores and aggregates matching comments through the post relation', async () => {
+  it('queries stored scores without aggregating matching comments', async () => {
     await request(app.getHttpServer())
       .get('/api/worlds/mbti-house/search?q=quillfox')
       .expect(200);
@@ -776,17 +772,8 @@ describe('World discussion search (HTTP boundary)', () => {
           content: { contains: 'quillfox', mode: 'insensitive' },
           post: { worldId },
         },
+        select: expect.objectContaining({ voteScore: true }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      }),
-    );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['commentId'],
-        where: {
-          commentId: { in: [commentRow.id] },
-          author: { isActive: true },
-        },
       }),
     );
   });

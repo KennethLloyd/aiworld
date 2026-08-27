@@ -6,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 
 import { AppModule } from '@/app.module';
+import { PrismaCommentRepository } from '@/comments/repositories/prisma-comment.repository';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 
@@ -185,6 +186,7 @@ describe('Post detail (real database)', () => {
             ? seedUuid(`comment:${comment.parentKey}`)
             : null,
           content: comment.content,
+          voteScore: comment.upvotes,
         },
       });
     }
@@ -282,7 +284,7 @@ describe('Post detail (real database)', () => {
     expect(dc1.replies[0].replies).toEqual([]);
   });
 
-  it('aggregates comment vote scores from Vote rows', async () => {
+  it('serves stored comment vote scores without aggregating Vote rows', async () => {
     const res = await request(app.getHttpServer())
       .get(
         `/api/worlds/${fixtureWorld.slug}/posts/${seedUuid(`post:${fixture.post.key}`)}`,
@@ -301,6 +303,43 @@ describe('Post detail (real database)', () => {
       expect(byId.get(seedUuid(`comment:${comment.key}`))).toBe(
         comment.upvotes,
       );
+    }
+  });
+  it('plans the repository comment score read without a Vote relation', async () => {
+    const queryPrisma = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
+      log: [{ emit: 'event', level: 'query' }],
+    });
+    const queries: Array<{ query: string; params: string }> = [];
+    queryPrisma.$on('query', (event) => {
+      queries.push({ query: event.query, params: event.params });
+    });
+
+    try {
+      const repository = new PrismaCommentRepository(
+        queryPrisma as unknown as PrismaService,
+      );
+      const postId = seedUuid(`post:${fixture.post.key}`);
+      await repository.findByPostId(postId);
+
+      const commentQuery = queries.find(
+        (event) =>
+          event.query.includes('voteScore') && event.query.includes('comment'),
+      );
+      expect(commentQuery).toBeDefined();
+      const params = JSON.parse(commentQuery!.params) as unknown[];
+      const plan = await queryPrisma.$queryRawUnsafe<
+        Array<{ 'QUERY PLAN': unknown }>
+      >(
+        `EXPLAIN (ANALYZE, FORMAT JSON, COSTS OFF) ${commentQuery!.query}`,
+        ...params,
+      );
+
+      const queryPlan = JSON.stringify(plan);
+      expect(queryPlan).toContain('"Relation Name":"comment"');
+      expect(queryPlan).not.toContain('"Relation Name":"vote"');
+    } finally {
+      await queryPrisma.$disconnect();
     }
   });
 
@@ -629,6 +668,7 @@ describe('Post detail (HTTP boundary)', () => {
     postId: postRow.id,
     parentCommentId: null,
     content: 'It was me. I said it.',
+    voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     author: authorMemberRow,
@@ -645,9 +685,6 @@ describe('Post detail (HTTP boundary)', () => {
     comment: {
       findMany: jest.fn(),
     },
-    vote: {
-      groupBy: jest.fn(),
-    },
   };
 
   beforeEach(async () => {
@@ -660,9 +697,6 @@ describe('Post detail (HTTP boundary)', () => {
     );
     prismaStub.post.findFirst.mockResolvedValue(postRow);
     prismaStub.comment.findMany.mockResolvedValue([commentRow]);
-    prismaStub.vote.groupBy.mockResolvedValue([
-      { commentId: commentRow.id, _sum: { value: 2 } },
-    ]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -714,7 +748,7 @@ describe('Post detail (HTTP boundary)', () => {
     );
   });
 
-  it('queries the post score from Post and aggregates comment votes once', async () => {
+  it('queries stored scores without reading Vote rows', async () => {
     await request(app.getHttpServer())
       .get(`/api/worlds/mbti-house/posts/${postRow.id}`)
       .expect(200);
@@ -734,14 +768,9 @@ describe('Post detail (HTTP boundary)', () => {
         }),
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
+    expect(prismaStub.comment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        by: ['commentId'],
-        where: {
-          commentId: { in: [commentRow.id] },
-          author: { isActive: true },
-        },
+        select: expect.objectContaining({ voteScore: true }),
       }),
     );
   });

@@ -151,6 +151,10 @@ export async function seedWorld(prisma: PrismaClient) {
       });
 
       for (const comment of flattenComments(post.comments)) {
+        const voteScore = buildSeedVotes(comment, memberKeyList).reduce(
+          (score, vote) => score + vote.value,
+          0,
+        );
         await tx.comment.upsert({
           where: { id: seedUuid(`comment:${comment.key}`) },
           create: {
@@ -161,6 +165,7 @@ export async function seedWorld(prisma: PrismaClient) {
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
             content: comment.content,
+            voteScore,
             createdAt: new Date(comment.createdAt),
           },
           update: {
@@ -170,6 +175,7 @@ export async function seedWorld(prisma: PrismaClient) {
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
             content: comment.content,
+            voteScore,
             createdAt: new Date(comment.createdAt),
           },
         });

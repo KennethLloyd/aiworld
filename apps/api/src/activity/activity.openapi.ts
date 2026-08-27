@@ -56,7 +56,7 @@ export function registerActivityOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          "One page of the character's posts and comments in the World, with aggregated vote scores and parent post identifiers and titles on comment items.",
+          "One page of the character's posts and comments in the World, with current active-member vote scores and parent post identifiers and titles on comment items.",
         content: {
           'application/json': {
             schema: CharacterActivityResponseDoc,

@@ -3,10 +3,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import {
-  CurrentPostVote,
+  CurrentVote,
   VoteRepository,
   VoteValue,
 } from '@/votes/repositories/vote-repository.interface';
+type VoteTarget =
+  | { postId: string; commentId?: never }
+  | { commentId: string; postId?: never };
 
 @Injectable()
 export class PrismaVoteRepository extends VoteRepository {
@@ -17,12 +20,15 @@ export class PrismaVoteRepository extends VoteRepository {
   async findByMemberAndPost(
     memberId: string,
     postId: string,
-  ): Promise<CurrentPostVote | null> {
-    const vote = await this.prisma.vote.findFirst({
-      where: { authorMemberId: memberId, postId },
-      select: { id: true, value: true },
-    });
-    return vote ? { id: vote.id, value: vote.value as VoteValue } : null;
+  ): Promise<CurrentVote | null> {
+    return this.findByMemberAndTarget(memberId, { postId });
+  }
+
+  async findByMemberAndComment(
+    memberId: string,
+    commentId: string,
+  ): Promise<CurrentVote | null> {
+    return this.findByMemberAndTarget(memberId, { commentId });
   }
 
   async setForPost(input: {
@@ -30,13 +36,45 @@ export class PrismaVoteRepository extends VoteRepository {
     authorMemberId: string;
     value: VoteValue | null;
   }): Promise<{ id: string } | null> {
+    return this.setForTarget({
+      target: { postId: input.postId },
+      authorMemberId: input.authorMemberId,
+      value: input.value,
+    });
+  }
+
+  async setForComment(input: {
+    commentId: string;
+    authorMemberId: string;
+    value: VoteValue | null;
+  }): Promise<{ id: string } | null> {
+    return this.setForTarget({
+      target: { commentId: input.commentId },
+      authorMemberId: input.authorMemberId,
+      value: input.value,
+    });
+  }
+
+  private async findByMemberAndTarget(
+    memberId: string,
+    target: VoteTarget,
+  ): Promise<CurrentVote | null> {
+    const vote = await this.prisma.vote.findFirst({
+      where: { authorMemberId: memberId, ...target },
+      select: { id: true, value: true },
+    });
+    return vote ? { id: vote.id, value: vote.value as VoteValue } : null;
+  }
+
+  private async setForTarget(input: {
+    target: VoteTarget;
+    authorMemberId: string;
+    value: VoteValue | null;
+  }): Promise<{ id: string } | null> {
     return this.prisma.$transaction(
       async (transaction) => {
         const existing = await transaction.vote.findFirst({
-          where: {
-            authorMemberId: input.authorMemberId,
-            postId: input.postId,
-          },
+          where: { authorMemberId: input.authorMemberId, ...input.target },
           select: { id: true, value: true },
         });
 
@@ -49,10 +87,7 @@ export class PrismaVoteRepository extends VoteRepository {
 
           await transaction.vote.delete({ where: { id: existing.id } });
           if (await this.isActiveMember(transaction, input.authorMemberId)) {
-            await transaction.post.update({
-              where: { id: input.postId },
-              data: { voteScore: { decrement: existing.value } },
-            });
+            await this.updateScore(transaction, input.target, -existing.value);
           }
           return null;
         }
@@ -72,7 +107,7 @@ export class PrismaVoteRepository extends VoteRepository {
             })
           : await transaction.vote.create({
               data: {
-                postId: input.postId,
+                ...input.target,
                 authorMemberId: input.authorMemberId,
                 value: input.value,
               },
@@ -81,16 +116,32 @@ export class PrismaVoteRepository extends VoteRepository {
           ? input.value - (existing?.value ?? 0)
           : 0;
         if (scoreDelta !== 0) {
-          await transaction.post.update({
-            where: { id: input.postId },
-            data: { voteScore: { increment: scoreDelta } },
-          });
+          await this.updateScore(transaction, input.target, scoreDelta);
         }
 
         return { id: vote.id };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+  }
+
+  private async updateScore(
+    transaction: Prisma.TransactionClient,
+    target: VoteTarget,
+    scoreDelta: number,
+  ): Promise<void> {
+    if ('postId' in target) {
+      await transaction.post.update({
+        where: { id: target.postId },
+        data: { voteScore: { increment: scoreDelta } },
+      });
+      return;
+    }
+
+    await transaction.comment.update({
+      where: { id: target.commentId },
+      data: { voteScore: { increment: scoreDelta } },
+    });
   }
 
   private async isActiveMember(

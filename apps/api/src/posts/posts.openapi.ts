@@ -63,7 +63,7 @@ export function registerPostsOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          'Paginated feed of World posts with their author, aggregated vote scores, and comment counts.',
+          'Paginated feed of World posts with their author, current active-member vote scores, and comment counts.',
         content: {
           'application/json': {
             schema: ListPostsResponse,
@@ -90,7 +90,7 @@ export function registerPostsOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          'The post with its author, aggregated vote score, and the comment tree bounded at three levels.',
+          'The post with its author, current active-member vote score, and the comment tree bounded at three levels.',
         content: {
           'application/json': {
             schema: PostDetailResponseDoc,
