@@ -45,6 +45,12 @@ function createService(state: SimulationState = 'PAUSED', isActive = true) {
       id: 'world-1',
       isActive,
     }),
+    withActiveSimulationLock: jest.fn(async (_worldId, operation) => {
+      if (!isActive) {
+        return { status: 'inactive' as const };
+      }
+      return { status: 'executed' as const, value: await operation() };
+    }),
   } as unknown as jest.Mocked<WorldRepository>;
   const service = new SimulationLifecycleService(
     repository,
@@ -128,7 +134,10 @@ describe('SimulationLifecycleService', () => {
         reason: 'INACTIVE',
       });
 
-      expect(worldRepository.findById).toHaveBeenCalledWith('world-1');
+      expect(worldRepository.withActiveSimulationLock).toHaveBeenCalledWith(
+        'world-1',
+        expect.any(Function),
+      );
       expect(repository.transitionState).not.toHaveBeenCalled();
     });
 

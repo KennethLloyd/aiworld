@@ -100,6 +100,10 @@ function createRunner(
 ) {
   const worldRepository = {
     findBySlug: jest.fn().mockResolvedValue(world),
+    withActiveSimulationLock: jest.fn(async (_worldId, operation) => ({
+      status: 'executed' as const,
+      value: await operation(),
+    })),
   } as unknown as jest.Mocked<WorldRepository>;
 
   const lifecycleService = {
@@ -208,6 +212,46 @@ describe('SimulationTickRunner', () => {
         'job-1',
       );
       expect(result).toMatchObject({ status: 'success' });
+    });
+
+    it('rejects before persistence when the World deactivates mid-iteration', async () => {
+      const { runner, worldRepository, executor, contentWriter, logService } =
+        createRunner();
+      executor.execute.mockResolvedValue(successOutcome);
+      worldRepository.withActiveSimulationLock.mockResolvedValue({
+        status: 'inactive',
+      });
+
+      const result = await runner.runScheduledTick(scheduledCommand(), 'job-8');
+
+      expect(contentWriter.persist).not.toHaveBeenCalled();
+      expect(logService.writeRejected).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reason:
+            'Simulation scheduled work is rejected because World is inactive',
+          jobId: 'job-8',
+        }),
+      );
+      expect(result).toMatchObject({ status: 'rejected' });
+    });
+
+    it('lets deleted Worlds dead-letter without writing a cascaded log', async () => {
+      const { runner, worldRepository, executor, contentWriter, logService } =
+        createRunner();
+      executor.execute.mockResolvedValue(successOutcome);
+      worldRepository.withActiveSimulationLock.mockResolvedValue({
+        status: 'missing',
+      });
+
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-9'),
+      ).rejects.toMatchObject({
+        code: 'WORLD_NOT_FOUND',
+      });
+
+      expect(contentWriter.persist).not.toHaveBeenCalled();
+      expect(logService.writeRejected).not.toHaveBeenCalled();
+      expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
     it('targets a picked post for a VOTE command', async () => {

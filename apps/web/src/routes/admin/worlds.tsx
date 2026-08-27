@@ -108,6 +108,10 @@ function AdminWorldsList() {
 
   const deleteWorld = useDeleteWorld();
   const updateWorld = useUpdateWorld();
+  const deleteConfirmationMatches =
+    deleting !== null &&
+    (deleteConfirmation === deleting.name ||
+      deleteConfirmation === deleting.slug);
 
   const data = worldsQuery.data;
 
@@ -185,15 +189,10 @@ function AdminWorldsList() {
   };
 
   const confirmDelete = () => {
-    if (deleting === null) {
+    if (deleting === null || !deleteConfirmationMatches) {
       return;
     }
     const world = deleting;
-    const confirmationMatches =
-      deleteConfirmation === world.name || deleteConfirmation === world.slug;
-    if (!confirmationMatches) {
-      return;
-    }
 
     deleteWorld.mutate(world.slug, {
       onSuccess: () => {
@@ -381,11 +380,7 @@ function AdminWorldsList() {
             <Button
               variant="danger"
               onClick={confirmDelete}
-              disabled={
-                deleting === null ||
-                (deleteConfirmation !== deleting.name &&
-                  deleteConfirmation !== deleting.slug)
-              }
+              disabled={!deleteConfirmationMatches}
               loading={deleteWorld.isPending}
             >
               Delete permanently

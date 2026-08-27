@@ -44,6 +44,7 @@ describe('WorldService', () => {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    withActiveSimulationLock: jest.fn(),
   };
 
   beforeEach(async () => {

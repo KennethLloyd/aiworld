@@ -69,7 +69,9 @@ describe('PrismaWorldRepository resident counts', () => {
   it('pauses a running simulation in the same transaction as World deactivation', async () => {
     const { prisma, repository } = createRepository();
     const transaction = {
+      $executeRaw: jest.fn(),
       world: {
+        findUnique: jest.fn().mockResolvedValue(worldRow()),
         update: jest.fn().mockResolvedValue(worldRow({ isActive: false })),
       },
       worldSimulationConfig: {
@@ -91,8 +93,57 @@ describe('PrismaWorldRepository resident counts', () => {
       data: { state: 'PAUSED' },
     });
     expect(transaction.world.update).toHaveBeenCalledWith({
-      where: { slug: 'mbti-house' },
+      where: {
+        id: '00000000-0000-4000-8000-000000000001',
+      },
       data: { isActive: false },
     });
+  });
+});
+
+describe('PrismaWorldRepository simulation execution lock', () => {
+  it('runs the operation while the active World lock is held', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      $executeRaw: jest.fn(),
+      world: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'world-1', isActive: true }),
+      },
+    };
+    const operation = jest.fn().mockResolvedValue('completed');
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await expect(
+      repository.withActiveSimulationLock('world-1', operation),
+    ).resolves.toEqual({ status: 'executed', value: 'completed' });
+
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not run the operation for an inactive World', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      $executeRaw: jest.fn(),
+      world: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'world-1', isActive: false }),
+      },
+    };
+    const operation = jest.fn();
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await expect(
+      repository.withActiveSimulationLock('world-1', operation),
+    ).resolves.toEqual({ status: 'inactive' });
+
+    expect(operation).not.toHaveBeenCalled();
   });
 });

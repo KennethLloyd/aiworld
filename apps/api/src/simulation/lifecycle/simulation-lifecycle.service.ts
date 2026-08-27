@@ -61,15 +61,32 @@ export class SimulationLifecycleService {
     const config = await this.requireConfig(worldId);
     const next = transitionSimulationState(config.state, target);
 
+    let updated: WorldSimulationConfigRecord;
     if (target === 'RUNNING') {
-      await this.assertWorldActive(worldId, config.state, 'LIFECYCLE');
-    }
+      const lockedUpdate = await this.worldRepository.withActiveSimulationLock(
+        worldId,
+        () =>
+          this.configRepository.transitionState(worldId, config.state, next),
+      );
 
-    const updated = await this.configRepository.transitionState(
-      worldId,
-      config.state,
-      next,
-    );
+      if (lockedUpdate.status === 'inactive') {
+        throw new SimulationWorkRejectedError(
+          'LIFECYCLE',
+          config.state,
+          'INACTIVE',
+        );
+      }
+      if (lockedUpdate.status === 'missing') {
+        throw new SimulationConfigNotFoundError(worldId);
+      }
+      updated = lockedUpdate.value;
+    } else {
+      updated = await this.configRepository.transitionState(
+        worldId,
+        config.state,
+        next,
+      );
+    }
 
     try {
       await this.driveScheduler(worldId, next);

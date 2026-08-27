@@ -68,6 +68,7 @@ function createProvider(
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    withActiveSimulationLock: jest.fn(),
   };
   const characterRepository: jest.Mocked<CharacterRepository> = {
     findAll: jest.fn(),
