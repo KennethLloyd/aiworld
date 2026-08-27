@@ -192,6 +192,7 @@ describe('World discussion search (real database)', () => {
         content: fixture.postOne.content,
         createdAt: fixture.postOne.createdAt,
         updatedAt: fixture.postOne.createdAt,
+        voteScore: fixture.postOne.upvotes,
       },
     });
     await prisma.post.create({
@@ -203,6 +204,7 @@ describe('World discussion search (real database)', () => {
         content: fixture.postTwo.content,
         createdAt: fixture.postTwo.createdAt,
         updatedAt: fixture.postTwo.createdAt,
+        voteScore: fixture.postTwo.upvotes,
       },
     });
     for (const comment of [
@@ -597,6 +599,7 @@ describe('World discussion search (HTTP boundary)', () => {
     id: '00000000-0000-4000-8000-000000000101',
     title: 'The quillfox manifesto',
     content: 'Bamboo wisdom for the modern kitchen.',
+    voteScore: 5,
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: {
@@ -657,7 +660,6 @@ describe('World discussion search (HTTP boundary)', () => {
     prismaStub.post.findMany.mockResolvedValue([postRow]);
     prismaStub.comment.findMany.mockResolvedValue([commentRow]);
     prismaStub.vote.groupBy.mockResolvedValue([
-      { postId: postRow.id, _sum: { value: 5 } },
       { commentId: commentRow.id, _sum: { value: 2 } },
     ]);
 
@@ -741,7 +743,7 @@ describe('World discussion search (HTTP boundary)', () => {
     });
   });
 
-  it('queries posts World-scoped with a title/content OR match and comments through the post relation', async () => {
+  it('queries stored Post scores and aggregates matching comments through the post relation', async () => {
     await request(app.getHttpServer())
       .get('/api/worlds/mbti-house/search?q=quillfox')
       .expect(200);
@@ -756,6 +758,7 @@ describe('World discussion search (HTTP boundary)', () => {
           ],
         },
         select: expect.objectContaining({
+          voteScore: true,
           author: {
             select: expect.objectContaining({
               id: true,
@@ -776,13 +779,7 @@ describe('World discussion search (HTTP boundary)', () => {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(2);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['postId'],
-        where: { postId: { in: [postRow.id] }, author: { isActive: true } },
-      }),
-    );
+    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
     expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['commentId'],

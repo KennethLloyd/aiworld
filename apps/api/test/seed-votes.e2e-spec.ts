@@ -66,6 +66,104 @@ describe('seeded vote rows', () => {
     }
     expect(byTarget.size).toBe(expectedTotals.length);
   });
+  it('stores the active vote total on every seeded Post', async () => {
+    const storedPosts = await prisma.post.findMany({
+      where: { id: { in: seededPostIds() } },
+      select: { id: true, voteScore: true },
+    });
+    const scoreByPostId = new Map(
+      storedPosts.map((post) => [post.id, post.voteScore]),
+    );
+
+    for (const post of posts) {
+      expect(scoreByPostId.get(seedUuid(`post:${post.key}`))).toBe(
+        post.upvotes,
+      );
+    }
+  });
+
+  it('backfills Post.voteScore from active-member votes', async () => {
+    const world = await prisma.world.findUniqueOrThrow({
+      where: { slug: canonicalWorld.slug },
+      select: { id: true },
+    });
+    const postId = seedUuid('post:migration-backfill-fixture');
+    const inactiveCharacterId = seedUuid(
+      'character:migration-backfill-inactive',
+    );
+    const inactiveMemberId = seedUuid('member:migration-backfill-inactive');
+
+    await prisma.character.create({
+      data: {
+        id: inactiveCharacterId,
+        handle: 'migration_backfill_inactive',
+        name: 'Migration Backfill Inactive',
+        biography: 'Migration backfill fixture.',
+        traits: [],
+        systemPrompt: 'Migration backfill fixture.',
+        isActive: false,
+      },
+    });
+    await prisma.worldMember.create({
+      data: {
+        id: inactiveMemberId,
+        worldId: world.id,
+        characterId: inactiveCharacterId,
+        role: 'AI',
+        isActive: false,
+      },
+    });
+    await prisma.post.create({
+      data: {
+        id: postId,
+        worldId: world.id,
+        authorMemberId: seedUuid('member:footnote'),
+        title: 'Migration backfill fixture',
+        content: 'Migration backfill fixture.',
+      },
+    });
+    await prisma.vote.createMany({
+      data: [
+        {
+          postId,
+          authorMemberId: seedUuid('member:footnote'),
+          value: 1,
+        },
+        {
+          postId,
+          authorMemberId: inactiveMemberId,
+          value: -1,
+        },
+      ],
+    });
+
+    try {
+      await prisma.$executeRaw`
+        UPDATE "post" p
+        SET "voteScore" = COALESCE(
+          (
+            SELECT SUM(v."value")
+            FROM "vote" v
+            INNER JOIN "world_member" wm ON wm."id" = v."authorMemberId"
+            WHERE v."postId" = p."id"
+              AND wm."isActive" = true
+          ),
+          0
+        )
+        WHERE p."id" = ${postId}
+      `;
+
+      const storedPost = await prisma.post.findUniqueOrThrow({
+        where: { id: postId },
+        select: { voteScore: true },
+      });
+      expect(storedPost.voteScore).toBe(1);
+    } finally {
+      await prisma.post.delete({ where: { id: postId } });
+      await prisma.worldMember.delete({ where: { id: inactiveMemberId } });
+      await prisma.character.delete({ where: { id: inactiveCharacterId } });
+    }
+  });
 
   it('casts every seeded vote by an active AI member of the canonical world', async () => {
     const world = await prisma.world.findUnique({
@@ -75,7 +173,6 @@ describe('seeded vote rows', () => {
       where: targetFilter,
       include: { author: true },
     });
-
     expect(votes.length).toBeGreaterThan(0);
 
     for (const vote of votes) {

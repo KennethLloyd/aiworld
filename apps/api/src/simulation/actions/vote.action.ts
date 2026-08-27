@@ -21,7 +21,7 @@ import {
 } from '@/simulation/providers/llm-provider.port';
 import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
 export const VOTE_ACTION_INSTRUCTIONS =
-  'Decide whether this actor would upvote, downvote, or skip the target post. Use the post, author, thread context when available, and the actor’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a local World norm. Skip when the post does not merit this actor’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.';
+  'Choose the actor’s desired vote state for the target post: upvote, downvote, or skip. Use the post, author, thread context when available, and the actor’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a local World norm. Repeating the actor’s current state is a no-op; skip leaves it unchanged. Skip when the post does not merit this actor’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.';
 
 @Injectable()
 export class VoteAction extends SimulationAction<
@@ -51,11 +51,11 @@ export class VoteAction extends SimulationAction<
       actor.world.id,
       command.postId,
     );
-    const alreadyVoted = await this.voteRepository.existsByMemberAndPost(
+    const currentVote = await this.voteRepository.findByMemberAndPost(
       actor.memberId,
       post.id,
     );
-    return { ...actor, post, alreadyVoted };
+    return { ...actor, post, currentVote: currentVote?.value ?? null };
   }
 
   protected buildPrompt(
@@ -70,6 +70,13 @@ export class VoteAction extends SimulationAction<
       contextSections: [
         worldSection(context.world),
         characterSection(context.character),
+        {
+          heading: 'Current vote',
+          body:
+            context.currentVote === null
+              ? 'No current vote.'
+              : `Current vote: ${context.currentVote === 1 ? 'upvote' : 'downvote'}.`,
+        },
         targetPostSection(context.post),
       ],
     });
@@ -80,19 +87,14 @@ export class VoteAction extends SimulationAction<
     output: VoteOutput,
     _command: VoteSimulationCommand,
   ): VoteDecision {
-    // A resident casts one vote per post; an already-voted target is a no-op
-    // (skip), never a duplicate write.
-    const decision = context.alreadyVoted ? 'skip' : output.decision;
     return {
       action: 'VOTE',
       worldId: context.world.id,
       memberId: context.memberId,
       characterId: context.character.id,
       postId: context.post.id,
-      decision,
-      reasoning: context.alreadyVoted
-        ? 'Already voted on this post.'
-        : output.reasoning,
+      decision: output.decision,
+      reasoning: output.reasoning,
     };
   }
 }

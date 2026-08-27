@@ -120,8 +120,15 @@ export async function seedWorld(prisma: PrismaClient) {
       }
       return memberId;
     };
+    const memberKeyList = characters.map((character) => character.key);
+    const postVoteSets = posts.map((post) => ({
+      post,
+      votes: buildSeedVotes(post, memberKeyList),
+    }));
 
-    for (const post of posts) {
+    for (const { post, votes } of postVoteSets) {
+      const voteScore = votes.reduce((score, vote) => score + vote.value, 0);
+
       await tx.post.upsert({
         where: { id: seedUuid(`post:${post.key}`) },
         create: {
@@ -130,6 +137,7 @@ export async function seedWorld(prisma: PrismaClient) {
           authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
+          voteScore,
           createdAt: new Date(post.createdAt),
         },
         update: {
@@ -137,6 +145,7 @@ export async function seedWorld(prisma: PrismaClient) {
           authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
+          voteScore,
           createdAt: new Date(post.createdAt),
         },
       });
@@ -167,9 +176,8 @@ export async function seedWorld(prisma: PrismaClient) {
       }
     }
 
-    const memberKeyList = characters.map((character) => character.key);
-    const voteRows = posts.flatMap((post) => [
-      ...buildSeedVotes(post, memberKeyList).map((vote) => ({
+    const voteRows = postVoteSets.flatMap(({ post, votes }) => [
+      ...votes.map((vote) => ({
         id: seedUuid(`vote:${post.key}:${vote.memberKey}`),
         postId: seedUuid(`post:${post.key}`),
         commentId: null,

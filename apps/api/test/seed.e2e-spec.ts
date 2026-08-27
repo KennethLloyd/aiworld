@@ -1,6 +1,9 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { Prisma, PrismaClient } from '@/generated/prisma/client';
+import { PrismaService } from '@/lib/database/prisma.service';
+import { PrismaVoteRepository } from '@/votes/repositories/prisma-vote.repository';
+import { PrismaWorldMemberRepository } from '@/world-members/repositories/prisma-world-member.repository';
 
 import { seedUuid } from '../prisma/seed-data';
 
@@ -114,6 +117,156 @@ describe('seed persistence constraints', () => {
     ).rejects.toMatchObject({ code: 'P2002' });
 
     await prisma.vote.deleteMany({ where: { id: firstVoteId } });
+  });
+  it('changes, repeats, and removes a Post vote with a consistent score', async () => {
+    const voteRepository = new PrismaVoteRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    const created = await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    expect(created).toEqual({ id: expect.any(String) });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 1 });
+
+    const repeated = await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    expect(repeated).toEqual(created);
+    expect(
+      await prisma.vote.count({ where: { postId, authorMemberId: memberId } }),
+    ).toBe(1);
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 1 });
+
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: -1,
+    });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: -1 });
+
+    const repeatedDownvote = await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: -1,
+    });
+    expect(repeatedDownvote).toEqual(created);
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: -1 });
+
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 1 });
+
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: null,
+    });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 0 });
+
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: -1,
+    });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: -1 });
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: null,
+    });
+    expect(
+      await prisma.vote.findFirst({
+        where: { postId, authorMemberId: memberId },
+      }),
+    ).toBeNull();
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 0 });
+  });
+  it('keeps inactive-member votes out of the stored Post score', async () => {
+    const voteRepository = new PrismaVoteRepository(
+      prisma as unknown as PrismaService,
+    );
+    const memberRepository = new PrismaWorldMemberRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    await memberRepository.update(memberId, { isActive: false });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 0 });
+
+    await memberRepository.update(memberId, { isActive: true });
+    expect(
+      await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 1 });
+    await voteRepository.setForPost({
+      postId,
+      authorMemberId: memberId,
+      value: null,
+    });
+  });
+
+  it('rolls back a failed vote mutation', async () => {
+    const voteRepository = new PrismaVoteRepository(
+      prisma as unknown as PrismaService,
+    );
+    const maxInt = 2_147_483_647;
+
+    await prisma.post.update({
+      where: { id: postId },
+      data: { voteScore: maxInt },
+    });
+
+    try {
+      await expect(
+        voteRepository.setForPost({
+          postId,
+          authorMemberId: memberId,
+          value: 1,
+        }),
+      ).rejects.toThrow();
+      expect(
+        await prisma.vote.findFirst({
+          where: { postId, authorMemberId: memberId },
+        }),
+      ).toBeNull();
+      expect(
+        await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+      ).toMatchObject({ voteScore: maxInt });
+    } finally {
+      await prisma.post.update({
+        where: { id: postId },
+        data: { voteScore: 0 },
+      });
+    }
   });
 
   it('rejects duplicate votes by the same member and comment', async () => {

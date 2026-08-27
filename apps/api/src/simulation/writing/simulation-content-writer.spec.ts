@@ -14,7 +14,7 @@ function createWriter(overrides: {
     create: jest.fn().mockResolvedValue({ id: 'post-created' }),
   } as unknown as PostRepository;
   const voteRepository = {
-    create: jest.fn().mockResolvedValue({ id: 'vote-created' }),
+    setForPost: jest.fn().mockResolvedValue({ id: 'vote-created' }),
   } as unknown as VoteRepository;
   const commentRepository = {
     create: jest.fn().mockResolvedValue({ id: 'comment-created' }),
@@ -97,18 +97,18 @@ describe('SimulationContentWriter', () => {
     });
   });
 
-  it('persists an upvote and a downvote as integer values', async () => {
+  it('persists desired upvote and downvote states', async () => {
     const { writer, voteRepository } = createWriter({});
 
     await writer.persistVote(voteDecision);
     await writer.persistVote({ ...voteDecision, decision: 'downvote' });
 
-    expect(voteRepository.create).toHaveBeenNthCalledWith(1, {
+    expect(voteRepository.setForPost).toHaveBeenNthCalledWith(1, {
       postId: 'post-1',
       authorMemberId: 'member-1',
       value: 1,
     });
-    expect(voteRepository.create).toHaveBeenNthCalledWith(2, {
+    expect(voteRepository.setForPost).toHaveBeenNthCalledWith(2, {
       postId: 'post-1',
       authorMemberId: 'member-1',
       value: -1,
@@ -124,7 +124,7 @@ describe('SimulationContentWriter', () => {
     });
 
     expect(result).toBeNull();
-    expect(voteRepository.create).not.toHaveBeenCalled();
+    expect(voteRepository.setForPost).not.toHaveBeenCalled();
   });
 
   it('accepts a top-level comment without consulting parents', async () => {
@@ -222,7 +222,7 @@ describe('SimulationContentWriter', () => {
     await writer.persist(commentDecision);
 
     expect(postRepository.create).toHaveBeenCalledTimes(1);
-    expect(voteRepository.create).toHaveBeenCalledTimes(1);
+    expect(voteRepository.setForPost).toHaveBeenCalledTimes(1);
     expect(commentRepository.create).toHaveBeenCalledTimes(1);
   });
 });

@@ -168,6 +168,7 @@ describe('Post detail (real database)', () => {
         authorMemberId: authorMemberId,
         title: fixture.post.title,
         content: fixture.post.content,
+        voteScore: fixture.post.upvotes,
       },
     });
     const postId = seedUuid(`post:${fixture.post.key}`);
@@ -617,6 +618,7 @@ describe('Post detail (HTTP boundary)', () => {
     id: '00000000-0000-4000-8000-000000000101',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
+    voteScore: 5,
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: authorMemberRow,
@@ -659,7 +661,6 @@ describe('Post detail (HTTP boundary)', () => {
     prismaStub.post.findFirst.mockResolvedValue(postRow);
     prismaStub.comment.findMany.mockResolvedValue([commentRow]);
     prismaStub.vote.groupBy.mockResolvedValue([
-      { postId: postRow.id, _sum: { value: 5 } },
       { commentId: commentRow.id, _sum: { value: 2 } },
     ]);
 
@@ -713,7 +714,7 @@ describe('Post detail (HTTP boundary)', () => {
     );
   });
 
-  it('queries the post scoped to the world and aggregates votes once per entity', async () => {
+  it('queries the post score from Post and aggregates comment votes once', async () => {
     await request(app.getHttpServer())
       .get(`/api/worlds/mbti-house/posts/${postRow.id}`)
       .expect(200);
@@ -722,6 +723,7 @@ describe('Post detail (HTTP boundary)', () => {
       expect.objectContaining({
         where: { id: postRow.id, worldId },
         select: expect.objectContaining({
+          voteScore: true,
           author: {
             select: expect.objectContaining({
               id: expect.any(Boolean),
@@ -732,13 +734,7 @@ describe('Post detail (HTTP boundary)', () => {
         }),
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(2);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['postId'],
-        where: { postId: { in: [postRow.id] }, author: { isActive: true } },
-      }),
-    );
+    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
     expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['commentId'],
