@@ -6,6 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 
 import { AppModule } from '@/app.module';
+import { PrismaCommentRepository } from '@/comments/repositories/prisma-comment.repository';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 
@@ -304,19 +305,42 @@ describe('Post detail (real database)', () => {
       );
     }
   });
-  it('plans comment score reads from Comment without a Vote relation', async () => {
-    const postId = seedUuid(`post:${fixture.post.key}`);
-    const plan = await prisma.$queryRaw<Array<{ 'QUERY PLAN': unknown }>>`
-      EXPLAIN (ANALYZE, FORMAT JSON, COSTS OFF)
-      SELECT "id", "voteScore", "createdAt"
-      FROM "comment"
-      WHERE "postId" = ${postId}
-      ORDER BY "createdAt" ASC, "id" ASC
-    `;
+  it('plans the repository comment score read without a Vote relation', async () => {
+    const queryPrisma = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: databaseUrl }),
+      log: [{ emit: 'event', level: 'query' }],
+    });
+    const queries: Array<{ query: string; params: string }> = [];
+    queryPrisma.$on('query', (event) => {
+      queries.push({ query: event.query, params: event.params });
+    });
 
-    const queryPlan = JSON.stringify(plan);
-    expect(queryPlan).toContain('"Relation Name":"comment"');
-    expect(queryPlan).not.toContain('"Relation Name":"vote"');
+    try {
+      const repository = new PrismaCommentRepository(
+        queryPrisma as unknown as PrismaService,
+      );
+      const postId = seedUuid(`post:${fixture.post.key}`);
+      await repository.findByPostId(postId);
+
+      const commentQuery = queries.find(
+        (event) =>
+          event.query.includes('voteScore') && event.query.includes('comment'),
+      );
+      expect(commentQuery).toBeDefined();
+      const params = JSON.parse(commentQuery!.params) as unknown[];
+      const plan = await queryPrisma.$queryRawUnsafe<
+        Array<{ 'QUERY PLAN': unknown }>
+      >(
+        `EXPLAIN (ANALYZE, FORMAT JSON, COSTS OFF) ${commentQuery!.query}`,
+        ...params,
+      );
+
+      const queryPlan = JSON.stringify(plan);
+      expect(queryPlan).toContain('"Relation Name":"comment"');
+      expect(queryPlan).not.toContain('"Relation Name":"vote"');
+    } finally {
+      await queryPrisma.$disconnect();
+    }
   });
 
   it('bounded the tree at three levels without losing top-level comments', async () => {

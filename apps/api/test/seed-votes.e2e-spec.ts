@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@/generated/prisma/client';
@@ -211,6 +213,46 @@ describe('seeded vote rows', () => {
       await prisma.worldMember.delete({ where: { id: inactiveMemberId } });
       await prisma.character.delete({ where: { id: inactiveCharacterId } });
     }
+  });
+  it('executes the comment score migration against active and inactive votes', async () => {
+    const migrationSql = await readFile(
+      `${__dirname}/../prisma/migrations/20260827100000_denormalize_comment_vote_score/migration.sql`,
+      'utf8',
+    );
+
+    const scores = await prisma.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe(`
+        CREATE TEMP TABLE "comment" ("id" TEXT PRIMARY KEY);
+        CREATE TEMP TABLE "world_member" (
+          "id" TEXT PRIMARY KEY,
+          "isActive" BOOLEAN NOT NULL
+        );
+        CREATE TEMP TABLE "vote" (
+          "commentId" TEXT,
+          "authorMemberId" TEXT,
+          "value" INTEGER NOT NULL
+        );
+        INSERT INTO "comment" ("id")
+        VALUES ('active-comment'), ('inactive-comment'), ('empty-comment');
+        INSERT INTO "world_member" ("id", "isActive")
+        VALUES ('active-member', true), ('inactive-member', false);
+        INSERT INTO "vote" ("commentId", "authorMemberId", "value")
+        VALUES
+          ('active-comment', 'active-member', 1),
+          ('active-comment', 'inactive-member', -1),
+          ('inactive-comment', 'inactive-member', -1);
+      `);
+      await transaction.$executeRawUnsafe(migrationSql);
+      return transaction.$queryRaw<
+        Array<{ id: string; voteScore: number }>
+      >`SELECT "id", "voteScore" FROM "comment" ORDER BY "id"`;
+    });
+
+    expect(scores).toEqual([
+      { id: 'active-comment', voteScore: 1 },
+      { id: 'empty-comment', voteScore: 0 },
+      { id: 'inactive-comment', voteScore: 0 },
+    ]);
   });
 
   it('casts every seeded vote by an active AI member of the canonical world', async () => {
