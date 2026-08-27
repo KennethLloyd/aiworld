@@ -1,5 +1,6 @@
 import {
   characterSection,
+  currentVoteSection,
   threadSection,
   worldSection,
 } from './prompt-sections';
@@ -114,5 +115,13 @@ describe('World and Character context sections', () => {
     expect(characterSection(character).body).toContain(
       'Personality instructions: Notice changes in atmospheric pressure.',
     );
+  });
+  it('formats the actor current vote state', () => {
+    expect(currentVoteSection(null)).toEqual({
+      heading: 'Current vote',
+      body: 'No current vote.',
+    });
+    expect(currentVoteSection(1).body).toBe('Current vote: upvote.');
+    expect(currentVoteSection(-1).body).toBe('Current vote: downvote.');
   });
 });

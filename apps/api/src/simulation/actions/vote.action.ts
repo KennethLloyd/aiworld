@@ -4,6 +4,7 @@ import { VoteActionContext } from '@/simulation/actions/action-context';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import {
   characterSection,
+  currentVoteSection,
   targetPostSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
@@ -70,13 +71,7 @@ export class VoteAction extends SimulationAction<
       contextSections: [
         worldSection(context.world),
         characterSection(context.character),
-        {
-          heading: 'Current vote',
-          body:
-            context.currentVote === null
-              ? 'No current vote.'
-              : `Current vote: ${context.currentVote === 1 ? 'upvote' : 'downvote'}.`,
-        },
+        currentVoteSection(context.currentVote),
         targetPostSection(context.post),
       ],
     });

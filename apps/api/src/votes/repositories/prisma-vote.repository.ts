@@ -55,6 +55,7 @@ export class PrismaVoteRepository extends VoteRepository {
           return null;
         }
 
+        // Repeating the desired state must not change the stored score.
         if (existing?.value === input.value) {
           return { id: existing.id };
         }
