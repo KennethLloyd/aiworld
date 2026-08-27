@@ -40,6 +40,7 @@ export class PrismaVoteRepository extends VoteRepository {
           select: { id: true, value: true },
         });
 
+        // Remove the vote and subtract its score only when it counted.
         if (input.value === null) {
           if (!existing) {
             return null;
@@ -55,7 +56,6 @@ export class PrismaVoteRepository extends VoteRepository {
           return null;
         }
 
-        // Repeating the desired state must not change the stored score.
         if (existing?.value === input.value) {
           return { id: existing.id };
         }
