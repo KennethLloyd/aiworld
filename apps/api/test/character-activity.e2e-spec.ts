@@ -367,6 +367,7 @@ describe('Character activity (real database)', () => {
         postId: postAId,
         authorMemberId: authorMemberIdA,
         content: 'The author\u2019s comment in world A.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:05:00.000Z'),
       },
     });
@@ -376,6 +377,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-other'),
         authorMemberId: authorMemberIdA,
         content: 'The author\u2019s comment on the commenter\u2019s post.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:15:00.000Z'),
       },
     });
@@ -385,6 +387,7 @@ describe('Character activity (real database)', () => {
         postId: postAId,
         authorMemberId: commenterMemberIdA,
         content: 'The commenter\u2019s comment, not the author\u2019s.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:06:00.000Z'),
       },
     });
@@ -394,6 +397,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-inactive'),
         authorMemberId: seedUuid('member:activity-inactive'),
         content: 'An inactive character\u2019s comment.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:31:00.000Z'),
       },
     });
@@ -403,6 +407,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-dormant'),
         authorMemberId: seedUuid('member:activity-dormant'),
         content: 'A dormant membership\u2019s comment.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:41:00.000Z'),
       },
     });
@@ -425,6 +430,7 @@ describe('Character activity (real database)', () => {
         postId: seedUuid('post:activity-post-b'),
         authorMemberId: authorMemberIdB,
         content: 'The author\u2019s comment in world B.',
+        voteScore: 2,
         createdAt: t('2026-08-06T09:01:00.000Z'),
       },
     });
@@ -820,6 +826,7 @@ describe('Character activity (HTTP boundary)', () => {
     postId: postRow.id,
     parentCommentId: null,
     content: 'It was me. I said it.',
+    voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
     author: {
@@ -850,9 +857,6 @@ describe('Character activity (HTTP boundary)', () => {
     comment: {
       findMany: jest.fn(),
     },
-    vote: {
-      groupBy: jest.fn(),
-    },
   };
 
   beforeEach(async () => {
@@ -870,10 +874,6 @@ describe('Character activity (HTTP boundary)', () => {
     prismaStub.worldMember.findFirst.mockResolvedValue({ id: memberId });
     prismaStub.post.findMany.mockResolvedValue([postRow]);
     prismaStub.comment.findMany.mockResolvedValue([commentRow]);
-    prismaStub.vote.groupBy.mockResolvedValue([
-      { postId: postRow.id, _sum: { value: 5 } },
-      { commentId: commentRow.id, _sum: { value: 2 } },
-    ]);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -942,7 +942,7 @@ describe('Character activity (HTTP boundary)', () => {
     expect(commentItem.postId).toBe(postRow.id);
   });
 
-  it('queries each stream after the cursor with one grouped vote query for comments', async () => {
+  it('queries stored scores in both activity streams without Vote aggregation', async () => {
     await request(app.getHttpServer())
       .get(`/api/characters/${characterId}/activity?worldSlug=mbti-house`)
       .expect(200);
@@ -964,20 +964,11 @@ describe('Character activity (HTTP boundary)', () => {
       expect.objectContaining({
         where: { authorMemberId: memberId, post: { worldId } },
         select: expect.objectContaining({
+          voteScore: true,
           post: { select: { title: true } },
         }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: 21,
-      }),
-    );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['commentId'],
-        where: {
-          commentId: { in: [commentRow.id] },
-          author: { isActive: true },
-        },
       }),
     );
   });
@@ -1043,7 +1034,6 @@ describe('Character activity (HTTP boundary)', () => {
     expect(res.body).toEqual({ items: [], nextCursor: null });
     expect(prismaStub.post.findMany).not.toHaveBeenCalled();
     expect(prismaStub.comment.findMany).not.toHaveBeenCalled();
-    expect(prismaStub.vote.groupBy).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed cursor through the error envelope without querying content', async () => {

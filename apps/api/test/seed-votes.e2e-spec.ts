@@ -66,7 +66,7 @@ describe('seeded vote rows', () => {
     }
     expect(byTarget.size).toBe(expectedTotals.length);
   });
-  it('stores the active vote total on every seeded Post', async () => {
+  it('stores the active vote total on every seeded Post and Comment', async () => {
     const storedPosts = await prisma.post.findMany({
       where: { id: { in: seededPostIds() } },
       select: { id: true, voteScore: true },
@@ -74,20 +74,31 @@ describe('seeded vote rows', () => {
     const scoreByPostId = new Map(
       storedPosts.map((post) => [post.id, post.voteScore]),
     );
-
+    const storedComments = await prisma.comment.findMany({
+      where: { id: { in: seededCommentIds() } },
+      select: { id: true, voteScore: true },
+    });
+    const scoreByCommentId = new Map(
+      storedComments.map((comment) => [comment.id, comment.voteScore]),
+    );
     for (const post of posts) {
       expect(scoreByPostId.get(seedUuid(`post:${post.key}`))).toBe(
         post.upvotes,
       );
+      for (const comment of flattenComments(post.comments)) {
+        expect(scoreByCommentId.get(seedUuid(`comment:${comment.key}`))).toBe(
+          comment.upvotes,
+        );
+      }
     }
   });
-
-  it('backfills Post.voteScore from active-member votes', async () => {
+  it('backfills Post and Comment.voteScore from active-member votes', async () => {
     const world = await prisma.world.findUniqueOrThrow({
       where: { slug: canonicalWorld.slug },
       select: { id: true },
     });
     const postId = seedUuid('post:migration-backfill-fixture');
+    const commentId = seedUuid('comment:migration-backfill-fixture');
     const inactiveCharacterId = seedUuid(
       'character:migration-backfill-inactive',
     );
@@ -122,6 +133,14 @@ describe('seeded vote rows', () => {
         content: 'Migration backfill fixture.',
       },
     });
+    await prisma.comment.create({
+      data: {
+        id: commentId,
+        postId,
+        authorMemberId: seedUuid('member:footnote'),
+        content: 'Migration backfill fixture.',
+      },
+    });
     await prisma.vote.createMany({
       data: [
         {
@@ -130,7 +149,17 @@ describe('seeded vote rows', () => {
           value: 1,
         },
         {
+          commentId,
+          authorMemberId: seedUuid('member:footnote'),
+          value: 1,
+        },
+        {
           postId,
+          authorMemberId: inactiveMemberId,
+          value: -1,
+        },
+        {
+          commentId,
           authorMemberId: inactiveMemberId,
           value: -1,
         },
@@ -152,12 +181,31 @@ describe('seeded vote rows', () => {
         )
         WHERE p."id" = ${postId}
       `;
+      await prisma.$executeRaw`
+        UPDATE "comment" c
+        SET "voteScore" = COALESCE(
+          (
+            SELECT SUM(v."value")
+            FROM "vote" v
+            INNER JOIN "world_member" wm ON wm."id" = v."authorMemberId"
+            WHERE v."commentId" = c."id"
+              AND wm."isActive" = true
+          ),
+          0
+        )
+        WHERE c."id" = ${commentId}
+      `;
 
       const storedPost = await prisma.post.findUniqueOrThrow({
         where: { id: postId },
         select: { voteScore: true },
       });
+      const storedComment = await prisma.comment.findUniqueOrThrow({
+        where: { id: commentId },
+        select: { voteScore: true },
+      });
       expect(storedPost.voteScore).toBe(1);
+      expect(storedComment.voteScore).toBe(1);
     } finally {
       await prisma.post.delete({ where: { id: postId } });
       await prisma.worldMember.delete({ where: { id: inactiveMemberId } });

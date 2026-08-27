@@ -205,7 +205,60 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 0 });
   });
-  it('keeps inactive-member votes out of the stored Post score', async () => {
+  it('changes, repeats, and removes a Comment vote with a consistent score', async () => {
+    const voteRepository = new PrismaVoteRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    const created = await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    expect(created).toEqual({ id: expect.any(String) });
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
+    ).toMatchObject({ voteScore: 1 });
+
+    const repeated = await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: 1,
+    });
+    expect(repeated).toEqual(created);
+    expect(
+      await prisma.vote.count({
+        where: { commentId, authorMemberId: memberId },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
+    ).toMatchObject({ voteScore: 1 });
+
+    await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: -1,
+    });
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
+    ).toMatchObject({ voteScore: -1 });
+
+    await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: null,
+    });
+    expect(
+      await prisma.vote.findFirst({
+        where: { commentId, authorMemberId: memberId },
+      }),
+    ).toBeNull();
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
+    ).toMatchObject({ voteScore: 0 });
+  });
+  it('keeps inactive-member votes out of stored Post and Comment scores', async () => {
     const voteRepository = new PrismaVoteRepository(
       prisma as unknown as PrismaService,
     );
@@ -218,23 +271,39 @@ describe('seed persistence constraints', () => {
       authorMemberId: memberId,
       value: 1,
     });
+    await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: 1,
+    });
     await memberRepository.update(memberId, { isActive: false });
     expect(
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+    ).toMatchObject({ voteScore: 0 });
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: 0 });
 
     await memberRepository.update(memberId, { isActive: true });
     expect(
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 1 });
+    expect(
+      await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
+    ).toMatchObject({ voteScore: 1 });
     await voteRepository.setForPost({
       postId,
       authorMemberId: memberId,
       value: null,
     });
+    await voteRepository.setForComment({
+      commentId,
+      authorMemberId: memberId,
+      value: null,
+    });
   });
 
-  it('rolls back a failed vote mutation', async () => {
+  it('rolls back failed Post and Comment vote mutations', async () => {
     const voteRepository = new PrismaVoteRepository(
       prisma as unknown as PrismaService,
     );
@@ -242,6 +311,10 @@ describe('seed persistence constraints', () => {
 
     await prisma.post.update({
       where: { id: postId },
+      data: { voteScore: maxInt },
+    });
+    await prisma.comment.update({
+      where: { id: commentId },
       data: { voteScore: maxInt },
     });
 
@@ -253,17 +326,36 @@ describe('seed persistence constraints', () => {
           value: 1,
         }),
       ).rejects.toThrow();
-      expect(
-        await prisma.vote.findFirst({
+      await expect(
+        prisma.vote.findFirst({
           where: { postId, authorMemberId: memberId },
         }),
-      ).toBeNull();
+      ).resolves.toBeNull();
+      await expect(
+        voteRepository.setForComment({
+          commentId,
+          authorMemberId: memberId,
+          value: 1,
+        }),
+      ).rejects.toThrow();
+      await expect(
+        prisma.vote.findFirst({
+          where: { commentId, authorMemberId: memberId },
+        }),
+      ).resolves.toBeNull();
       expect(
         await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
+      ).toMatchObject({ voteScore: maxInt });
+      expect(
+        await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
       ).toMatchObject({ voteScore: maxInt });
     } finally {
       await prisma.post.update({
         where: { id: postId },
+        data: { voteScore: 0 },
+      });
+      await prisma.comment.update({
+        where: { id: commentId },
         data: { voteScore: 0 },
       });
     }

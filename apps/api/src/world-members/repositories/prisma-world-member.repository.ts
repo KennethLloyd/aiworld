@@ -165,19 +165,25 @@ export class PrismaWorldMemberRepository extends WorldMemberRepository {
         }
 
         const votes = await transaction.vote.findMany({
-          where: { authorMemberId: id, postId: { not: null } },
-          select: { postId: true, value: true },
-          orderBy: { postId: 'asc' },
+          where: {
+            authorMemberId: id,
+            OR: [{ postId: { not: null } }, { commentId: { not: null } }],
+          },
+          select: { postId: true, commentId: true, value: true },
         });
         for (const vote of votes) {
-          await transaction.post.update({
-            where: { id: vote.postId! },
-            data: {
-              voteScore: {
-                increment: input.isActive ? vote.value : -vote.value,
-              },
-            },
-          });
+          const scoreDelta = input.isActive ? vote.value : -vote.value;
+          if (vote.postId) {
+            await transaction.post.update({
+              where: { id: vote.postId },
+              data: { voteScore: { increment: scoreDelta } },
+            });
+          } else if (vote.commentId) {
+            await transaction.comment.update({
+              where: { id: vote.commentId },
+              data: { voteScore: { increment: scoreDelta } },
+            });
+          }
         }
         return updated as WorldMemberWithWorld;
       },

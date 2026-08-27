@@ -14,13 +14,13 @@ import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-conten
 import { Prisma, Comment } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { escapeSearchText } from '@/lib/search-text';
-import { aggregateCommentVoteScores } from '@/votes/vote-aggregation';
 
 const commentSelect = {
   id: true,
   postId: true,
   parentCommentId: true,
   content: true,
+  voteScore: true,
   createdAt: true,
   updatedAt: true,
   author: prismaContentAuthorSelect,
@@ -34,7 +34,13 @@ const commentWithPostSelect = {
 
 type CommentRow = Pick<
   Comment,
-  'id' | 'postId' | 'parentCommentId' | 'content' | 'createdAt' | 'updatedAt'
+  | 'id'
+  | 'postId'
+  | 'parentCommentId'
+  | 'content'
+  | 'voteScore'
+  | 'createdAt'
+  | 'updatedAt'
 > & {
   author: ContentAuthorRow;
   post: { title: string };
@@ -86,12 +92,7 @@ export class PrismaCommentRepository extends CommentRepository {
       select: commentWithPostSelect,
       orderBy: commentOrderBy,
     });
-    const scores = await aggregateCommentVoteScores(
-      this.prisma,
-      comments.map((c) => c.id),
-    );
-
-    return comments.map((comment) => this.mapToRecord(comment, scores));
+    return comments.map((comment) => this.mapToRecord(comment));
   }
 
   async findByAuthorMembership(
@@ -110,12 +111,7 @@ export class PrismaCommentRepository extends CommentRepository {
       orderBy: activityCommentOrderBy,
       take: limit,
     });
-    const scores = await aggregateCommentVoteScores(
-      this.prisma,
-      comments.map((c) => c.id),
-    );
-
-    return comments.map((comment) => this.mapToRecord(comment, scores));
+    return comments.map((comment) => this.mapToRecord(comment));
   }
 
   async searchByText(worldId: string, q: string): Promise<FlatCommentRecord[]> {
@@ -130,12 +126,7 @@ export class PrismaCommentRepository extends CommentRepository {
       select: commentSelect,
       orderBy: searchOrderBy,
     });
-    const scores = await aggregateCommentVoteScores(
-      this.prisma,
-      comments.map((comment) => comment.id),
-    );
-
-    return comments.map((comment) => this.mapToRecord(comment, scores));
+    return comments.map((comment) => this.mapToRecord(comment));
   }
 
   async countByPostIds(postIds: string[]): Promise<Map<string, number>> {
@@ -166,17 +157,14 @@ export class PrismaCommentRepository extends CommentRepository {
     return { id: comment.id };
   }
 
-  private mapToRecord(
-    comment: CommentRow,
-    scores: Map<string, number>,
-  ): FlatCommentRecord {
+  private mapToRecord(comment: CommentRow): FlatCommentRecord {
     return {
       id: comment.id,
       postId: comment.postId,
       parentCommentId: comment.parentCommentId,
       author: mapContentAuthor(comment.author),
       content: comment.content,
-      voteScore: scores.get(comment.id) ?? 0,
+      voteScore: comment.voteScore,
       createdAt: comment.createdAt,
       updatedAt: comment.updatedAt,
       postTitle: comment.post.title,
