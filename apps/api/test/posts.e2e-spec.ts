@@ -84,19 +84,14 @@ describe('World feed (seeded database)', () => {
       expect(item.author).toEqual({
         id: seedUuid(`member:${post.authorKey}`),
         characterId: seedUuid(`character:${post.authorKey}`),
-        handle: authorCharacter!.key,
+        handle: authorCharacter!.handle,
         name: authorCharacter!.name,
         avatarUrl: authorCharacter!.avatarUrl,
         classification: authorCharacter!.classification,
         classificationGroup: authorCharacter!.classificationGroup,
       });
     }
-    expect(res.body.meta).toEqual({
-      page: 1,
-      limit: 20,
-      total: 8,
-      totalPages: 1,
-    });
+    expect(res.body.nextCursor).toBeNull();
   });
 
   it('serves the new feed ordered by createdAt with the same aggregated scores', async () => {
@@ -117,42 +112,34 @@ describe('World feed (seeded database)', () => {
     }
   });
 
-  it('paginates with the shared pagination metadata', async () => {
+  it('paginates the hot feed with an opaque cursor', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&page=1&limit=2')
+      .get('/api/worlds/mbti-house/posts?sort=hot&limit=2')
       .expect(200);
 
     expect(res.body.items).toHaveLength(2);
-    expect(res.body.meta).toEqual({
-      page: 1,
-      limit: 2,
-      total: 8,
-      totalPages: 4,
-    });
+    expect(res.body.nextCursor).toEqual(expect.any(String));
 
     const resPageTwo = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&page=2&limit=2')
+      .get(
+        `/api/worlds/mbti-house/posts?sort=hot&limit=2&cursor=${encodeURIComponent(res.body.nextCursor)}`,
+      )
       .expect(200);
 
     expect(resPageTwo.body.items).toHaveLength(2);
     expect(resPageTwo.body.items[0].id).toBe(seededPostId('p2'));
     expect(resPageTwo.body.items[1].id).toBe(seededPostId('p3'));
-    expect(resPageTwo.body.meta.page).toBe(2);
+    expect(resPageTwo.body.nextCursor).toEqual(expect.any(String));
   });
 
-  it('returns an empty page with stable metadata beyond the last page', async () => {
+  it('ends with a null cursor after the final page', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&page=99')
+      .get('/api/worlds/mbti-house/posts?sort=hot&limit=8')
       .expect(200);
 
     expect(listPostsResponseSchema.safeParse(res.body).success).toBe(true);
-    expect(res.body.items).toEqual([]);
-    expect(res.body.meta).toEqual({
-      page: 99,
-      limit: 20,
-      total: 8,
-      totalPages: 1,
-    });
+    expect(res.body.items).toHaveLength(8);
+    expect(res.body.nextCursor).toBeNull();
   });
 
   it('returns stable results under repeated reads', async () => {
@@ -347,8 +334,8 @@ describe('World feed (HTTP boundary)', () => {
     );
   });
 
-  it('rejects out-of-range pagination through the error envelope', async () => {
-    for (const query of ['page=0', 'limit=0', 'limit=101']) {
+  it('rejects invalid feed cursors and limits through the error envelope', async () => {
+    for (const query of ['limit=0', 'limit=101', 'cursor=not-a-valid-cursor']) {
       const res = await request(app.getHttpServer())
         .get(`/api/worlds/mbti-house/posts?${query}`)
         .expect(400);
@@ -380,9 +367,9 @@ describe('World feed (HTTP boundary)', () => {
       { postId: postTwo.id, _count: { _all: 2 } },
     ]);
 
-    const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&page=1&limit=20')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get(
+      '/api/worlds/mbti-house/posts?sort=hot&limit=20',
+    );
 
     expect(listPostsResponseSchema.safeParse(res.body).success).toBe(true);
     expect(res.body.items.map((post: { id: string }) => post.id)).toEqual([
@@ -443,7 +430,6 @@ describe('World feed (HTTP boundary)', () => {
 
   it('pages the new sort in SQL and aggregates votes only for the page', async () => {
     prismaStub.post.findMany.mockResolvedValue([postOne, postTwo]);
-    prismaStub.post.count.mockResolvedValue(4);
     prismaStub.vote.groupBy.mockResolvedValue([
       { postId: postOne.id, _sum: { value: 5 } },
       { postId: postTwo.id, _sum: { value: 3 } },
@@ -454,7 +440,7 @@ describe('World feed (HTTP boundary)', () => {
     ]);
 
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=new&page=2&limit=2')
+      .get('/api/worlds/mbti-house/posts?sort=new&limit=2')
       .expect(200);
 
     expect(res.body.items.map((post: { id: string }) => post.id)).toEqual([
@@ -464,19 +450,13 @@ describe('World feed (HTTP boundary)', () => {
     expect(
       res.body.items.map((post: { commentCount: number }) => post.commentCount),
     ).toEqual([7, 2]);
-    expect(res.body.meta).toEqual({
-      page: 2,
-      limit: 2,
-      total: 4,
-      totalPages: 2,
-    });
+    expect(res.body.nextCursor).toBeNull();
 
     expect(prismaStub.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { worldId },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        skip: 2,
-        take: 2,
+        take: 3,
       }),
     );
     expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
