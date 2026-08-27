@@ -136,15 +136,35 @@ export class PrismaWorldRepository extends WorldRepository {
       return null;
     }
 
+    const updateData = {
+      ...data,
+      description:
+        data.description === undefined
+          ? undefined
+          : (data.description ?? Prisma.DbNull),
+    };
+
+    if (data.isActive === false) {
+      // Deactivation pauses only RUNNING simulation configs atomically with the
+      // visibility change; reactivation leaves the persisted lifecycle paused.
+      const item = await this.prisma.$transaction(async (transaction) => {
+        const updatedWorld = await transaction.world.update({
+          where: { slug },
+          data: updateData,
+        });
+        await transaction.worldSimulationConfig.updateMany({
+          where: { worldId: existing.id, state: 'RUNNING' },
+          data: { state: 'PAUSED' },
+        });
+        return updatedWorld;
+      });
+
+      return this.mapToWorldRecord(item);
+    }
+
     const item = await this.prisma.world.update({
       where: { slug },
-      data: {
-        ...data,
-        description:
-          data.description === undefined
-            ? undefined
-            : (data.description ?? Prisma.DbNull),
-      },
+      data: updateData,
     });
 
     return this.mapToWorldRecord(item);

@@ -78,6 +78,11 @@ export class InProcessSchedulerAdapter
       return;
     }
 
+    const world = await this.worldRepository.findById(worldId);
+    if (!world?.isActive) {
+      return;
+    }
+
     const delay = deriveScheduledDelayMs({
       intervalMs: config.intervalMs,
       jitterMs: config.jitterMs,

@@ -37,9 +37,9 @@ import { SimulationAdminService } from '@/simulation/admin/simulation-admin.serv
 
 /** ADMIN-only simulation controls. Every mutation either changes persisted
  * configuration or enqueues a manual command through the scheduler port —
- * nothing here calls an LLM provider directly. Lifecycle gates (HALTED rejects
- * manual work and invalid transitions) surface as HTTP 409s via the error
- * mapper. */
+ * nothing here calls an LLM provider directly. Lifecycle gates (inactive
+ * Worlds, HALTED manual work, and invalid transitions) surface as HTTP 409s
+ * via the error mapper. */
 @Controller('worlds/:slug/simulation')
 export class SimulationAdminController {
   constructor(

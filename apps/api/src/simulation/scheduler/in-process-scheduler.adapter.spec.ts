@@ -123,6 +123,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     picker,
     castingRepository,
     tickRunner,
+    randomSource,
   };
 }
 
@@ -196,6 +197,21 @@ describe('InProcessSchedulerAdapter', () => {
     await adapter.start('world-1');
     await jest.advanceTimersByTimeAsync(3600000);
 
+    expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule inactive Worlds even when RUNNING is persisted', async () => {
+    const { adapter, worldRepository, randomSource, tickRunner } =
+      createAdapter();
+    worldRepository.findById.mockResolvedValue({
+      ...world,
+      isActive: false,
+    });
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(3600000);
+
+    expect(randomSource.next).not.toHaveBeenCalled();
     expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
   });
 
@@ -332,6 +348,18 @@ describe('InProcessSchedulerAdapter', () => {
 
     await expect(adapter.runOneAction('mbti-house')).rejects.toThrow(
       'rejected in state HALTED',
+    );
+    expect(picker.pickCharacter).not.toHaveBeenCalled();
+  });
+
+  it('rejects manual work at the service gate when the World is inactive', async () => {
+    const { adapter, lifecycleService, picker } = createAdapter();
+    lifecycleService.assertManualWorkAllowed.mockRejectedValue(
+      new SimulationWorkRejectedError('MANUAL', 'PAUSED', 'INACTIVE'),
+    );
+
+    await expect(adapter.runOneAction('mbti-house')).rejects.toThrow(
+      'World is inactive',
     );
     expect(picker.pickCharacter).not.toHaveBeenCalled();
   });

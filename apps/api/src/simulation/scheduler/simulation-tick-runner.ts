@@ -46,12 +46,13 @@ type LogContext = {
  * ticks, Run One Action, and Custom Action. Every operation hands the runner a
  * serializable `SimulationCommand` (the same shape both queue adapters
  * transport) and receives a result: success, a logged failure, or a lifecycle
- * rejection. The runner enforces the lifecycle gates (scheduled work only
- * while RUNNING, manual work rejected in HALTED), resolves VOTE/COMMENT target
- * posts, and funnels every outcome through the action executor → content
- * writer → log service pipeline. Thrown errors are turned into logged failures
- * here — transient ones stay retryable so the adapter's policy applies — and
- * the runner never talks to a queue or an LLM provider directly. */
+ * rejection. The runner enforces World activity and the lifecycle gates
+ * (scheduled work only while RUNNING, manual work rejected in HALTED), resolves
+ * VOTE/COMMENT target posts, and funnels every outcome through the action
+ * executor → content writer → log service pipeline. Thrown errors are turned
+ * into logged failures here — transient ones stay retryable so the adapter's
+ * policy applies — and the runner never talks to a queue or an LLM provider
+ * directly. */
 @Injectable()
 export class SimulationTickRunner {
   constructor(

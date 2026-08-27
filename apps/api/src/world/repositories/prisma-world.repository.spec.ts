@@ -18,6 +18,7 @@ function worldRow(overrides: Record<string, unknown> = {}) {
 
 function createRepository() {
   const prisma = {
+    $transaction: jest.fn(),
     world: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -25,6 +26,9 @@ function createRepository() {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+    },
+    worldSimulationConfig: {
+      updateMany: jest.fn(),
     },
   };
 
@@ -60,5 +64,35 @@ describe('PrismaWorldRepository resident counts', () => {
         },
       }),
     );
+  });
+
+  it('pauses a running simulation in the same transaction as World deactivation', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      world: {
+        update: jest.fn().mockResolvedValue(worldRow({ isActive: false })),
+      },
+      worldSimulationConfig: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.world.findUnique.mockResolvedValue(worldRow());
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await repository.update('mbti-house', { isActive: false });
+
+    expect(transaction.worldSimulationConfig.updateMany).toHaveBeenCalledWith({
+      where: {
+        worldId: '00000000-0000-4000-8000-000000000001',
+        state: 'RUNNING',
+      },
+      data: { state: 'PAUSED' },
+    });
+    expect(transaction.world.update).toHaveBeenCalledWith({
+      where: { slug: 'mbti-house' },
+      data: { isActive: false },
+    });
   });
 });

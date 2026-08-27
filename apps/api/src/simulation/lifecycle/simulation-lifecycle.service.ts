@@ -13,7 +13,7 @@ import {
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
-
+import { WorldRepository } from '@/world/repositories/world-repository.interface';
 /** Enforces the RUNNING/PAUSED/HALTED lifecycle against persisted
  * WorldSimulationConfig state. State is always read from the repository,
  * never from process memory, and transitions are persisted before success is
@@ -34,6 +34,8 @@ export class SimulationLifecycleService {
     // genuine bidirectional DI graph.
     @Inject(forwardRef(() => SimulationScheduler))
     private readonly scheduler: SimulationScheduler,
+    @Inject(WorldRepository)
+    private readonly worldRepository: WorldRepository,
   ) {}
 
   getByWorldId(worldId: string): Promise<WorldSimulationConfigRecord | null> {
@@ -59,6 +61,10 @@ export class SimulationLifecycleService {
     const config = await this.requireConfig(worldId);
     const next = transitionSimulationState(config.state, target);
 
+    if (target === 'RUNNING') {
+      await this.assertWorldActive(worldId, config.state, 'LIFECYCLE');
+    }
+
     const updated = await this.configRepository.transitionState(
       worldId,
       config.state,
@@ -79,13 +85,14 @@ export class SimulationLifecycleService {
     return updated;
   }
 
-  /** Manual work (Run One Action, Custom Action) requires RUNNING or PAUSED;
-   * HALTED rejects it. Returns the persisted config that passed the check so
-   * callers act against the same persisted state. */
+  /** Manual work (Run One Action, Custom Action) requires an active World and
+   * a RUNNING or PAUSED config; HALTED rejects it. Returns the persisted config
+   * that passed both checks so callers act against the same persisted state. */
   async assertManualWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {
     const config = await this.requireConfig(worldId);
+    await this.assertWorldActive(worldId, config.state, 'MANUAL');
 
     if (!canRunManualWork(config.state)) {
       throw new SimulationWorkRejectedError('MANUAL', config.state);
@@ -107,18 +114,34 @@ export class SimulationLifecycleService {
       speedMultiplier,
     );
   }
-
-  /** Scheduled ticks require RUNNING; PAUSED and HALTED stop scheduled work. */
+  /** Scheduled ticks require an active World and RUNNING config; PAUSED and
+   * HALTED stop scheduled work. */
   async assertScheduledWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {
     const config = await this.requireConfig(worldId);
+    await this.assertWorldActive(worldId, config.state, 'SCHEDULED');
 
     if (!canSchedule(config.state)) {
       throw new SimulationWorkRejectedError('SCHEDULED', config.state);
     }
 
     return config;
+  }
+
+  private async assertWorldActive(
+    worldId: string,
+    state: SimulationState,
+    kind: 'MANUAL' | 'SCHEDULED' | 'LIFECYCLE',
+  ): Promise<void> {
+    const world = await this.worldRepository.findById(worldId);
+    if (!world) {
+      throw new SimulationConfigNotFoundError(worldId);
+    }
+
+    if (!world.isActive) {
+      throw new SimulationWorkRejectedError(kind, state, 'INACTIVE');
+    }
   }
 
   private async driveScheduler(

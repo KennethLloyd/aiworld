@@ -39,8 +39,9 @@ export type RunCustomActionInput = Omit<
 /** Orchestrates the admin simulation controls. Controllers stay thin: every
  * operation here either reads/mutates persisted configuration or enqueues a
  * manual command through the scheduler — the admin API never calls an LLM
- * provider directly. Lifecycle gates (HALTED rejects manual work) are enforced
- * by the state machine inside the lifecycle service and tick runner. */
+ * provider directly. Lifecycle gates (inactive Worlds and HALTED configs
+ * reject work) are enforced by the state machine inside the lifecycle service
+ * and tick runner. */
 @Injectable()
 export class SimulationAdminService {
   constructor(
