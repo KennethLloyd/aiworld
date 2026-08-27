@@ -34,6 +34,7 @@ export function usePosts(slug: string, sort: PostSort = 'hot') {
     refetchInterval: PUBLIC_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
   });
+  // Refresh from page one while keeping already-loaded pages visible.
   const { refetch } = query;
   const refresh = useCallback(async () => {
     await refetch({ cancelRefetch: false });

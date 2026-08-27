@@ -41,6 +41,7 @@ export function WorldFeed({
   const { fetchNextPage } = postsQuery;
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
+  // Hot votes can rearrange posts between page requests; render each post once.
   const posts = useMemo(
     () => dedupeFeedPosts(postsQuery.data?.pages.flatMap((page) => page.items)),
     [postsQuery.data],
