@@ -40,7 +40,8 @@ export class PrismaVoteRepository extends VoteRepository {
           select: { id: true, value: true },
         });
 
-        // Remove the vote and subtract its score only when it counted.
+        // Null is explicit removal (for example, a human toggle), not simulation skip.
+        // Remove the score contribution only when the vote counted.
         if (input.value === null) {
           if (!existing) {
             return null;
