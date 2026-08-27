@@ -72,6 +72,9 @@ describe('Characters and World Members API (e2e)', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    vote: {
+      findMany: jest.fn(),
+    },
     world: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -104,6 +107,7 @@ describe('Characters and World Members API (e2e)', () => {
       ...member,
       isActive: false,
     });
+    prismaStub.vote.findMany.mockResolvedValue([]);
     prismaStub.world.findUnique.mockResolvedValue(world);
     prismaStub.$transaction.mockImplementation(
       async (callback: (transaction: typeof prismaStub) => Promise<unknown>) =>

@@ -47,7 +47,7 @@ export class SimulationContentWriter {
     if (decision.decision === 'skip') {
       return null;
     }
-    return this.voteRepository.create({
+    return this.voteRepository.setForPost({
       postId: decision.postId,
       authorMemberId: decision.memberId,
       value: decision.decision === 'upvote' ? 1 : -1,

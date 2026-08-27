@@ -70,7 +70,7 @@ function createAction(
     post?: typeof post | null;
     provider?: LlmProvider;
     output?: { decision: string; reasoning: string };
-    alreadyVoted?: boolean;
+    currentVote?: 1 | -1 | null;
   } = {},
 ) {
   const worldRepository = {
@@ -100,9 +100,13 @@ function createAction(
   );
 
   const voteRepository = {
-    existsByMemberAndPost: jest
+    findByMemberAndPost: jest
       .fn()
-      .mockResolvedValue(overrides.alreadyVoted ?? false),
+      .mockResolvedValue(
+        overrides.currentVote === null || overrides.currentVote === undefined
+          ? null
+          : { id: 'vote-1', value: overrides.currentVote },
+      ),
   } as unknown as jest.Mocked<VoteRepository>;
 
   const provider =
@@ -172,25 +176,34 @@ describe('VoteAction', () => {
     expect(prompt.user).toContain('@steady_hands (Steady_Hands)');
     expect(prompt.user).toContain('"A thought" by @other');
     expect(prompt.user).toContain('Body text.');
+    expect(prompt.user).toContain('No current vote.');
   });
 
-  it('treats an already-voted target as a skip instead of a repeat vote', async () => {
-    const { action, voteRepository } = createAction({
-      alreadyVoted: true,
-      output: { decision: 'upvote', reasoning: 'Clear point.' },
-    });
+  it.each([
+    { currentVote: 1 as const, decision: 'upvote' as const },
+    { currentVote: 1 as const, decision: 'downvote' as const },
+    { currentVote: -1 as const, decision: 'downvote' as const },
+    { currentVote: -1 as const, decision: 'upvote' as const },
+  ])(
+    'treats $decision as the desired state when the current vote is $currentVote',
+    async ({ currentVote, decision }) => {
+      const { action, voteRepository } = createAction({
+        currentVote,
+        output: { decision, reasoning: 'Changed my mind.' },
+      });
 
-    const result = await action.execute(command);
+      const result = await action.execute(command);
 
-    expect(voteRepository.existsByMemberAndPost).toHaveBeenCalledWith(
-      'member-1',
-      'post-1',
-    );
-    expect(result).toMatchObject({
-      status: 'success',
-      decision: { decision: 'skip' },
-    });
-  });
+      expect(voteRepository.findByMemberAndPost).toHaveBeenCalledWith(
+        'member-1',
+        'post-1',
+      );
+      expect(result).toMatchObject({
+        status: 'success',
+        decision: { decision, reasoning: 'Changed my mind.' },
+      });
+    },
+  );
 
   it('fails when the target post is missing in the World', async () => {
     const { action } = createAction({ post: null });

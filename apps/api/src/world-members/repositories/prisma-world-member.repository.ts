@@ -146,19 +146,44 @@ export class PrismaWorldMemberRepository extends WorldMemberRepository {
     id: string,
     input: UpdateWorldMember,
   ): Promise<WorldMemberRecord | null> {
-    const existing = await this.prisma.worldMember.findUnique({
-      where: { id },
-    });
-    if (!existing) {
-      return null;
-    }
+    const member = await this.prisma.$transaction(
+      async (transaction) => {
+        const existing = await transaction.worldMember.findUnique({
+          where: { id },
+        });
+        if (!existing) {
+          return null;
+        }
 
-    const member = await this.prisma.worldMember.update({
-      where: { id },
-      data: input,
-      include: { world: { select: { slug: true } } },
-    });
+        const updated = await transaction.worldMember.update({
+          where: { id },
+          data: input,
+          include: { world: { select: { slug: true } } },
+        });
+        if (existing.isActive === input.isActive) {
+          return updated as WorldMemberWithWorld;
+        }
 
-    return this.mapToRecord(member as WorldMemberWithWorld);
+        const votes = await transaction.vote.findMany({
+          where: { authorMemberId: id, postId: { not: null } },
+          select: { postId: true, value: true },
+          orderBy: { postId: 'asc' },
+        });
+        for (const vote of votes) {
+          await transaction.post.update({
+            where: { id: vote.postId! },
+            data: {
+              voteScore: {
+                increment: input.isActive ? vote.value : -vote.value,
+              },
+            },
+          });
+        }
+        return updated as WorldMemberWithWorld;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    return member ? this.mapToRecord(member) : null;
   }
 }

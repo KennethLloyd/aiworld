@@ -15,7 +15,6 @@ import {
   encodePostFeedCursor,
   type PostFeedCursor,
 } from '@/posts/domain/post-feed-cursor';
-import { compareByHot } from '@/posts/domain/post-ranking';
 import {
   PostFeedRecord,
   PostRecord,
@@ -25,12 +24,12 @@ import {
   PostFeedQuery,
   PostRepository,
 } from '@/posts/repositories/post-repository.interface';
-import { aggregatePostVoteScores } from '@/votes/vote-aggregation';
 
 const postSelect = {
   id: true,
   title: true,
   content: true,
+  voteScore: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -42,7 +41,7 @@ const postWithAuthorSelect = {
 
 type PostFeedRow = Pick<
   Post,
-  'id' | 'title' | 'content' | 'createdAt' | 'updatedAt'
+  'id' | 'title' | 'content' | 'voteScore' | 'createdAt' | 'updatedAt'
 >;
 
 type PostWithAuthorRow = PostFeedRow & {
@@ -50,6 +49,12 @@ type PostWithAuthorRow = PostFeedRow & {
 };
 
 const newOrderBy: Prisma.PostOrderByWithRelationInput[] = [
+  { createdAt: 'desc' },
+  { id: 'asc' },
+];
+
+const hotOrderBy: Prisma.PostOrderByWithRelationInput[] = [
+  { voteScore: 'desc' },
   { createdAt: 'desc' },
   { id: 'asc' },
 ];
@@ -83,18 +88,21 @@ function newFeedCursorFilter(cursor: PostFeedCursor): Prisma.PostWhereInput {
   };
 }
 
-function isAfterHotCursor(
-  post: PostFeedRecord,
-  cursor: PostFeedCursor,
-): boolean {
-  const createdAt = post.createdAt.getTime();
-  const cursorCreatedAt = cursor.createdAt.getTime();
-  return (
-    post.voteScore < cursor.voteScore ||
-    (post.voteScore === cursor.voteScore &&
-      (createdAt < cursorCreatedAt ||
-        (createdAt === cursorCreatedAt && post.id > cursor.id)))
-  );
+function hotFeedCursorFilter(cursor: PostFeedCursor): Prisma.PostWhereInput {
+  return {
+    OR: [
+      { voteScore: { lt: cursor.voteScore } },
+      {
+        voteScore: cursor.voteScore,
+        createdAt: { lt: cursor.createdAt },
+      },
+      {
+        voteScore: cursor.voteScore,
+        createdAt: cursor.createdAt,
+        id: { gt: cursor.id },
+      },
+    ],
+  };
 }
 
 @Injectable()
@@ -111,69 +119,35 @@ export class PrismaPostRepository extends PostRepository {
     query: PostFeedQuery,
   ): Promise<CursorPaginated<PostFeedRecord>> {
     const { sort, cursor, limit } = query;
-
-    if (sort === 'new') {
-      const posts = await this.prisma.post.findMany({
-        where: {
-          worldId,
-          ...(cursor ? newFeedCursorFilter(cursor) : {}),
-        },
-        select: postWithAuthorSelect,
-        orderBy: newOrderBy,
-        take: limit + 1,
-      });
-      const pagePosts = posts.slice(0, limit);
-      const scores = await aggregatePostVoteScores(
-        this.prisma,
-        pagePosts.map((post) => post.id),
-      );
-      const commentCounts = await this.commentRepository.countByPostIds(
-        pagePosts.map((post) => post.id),
-      );
-
-      return {
-        items: pagePosts.map((post) =>
-          this.mapToFeedRecord(post, scores, commentCounts),
-        ),
-        nextCursor:
-          posts.length > limit
-            ? encodePostFeedCursor(
-                this.mapToFeedRecord(
-                  pagePosts[pagePosts.length - 1]!,
-                  scores,
-                  commentCounts,
-                ),
-                sort,
-              )
-            : null,
-      };
-    }
-
     const posts = await this.prisma.post.findMany({
-      where: { worldId },
+      where: {
+        worldId,
+        ...(cursor
+          ? sort === 'hot'
+            ? hotFeedCursorFilter(cursor)
+            : newFeedCursorFilter(cursor)
+          : {}),
+      },
       select: postWithAuthorSelect,
-      orderBy: newOrderBy,
+      orderBy: sort === 'hot' ? hotOrderBy : newOrderBy,
+      take: limit + 1,
     });
-    const scores = await aggregatePostVoteScores(
-      this.prisma,
-      posts.map((post) => post.id),
-    );
+    const pagePosts = posts.slice(0, limit);
     const commentCounts = await this.commentRepository.countByPostIds(
-      posts.map((post) => post.id),
+      pagePosts.map((post) => post.id),
     );
-    const ranked = posts
-      .map((post) => this.mapToFeedRecord(post, scores, commentCounts))
-      .sort(compareByHot);
-    const remaining = cursor
-      ? ranked.filter((post) => isAfterHotCursor(post, cursor))
-      : ranked;
-    const pageItems = remaining.slice(0, limit);
 
     return {
-      items: pageItems,
+      items: pagePosts.map((post) => this.mapToFeedRecord(post, commentCounts)),
       nextCursor:
-        remaining.length > limit
-          ? encodePostFeedCursor(pageItems[pageItems.length - 1]!, sort)
+        posts.length > limit
+          ? encodePostFeedCursor(
+              this.mapToFeedRecord(
+                pagePosts[pagePosts.length - 1]!,
+                commentCounts,
+              ),
+              sort,
+            )
           : null,
     };
   }
@@ -187,12 +161,7 @@ export class PrismaPostRepository extends PostRepository {
       select: postWithAuthorSelect,
     });
 
-    if (!post) {
-      return null;
-    }
-
-    const scores = await aggregatePostVoteScores(this.prisma, [post.id]);
-    return this.mapToWithAuthorRecord(post, scores);
+    return post ? this.mapToWithAuthorRecord(post) : null;
   }
 
   async findByAuthorMembership(
@@ -211,12 +180,8 @@ export class PrismaPostRepository extends PostRepository {
       orderBy: activityOrderBy,
       take: limit,
     });
-    const scores = await aggregatePostVoteScores(
-      this.prisma,
-      posts.map((post) => post.id),
-    );
 
-    return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
+    return posts.map((post) => this.mapToWithAuthorRecord(post));
   }
 
   async searchByText(
@@ -235,12 +200,8 @@ export class PrismaPostRepository extends PostRepository {
       select: postWithAuthorSelect,
       orderBy: searchOrderBy,
     });
-    const scores = await aggregatePostVoteScores(
-      this.prisma,
-      posts.map((post) => post.id),
-    );
 
-    return posts.map((post) => this.mapToWithAuthorRecord(post, scores));
+    return posts.map((post) => this.mapToWithAuthorRecord(post));
   }
 
   async create(input: {
@@ -253,37 +214,30 @@ export class PrismaPostRepository extends PostRepository {
     return { id: post.id };
   }
 
-  private mapToRecord(
-    post: PostFeedRow,
-    scores: Map<string, number>,
-  ): PostRecord {
+  private mapToRecord(post: PostFeedRow): PostRecord {
     return {
       id: post.id,
       title: post.title,
       content: post.content,
-      voteScore: scores.get(post.id) ?? 0,
+      voteScore: post.voteScore,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
     };
   }
 
-  private mapToWithAuthorRecord(
-    post: PostWithAuthorRow,
-    scores: Map<string, number>,
-  ): PostWithAuthorRecord {
+  private mapToWithAuthorRecord(post: PostWithAuthorRow): PostWithAuthorRecord {
     return {
-      ...this.mapToRecord(post, scores),
+      ...this.mapToRecord(post),
       author: mapContentAuthor(post.author),
     };
   }
 
   private mapToFeedRecord(
     post: PostWithAuthorRow,
-    scores: Map<string, number>,
     commentCounts: Map<string, number>,
   ): PostFeedRecord {
     return {
-      ...this.mapToWithAuthorRecord(post, scores),
+      ...this.mapToWithAuthorRecord(post),
       commentCount: commentCounts.get(post.id) ?? 0,
     };
   }

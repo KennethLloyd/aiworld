@@ -58,7 +58,7 @@ describe('World feed (seeded database)', () => {
     await prisma.$disconnect();
   });
 
-  it('serves the hot feed anonymously with vote scores aggregated from Vote rows', async () => {
+  it('serves the hot feed anonymously with stored vote scores', async () => {
     const sessionHolder = app.get<MockAuthSessionHolder>(MOCK_AUTH_SESSION);
     sessionHolder.current = null;
 
@@ -94,7 +94,7 @@ describe('World feed (seeded database)', () => {
     expect(res.body.nextCursor).toBeNull();
   });
 
-  it('serves the new feed ordered by createdAt with the same aggregated scores', async () => {
+  it('serves the new feed ordered by createdAt with stored vote scores', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/worlds/mbti-house/posts?sort=new')
       .expect(200);
@@ -131,6 +131,55 @@ describe('World feed (seeded database)', () => {
     expect(resPageTwo.body.items[1].id).toBe(seededPostId('p3'));
     expect(resPageTwo.body.nextCursor).toEqual(expect.any(String));
   });
+  it('keeps Hot cursor boundaries for equal scores and timestamps', async () => {
+    const equalCreatedAt = new Date('2026-09-01T00:00:00.000Z');
+    const equalScorePostIds = [
+      seededPostId('hot-equal-a'),
+      seededPostId('hot-equal-b'),
+      seededPostId('hot-equal-c'),
+    ].sort();
+    const world = await prisma.world.findUniqueOrThrow({
+      where: { slug: canonicalWorld.slug },
+      select: { id: true },
+    });
+    await prisma.post.createMany({
+      data: equalScorePostIds.map((id, index) => ({
+        id,
+        worldId: world.id,
+        authorMemberId: seedUuid('member:footnote'),
+        title: `Equal hot post ${index}`,
+        content: 'Cursor boundary fixture.',
+        voteScore: 100,
+        createdAt: equalCreatedAt,
+      })),
+    });
+
+    try {
+      const firstPage = await request(app.getHttpServer())
+        .get('/api/worlds/mbti-house/posts?sort=hot&limit=2')
+        .expect(200);
+      expect(
+        firstPage.body.items.map((post: { id: string }) => post.id),
+      ).toEqual(equalScorePostIds.slice(0, 2));
+
+      const secondPage = await request(app.getHttpServer())
+        .get(
+          `/api/worlds/mbti-house/posts?sort=hot&limit=2&cursor=${encodeURIComponent(firstPage.body.nextCursor)}`,
+        )
+        .expect(200);
+      expect(secondPage.body.items[0].id).toBe(equalScorePostIds[2]);
+      expect(secondPage.body.items).not.toContainEqual(
+        expect.objectContaining({ id: equalScorePostIds[0] }),
+      );
+      expect(secondPage.body.items).not.toContainEqual(
+        expect.objectContaining({ id: equalScorePostIds[1] }),
+      );
+    } finally {
+      await prisma.post.deleteMany({
+        where: { id: { in: equalScorePostIds } },
+      });
+    }
+  });
 
   it('ends with a null cursor after the final page', async () => {
     const res = await request(app.getHttpServer())
@@ -151,6 +200,51 @@ describe('World feed (seeded database)', () => {
       .expect(200);
 
     expect(second.body).toEqual(first.body);
+  });
+
+  it('uses the Hot feed index for a bounded page at meaningful scale', async () => {
+    const world = await prisma.world.findUniqueOrThrow({
+      where: { slug: canonicalWorld.slug },
+      select: { id: true },
+    });
+    const benchmarkPostIds = Array.from({ length: 10_000 }, (_, index) =>
+      seedUuid(`post:hot-index-benchmark-${index}`),
+    );
+
+    await prisma.post.deleteMany({
+      where: { id: { in: benchmarkPostIds } },
+    });
+    await prisma.post.createMany({
+      data: benchmarkPostIds.map((id, index) => ({
+        id,
+        worldId: world.id,
+        authorMemberId: seedUuid('member:footnote'),
+        title: `Hot index benchmark ${index}`,
+        content: 'Hot index benchmark fixture.',
+        voteScore: index % 100,
+        createdAt: new Date(2020, 0, 1, 0, 0, index),
+      })),
+    });
+
+    try {
+      await prisma.$executeRaw`ANALYZE "post"`;
+      const plan = await prisma.$queryRaw<Array<{ 'QUERY PLAN': unknown }>>`
+        EXPLAIN (ANALYZE, FORMAT JSON, COSTS OFF)
+        SELECT "id", "voteScore", "createdAt"
+        FROM "post"
+        WHERE "worldId" = ${world.id}
+        ORDER BY "voteScore" DESC, "createdAt" DESC, "id" ASC
+        LIMIT 11
+      `;
+
+      const queryPlan = JSON.stringify(plan);
+      expect(queryPlan).toContain('post_worldId_voteScore_createdAt_id_idx');
+      expect(queryPlan).toContain('Index Only Scan');
+    } finally {
+      await prisma.post.deleteMany({
+        where: { id: { in: benchmarkPostIds } },
+      });
+    }
   });
 
   it('ignores votes cast by inactive members', async () => {
@@ -246,6 +340,7 @@ describe('World feed (HTTP boundary)', () => {
     id: '00000000-0000-4000-8000-000000000101',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
+    voteScore: 5,
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: {
@@ -262,6 +357,7 @@ describe('World feed (HTTP boundary)', () => {
     id: '00000000-0000-4000-8000-000000000102',
     title: 'URGENT: The Toaster Situation',
     content: '47 pieces on the counter.',
+    voteScore: 3,
     createdAt: new Date('2026-08-06T05:00:00.000Z'),
     updatedAt: new Date('2026-08-06T05:00:00.000Z'),
     author: {
@@ -314,7 +410,6 @@ describe('World feed (HTTP boundary)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
-
     const sessionHolder = app.get<MockAuthSessionHolder>(MOCK_AUTH_SESSION);
     sessionHolder.current = null;
   });
@@ -356,12 +451,8 @@ describe('World feed (HTTP boundary)', () => {
     });
   });
 
-  it('ranks the hot feed in one grouped vote query and exposes only the shared contract fields', async () => {
-    prismaStub.post.findMany.mockResolvedValue([postTwo, postOne]);
-    prismaStub.vote.groupBy.mockResolvedValue([
-      { postId: postOne.id, _sum: { value: 5 } },
-      { postId: postTwo.id, _sum: { value: 3 } },
-    ]);
+  it('ranks the hot feed from stored scores and exposes only the shared contract fields', async () => {
+    prismaStub.post.findMany.mockResolvedValue([postOne, postTwo]);
     prismaStub.comment.groupBy.mockResolvedValue([
       { postId: postOne.id, _count: { _all: 7 } },
       { postId: postTwo.id, _count: { _all: 2 } },
@@ -400,40 +491,29 @@ describe('World feed (HTTP boundary)', () => {
     expect(prismaStub.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { worldId },
+        orderBy: [{ voteScore: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
+        take: 21,
         select: expect.objectContaining({
           id: true,
           title: true,
           content: true,
+          voteScore: true,
         }),
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['postId'],
-        where: {
-          postId: { in: [postTwo.id, postOne.id] },
-          author: { isActive: true },
-        },
-        _sum: { value: true },
-      }),
-    );
+    expect(prismaStub.vote.groupBy).not.toHaveBeenCalled();
     expect(prismaStub.comment.groupBy).toHaveBeenCalledTimes(1);
     expect(prismaStub.comment.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['postId'],
-        where: { postId: { in: [postTwo.id, postOne.id] } },
+        where: { postId: { in: [postOne.id, postTwo.id] } },
         _count: { _all: true },
       }),
     );
   });
 
-  it('pages the new sort in SQL and aggregates votes only for the page', async () => {
+  it('pages the new sort in SQL from stored scores', async () => {
     prismaStub.post.findMany.mockResolvedValue([postOne, postTwo]);
-    prismaStub.vote.groupBy.mockResolvedValue([
-      { postId: postOne.id, _sum: { value: 5 } },
-      { postId: postTwo.id, _sum: { value: 3 } },
-    ]);
     prismaStub.comment.groupBy.mockResolvedValue([
       { postId: postOne.id, _count: { _all: 7 } },
       { postId: postTwo.id, _count: { _all: 2 } },
@@ -459,15 +539,7 @@ describe('World feed (HTTP boundary)', () => {
         take: 3,
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          postId: { in: [postOne.id, postTwo.id] },
-          author: { isActive: true },
-        },
-      }),
-    );
+    expect(prismaStub.vote.groupBy).not.toHaveBeenCalled();
     expect(prismaStub.comment.groupBy).toHaveBeenCalledTimes(1);
     expect(prismaStub.comment.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -298,6 +298,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: authorMemberIdA,
         title: 'The author post in world A',
         content: 'Authored by the fixture author.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:00:00.000Z'),
       },
     });
@@ -308,6 +309,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: commenterMemberIdA,
         title: 'Someone else\u2019s post',
         content: 'Authored by the commenter, not the author.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:03:00.000Z'),
       },
     });
@@ -318,6 +320,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: authorMemberIdA,
         title: 'The author\u2019s second post',
         content: 'Also authored by the fixture author.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:10:00.000Z'),
       },
     });
@@ -328,6 +331,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: authorMemberIdA,
         title: 'The author\u2019s third post',
         content: 'The newest author post in world A.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:20:00.000Z'),
       },
     });
@@ -338,6 +342,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: seedUuid('member:activity-inactive'),
         title: 'An inactive character\u2019s post',
         content: 'Inactive content stays readable.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:30:00.000Z'),
       },
     });
@@ -348,6 +353,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: seedUuid('member:activity-dormant'),
         title: 'A dormant membership\u2019s post',
         content: 'Inactive memberships keep their public content.',
+        voteScore: 2,
         createdAt: t('2026-08-06T08:40:00.000Z'),
       },
     });
@@ -409,6 +415,7 @@ describe('Character activity (real database)', () => {
         authorMemberId: authorMemberIdB,
         title: 'The author post in world B',
         content: 'Must only appear when world B is queried.',
+        voteScore: 2,
         createdAt: t('2026-08-06T09:00:00.000Z'),
       },
     });
@@ -794,6 +801,7 @@ describe('Character activity (HTTP boundary)', () => {
     id: '00000000-0000-4000-8000-000000000201',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
+    voteScore: 5,
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
     author: {
@@ -934,7 +942,7 @@ describe('Character activity (HTTP boundary)', () => {
     expect(commentItem.postId).toBe(postRow.id);
   });
 
-  it('queries each stream after the cursor with the page size plus one, one grouped vote query per entity', async () => {
+  it('queries each stream after the cursor with one grouped vote query for comments', async () => {
     await request(app.getHttpServer())
       .get(`/api/characters/${characterId}/activity?worldSlug=mbti-house`)
       .expect(200);
@@ -943,6 +951,7 @@ describe('Character activity (HTTP boundary)', () => {
       expect.objectContaining({
         where: { worldId, authorMemberId: memberId },
         select: expect.objectContaining({
+          voteScore: true,
           author: {
             select: expect.objectContaining({ character: expect.any(Object) }),
           },
@@ -961,13 +970,7 @@ describe('Character activity (HTTP boundary)', () => {
         take: 21,
       }),
     );
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(2);
-    expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ['postId'],
-        where: { postId: { in: [postRow.id] }, author: { isActive: true } },
-      }),
-    );
+    expect(prismaStub.vote.groupBy).toHaveBeenCalledTimes(1);
     expect(prismaStub.vote.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         by: ['commentId'],

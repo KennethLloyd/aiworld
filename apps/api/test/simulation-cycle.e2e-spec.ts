@@ -215,6 +215,7 @@ describe('Simulation cycle (seeded database)', () => {
     });
     expect(post.worldId).toBe(worldId);
     expect(post.authorMemberId).toBe(actorMemberId);
+    expect(post.voteScore).toBe(1);
 
     const vote = await prisma.vote.findFirstOrThrow({
       where: { postId, authorMemberId: actorMemberId },

@@ -148,7 +148,7 @@ describe('bounded long-run mock simulation', () => {
       },
     ];
     const comments: FlatCommentRecord[] = [];
-    const votes = new Set<string>();
+    const votes = new Map<string, 1 | -1>();
     const logs: SimulationLogRecord[] = [];
 
     const worldRepository = {
@@ -226,15 +226,24 @@ describe('bounded long-run mock simulation', () => {
       },
     } as unknown as CommentRepository;
     const voteRepository = {
-      existsByMemberAndPost: async (memberId: string, postId: string) =>
-        votes.has(`${memberId}:${postId}`),
-      create: async (input: {
+      findByMemberAndPost: async (memberId: string, postId: string) => {
+        const value = votes.get(`${memberId}:${postId}`);
+        return value === undefined
+          ? null
+          : { id: `vote-${memberId}-${postId}`, value };
+      },
+      setForPost: async (input: {
         postId: string;
         authorMemberId: string;
-        value: 1 | -1;
+        value: 1 | -1 | null;
       }) => {
-        votes.add(`${input.authorMemberId}:${input.postId}`);
-        return { id: `vote-${votes.size}` };
+        const key = `${input.authorMemberId}:${input.postId}`;
+        if (input.value === null) {
+          votes.delete(key);
+          return null;
+        }
+        votes.set(key, input.value);
+        return { id: `vote-${key}` };
       },
     } as unknown as VoteRepository;
     const contextProvider = new SimulationContextProvider(

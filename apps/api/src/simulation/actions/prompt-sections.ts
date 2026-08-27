@@ -41,6 +41,16 @@ export function characterSection(character: CharacterRecord): PromptSection {
   };
 }
 
+export function currentVoteSection(currentVote: 1 | -1 | null): PromptSection {
+  return {
+    heading: 'Current vote',
+    body:
+      currentVote === null
+        ? 'No current vote.'
+        : `Current vote: ${currentVote === 1 ? 'upvote' : 'downvote'}.`,
+  };
+}
+
 export function targetPostSection(post: PostWithAuthorRecord): PromptSection {
   return {
     heading: 'Target post',
