@@ -1,5 +1,4 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import { Injectable } from '@nestjs/common';
 
 import { ActivityCursor } from '@/activity/domain/activity-cursor';
@@ -12,13 +11,20 @@ import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-conten
 import { Prisma, Post } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { escapeSearchText } from '@/lib/search-text';
+import {
+  encodePostFeedCursor,
+  type PostFeedCursor,
+} from '@/posts/domain/post-feed-cursor';
 import { compareByHot } from '@/posts/domain/post-ranking';
 import {
   PostFeedRecord,
   PostRecord,
   PostWithAuthorRecord,
 } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import {
+  PostFeedQuery,
+  PostRepository,
+} from '@/posts/repositories/post-repository.interface';
 import { aggregatePostVoteScores } from '@/votes/vote-aggregation';
 
 const postSelect = {
@@ -68,6 +74,29 @@ function activityCursorFilter(cursor: ActivityCursor): Prisma.PostWhereInput {
   };
 }
 
+function newFeedCursorFilter(cursor: PostFeedCursor): Prisma.PostWhereInput {
+  return {
+    OR: [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { gt: cursor.id } },
+    ],
+  };
+}
+
+function isAfterHotCursor(
+  post: PostFeedRecord,
+  cursor: PostFeedCursor,
+): boolean {
+  const createdAt = post.createdAt.getTime();
+  const cursorCreatedAt = cursor.createdAt.getTime();
+  return (
+    post.voteScore < cursor.voteScore ||
+    (post.voteScore === cursor.voteScore &&
+      (createdAt < cursorCreatedAt ||
+        (createdAt === cursorCreatedAt && post.id > cursor.id)))
+  );
+}
+
 @Injectable()
 export class PrismaPostRepository extends PostRepository {
   constructor(
@@ -79,34 +108,44 @@ export class PrismaPostRepository extends PostRepository {
 
   async findFeed(
     worldId: string,
-    query: ListPostsQuery,
-  ): Promise<Paginated<PostFeedRecord>> {
-    const { sort, page, limit } = query;
+    query: PostFeedQuery,
+  ): Promise<CursorPaginated<PostFeedRecord>> {
+    const { sort, cursor, limit } = query;
 
     if (sort === 'new') {
-      const [posts, total] = await Promise.all([
-        this.prisma.post.findMany({
-          where: { worldId },
-          select: postWithAuthorSelect,
-          orderBy: newOrderBy,
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        this.prisma.post.count({ where: { worldId } }),
-      ]);
+      const posts = await this.prisma.post.findMany({
+        where: {
+          worldId,
+          ...(cursor ? newFeedCursorFilter(cursor) : {}),
+        },
+        select: postWithAuthorSelect,
+        orderBy: newOrderBy,
+        take: limit + 1,
+      });
+      const pagePosts = posts.slice(0, limit);
       const scores = await aggregatePostVoteScores(
         this.prisma,
-        posts.map((post) => post.id),
+        pagePosts.map((post) => post.id),
       );
       const commentCounts = await this.commentRepository.countByPostIds(
-        posts.map((post) => post.id),
+        pagePosts.map((post) => post.id),
       );
 
       return {
-        items: posts.map((post) =>
+        items: pagePosts.map((post) =>
           this.mapToFeedRecord(post, scores, commentCounts),
         ),
-        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        nextCursor:
+          posts.length > limit
+            ? encodePostFeedCursor(
+                this.mapToFeedRecord(
+                  pagePosts[pagePosts.length - 1]!,
+                  scores,
+                  commentCounts,
+                ),
+                sort,
+              )
+            : null,
       };
     }
 
@@ -125,16 +164,17 @@ export class PrismaPostRepository extends PostRepository {
     const ranked = posts
       .map((post) => this.mapToFeedRecord(post, scores, commentCounts))
       .sort(compareByHot);
-    const pageItems = ranked.slice((page - 1) * limit, page * limit);
+    const remaining = cursor
+      ? ranked.filter((post) => isAfterHotCursor(post, cursor))
+      : ranked;
+    const pageItems = remaining.slice(0, limit);
 
     return {
       items: pageItems,
-      meta: {
-        page,
-        limit,
-        total: ranked.length,
-        totalPages: Math.ceil(ranked.length / limit),
-      },
+      nextCursor:
+        remaining.length > limit
+          ? encodePostFeedCursor(pageItems[pageItems.length - 1]!, sort)
+          : null,
     };
   }
 

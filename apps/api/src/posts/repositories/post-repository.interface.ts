@@ -1,17 +1,24 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
+import type { PostSort } from '@aiworld/shared/schemas/post.schema';
 
 import { ActivityCursor } from '@/activity/domain/activity-cursor';
+import { PostFeedCursor } from '@/posts/domain/post-feed-cursor';
 import {
   PostFeedRecord,
   PostWithAuthorRecord,
 } from '@/posts/domain/post-record';
 
+export interface PostFeedQuery {
+  sort: PostSort;
+  cursor: PostFeedCursor | null;
+  limit: number;
+}
+
 export abstract class PostRepository {
   abstract findFeed(
     worldId: string,
-    query: ListPostsQuery,
-  ): Promise<Paginated<PostFeedRecord>>;
+    query: PostFeedQuery,
+  ): Promise<CursorPaginated<PostFeedRecord>>;
   abstract findById(
     worldId: string,
     postId: string,

@@ -6,6 +6,8 @@ import { Link } from '@tanstack/react-router';
 import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState, type Ref } from 'react';
 
+import { VoteControl } from '@/shared/ui/vote-control';
+
 import {
   MIN_SEARCH_QUERY_LENGTH,
   normalizeSearchQuery,
@@ -209,7 +211,7 @@ function SearchResultLink({
   const excerpt = isPost
     ? item.post.content
     : `${item.comment.author.name}: ${item.comment.content}`;
-
+  const voteScore = isPost ? item.post.voteScore : item.comment.voteScore;
   return (
     <Link
       id={optionId}
@@ -231,6 +233,9 @@ function SearchResultLink({
       </span>
       <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-ink/65">
         {highlightText(excerpt, query)}
+      </span>
+      <span className="mt-2 flex items-center text-[10px] text-ink/50">
+        <VoteControl score={voteScore} compact />
       </span>
     </Link>
   );

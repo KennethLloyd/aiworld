@@ -26,7 +26,9 @@ export function AppShell({
   onSignOut,
 }: AppShellProps) {
   return (
-    <div className="relative flex min-h-screen flex-col bg-surface text-ink">
+    <div
+      className={`relative flex min-h-screen flex-col bg-surface text-ink ${showObserverMode ? 'observer-shell' : 'admin-shell'}`}
+    >
       <AmbientBackground />
       <SkipLink href="#main" />
       <AppHeader

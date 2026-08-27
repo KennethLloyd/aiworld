@@ -1,4 +1,4 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import {
   ListPostsResponse,
   PostDetailResponse,
@@ -49,14 +49,14 @@ export class PostResponseMapper {
   }
 
   mapToPaginatedPostResponse(
-    paginatedRecords: Paginated<PostFeedRecord>,
+    paginatedRecords: CursorPaginated<PostFeedRecord>,
   ): ListPostsResponse {
     return {
       items: paginatedRecords.items.map((item) => ({
         ...this.mapToPostWithAuthorResponse(item),
         commentCount: item.commentCount,
       })),
-      meta: paginatedRecords.meta,
+      nextCursor: paginatedRecords.nextCursor,
     };
   }
 }

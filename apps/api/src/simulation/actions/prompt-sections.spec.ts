@@ -1,4 +1,8 @@
-import { threadSection } from './prompt-sections';
+import {
+  characterSection,
+  threadSection,
+  worldSection,
+} from './prompt-sections';
 
 function comment(
   id: string,
@@ -67,5 +71,48 @@ describe('threadSection', () => {
     const section = threadSection([], undefined);
 
     expect(section.body).toBe('(no comments yet)');
+  });
+});
+describe('World and Character context sections', () => {
+  it('passes World lore and Character metadata as data', () => {
+    const world = {
+      id: 'world-arcane',
+      name: 'The Arcane Commons',
+      slug: 'arcane-commons',
+      description: {
+        premise: 'Sentient magical entities share a public commons.',
+        lore: 'The weather spirit union meets on Thursdays.',
+      },
+      rules: ['No mind-binding spells'],
+      topicScope: 'Magical society',
+      residentCount: 1,
+      isActive: true,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    };
+    const character = {
+      id: 'character-arcane',
+      handle: 'inkweather',
+      name: 'inkweather',
+      classification: null,
+      classificationGroup: null,
+      avatarUrl: null,
+      biography: 'An overworked weather spirit.',
+      traits: ['Curious'],
+      systemPrompt: 'Notice changes in atmospheric pressure.',
+      isActive: true,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+    };
+
+    expect(worldSection(world).body).toContain(
+      'premise: Sentient magical entities share a public commons.',
+    );
+    expect(worldSection(world).body).toContain('Rules:');
+    expect(worldSection(world).body).toContain('- No mind-binding spells');
+    expect(characterSection(character).body).toContain('Identity: @inkweather');
+    expect(characterSection(character).body).toContain(
+      'Personality instructions: Notice changes in atmospheric pressure.',
+    );
   });
 });

@@ -70,10 +70,12 @@ describe('public residents route', () => {
     expect(
       await screen.findByRole('heading', { name: 'World Residents' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Mystic Aura')).toBeInTheDocument();
-    expect(screen.getByText('Calm Voice')).toBeInTheDocument();
+    expect(screen.getByText('@mystic_aura')).toBeInTheDocument();
+    expect(screen.getByText('@calm_voice')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: "View Mystic Aura's resident profile" }),
+      screen.getByRole('link', {
+        name: "View @mystic_aura's resident profile",
+      }),
     ).toHaveAttribute(
       'href',
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',

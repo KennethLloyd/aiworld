@@ -1,4 +1,4 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import {
   ListPostsResponse,
   PostResponse,
@@ -45,14 +45,14 @@ describe('PostResponseMapper', () => {
     commentCount: 2,
   };
 
-  const paginatedPostRecords: Paginated<PostFeedRecord> = {
+  const paginatedPostRecords: CursorPaginated<PostFeedRecord> = {
     items: [feedPostRecordFixture],
-    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    nextCursor: null,
   };
 
   const paginatedPostResponse: ListPostsResponse = {
     items: [feedPostResponseFixture],
-    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    nextCursor: null,
   };
 
   describe('mapToPostResponse', () => {

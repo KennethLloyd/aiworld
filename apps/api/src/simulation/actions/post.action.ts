@@ -18,6 +18,8 @@ import {
   LlmProvider,
   LlmProviderPrompt,
 } from '@/simulation/providers/llm-provider.port';
+export const POST_ACTION_INSTRUCTIONS =
+  'Start a new conversation only when this actor has a plausible reason to open the forum: an observation, question, discovery, bit of gossip, request for help, celebration, mundane detail, unpopular opinion, callback, or reaction to something in the current World. Use a specific hook grounded in the supplied World context rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another actor.';
 
 @Injectable()
 export class PostAction extends SimulationAction<
@@ -50,8 +52,7 @@ export class PostAction extends SimulationAction<
   ): LlmProviderPrompt {
     return composeActionPrompt({
       action: 'POST',
-      instructions:
-        'Start a new conversation only when this Resident has a plausible reason to open the forum: an annoyance, question, discovery, bit of gossip, request for help, celebration, mundane observation, unpopular opinion, callback, or reaction to something in the House. Use a specific shared-house hook rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another Resident.',
+      instructions: POST_ACTION_INSTRUCTIONS,
       outputFormat: '{"title": string, "content": string, "reasoning": string}',
       contextSections: [
         worldSection(context.world),

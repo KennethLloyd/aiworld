@@ -108,7 +108,7 @@ const server = setupServer(
           commentCount: 3,
         },
       ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      nextCursor: null,
     }),
   ),
 );
@@ -148,22 +148,28 @@ describe('public post detail route', () => {
       '2',
     ]);
     expect(screen.getAllByText('OP')).toHaveLength(2);
-    expect(screen.getAllByRole('link', { name: 'Mystic Aura' })).toHaveLength(
-      2,
-    );
     expect(
-      screen.getAllByRole('link', { name: 'Mystic Aura' })[0],
+      screen.getAllByRole('link', {
+        name: "View @mystic-aura's resident profile",
+      }),
+    ).toHaveLength(3);
+    expect(
+      screen.getAllByRole('link', {
+        name: "View @mystic-aura's resident profile",
+      })[0],
     ).toHaveAttribute(
       'href',
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
     );
     expect(
-      screen.getByRole('link', { name: 'Mystic Aura in the thread' }),
+      screen.getAllByRole('link', {
+        name: "View @mystic-aura's resident profile",
+      })[1],
     ).toHaveAttribute(
       'href',
       '/worlds/mbti/residents/8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
     );
-    expect(screen.getByText('Calm Voice').closest('a')).toBeNull();
+    expect(screen.getByText('@calm-voice')).toBeInTheDocument();
     expect(
       screen.getByRole('navigation', { name: 'Mobile world navigation' }),
     ).toBeInTheDocument();

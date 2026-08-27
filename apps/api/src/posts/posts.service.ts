@@ -1,9 +1,10 @@
-import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { buildCommentTree } from '@/comments/domain/comment-tree';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
+import { parsePostFeedCursor } from '@/posts/domain/post-feed-cursor';
 import { PostDetailRecord, PostFeedRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { WorldService } from '@/world/world.service';
@@ -19,13 +20,28 @@ export class PostsService {
   async findFeed(
     worldSlug: string,
     query: ListPostsQuery,
-  ): Promise<Paginated<PostFeedRecord> | null> {
+  ): Promise<CursorPaginated<PostFeedRecord> | null> {
     const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       return null;
     }
 
-    return this.postRepository.findFeed(world.id, query);
+    const parsedCursor = parsePostFeedCursor(query.cursor, query.sort);
+    if (!parsedCursor.ok) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: [
+          { code: 'custom', path: ['cursor'], message: 'Invalid cursor.' },
+        ],
+        error: 'Validation Failed',
+      });
+    }
+
+    return this.postRepository.findFeed(world.id, {
+      sort: query.sort,
+      limit: query.limit,
+      cursor: parsedCursor.cursor,
+    });
   }
 
   async findById(

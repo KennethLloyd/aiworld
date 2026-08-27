@@ -43,7 +43,7 @@ describe('postsOpenApiDocument', () => {
     );
   });
 
-  it('documents the slug param and the sort and pagination query params', () => {
+  it('documents the slug param and cursor feed query params', () => {
     const paths = (postsOpenApiDocument.paths ?? {}) as Record<
       string,
       PostsDocumentPath
@@ -55,7 +55,7 @@ describe('postsOpenApiDocument', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'slug', in: 'path' }),
         expect.objectContaining({ name: 'sort', in: 'query' }),
-        expect.objectContaining({ name: 'page', in: 'query' }),
+        expect.objectContaining({ name: 'cursor', in: 'query' }),
         expect.objectContaining({ name: 'limit', in: 'query' }),
       ]),
     );
@@ -100,5 +100,6 @@ describe('postsOpenApiDocument', () => {
       type: 'integer',
       minimum: 0,
     });
+    expect(listResponse?.properties).toHaveProperty('nextCursor');
   });
 });

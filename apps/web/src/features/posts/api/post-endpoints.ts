@@ -4,9 +4,11 @@ export const postEndpoints = {
   list(slug: string, query: ListPostsQuery): string {
     const searchParams = new URLSearchParams({
       sort: query.sort,
-      page: String(query.page),
       limit: String(query.limit),
     });
+    if (query.cursor !== undefined) {
+      searchParams.set('cursor', query.cursor);
+    }
     return `/api/worlds/${encodeURIComponent(slug)}/posts?${searchParams.toString()}`;
   },
   detail(slug: string, postId: string): string {

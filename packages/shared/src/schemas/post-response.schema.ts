@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import { authorResponseSchema } from "./author-response.schema.ts";
 import { commentResponseSchema } from "./comment-response.schema.ts";
-import { paginationMetaSchema } from "./pagination.schema.ts";
 
 export const postResponseSchema = z.object({
   id: z.uuid(),
@@ -37,7 +36,7 @@ export type PostDetailResponse = z.infer<typeof postDetailResponseSchema>;
 
 export const listPostsResponseSchema = z.object({
   items: z.array(feedPostResponseSchema),
-  meta: paginationMetaSchema,
+  nextCursor: z.string().nullable(),
 });
 
 export type ListPostsResponse = z.infer<typeof listPostsResponseSchema>;

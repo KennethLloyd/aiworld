@@ -1,12 +1,14 @@
 import type { CharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Orbit } from 'lucide-react';
 
 import { ActivityTimeline } from '@/features/characters/components/activity-timeline';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
 
 export function ResidentProfile({
   worldSlug,
@@ -31,55 +33,61 @@ export function ResidentProfile({
   );
 
   return (
-    <div className="flex flex-col gap-6 pb-8">
+    <div className="flex flex-col gap-4 pb-8">
       <Button variant="ghost" size="sm" onClick={onBack} className="self-start">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back
+        Back to Residents
       </Button>
 
-      <GlassPanel className="relative overflow-hidden rounded-[1.5rem] p-5 sm:p-8">
-        <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-r from-brand-sentinel/20 via-brand-analyst/12 to-brand-diplomat/12" />
+      <GlassPanel
+        className="observer-identity-card relative overflow-hidden rounded-[1.25rem] p-3.5 sm:p-5"
+        data-identity-accent={identityAccent(character.id)}
+      >
         <div
           aria-hidden="true"
-          className="absolute -right-16 -top-20 h-48 w-48 rounded-full bg-brand-analyst/15 blur-3xl"
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-sentinel/60 via-brand-analyst/30 to-brand-diplomat/45"
         />
-        <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:gap-7">
+        <div className="relative flex items-start gap-3 sm:gap-4">
           <Link
             to="/worlds/$slug/residents/$characterId"
             params={{ slug: worldSlug, characterId: character.id }}
-            aria-label={`View ${character.name}'s resident profile`}
-            className="self-center rounded-[1.5rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel/60 md:self-start"
+            aria-label={`View @${character.handle}'s resident profile`}
+            className="rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel/60"
           >
             <Avatar
               src={character.avatarUrl}
-              alt={character.name}
-              name={character.name}
-              size="lg"
-              className="h-24 w-24 text-lg md:h-28 md:w-28"
+              alt={`@${character.handle}`}
+              name={character.handle}
+              identityId={character.id}
+              size="md"
+              className="h-14 w-14 rounded-xl sm:h-16 sm:w-16"
             />
           </Link>
-          <div className="min-w-0 flex-1 text-center md:text-left">
-            <div className="flex flex-col items-center gap-2 md:flex-row">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 to="/worlds/$slug/residents/$characterId"
                 params={{ slug: worldSlug, characterId: character.id }}
                 className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
               >
-                <h1 className="break-words font-display text-3xl font-bold tracking-[-0.04em] sm:text-4xl">
-                  {character.name}
+                <h1 className="break-words font-display text-xl font-bold tracking-[-0.04em] sm:text-2xl">
+                  @{character.handle}
                 </h1>
               </Link>
               {character.classification ? (
-                <Badge tone="info" dot={false}>
+                <IdentityBadge identityId={character.id}>
                   {character.classification}
-                </Badge>
+                </IdentityBadge>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-ink/45">@{character.handle}</p>
-            <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-ink/75 md:mx-0">
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">
+              {character.classificationGroup ?? 'Resident signal'} · active in
+              this World
+            </p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/80">
               {character.biography}
             </p>
-            <ul className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
+            <ul className="mt-2 flex flex-wrap gap-1.5">
               {character.traits.map((trait) => (
                 <li key={trait}>
                   <Badge tone="neutral" dot={false}>
@@ -88,15 +96,12 @@ export function ResidentProfile({
                 </li>
               ))}
             </ul>
-            <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-ink/55 md:justify-start">
-              <span className="inline-flex items-center gap-1.5">
-                <Sparkles
-                  className="h-3.5 w-3.5 text-brand-explorer"
-                  aria-hidden="true"
-                />
-                Resident of this World
-              </span>
-              <span>{activityCount} recent moments</span>
+            <div className="mt-3 flex items-center gap-1.5 border-t border-glass-border pt-3 text-xs font-medium text-ink/65">
+              <Orbit
+                className="h-3.5 w-3.5 text-brand-sentinel"
+                aria-hidden="true"
+              />
+              {activityCount} recent moments
             </div>
           </div>
         </div>

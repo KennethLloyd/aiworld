@@ -98,6 +98,7 @@ export function CharacterRegistryTab() {
             src={character.avatarUrl}
             alt={character.name}
             name={character.name}
+            identityId={character.id}
             size="sm"
           />
           <div>

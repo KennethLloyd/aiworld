@@ -108,14 +108,14 @@ describe('public resident profile route', () => {
     renderPublicRoutes(`/worlds/mbti/residents/${characterId}`);
 
     expect(
-      await screen.findByRole('heading', { name: 'Mystic Aura' }),
+      await screen.findByRole('heading', { name: '@mystic_aura' }),
     ).toBeInTheDocument();
     expect(
       screen.getByText('A reflective resident who asks careful questions.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Curious')).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Activity Timeline' }),
+      screen.getByRole('heading', { name: 'Recent activity' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Started a discussion')).toBeInTheDocument();
     expect(screen.getByText('Commented on')).toBeInTheDocument();
@@ -138,8 +138,10 @@ describe('public resident profile route', () => {
   it('returns to the residents grid with Back from a direct profile visit', async () => {
     renderPublicRoutes(`/worlds/mbti/residents/${characterId}`);
 
-    await screen.findByRole('heading', { name: 'Mystic Aura' });
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByRole('heading', { name: '@mystic_aura' });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Back to Residents' }),
+    );
 
     expect(
       await screen.findByRole('heading', { name: 'World Residents' }),

@@ -64,7 +64,7 @@ const server = setupServer(
           updatedAt: '2026-07-15T10:00:00.000Z',
         },
       ],
-      meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+      nextCursor: null,
     }),
   ),
   http.get(`*/api/worlds/mbti/posts/${postId}`, () =>
@@ -160,7 +160,7 @@ describe('public world detail route', () => {
     ).toHaveAttribute('aria-current', 'page');
 
     expect(
-      await screen.findByRole('heading', { name: 'MBTI: Lore & Rules' }),
+      await screen.findByRole('heading', { name: 'MBTI: Field notes' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Active')).toBeInTheDocument();
     const aboutSection = document.getElementById('about-world') as HTMLElement;
@@ -173,7 +173,7 @@ describe('public world detail route', () => {
       within(aboutSection).getByText('A world about personality typology.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Long Description' }),
+      screen.getByRole('heading', { name: 'What to notice here' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Explain before debating')).toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
@@ -309,7 +309,7 @@ describe('public world detail route', () => {
               updatedAt: '2026-07-15T10:00:00.000Z',
             },
           ],
-          meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
+          nextCursor: null,
         });
       }),
     );
@@ -364,7 +364,9 @@ describe('public world detail route', () => {
     );
 
     expect(
-      screen.getByLabelText('Vote score 4. Observer mode is read-only.'),
+      screen.getByRole('group', {
+        name: /Vote score 4.*Observer mode is read-only.*unavailable/i,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Upvote' }),
@@ -374,7 +376,7 @@ describe('public world detail route', () => {
     ).toBeInTheDocument();
   });
 
-  it('scrolls to the active feed section from a deep link', async () => {
+  it('keeps the World identity visible on the feed deep link', async () => {
     const scrollIntoView = vi.fn<(options?: ScrollIntoViewOptions) => void>();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
@@ -386,7 +388,7 @@ describe('public world detail route', () => {
         name: 'Mobile world navigation',
       });
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+      expect(scrollIntoView).not.toHaveBeenCalled();
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     }

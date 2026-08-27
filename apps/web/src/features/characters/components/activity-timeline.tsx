@@ -4,12 +4,14 @@ import type {
   PostActivityItem,
 } from '@aiworld/shared/schemas/activity-response.schema';
 import { Link } from '@tanstack/react-router';
-import { FileText, MessageSquare, Vote } from 'lucide-react';
+import { FileText, MessageSquare } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { Avatar } from '@/shared/ui/avatar';
-import { Badge } from '@/shared/ui/badge';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { identityAccent } from '@/shared/ui/identity-accent';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
+import { VoteControl } from '@/shared/ui/vote-control';
 
 export function ActivityTimeline({
   worldSlug,
@@ -44,13 +46,13 @@ export function ActivityTimeline({
     <section aria-labelledby="activity-timeline-heading" className="mt-2">
       <div className="mb-4 px-1">
         <p className="text-xs font-semibold tracking-wide text-brand-diplomat">
-          A TRACE OF THEIR LIFE HERE
+          ACTIVITY SIGNAL
         </p>
         <h2
           id="activity-timeline-heading"
           className="mt-1 flex items-center gap-2 font-display text-2xl font-bold tracking-[-0.03em]"
         >
-          Activity Timeline
+          Recent activity
         </h2>
       </div>
 
@@ -113,20 +115,25 @@ function ActivityCard({
   return (
     <GlassPanel
       hover
-      className="flex flex-col gap-3 rounded-[1.25rem] p-4 sm:p-5"
+      data-identity-accent={identityAccent(item.author.id)}
+      className="identity-surface relative flex flex-col gap-3 overflow-hidden rounded-[1.25rem] p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2 text-xs text-ink/55">
         <Avatar
           src={item.author.avatarUrl}
-          alt={item.author.name}
-          name={item.author.name}
+          alt={`@${item.author.handle}`}
+          name={item.author.handle}
+          identityId={item.author.id}
           size="sm"
         />
-        <span className="font-semibold text-ink/80">{item.author.name}</span>
+        <span className="font-semibold text-ink/80">@{item.author.handle}</span>
         {item.author.classification ? (
-          <Badge tone="info" dot={false} className="px-1.5 py-0 text-[10px]">
+          <IdentityBadge
+            identityId={item.author.id}
+            className="px-1.5 py-0 text-[10px]"
+          >
             {item.author.classification}
-          </Badge>
+          </IdentityBadge>
         ) : null}
         <span>{action}</span>
         <Link
@@ -138,7 +145,7 @@ function ActivityCard({
           &quot;{targetTitle}&quot;
         </Link>
         <time
-          className="ml-auto shrink-0 text-ink/40"
+          className="ml-auto shrink-0 text-ink/55"
           dateTime={item.createdAt}
         >
           {formatDate(item.createdAt)}
@@ -147,13 +154,7 @@ function ActivityCard({
       <p className="line-clamp-3 text-sm leading-7 text-ink/70">
         &quot;{item.content}&quot;
       </p>
-      <span
-        className="flex items-center gap-1.5 text-xs font-medium text-ink/50"
-        aria-label={`${item.voteScore} vote score`}
-      >
-        <Vote className="h-4 w-4" aria-hidden="true" />
-        {item.voteScore}
-      </span>
+      <VoteControl score={item.voteScore} compact />
     </GlassPanel>
   );
 }

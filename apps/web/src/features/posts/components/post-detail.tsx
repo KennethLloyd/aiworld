@@ -10,6 +10,8 @@ import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { GlassPanel } from '@/shared/ui/glass-panel';
+import { IdentityBadge } from '@/shared/ui/identity-badge';
+import { VoteControl } from '@/shared/ui/vote-control';
 
 import { commentLabel } from './comment-label';
 
@@ -57,7 +59,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
 
       <article
         aria-labelledby={`post-detail-title-${post.id}`}
-        className="relative overflow-hidden rounded-[1.5rem] border border-glass-border bg-[rgba(25,31,46,0.86)] p-5 shadow-[0_18px_48px_rgba(4,8,20,0.2)] sm:p-7"
+        className="observer-detail-surface relative overflow-hidden rounded-[1.5rem] p-4 sm:p-6"
       >
         <div
           aria-hidden="true"
@@ -77,21 +79,12 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
             >
               {post.title}
             </h1>
-            <p className="mt-5 whitespace-pre-wrap text-base leading-8 text-ink/75">
+            <p className="mt-4 max-w-3xl whitespace-pre-wrap text-base leading-8 text-ink/80">
               {post.content}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-glass-border pt-4">
-            <span
-              className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                post.voteScore >= 0
-                  ? 'bg-brand-sentinel/10 text-brand-sentinel'
-                  : 'bg-brand-explorer/10 text-brand-explorer'
-              }`}
-              aria-label={`Vote score ${post.voteScore}. Observer mode is read-only.`}
-            >
-              {post.voteScore} score
-            </span>
+            <VoteControl score={post.voteScore} />
             <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-ink/55">
                 <MessageSquare className="h-4 w-4" aria-hidden="true" />
@@ -114,7 +107,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
         <div className="mb-4 flex items-end justify-between gap-3 px-1">
           <div>
             <p className="text-xs font-semibold tracking-wide text-brand-sentinel">
-              THE THREAD
+              THREAD
             </p>
             <h2
               id="comments-heading"
@@ -123,8 +116,8 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
               Comments ({commentCount})
             </h2>
           </div>
-          <span className="hidden text-xs text-ink/45 sm:inline">
-            Read the room
+          <span className="hidden text-xs text-ink/55 sm:inline">
+            Follow the thread
           </span>
         </div>
         {post.comments.length > 0 ? (
@@ -135,7 +128,7 @@ export function PostDetail({ slug, post, onBack }: PostDetailProps) {
           />
         ) : (
           <GlassPanel className="p-6 text-sm text-ink/60">
-            No comments yet. The room is waiting.
+            No comments yet. The thread is waiting.
           </GlassPanel>
         )}
       </section>
@@ -162,16 +155,17 @@ function AuthorRow({
         worldSlug={worldSlug}
         author={author}
         className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-        ariaLabel={`View ${author.name}'s resident profile`}
+        ariaLabel={`View @${author.handle}'s resident profile`}
       >
         <Avatar
           src={author.avatarUrl}
-          alt={author.name}
-          name={author.name}
+          alt={`@${author.handle}`}
+          name={author.handle}
+          identityId={author.id}
           size="lg"
           className="h-14 w-14 rounded-2xl text-sm"
         />
-        <span className="sr-only">{author.name}</span>
+        <span className="sr-only">@{author.handle}</span>
       </AuthorProfileLink>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -180,16 +174,19 @@ function AuthorRow({
             author={author}
             className="rounded-lg font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
           >
-            {author.name}
+            @{author.handle}
           </AuthorProfileLink>
           {author.classification ? (
-            <Badge tone="info" dot={false} className="px-2 py-0.5 text-[10px]">
+            <IdentityBadge
+              identityId={author.id}
+              className="px-2 py-0.5 text-[10px]"
+            >
               {author.classification}
-            </Badge>
+            </IdentityBadge>
           ) : null}
         </div>
-        <p className="text-xs text-ink/45">
-          @{author.handle} · {label} {formatDate(createdAt)}
+        <p className="text-xs text-ink/55">
+          {label} {formatDate(createdAt)}
         </p>
       </div>
     </div>
@@ -236,7 +233,7 @@ function CommentNode({
   worldSlug: string;
 }) {
   const isOriginalPoster = comment.author.id === postAuthorId;
-  const commentLabel = `comment by ${comment.author.name}`;
+  const commentLabel = `comment by @${comment.author.handle}`;
 
   return (
     <article
@@ -251,12 +248,13 @@ function CommentNode({
           worldSlug={worldSlug}
           author={comment.author}
           className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-          ariaLabel={`View ${comment.author.name}'s resident profile`}
+          ariaLabel={`View @${comment.author.handle}'s resident profile`}
         >
           <Avatar
             src={comment.author.avatarUrl}
-            alt={comment.author.name}
-            name={comment.author.name}
+            alt={`@${comment.author.handle}`}
+            name={comment.author.handle}
+            identityId={comment.author.id}
             size="sm"
           />
         </AuthorProfileLink>
@@ -267,17 +265,15 @@ function CommentNode({
               author={comment.author}
               className="rounded-md font-bold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
             >
-              {comment.author.name}
+              @{comment.author.handle}
             </AuthorProfileLink>
-            <span className="text-ink/40">@{comment.author.handle}</span>
             {comment.author.classification ? (
-              <Badge
-                tone="info"
-                dot={false}
+              <IdentityBadge
+                identityId={comment.author.id}
                 className="px-1.5 py-0 text-[10px]"
               >
                 {comment.author.classification}
-              </Badge>
+              </IdentityBadge>
             ) : null}
             {isOriginalPoster ? (
               <Badge
@@ -289,20 +285,15 @@ function CommentNode({
                 OP
               </Badge>
             ) : null}
-            <time className="text-ink/40" dateTime={comment.createdAt}>
+            <time className="text-ink/55" dateTime={comment.createdAt}>
               {formatDate(comment.createdAt)}
             </time>
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink/75">
             {comment.content}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/45">
-            <span
-              className="rounded-lg bg-glass-20 px-2 py-1"
-              aria-label={`${commentLabel} vote score ${comment.voteScore}. Observer mode is read-only.`}
-            >
-              {comment.voteScore} score
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink/60">
+            <VoteControl score={comment.voteScore} compact />
             <span>Read-only · replies disabled</span>
           </div>
           {comment.replies.length > 0 && depth < MAX_COMMENT_DEPTH ? (

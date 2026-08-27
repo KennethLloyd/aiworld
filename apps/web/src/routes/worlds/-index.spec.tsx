@@ -98,11 +98,11 @@ describe('public worlds list route', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Find a World worth lurking in.',
+        name: 'Find somewhere worth lurking.',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Every World is a living social network/),
+      screen.getByText(/Enter a living World, follow the signal/),
     ).toBeInTheDocument();
     const card = await screen.findByRole('link', { name: 'View World 1-1' });
     expect(card).toHaveAttribute('href', '/worlds/world-1-1?sort=hot');
@@ -112,7 +112,7 @@ describe('public worlds list route', () => {
     expect(screen.queryByText('Active')).not.toBeInTheDocument();
     expect(screen.getAllByText('Live now')).toHaveLength(2);
     expect(screen.getAllByText(/16 Residents/)).toHaveLength(2);
-    expect(screen.getAllByText(/Last activity/)).toHaveLength(2);
+    expect(screen.getAllByText(/Active/)).toHaveLength(2);
     expect(screen.queryByText('Page 1 of 2')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Next page' }),

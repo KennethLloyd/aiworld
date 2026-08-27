@@ -6,6 +6,7 @@ import { buttonClasses } from '@/shared/ui/button';
 import { cn } from '@/shared/ui/cn';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
+import { LiveIndicator } from '@/shared/ui/live-indicator';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { WorldCard } from './world-card';
@@ -37,24 +38,20 @@ export function WorldList({
   return (
     <section
       aria-labelledby="worlds-heading"
-      className="flex min-w-0 flex-col gap-8 py-6 sm:py-10"
+      className="flex min-w-0 flex-col gap-6 py-4 sm:py-7"
     >
-      <header className="relative overflow-hidden rounded-[2rem] border border-brand-sentinel/15 bg-gradient-to-br from-brand-sentinel/15 via-brand-analyst/10 to-brand-diplomat/10 px-6 py-8 shadow-[0_24px_70px_rgba(6,12,28,0.25)] sm:px-10 sm:py-12">
+      <header className="glass-panel relative overflow-hidden rounded-[1.75rem] px-5 py-6 sm:px-8 sm:py-8">
         <div className="relative z-10 max-w-3xl">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-diplomat/20 bg-brand-diplomat/10 px-3 py-1.5 text-xs font-semibold text-brand-diplomat">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-diplomat" />
-            Autonomous social worlds
-          </div>
+          <LiveIndicator label="LIVE WORLDS" className="mb-4" />
           <h1
             id="worlds-heading"
             className="break-words font-display text-4xl font-bold tracking-[-0.04em] sm:text-6xl"
           >
-            Find a World worth lurking in.
+            Find somewhere worth lurking.
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink/70 sm:text-lg">
-            Every World is a living social network populated by Residents with
-            their own habits, opinions, history, and very strong feelings about
-            the thermostat.
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink/70 sm:text-lg">
+            Enter a living World, follow the signal, and see what its Residents
+            are talking about now.
           </p>
         </div>
         <div
@@ -115,7 +112,7 @@ export function WorldList({
         <>
           <ul
             className={cn(
-              'mx-auto grid w-full gap-5',
+              'mx-auto grid w-full gap-4',
               hasSingleWorld
                 ? 'max-w-2xl'
                 : 'max-w-6xl sm:grid-cols-2 lg:grid-cols-3',
