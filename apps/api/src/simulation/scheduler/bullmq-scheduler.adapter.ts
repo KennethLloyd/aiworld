@@ -20,6 +20,7 @@ import {
 } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
 import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -88,7 +89,12 @@ export class BullMqSchedulerAdapter
   attachWorker(worker: Worker): void {
     this.worker = worker;
     worker.on('failed', (job, error) => {
-      if (job) {
+      if (
+        job &&
+        (error instanceof UnrecoverableError ||
+          job.attemptsMade === undefined ||
+          job.attemptsMade >= (job.opts.attempts ?? 1))
+      ) {
         void this.deadLetter(job, error).catch(() => undefined);
       }
     });
@@ -97,15 +103,65 @@ export class BullMqSchedulerAdapter
   async start(worldId: string): Promise<void> {
     const config = await this.requireConfig(worldId);
     if (config.state !== 'RUNNING') {
+      this.markStopped(worldId);
       return;
     }
     await this.removePendingTicks(worldId);
     this.pendingTickJobIds.delete(worldId);
     await this.enqueueTick(worldId);
+    this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
     await this.removeTrackedTick(worldId);
+    this.markStopped(worldId);
+  }
+
+  async getObservability(
+    worldId: string,
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    const runtime = this.getRuntimeObservability(
+      worldId,
+      this.worker?.isRunning() ?? false,
+    );
+    let worldSlug = this.runtimeWorldSlug(worldId);
+
+    try {
+      if (worldSlug === undefined) {
+        worldSlug = (await this.worldRepository.findById(worldId))?.slug;
+      }
+      const deadLetterJobs = await this.dlq.getJobs(
+        ['waiting', 'active', 'delayed', 'failed'],
+        0,
+        -1,
+      );
+      const matchingJobs = deadLetterJobs.filter((job) => {
+        const data = job.data as {
+          command?: { worldSlug?: string };
+        } | null;
+        return data?.command?.worldSlug === worldSlug;
+      });
+      const latestJob = matchingJobs.reduce<
+        (typeof matchingJobs)[number] | undefined
+      >((latest, job) => {
+        const latestAt = latest?.data?.failedAt;
+        const jobAt = job.data?.failedAt;
+        return latestAt === undefined ||
+          (jobAt !== undefined && jobAt > latestAt)
+          ? job
+          : latest;
+      }, undefined);
+      return {
+        ...runtime,
+        deadLetterCount: matchingJobs.length,
+        lastDeadLetterAt: latestJob?.data?.failedAt
+          ? new Date(latestJob.data.failedAt)
+          : null,
+        lastDeadLetterReason: latestJob?.data?.reason ?? null,
+      };
+    } catch {
+      return { ...runtime, available: false };
+    }
   }
 
   /** Worker processor: runs the tick and decides the job's fate. A transient
@@ -121,10 +177,29 @@ export class BullMqSchedulerAdapter
       throw new UnrecoverableError('Invalid simulation tick command');
     }
 
+    let worldId: string | undefined;
+    try {
+      worldId = (await this.worldRepository.findBySlug(command.worldSlug))?.id;
+    } catch {
+      // The runner remains the source of truth for processing errors. A lookup
+      // failure here must not prevent it from applying its existing policy.
+    }
+    if (worldId !== undefined) {
+      this.markTickStarted(worldId);
+    }
+
     let result: Awaited<ReturnType<SimulationTickRunner['runScheduledTick']>>;
     try {
       result = await this.tickRunner.runScheduledTick(command, job.id);
     } catch (error) {
+      if (worldId !== undefined) {
+        this.markTickAttemptCompleted(worldId);
+        if (isTransientSchedulerError(error)) {
+          this.markRetry(worldId);
+        } else {
+          this.markTickSettled(worldId);
+        }
+      }
       // The runner only throws when logging the attempt itself failed (for
       // example the database is down); retry transient errors, dead-letter
       // permanent ones.
@@ -137,19 +212,40 @@ export class BullMqSchedulerAdapter
     }
 
     if (result.status === 'failed') {
+      if (worldId !== undefined) {
+        this.markTickAttemptCompleted(worldId);
+      }
       if (result.failure.retryable) {
+        if (worldId !== undefined) {
+          this.markRetry(worldId);
+        }
         throw new Error(
           redactDiagnostics(
             `${result.failure.code}: ${result.failure.message}`,
           ),
         );
       }
+      if (worldId !== undefined) {
+        this.markTickSettled(worldId);
+      }
       throw new UnrecoverableError(
         redactDiagnostics(`${result.failure.code}: ${result.failure.message}`),
       );
     }
 
-    await this.scheduleNextTick(result.log.worldId);
+    try {
+      await this.scheduleNextTick(result.log.worldId);
+    } catch (error) {
+      if (worldId !== undefined) {
+        this.markTickAttemptCompleted(worldId);
+        this.markTickSettled(worldId);
+      }
+      throw error;
+    }
+    if (worldId !== undefined) {
+      this.markTickAttemptCompleted(worldId);
+      this.markTickSettled(worldId);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -202,6 +298,11 @@ export class BullMqSchedulerAdapter
       removeOnFail: false,
     });
     this.pendingTickJobIds.set(worldId, jobId);
+    this.markScheduled(
+      worldId,
+      new Date(Date.now() + delay),
+      composed.command.worldSlug,
+    );
   }
 
   /** Removes the single pending delayed tick for a World by its tracked id —

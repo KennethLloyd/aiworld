@@ -41,6 +41,16 @@ export function useSimulationTelemetry(slug: string) {
     ...POLLING_OPTIONS,
   });
 }
+export function useSimulationHealth(slug: string) {
+  const { adminGateway } = useGateways();
+  return useQuery({
+    queryKey: adminKeys.health(slug),
+    queryFn: () => adminGateway.getSimulationHealth(slug),
+    enabled: slug.length > 0,
+    refetchInterval: ADMIN_POLL_INTERVAL_MS,
+    ...POLLING_OPTIONS,
+  });
+}
 
 export function useSimulationLogs(
   slug: string,
@@ -103,6 +113,7 @@ async function invalidateManualRunQueries(
 ) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: adminKeys.telemetry(slug) }),
+    queryClient.invalidateQueries({ queryKey: adminKeys.health(slug) }),
     queryClient.invalidateQueries({ queryKey: adminKeys.logs() }),
   ]);
 }

@@ -12,6 +12,9 @@ export interface SimulationTelemetryRecord {
   totalCostEstimateUsd: number | null;
   averageLatencyMs: number | null;
   lastRunAt: Date | null;
+  lastSuccessAt?: Date | null;
+  lastFailureAt?: Date | null;
+  lastProviderFailureAt?: Date | null;
 }
 
 export function emptySimulationTelemetry(

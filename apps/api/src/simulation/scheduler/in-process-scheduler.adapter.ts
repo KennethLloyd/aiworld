@@ -8,6 +8,7 @@ import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SCHEDULER_CONFIG } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
 import {
   ScheduledTickRunResult,
   SimulationTickRunner,
@@ -49,6 +50,7 @@ export class InProcessSchedulerAdapter
 
   async start(worldId: string): Promise<void> {
     await this.scheduleNextTick(worldId);
+    this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
@@ -57,6 +59,13 @@ export class InProcessSchedulerAdapter
       clearTimeout(handle);
       this.scheduledTicks.delete(worldId);
     }
+    this.markStopped(worldId);
+  }
+
+  getObservability(
+    worldId: string,
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    return Promise.resolve(this.getRuntimeObservability(worldId, true));
   }
 
   onModuleDestroy(): void {
@@ -72,6 +81,7 @@ export class InProcessSchedulerAdapter
       clearTimeout(existing);
       this.scheduledTicks.delete(worldId);
     }
+    this.markStopped(worldId);
 
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
@@ -98,36 +108,44 @@ export class InProcessSchedulerAdapter
       });
     }, delay);
     this.scheduledTicks.set(worldId, handle);
+    this.markScheduled(worldId, new Date(Date.now() + delay), world.slug);
   }
 
   private async handleTick(worldId: string): Promise<void> {
     this.scheduledTicks.delete(worldId);
+    this.markTickStarted(worldId);
 
-    const composed = await this.composeScheduledCommand(worldId);
-    if (!composed) {
-      return; // not RUNNING anymore, or the World cannot act — cadence stops
-    }
-
-    let result: ScheduledTickRunResult;
-    let attempt = 1;
-    for (;;) {
-      result = await this.tickRunner.runScheduledTick(composed.command);
-      if (
-        result.status === 'failed' &&
-        result.failure.retryable &&
-        attempt < this.schedulerConfig.maxAttempts
-      ) {
-        await this.sleep(this.backoffDelay(attempt));
-        attempt += 1;
-        continue;
+    try {
+      const composed = await this.composeScheduledCommand(worldId);
+      if (!composed) {
+        return; // not RUNNING anymore, or the World cannot act — cadence stops
       }
-      break;
-    }
 
-    // Completion-to-start: schedule the next tick after this one finishes,
-    // regardless of the outcome. A World that left RUNNING mid-tick (PAUSED,
-    // HALTED, or a stop during flight) is not restarted.
-    await this.scheduleNextTick(worldId);
+      let result: ScheduledTickRunResult;
+      let attempt = 1;
+      for (;;) {
+        result = await this.tickRunner.runScheduledTick(composed.command);
+        if (
+          result.status === 'failed' &&
+          result.failure.retryable &&
+          attempt < this.schedulerConfig.maxAttempts
+        ) {
+          this.markRetry(worldId);
+          await this.sleep(this.backoffDelay(attempt));
+          attempt += 1;
+          continue;
+        }
+        break;
+      }
+
+      // Completion-to-start: schedule the next tick after this one finishes,
+      // regardless of the outcome. A World that left RUNNING mid-tick (PAUSED,
+      // HALTED, or a stop during flight) is not restarted.
+      await this.scheduleNextTick(worldId);
+    } finally {
+      this.markTickAttemptCompleted(worldId);
+      this.markTickSettled(worldId);
+    }
   }
 
   private backoffDelay(attempt: number): number {

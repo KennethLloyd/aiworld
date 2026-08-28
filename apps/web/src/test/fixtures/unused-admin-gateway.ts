@@ -19,6 +19,9 @@ export const unusedAdminGateway: AdminGateway = {
   getSimulationTelemetry: async () => {
     throw new Error('unused test adapter');
   },
+  getSimulationHealth: async () => {
+    throw new Error('unused test adapter');
+  },
   listSimulationLogs: async () => {
     throw new Error('unused test adapter');
   },

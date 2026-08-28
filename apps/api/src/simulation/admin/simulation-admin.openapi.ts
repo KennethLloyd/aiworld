@@ -1,3 +1,4 @@
+import { simulationHealthResponseSchema } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   listSimulationLogsQuerySchema,
   listSimulationLogsResponseSchema,
@@ -23,6 +24,9 @@ export function registerSimulationAdminOpenApi(
   });
   const SimulationTelemetryResponse = simulationTelemetryResponseSchema.meta({
     id: 'SimulationTelemetryResponse',
+  });
+  const SimulationHealthResponse = simulationHealthResponseSchema.meta({
+    id: 'SimulationHealthResponse',
   });
   const slugParam = z.string();
 
@@ -166,6 +170,25 @@ export function registerSimulationAdminOpenApi(
       },
       409: {
         description: 'The world is HALTED and rejects manual work.',
+      },
+      ...adminResponses,
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/worlds/{slug}/simulation/health',
+    tags: simulationTags,
+    summary: 'Read simulation runtime health and observability',
+    security: protectedOperation,
+    request: { params: z.object({ slug: slugParam }) },
+    responses: {
+      200: {
+        description:
+          'Runtime health, scheduler progress, provider state, and telemetry without secrets.',
+        content: {
+          'application/json': { schema: SimulationHealthResponse },
+        },
       },
       ...adminResponses,
     },

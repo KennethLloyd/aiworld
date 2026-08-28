@@ -104,6 +104,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   };
   const dlq = {
     add: jest.fn().mockResolvedValue(undefined),
+    getJobs: jest.fn().mockResolvedValue([]),
     close: jest.fn().mockResolvedValue(undefined),
   };
   const connection = {
@@ -122,9 +123,9 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     dlq as never,
     connection as never,
   );
-
   const worker = {
     on: jest.fn(),
+    isRunning: jest.fn().mockReturnValue(true),
     close: jest.fn().mockResolvedValue(undefined),
   };
   adapter.attachWorker(worker as never);
@@ -211,6 +212,41 @@ describe('BullMqSchedulerAdapter', () => {
       removeOnComplete: true,
       removeOnFail: false,
     });
+  });
+  it('exposes pending scheduler progress and aggregate dead-letter signals', async () => {
+    const { adapter, dlq } = createAdapter();
+
+    await adapter.start('world-1');
+    let observability = await adapter.getObservability('world-1');
+
+    expect(observability).toMatchObject({
+      available: true,
+      pending: true,
+      recentRetryCount: 0,
+      deadLetterCount: 0,
+    });
+    expect(observability.nextTickAt).toBeInstanceOf(Date);
+
+    dlq.getJobs.mockResolvedValue([
+      {
+        data: {
+          command: { worldSlug: 'mbti-house' },
+          reason: 'TIMEOUT',
+          failedAt: '2026-08-13T00:20:00.000Z',
+        },
+      },
+      {
+        data: {
+          command: { worldSlug: 'other-world' },
+          reason: 'ignored',
+          failedAt: '2026-08-13T00:21:00.000Z',
+        },
+      },
+    ]);
+    observability = await adapter.getObservability('world-1');
+
+    expect(observability.deadLetterCount).toBe(1);
+    expect(observability.lastDeadLetterReason).toBe('TIMEOUT');
   });
 
   it('start is a no-op for a world that is not RUNNING', async () => {
@@ -381,6 +417,20 @@ describe('BullMqSchedulerAdapter', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('does not count an intermediate retry as a dead-lettered job', async () => {
+    const { worker, dlq } = createAdapter();
+    const handler = worker.on.mock.calls.find(
+      ([event]) => event === 'failed',
+    )?.[1];
+
+    await (handler as (job: unknown, error: Error) => void)(
+      fakeJob({ attemptsMade: 1, opts: { attempts: 3 } }),
+      new Error('temporary timeout'),
+    );
+
+    expect(dlq.add).not.toHaveBeenCalled();
   });
 
   it('composes runOneAction into a scheduled-style command and runs it manually', async () => {

@@ -1,3 +1,4 @@
+import { simulationHealthResponseSchema } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   listSimulationLogsResponseSchema,
   simulationLogResponseSchema,
@@ -193,6 +194,28 @@ describe('Simulation admin API (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/worlds/missing-world/simulation')
         .expect(404);
+    });
+  });
+
+  describe('GET /simulation/health', () => {
+    it('returns lifecycle and runtime health as separate contract fields', async () => {
+      return request(app.getHttpServer())
+        .get(`/api/worlds/${worldSlug}/simulation/health`)
+        .expect(200)
+        .expect((res) => {
+          expect(
+            simulationHealthResponseSchema.safeParse(res.body).success,
+          ).toBe(true);
+          expect(res.body.lifecycle.state).toBe('PAUSED');
+          expect(res.body.health.status).toBe('IDLE');
+          expect(res.body.scheduler).toEqual(
+            expect.objectContaining({
+              pending: false,
+              deadLetterCount: expect.any(Number),
+            }),
+          );
+          expect(res.body).not.toHaveProperty('provider.apiKey');
+        });
     });
   });
 

@@ -65,6 +65,7 @@ describe('worldOpenApiDocument', () => {
       '/worlds/{slug}/search',
       '/worlds/{slug}/simulation',
       '/worlds/{slug}/simulation/custom-action',
+      '/worlds/{slug}/simulation/health',
       '/worlds/{slug}/simulation/logs',
       '/worlds/{slug}/simulation/run-one-action',
       '/worlds/{slug}/simulation/speed',

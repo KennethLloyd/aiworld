@@ -1,4 +1,8 @@
 import {
+  simulationHealthResponseSchema,
+  type SimulationHealthResponse,
+} from '@aiworld/shared/schemas/simulation-health.schema';
+import {
   listSimulationLogsResponseSchema,
   type ListSimulationLogsQuery,
   type ListSimulationLogsResponse,
@@ -89,6 +93,12 @@ export class HttpAdminGateway implements AdminGateway {
       adminEndpoints.simulation.telemetry(slug),
     );
     return simulationTelemetryResponseSchema.parse(raw);
+  }
+  async getSimulationHealth(slug: string): Promise<SimulationHealthResponse> {
+    const raw = await this.http.get<unknown>(
+      adminEndpoints.simulation.health(slug),
+    );
+    return simulationHealthResponseSchema.parse(raw);
   }
 
   async listSimulationLogs(

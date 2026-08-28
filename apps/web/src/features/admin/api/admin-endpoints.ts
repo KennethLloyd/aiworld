@@ -35,6 +35,9 @@ export const adminEndpoints = {
     telemetry(slug: string): string {
       return `${simulationPath(slug)}/telemetry`;
     },
+    health(slug: string): string {
+      return `${simulationPath(slug)}/health`;
+    },
     logs(slug: string, query: ListSimulationLogsQuery): string {
       return appendQuery(`${simulationPath(slug)}/logs`, {
         characterId: query.characterId,

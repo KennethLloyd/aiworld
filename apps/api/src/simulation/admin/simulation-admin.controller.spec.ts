@@ -1,4 +1,5 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   ListSimulationLogsResponse,
   SimulationLogResponse,
@@ -13,6 +14,7 @@ import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
 import { SimulationAdminController } from '@/simulation/admin/simulation-admin.controller';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
+import { SimulationHealthRecord } from '@/simulation/admin/simulation-health';
 import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation-lifecycle.error';
@@ -86,6 +88,57 @@ const telemetryRecord: SimulationTelemetryRecord = {
   lastRunAt: new Date('2026-08-13T00:00:00.000Z'),
 };
 
+const healthRecord: SimulationHealthRecord = {
+  lifecycleState: configRecord.state,
+  health: { status: 'IDLE', reason: 'Simulation is intentionally PAUSED.' },
+  scheduler: {
+    available: true,
+    pending: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  },
+  execution: { lastSuccessAt: null, lastFailureAt: null },
+  provider: { status: 'UNKNOWN', lastSuccessAt: null, lastFailureAt: null },
+  telemetry: telemetryRecord,
+};
+const healthResponse: SimulationHealthResponse = {
+  lifecycle: { state: 'PAUSED' },
+  health: healthRecord.health,
+  scheduler: {
+    available: true,
+    pending: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  },
+  execution: { lastSuccessAt: null, lastFailureAt: null },
+  provider: {
+    status: 'UNKNOWN',
+    lastSuccessAt: null,
+    lastFailureAt: null,
+  },
+  telemetry: {
+    ...telemetryRecord,
+    lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
+    lastSuccessAt: null,
+    lastFailureAt: null,
+    lastProviderFailureAt: null,
+  },
+};
+
 describe('SimulationAdminController', () => {
   let controller: SimulationAdminController;
 
@@ -98,11 +151,13 @@ describe('SimulationAdminController', () => {
       | 'runOneAction'
       | 'runCustomAction'
       | 'getTelemetry'
+      | 'getHealth'
       | 'listLogs'
     >
   > = {
     getConfig: jest.fn(),
     updateState: jest.fn(),
+    getHealth: jest.fn(),
     updateSpeed: jest.fn(),
     runOneAction: jest.fn(),
     runCustomAction: jest.fn(),
@@ -113,13 +168,14 @@ describe('SimulationAdminController', () => {
   const mockResponseMapper: jest.Mocked<
     Pick<
       SimulationAdminResponseMapper,
-      'mapConfig' | 'mapRunResult' | 'mapLogs' | 'mapTelemetry'
+      'mapConfig' | 'mapRunResult' | 'mapLogs' | 'mapTelemetry' | 'mapHealth'
     >
   > = {
     mapConfig: jest.fn(),
     mapRunResult: jest.fn(),
     mapLogs: jest.fn(),
     mapTelemetry: jest.fn(),
+    mapHealth: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -284,11 +340,28 @@ describe('SimulationAdminController', () => {
     });
   });
 
+  describe('getHealth', () => {
+    it('delegates to the service and maps runtime health', async () => {
+      mockAdminService.getHealth.mockResolvedValue(healthRecord);
+      mockResponseMapper.mapHealth.mockReturnValue(healthResponse);
+
+      await expect(controller.getHealth('mbti-house')).resolves.toEqual(
+        healthResponse,
+      );
+      expect(mockAdminService.getHealth).toHaveBeenCalledWith('mbti-house');
+      expect(mockResponseMapper.mapHealth).toHaveBeenCalledWith(healthRecord);
+    });
+  });
+
   describe('getTelemetry', () => {
     it('delegates to the service and maps the telemetry', async () => {
       const mapped: SimulationTelemetryResponse = {
         ...telemetryRecord,
         lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
+        lastSuccessAt: telemetryRecord.lastSuccessAt?.toISOString() ?? null,
+        lastFailureAt: telemetryRecord.lastFailureAt?.toISOString() ?? null,
+        lastProviderFailureAt:
+          telemetryRecord.lastProviderFailureAt?.toISOString() ?? null,
       };
       mockAdminService.getTelemetry.mockResolvedValue(telemetryRecord);
       mockResponseMapper.mapTelemetry.mockReturnValue(mapped);
@@ -347,6 +420,7 @@ describe('SimulationAdminController', () => {
         controller.updateSpeed,
         controller.runOneAction,
         controller.runCustomAction,
+        controller.getHealth,
         controller.getTelemetry,
         controller.getLogs,
       ];

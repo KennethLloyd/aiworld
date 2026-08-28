@@ -3,6 +3,10 @@ import { Injectable } from '@nestjs/common';
 
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
+  deriveSimulationHealth,
+  SimulationHealthRecord,
+} from '@/simulation/admin/simulation-health';
+import {
   emptySimulationTelemetry,
   SimulationTelemetryRecord,
 } from '@/simulation/domain/simulation-telemetry';
@@ -104,6 +108,44 @@ export class SimulationAdminService {
     const world = await this.requireWorld(slug);
     const telemetry = await this.logRepository.getTelemetry(world.id);
     return telemetry ?? emptySimulationTelemetry(world.id);
+  }
+  async getHealth(slug: string): Promise<SimulationHealthRecord> {
+    const world = await this.requireWorld(slug);
+    const config = await this.lifecycleService.getByWorldId(world.id);
+    if (!config) {
+      throw new SimulationConfigNotFoundError(world.id);
+    }
+
+    const [scheduler, storedTelemetry] = await Promise.all([
+      this.scheduler.getObservability(world.id),
+      this.logRepository.getTelemetry(world.id),
+    ]);
+    const telemetry = storedTelemetry ?? emptySimulationTelemetry(world.id);
+    const decision = deriveSimulationHealth({
+      config,
+      scheduler,
+      telemetry,
+    });
+    const lastSuccessAt = telemetry.lastSuccessAt ?? null;
+    const lastFailureAt = telemetry.lastFailureAt ?? null;
+    const lastProviderFailureAt =
+      telemetry.lastProviderFailureAt ?? lastFailureAt;
+
+    return {
+      lifecycleState: config.state,
+      health: {
+        status: decision.status,
+        reason: decision.reason,
+      },
+      scheduler,
+      execution: { lastSuccessAt, lastFailureAt },
+      provider: {
+        status: decision.providerStatus,
+        lastSuccessAt,
+        lastFailureAt: lastProviderFailureAt,
+      },
+      telemetry,
+    };
   }
 
   private async requireWorld(slug: string): Promise<WorldRecord> {

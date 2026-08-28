@@ -7,6 +7,23 @@ export type RunCustomActionInput = {
   actionType?: SimulationActionType;
 };
 
+export type SimulationSchedulerObservabilityRecord = {
+  available: boolean;
+  pending: boolean;
+  nextTickAt: Date | null;
+  lastTickStartedAt: Date | null;
+  lastTickCompletedAt: Date | null;
+  retrying: boolean;
+  recentRetryCount: number;
+  deadLetterCount: number;
+  lastDeadLetterAt: Date | null;
+  lastDeadLetterReason: string | null;
+  bootResumeFailure: {
+    occurredAt: Date;
+    reason: string;
+  } | null;
+};
+
 /** The seam that drives simulation ticks. `start`/`stop` control scheduled
  * work for a World; `runOneAction` and `runCustomAction` compose and await a
  * single manual iteration. Lifecycle rules are enforced by the state machine,
@@ -26,4 +43,12 @@ export abstract class SimulationScheduler {
   abstract runCustomAction(
     input: RunCustomActionInput,
   ): Promise<IterationRunResult>;
+  /** Return application-level scheduler signals without exposing queue
+   * implementation details or provider credentials. */
+  abstract getObservability(
+    worldId: string,
+  ): Promise<SimulationSchedulerObservabilityRecord>;
+  /** Preserve a boot-resume failure for admin visibility without failing app
+   * startup. The next successful start clears this signal. */
+  abstract recordBootResumeFailure(worldId: string, error: unknown): void;
 }

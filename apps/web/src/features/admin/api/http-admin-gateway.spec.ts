@@ -1,3 +1,4 @@
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import type { SimulationRunResultResponse } from '@aiworld/shared/schemas/simulation-run.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
@@ -31,6 +32,26 @@ const telemetry: SimulationTelemetryResponse = {
   totalCostEstimateUsd: 0.42,
   averageLatencyMs: 480,
   lastRunAt: '2026-07-15T10:00:00.000Z',
+};
+const health: SimulationHealthResponse = {
+  lifecycle: { state: 'PAUSED' },
+  health: { status: 'IDLE', reason: 'Simulation is intentionally PAUSED.' },
+  scheduler: {
+    available: true,
+    pending: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  },
+  execution: { lastSuccessAt: null, lastFailureAt: null },
+  provider: { status: 'UNKNOWN', lastSuccessAt: null, lastFailureAt: null },
+  telemetry,
 };
 
 const runResult: SimulationRunResultResponse = {
@@ -170,6 +191,15 @@ describe('HttpAdminGateway', () => {
     );
     expect(telemetryFetch).toHaveBeenCalledWith(
       '/api/worlds/mbti-house/simulation/telemetry',
+      expect.objectContaining({ method: 'GET' }),
+    );
+
+    const healthFetch = mockFetch(health);
+    await expect(gateway.getSimulationHealth('mbti-house')).resolves.toEqual(
+      health,
+    );
+    expect(healthFetch).toHaveBeenCalledWith(
+      '/api/worlds/mbti-house/simulation/health',
       expect.objectContaining({ method: 'GET' }),
     );
   });

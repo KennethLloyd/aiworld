@@ -2,6 +2,7 @@ import {
   simulationActionTypes,
   type SimulationActionType,
 } from '@aiworld/shared/schemas/simulation-command.schema';
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationRunResultResponse } from '@aiworld/shared/schemas/simulation-run.schema';
 import type {
@@ -28,8 +29,8 @@ import {
   useRunCustomAction,
   useRunOneAction,
   useSimulation,
+  useSimulationHealth,
   useSimulationLogs,
-  useSimulationTelemetry,
   useUpdateSimulationSpeed,
   useUpdateSimulationState,
 } from '@/features/admin/query/use-simulation';
@@ -62,7 +63,7 @@ export function SimulationStatusTab({
   onOpenLog?: (logId: string) => void;
 }) {
   const simulationQuery = useSimulation(world.slug);
-  const telemetryQuery = useSimulationTelemetry(world.slug);
+  const healthQuery = useSimulationHealth(world.slug);
   const logsQuery = useSimulationLogs(world.slug);
   const residentsQuery = useAdminResidents(world.slug);
   const { toast } = useToast();
@@ -292,15 +293,14 @@ export function SimulationStatusTab({
         <TelemetryPanel
           config={config}
           world={world}
-          telemetry={telemetryQuery.data}
+          health={healthQuery.data}
+          telemetry={healthQuery.data?.telemetry}
           residentsCount={
             residentsQuery.data?.meta.total ?? world.residentCount
           }
-          isPending={
-            telemetryQuery.isPending && telemetryQuery.data === undefined
-          }
-          isError={telemetryQuery.isError}
-          onRetry={() => void telemetryQuery.refetch()}
+          isPending={healthQuery.isPending && healthQuery.data === undefined}
+          isError={healthQuery.isError}
+          onRetry={() => void healthQuery.refetch()}
         />
         <GlassPanel
           as="section"
@@ -451,6 +451,7 @@ function StateButton({
 function TelemetryPanel({
   config,
   world,
+  health,
   telemetry,
   residentsCount,
   isPending,
@@ -459,12 +460,18 @@ function TelemetryPanel({
 }: {
   config: SimulationConfigResponse;
   world: WorldResponse;
-  telemetry: ReturnType<typeof useSimulationTelemetry>['data'];
+  health: SimulationHealthResponse | undefined;
+  telemetry: SimulationHealthResponse['telemetry'] | undefined;
   residentsCount: number;
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
 }) {
+  const healthStatus = health?.health.status;
+  const showHealthWarning =
+    config.state === 'RUNNING' &&
+    (healthStatus === 'DEGRADED' || healthStatus === 'UNHEALTHY');
+
   return (
     <GlassPanel
       as="section"
@@ -484,45 +491,100 @@ function TelemetryPanel({
         </div>
       ) : isError ? (
         <ErrorState
-          title="Could not load telemetry"
-          message="Telemetry unavailable."
+          title="Could not load runtime health"
+          message="Runtime health and telemetry unavailable."
           onRetry={onRetry}
           className="mt-4 p-4"
         />
       ) : (
-        <dl className="mt-5 flex flex-col gap-4 text-sm">
-          <TelemetryRow label="Main Loop">
-            <Badge tone={stateTone(config.state)}>{config.state}</Badge>
-          </TelemetryRow>
-          <TelemetryRow label="Clock Speed">
-            <span>
-              {formatInterval(config.intervalMs, config.speedMultiplier)}
-            </span>
-          </TelemetryRow>
-          <TelemetryRow label="Active Residents">
-            <span>{residentsCount}</span>
-          </TelemetryRow>
-          <TelemetryRow label="Total Runs">
-            <span>{telemetry?.totalRuns ?? 0}</span>
-          </TelemetryRow>
-          <TelemetryRow label="Token Burn">
-            <span>{formatNumber(telemetry?.totalTokensUsed)}</span>
-          </TelemetryRow>
-          <TelemetryRow label="Local Cost Estimate">
-            <span>{formatCost(telemetry?.totalCostEstimateUsd)}</span>
-          </TelemetryRow>
-          <TelemetryRow label="Last Run">
-            <span>{formatDate(telemetry?.lastRunAt)}</span>
-          </TelemetryRow>
-          <TelemetryRow label="World ID">
-            <code
-              className="block max-w-full truncate font-mono text-xs text-ink/50"
-              title={world.id}
+        <>
+          {showHealthWarning && health?.health.reason ? (
+            <div
+              role="alert"
+              className="mt-4 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-200"
             >
-              {world.id}
-            </code>
-          </TelemetryRow>
-        </dl>
+              <p className="font-semibold">
+                Runtime health: {health.health.status}
+              </p>
+              <p className="mt-1">{health.health.reason}</p>
+            </div>
+          ) : null}
+          <dl className="mt-5 flex flex-col gap-4 text-sm">
+            <TelemetryRow label="Lifecycle">
+              <Badge tone={stateTone(config.state)}>{config.state}</Badge>
+            </TelemetryRow>
+            <TelemetryRow label="Runtime Health">
+              <Badge tone={healthTone(healthStatus)} dot>
+                {healthStatus ?? 'UNKNOWN'}
+              </Badge>
+            </TelemetryRow>
+            <TelemetryRow label="Scheduler">
+              <span>
+                {health?.scheduler.available
+                  ? health.scheduler.pending
+                    ? 'Available · pending'
+                    : 'Available · idle'
+                  : 'Unavailable'}
+              </span>
+            </TelemetryRow>
+            <TelemetryRow label="Clock Speed">
+              <span>
+                {formatInterval(config.intervalMs, config.speedMultiplier)}
+              </span>
+            </TelemetryRow>
+            <TelemetryRow label="Active Residents">
+              <span>{residentsCount}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Next Tick">
+              <span>{formatDate(health?.scheduler.nextTickAt)}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Last Successful Execution">
+              <span>{formatDate(health?.execution.lastSuccessAt)}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Success">
+              <span>{telemetry?.successCount ?? 0}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Failed">
+              <span>{telemetry?.failedCount ?? 0}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Skipped">
+              <span>{telemetry?.skippedCount ?? 0}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Rejected">
+              <span>{telemetry?.rejectedCount ?? 0}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Average Latency">
+              <span>
+                {telemetry?.averageLatencyMs === null ||
+                telemetry?.averageLatencyMs === undefined
+                  ? '—'
+                  : `${telemetry.averageLatencyMs} ms`}
+              </span>
+            </TelemetryRow>
+            <TelemetryRow label="Total Runs">
+              <span>{telemetry?.totalRuns ?? 0}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Token Burn">
+              <span>{formatNumber(telemetry?.totalTokensUsed)}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Local Cost Estimate">
+              <span>{formatCost(telemetry?.totalCostEstimateUsd)}</span>
+            </TelemetryRow>
+            <TelemetryRow label="Provider">
+              <Badge tone={healthTone(health?.provider.status)} dot>
+                {health?.provider.status ?? 'UNKNOWN'}
+              </Badge>
+            </TelemetryRow>
+            <TelemetryRow label="World ID">
+              <code
+                className="block max-w-full truncate font-mono text-xs text-ink/50"
+                title={world.id}
+              >
+                {world.id}
+              </code>
+            </TelemetryRow>
+          </dl>
+        </>
       )}
     </GlassPanel>
   );
@@ -755,6 +817,17 @@ function stateTone(state: SimulationState): BadgeTone {
   if (state === 'PAUSED') return 'warning';
   return 'danger';
 }
+function healthTone(
+  status:
+    | SimulationHealthResponse['health']['status']
+    | SimulationHealthResponse['provider']['status']
+    | undefined,
+): BadgeTone {
+  if (status === 'HEALTHY') return 'success';
+  if (status === 'DEGRADED') return 'warning';
+  if (status === 'UNHEALTHY') return 'danger';
+  return 'neutral';
+}
 
 function logStatusTone(status: SimulationLogResponse['status']): BadgeTone {
   if (status === 'SUCCESS') return 'success';
@@ -777,7 +850,9 @@ function formatNumber(value: number | null | undefined): string {
 }
 
 function formatCost(value: number | null | undefined): string {
-  return value === null || value === undefined ? '—' : `$${value.toFixed(2)}`;
+  if (value === null || value === undefined) return '—';
+  if (value === 0) return '$0.00';
+  return `$${Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(2)}`;
 }
 
 function formatDate(value: string | null | undefined): string {

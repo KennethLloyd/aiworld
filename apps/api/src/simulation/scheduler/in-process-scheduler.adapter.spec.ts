@@ -174,6 +174,28 @@ describe('InProcessSchedulerAdapter', () => {
     expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(2);
   });
 
+  it('exposes pending and completed tick timestamps', async () => {
+    const { adapter, tickRunner } = createAdapter();
+    tickRunner.runScheduledTick.mockResolvedValue(successResult);
+
+    await adapter.start('world-1');
+    const pending = await adapter.getObservability('world-1');
+    expect(pending).toMatchObject({
+      available: true,
+      pending: true,
+      lastTickStartedAt: null,
+      lastTickCompletedAt: null,
+      retrying: false,
+    });
+    expect(pending.nextTickAt).toBeInstanceOf(Date);
+
+    await jest.advanceTimersByTimeAsync(1_800_000);
+    const completed = await adapter.getObservability('world-1');
+    expect(completed.lastTickStartedAt).toBeInstanceOf(Date);
+    expect(completed.lastTickCompletedAt).toBeInstanceOf(Date);
+    expect(completed.pending).toBe(true);
+  });
+
   it('never runs two ticks at once (next handle starts after completion)', async () => {
     const { adapter, tickRunner } = createAdapter();
     tickRunner.runScheduledTick.mockResolvedValue(successResult);

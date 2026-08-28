@@ -1,4 +1,5 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   ListSimulationLogsResponse,
   SimulationLogResponse,
@@ -8,6 +9,7 @@ import { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-sta
 import { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
 import { Injectable } from '@nestjs/common';
 
+import { SimulationHealthRecord } from '@/simulation/admin/simulation-health';
 import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
@@ -29,6 +31,44 @@ export class SimulationAdminResponseMapper {
       actionWeights: config.actionWeights,
       createdAt: config.createdAt.toISOString(),
       updatedAt: config.updatedAt.toISOString(),
+    };
+  }
+  mapHealth(health: SimulationHealthRecord): SimulationHealthResponse {
+    return {
+      lifecycle: { state: health.lifecycleState },
+      health: health.health,
+      scheduler: {
+        available: health.scheduler.available,
+        pending: health.scheduler.pending,
+        nextTickAt: health.scheduler.nextTickAt?.toISOString() ?? null,
+        lastTickStartedAt:
+          health.scheduler.lastTickStartedAt?.toISOString() ?? null,
+        lastTickCompletedAt:
+          health.scheduler.lastTickCompletedAt?.toISOString() ?? null,
+        retrying: health.scheduler.retrying,
+        recentRetryCount: health.scheduler.recentRetryCount,
+        deadLetterCount: health.scheduler.deadLetterCount,
+        lastDeadLetterAt:
+          health.scheduler.lastDeadLetterAt?.toISOString() ?? null,
+        lastDeadLetterReason: health.scheduler.lastDeadLetterReason,
+        bootResumeFailure: health.scheduler.bootResumeFailure
+          ? {
+              occurredAt:
+                health.scheduler.bootResumeFailure.occurredAt.toISOString(),
+              reason: health.scheduler.bootResumeFailure.reason,
+            }
+          : null,
+      },
+      execution: {
+        lastSuccessAt: health.execution.lastSuccessAt?.toISOString() ?? null,
+        lastFailureAt: health.execution.lastFailureAt?.toISOString() ?? null,
+      },
+      provider: {
+        status: health.provider.status,
+        lastSuccessAt: health.provider.lastSuccessAt?.toISOString() ?? null,
+        lastFailureAt: health.provider.lastFailureAt?.toISOString() ?? null,
+      },
+      telemetry: this.mapTelemetry(health.telemetry),
     };
   }
 
@@ -91,6 +131,10 @@ export class SimulationAdminResponseMapper {
       totalCostEstimateUsd: telemetry.totalCostEstimateUsd,
       averageLatencyMs: telemetry.averageLatencyMs,
       lastRunAt: telemetry.lastRunAt ? telemetry.lastRunAt.toISOString() : null,
+      lastSuccessAt: telemetry.lastSuccessAt?.toISOString() ?? null,
+      lastFailureAt: telemetry.lastFailureAt?.toISOString() ?? null,
+      lastProviderFailureAt:
+        telemetry.lastProviderFailureAt?.toISOString() ?? null,
     };
   }
 }

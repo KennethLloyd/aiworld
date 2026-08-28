@@ -3,6 +3,7 @@ import {
   SimulationCommand,
 } from '@aiworld/shared/schemas/simulation-command.schema';
 
+import { redactDiagnostics } from '@/common/diagnostics';
 import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
@@ -16,6 +17,7 @@ import {
 import {
   RunCustomActionInput,
   SimulationScheduler,
+  SimulationSchedulerObservabilityRecord,
 } from '@/simulation/scheduler/simulation-scheduler.port';
 import {
   IterationRunResult,
@@ -23,6 +25,22 @@ import {
 } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
+
+const RECENT_RETRY_WINDOW_MS = 15 * 60 * 1_000;
+
+type RuntimeState = {
+  worldSlug?: string;
+  pending: boolean;
+  nextTickAt: Date | null;
+  lastTickStartedAt: Date | null;
+  lastTickCompletedAt: Date | null;
+  retrying: boolean;
+  retryTimestamps: Date[];
+  bootResumeFailure: {
+    occurredAt: Date;
+    reason: string;
+  } | null;
+};
 
 /** Shared behavior for both scheduler adapters: the port's manual operations
  * and the scheduled-command composition. Both `runOneAction` and
@@ -39,6 +57,107 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     protected readonly tickRunner: SimulationTickRunner,
   ) {
     super();
+  }
+
+  recordBootResumeFailure(worldId: string, error: unknown): void {
+    const state = this.runtimeStateFor(worldId);
+    state.bootResumeFailure = {
+      occurredAt: new Date(),
+      reason: redactDiagnostics(
+        error instanceof Error ? error.message : 'Scheduler resume failed',
+      ),
+    };
+  }
+
+  protected markSchedulerStartSucceeded(worldId: string): void {
+    this.runtimeStateFor(worldId).bootResumeFailure = null;
+  }
+
+  protected markScheduled(
+    worldId: string,
+    nextTickAt: Date,
+    worldSlug?: string,
+  ): void {
+    const state = this.runtimeStateFor(worldId);
+    state.pending = true;
+    state.nextTickAt = nextTickAt;
+    if (worldSlug !== undefined) {
+      state.worldSlug = worldSlug;
+    }
+  }
+
+  protected markStopped(worldId: string): void {
+    const state = this.runtimeStateFor(worldId);
+    state.pending = false;
+    state.nextTickAt = null;
+  }
+
+  protected markTickStarted(worldId: string): void {
+    const state = this.runtimeStateFor(worldId);
+    state.pending = false;
+    state.nextTickAt = null;
+    state.lastTickStartedAt = new Date();
+  }
+
+  protected markTickAttemptCompleted(worldId: string): void {
+    this.runtimeStateFor(worldId).lastTickCompletedAt = new Date();
+  }
+
+  protected markTickSettled(worldId: string): void {
+    this.runtimeStateFor(worldId).retrying = false;
+  }
+
+  protected markRetry(worldId: string): void {
+    const state = this.runtimeStateFor(worldId);
+    state.retrying = true;
+    state.retryTimestamps.push(new Date());
+  }
+
+  protected getRuntimeObservability(
+    worldId: string,
+    available: boolean,
+  ): SimulationSchedulerObservabilityRecord {
+    const state = this.runtimeStateFor(worldId);
+    const cutoff = Date.now() - RECENT_RETRY_WINDOW_MS;
+    state.retryTimestamps = state.retryTimestamps.filter(
+      (timestamp) => timestamp.getTime() >= cutoff,
+    );
+    return {
+      available,
+      pending: state.pending,
+      nextTickAt: state.nextTickAt,
+      lastTickStartedAt: state.lastTickStartedAt,
+      lastTickCompletedAt: state.lastTickCompletedAt,
+      retrying: state.retrying,
+      recentRetryCount: state.retryTimestamps.length,
+      deadLetterCount: 0,
+      lastDeadLetterAt: null,
+      lastDeadLetterReason: null,
+      bootResumeFailure: state.bootResumeFailure,
+    };
+  }
+
+  protected runtimeWorldSlug(worldId: string): string | undefined {
+    return this.runtimeStateFor(worldId).worldSlug;
+  }
+
+  private readonly runtimeStates = new Map<string, RuntimeState>();
+
+  private runtimeStateFor(worldId: string): RuntimeState {
+    let state = this.runtimeStates.get(worldId);
+    if (state === undefined) {
+      state = {
+        pending: false,
+        nextTickAt: null,
+        lastTickStartedAt: null,
+        lastTickCompletedAt: null,
+        retrying: false,
+        retryTimestamps: [],
+        bootResumeFailure: null,
+      };
+      this.runtimeStates.set(worldId, state);
+    }
+    return state;
   }
 
   async runOneAction(worldSlug: string): Promise<IterationRunResult> {
