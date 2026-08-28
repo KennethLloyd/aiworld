@@ -8,6 +8,7 @@ import { SimulationActionError } from '@/simulation/actions/simulation-action.er
 import { mapSimulationAdminError } from '@/simulation/admin/simulation-admin.errors';
 import {
   InvalidSimulationStateTransitionError,
+  SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
   SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
@@ -25,6 +26,17 @@ describe('mapSimulationAdminError', () => {
         new SimulationActionError('WORLD_NOT_FOUND', 'World "x" was not found'),
       ),
     ).toThrow(NotFoundException);
+  });
+
+  it('maps malformed configuration to 400 with a clear message', () => {
+    expect(() =>
+      mapSimulationAdminError(
+        new SimulationConfigMalformedError(
+          'world-1',
+          'model must be a non-empty string',
+        ),
+      ),
+    ).toThrow('Simulation configuration for world world-1 is malformed');
   });
 
   it('maps invalid transitions and concurrent changes to 409', () => {

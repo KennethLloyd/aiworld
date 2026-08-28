@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { Prisma, WorldSimulationConfig } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { providerIds, type ProviderId } from '@/lib/llm/provider-config';
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import {
   ActionWeights,
@@ -39,6 +40,28 @@ function toActionWeights(
   );
 }
 
+function toProviderId(worldId: string, value: string): ProviderId {
+  if (!providerIds.some((providerId) => providerId === value)) {
+    throw new SimulationConfigMalformedError(
+      worldId,
+      `providerId "${value}" is not supported`,
+    );
+  }
+
+  return value as ProviderId;
+}
+
+function toModel(worldId: string, value: string): string {
+  if (value.trim() === '') {
+    throw new SimulationConfigMalformedError(
+      worldId,
+      'model must be a non-empty string',
+    );
+  }
+
+  return value;
+}
+
 @Injectable()
 export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfigRepository {
   constructor(private readonly prisma: PrismaService) {
@@ -56,8 +79,8 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
       intervalMs: config.intervalMs,
       jitterMs: config.jitterMs,
       actionWeights: toActionWeights(config.worldId, config.actionWeights),
-      providerId: config.providerId,
-      model: config.model,
+      providerId: toProviderId(config.worldId, config.providerId),
+      model: toModel(config.worldId, config.model),
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };

@@ -1,3 +1,4 @@
+import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import {
@@ -16,13 +17,7 @@ function configRecord(
   return {
     id: 'config-1',
     worldId: 'world-1',
-    state: 'PAUSED',
-    speedMultiplier: 1,
-    intervalMs: 30000,
-    jitterMs: 5000,
-    actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-    providerId: 'mock',
-    model: 'fixture-model',
+    ...createDefaultSimulationConfig(),
     createdAt: new Date('2026-08-01T00:00:00.000Z'),
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
     ...overrides,

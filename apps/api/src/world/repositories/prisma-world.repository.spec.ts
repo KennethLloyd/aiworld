@@ -1,3 +1,4 @@
+import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PrismaWorldRepository } from '@/world/repositories/prisma-world.repository';
 
 function worldRow(overrides: Record<string, unknown> = {}) {
@@ -115,6 +116,82 @@ describe('PrismaWorldRepository resident counts', () => {
     );
     expect(prisma.worldSimulationConfig.updateMany).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+describe('PrismaWorldRepository World creation', () => {
+  it('creates the World and canonical simulation config in one transaction', async () => {
+    const providerConfig = loadProviderConfig();
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      world: {
+        create: jest.fn().mockResolvedValue(worldRow()),
+      },
+      worldSimulationConfig: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    const result = await repository.create({
+      name: 'The MBTI House',
+      slug: 'mbti-house',
+      description: { about: 'A world of personality typology.' },
+      rules: ['Stay in character'],
+      topicScope: 'Personality types.',
+    });
+
+    expect(result.id).toBe('00000000-0000-4000-8000-000000000001');
+    expect(transaction.world.create).toHaveBeenCalledWith({
+      data: {
+        name: 'The MBTI House',
+        slug: 'mbti-house',
+        description: { about: 'A world of personality typology.' },
+        rules: ['Stay in character'],
+        topicScope: 'Personality types.',
+      },
+    });
+    expect(transaction.worldSimulationConfig.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        worldId: '00000000-0000-4000-8000-000000000001',
+        state: 'PAUSED',
+        speedMultiplier: 1,
+        intervalMs: 1_800_000,
+        jitterMs: 300_000,
+        actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
+        providerId: providerConfig.providerId,
+        model: providerConfig.model,
+      }),
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates simulation config failure through the transaction', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      world: {
+        create: jest.fn().mockResolvedValue(worldRow()),
+      },
+      worldSimulationConfig: {
+        create: jest.fn().mockRejectedValue(new Error('config write failed')),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await expect(
+      repository.create({
+        name: 'The MBTI House',
+        slug: 'mbti-house',
+        description: null,
+        rules: ['Stay in character'],
+        topicScope: 'Personality types.',
+      }),
+    ).rejects.toThrow('config write failed');
+    expect(transaction.world.create).toHaveBeenCalledTimes(1);
+    expect(transaction.worldSimulationConfig.create).toHaveBeenCalledTimes(1);
   });
 });
 

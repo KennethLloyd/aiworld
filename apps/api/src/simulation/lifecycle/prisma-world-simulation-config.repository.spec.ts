@@ -1,3 +1,4 @@
+import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
 import { PrismaWorldSimulationConfigRepository } from '@/simulation/lifecycle/prisma-world-simulation-config.repository';
 import {
   SimulationConfigMalformedError,
@@ -9,13 +10,7 @@ function row(overrides: Record<string, unknown> = {}) {
   return {
     id: 'config-1',
     worldId: 'world-1',
-    state: 'PAUSED',
-    speedMultiplier: 1,
-    intervalMs: 30000,
-    jitterMs: 5000,
-    actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-    providerId: 'mock',
-    model: 'fixture-model',
+    ...createDefaultSimulationConfig(),
     createdAt: new Date('2026-08-01T00:00:00.000Z'),
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
     ...overrides,
@@ -82,6 +77,28 @@ describe('PrismaWorldSimulationConfigRepository', () => {
 
     await expect(repository.findByWorldId('world-1')).rejects.toThrow(
       SimulationConfigMalformedError,
+    );
+  });
+
+  it('rejects an unsupported persisted provider id', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.findUnique.mockResolvedValue(
+      row({ providerId: 'unknown-provider' }),
+    );
+
+    await expect(repository.findByWorldId('world-1')).rejects.toThrow(
+      'providerId "unknown-provider" is not supported',
+    );
+  });
+
+  it('rejects an empty persisted model', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.findUnique.mockResolvedValue(
+      row({ model: '   ' }),
+    );
+
+    await expect(repository.findByWorldId('world-1')).rejects.toThrow(
+      'model must be a non-empty string',
     );
   });
 

@@ -154,6 +154,8 @@ describe('Simulation cycle (seeded database)', () => {
   const actorMemberId = seedUuid('member:footnote');
 
   beforeAll(async () => {
+    process.env.LLM_PROVIDER = 'mock';
+    process.env.LLM_MODEL = 'fixture-model';
     await seedWorld(prisma);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({

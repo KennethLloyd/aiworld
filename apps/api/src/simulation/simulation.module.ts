@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 
 import { CharactersModule } from '@/characters/characters.module';
 import { CommentsModule } from '@/comments/comments.module';
-import { loadProviderConfig } from '@/lib/llm/provider-config';
+import {
+  loadProviderConfig,
+  type ProviderConfig,
+} from '@/lib/llm/provider-config';
 import { PostsModule } from '@/posts/posts.module';
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
@@ -22,6 +25,10 @@ import { SimulationLogRepository } from '@/simulation/logging/simulation-log-rep
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
+import {
+  ConfiguredSimulationLlmProviderResolver,
+  SimulationLlmProviderResolver,
+} from '@/simulation/providers/simulation-llm-provider.resolver';
 import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -41,6 +48,8 @@ import { WorldMembersModule } from '@/world-members/world-members.module';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 import { WorldModule } from '@/world/world.module';
 
+const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
+
 @Module({
   imports: [
     WorldModule,
@@ -53,8 +62,19 @@ import { WorldModule } from '@/world/world.module';
   controllers: [SimulationAdminController],
   providers: [
     {
+      provide: LLM_PROVIDER_CONFIG,
+      useFactory: loadProviderConfig,
+    },
+    {
       provide: LlmProvider,
-      useFactory: () => createLlmProvider(loadProviderConfig()),
+      inject: [LLM_PROVIDER_CONFIG],
+      useFactory: (config: ProviderConfig) => createLlmProvider(config),
+    },
+    {
+      provide: SimulationLlmProviderResolver,
+      inject: [LLM_PROVIDER_CONFIG],
+      useFactory: (config: ProviderConfig) =>
+        new ConfiguredSimulationLlmProviderResolver(config),
     },
     {
       provide: SimulationCostEstimator,

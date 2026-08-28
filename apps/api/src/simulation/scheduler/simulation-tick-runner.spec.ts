@@ -9,6 +9,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
+import { SimulationLlmProviderResolver } from '@/simulation/providers/simulation-llm-provider.resolver';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
@@ -105,14 +106,14 @@ function createRunner(
       value: await operation(),
     })),
   } as unknown as jest.Mocked<WorldRepository>;
-
   const lifecycleService = {
     assertScheduledWorkAllowed: jest.fn(),
     assertManualWorkAllowed: jest.fn(),
+    getByWorldId: jest.fn().mockResolvedValue(config),
   } as unknown as jest.Mocked<
     Pick<
       SimulationLifecycleService,
-      'assertScheduledWorkAllowed' | 'assertManualWorkAllowed'
+      'assertScheduledWorkAllowed' | 'assertManualWorkAllowed' | 'getByWorldId'
     >
   >;
 
@@ -154,6 +155,9 @@ function createRunner(
   const provider = {
     config: { providerId: 'mock', model: 'fixture-model' },
   } as unknown as LlmProvider;
+  const providerResolver = {
+    resolve: jest.fn().mockReturnValue(provider),
+  } as unknown as jest.Mocked<SimulationLlmProviderResolver>;
 
   const runner = new SimulationTickRunner(
     worldRepository,
@@ -163,6 +167,7 @@ function createRunner(
     contentWriter,
     logService,
     provider,
+    providerResolver,
   );
 
   return {
@@ -173,6 +178,8 @@ function createRunner(
     executor,
     contentWriter,
     logService,
+    provider,
+    providerResolver,
   };
 }
 
@@ -189,9 +196,16 @@ const successOutcome = {
 
 describe('SimulationTickRunner', () => {
   describe('runScheduledTick', () => {
-    it('gates scheduled work, executes the fixed command, persists, and logs', async () => {
-      const { runner, lifecycleService, executor, contentWriter, logService } =
-        createRunner();
+    it('gates scheduled work, resolves the World provider, persists, and logs', async () => {
+      const {
+        runner,
+        lifecycleService,
+        executor,
+        contentWriter,
+        logService,
+        provider,
+        providerResolver,
+      } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runScheduledTick(scheduledCommand(), 'job-1');
@@ -199,11 +213,15 @@ describe('SimulationTickRunner', () => {
       expect(lifecycleService.assertScheduledWorkAllowed).toHaveBeenCalledWith(
         'world-1',
       );
-      expect(executor.execute).toHaveBeenCalledWith({
-        action: 'POST',
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-      });
+      expect(providerResolver.resolve).toHaveBeenCalledWith(config);
+      expect(executor.execute).toHaveBeenCalledWith(
+        {
+          action: 'POST',
+          worldSlug: 'mbti-house',
+          characterId: 'character-1',
+        },
+        provider,
+      );
       expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,
@@ -255,19 +273,22 @@ describe('SimulationTickRunner', () => {
     });
 
     it('targets a picked post for a VOTE command', async () => {
-      const { runner, picker, executor } = createRunner();
+      const { runner, picker, executor, provider } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
       picker.pickTargetPost.mockResolvedValue('post-3');
 
       await runner.runScheduledTick(scheduledCommand({ actionType: 'VOTE' }));
 
       expect(picker.pickTargetPost).toHaveBeenCalledWith('world-1');
-      expect(executor.execute).toHaveBeenCalledWith({
-        action: 'VOTE',
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        postId: 'post-3',
-      });
+      expect(executor.execute).toHaveBeenCalledWith(
+        {
+          action: 'VOTE',
+          worldSlug: 'mbti-house',
+          characterId: 'character-1',
+          postId: 'post-3',
+        },
+        provider,
+      );
     });
 
     it('logs a lifecycle rejection as REJECTED and never retries', async () => {
@@ -415,7 +436,8 @@ describe('SimulationTickRunner', () => {
 
   describe('runManualIteration', () => {
     it('uses the composed command and gates manual work', async () => {
-      const { runner, lifecycleService, executor, logService } = createRunner();
+      const { runner, lifecycleService, executor, logService, provider } =
+        createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runManualIteration(
@@ -434,6 +456,7 @@ describe('SimulationTickRunner', () => {
           action: 'COMMENT',
           characterId: 'character-2',
         }),
+        provider,
       );
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,

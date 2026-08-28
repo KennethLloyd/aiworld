@@ -2,6 +2,8 @@ import '../src/lib/config/environment';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@/generated/prisma/client';
+import { loadProviderConfig } from '@/lib/llm/provider-config';
+import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
 
 import {
   buildSeedVotes,
@@ -21,6 +23,9 @@ export async function seedWorld(prisma: PrismaClient) {
   for (const post of posts) {
     validateCommentDepth(post.comments);
   }
+
+  const simulationDefaults =
+    createDefaultSimulationConfig(loadProviderConfig());
 
   return prisma.$transaction(async (tx) => {
     // Remove the starter world's obsolete slug while leaving generic World CRUD intact.
@@ -216,23 +221,9 @@ export async function seedWorld(prisma: PrismaClient) {
       create: {
         id: seedUuid('simulation-config:mbti-house'),
         worldId: world.id,
-        state: 'PAUSED',
-        speedMultiplier: 1,
-        intervalMs: 1800000,
-        jitterMs: 300000,
-        actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-        providerId: 'mock',
-        model: 'fixture-model',
+        ...simulationDefaults,
       },
-      update: {
-        state: 'PAUSED',
-        speedMultiplier: 1,
-        intervalMs: 1800000,
-        jitterMs: 300000,
-        actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-        providerId: 'mock',
-        model: 'fixture-model',
-      },
+      update: simulationDefaults,
     });
 
     return world;

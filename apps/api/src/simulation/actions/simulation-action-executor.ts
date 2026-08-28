@@ -5,6 +5,7 @@ import { PostAction } from '@/simulation/actions/post.action';
 import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationActionOutcome } from '@/simulation/actions/simulation-decision';
 import { VoteAction } from '@/simulation/actions/vote.action';
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 
 /** Dispatches a serializable command to the matching action strategy — the
  * Command pattern's invoker. It triggers commands but never performs them:
@@ -19,14 +20,23 @@ export class SimulationActionExecutor {
     private readonly commentAction: CommentAction,
   ) {}
 
-  execute(command: SimulationCommand): Promise<SimulationActionOutcome> {
+  execute(
+    command: SimulationCommand,
+    provider?: LlmProvider,
+  ): Promise<SimulationActionOutcome> {
     switch (command.action) {
       case 'POST':
-        return this.postAction.execute(command);
+        return provider === undefined
+          ? this.postAction.execute(command)
+          : this.postAction.execute(command, provider);
       case 'VOTE':
-        return this.voteAction.execute(command);
+        return provider === undefined
+          ? this.voteAction.execute(command)
+          : this.voteAction.execute(command, provider);
       case 'COMMENT':
-        return this.commentAction.execute(command);
+        return provider === undefined
+          ? this.commentAction.execute(command)
+          : this.commentAction.execute(command, provider);
     }
   }
 }
