@@ -149,7 +149,6 @@ let currentConfig: SimulationConfigResponse;
 let stateRequests: string[];
 let speedRequests: number[];
 let customActionRequests: Record<string, unknown>[];
-let telemetryRequests: number;
 let healthRequests: number;
 let logRequests: number;
 let logQueryRequests: URLSearchParams[];
@@ -243,10 +242,6 @@ const server = setupServer(
           : { status: 'HEALTHY', reason: null },
     });
   }),
-  http.get('*/api/worlds/mbti-house/simulation/telemetry', () => {
-    telemetryRequests += 1;
-    return HttpResponse.json(telemetry);
-  }),
   http.get('*/api/worlds/mbti-house/simulation/logs', ({ request }) => {
     logRequests += 1;
     logQueryRequests.push(new URL(request.url).searchParams);
@@ -296,7 +291,6 @@ describe('/admin control room', () => {
     stateRequests = [];
     speedRequests = [];
     customActionRequests = [];
-    telemetryRequests = 0;
     healthRequests = 0;
     logRequests = 0;
     logQueryRequests = [];
@@ -309,7 +303,6 @@ describe('/admin control room', () => {
     stateRequests = [];
     speedRequests = [];
     customActionRequests = [];
-    telemetryRequests = 0;
     healthRequests = 0;
     logRequests = 0;
     logQueryRequests = [];
@@ -459,7 +452,7 @@ describe('/admin control room', () => {
     expect(screen.getByRole('button', { name: 'Halt' })).toBeDisabled();
   });
 
-  it('runs a targeted custom action and refreshes telemetry and logs', async () => {
+  it('runs a targeted custom action and refreshes health and logs', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
     renderAuthRoutes('/admin/', { queryClient: client });

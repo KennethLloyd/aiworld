@@ -5,8 +5,6 @@ export const adminKeys = {
   simulations: () => [...adminKeys.all, 'simulations'] as const,
   simulation: (slug: string) =>
     [...adminKeys.simulations(), 'config', slug] as const,
-  telemetry: (slug: string) =>
-    [...adminKeys.simulations(), 'telemetry', slug] as const,
   health: (slug: string) =>
     [...adminKeys.simulations(), 'health', slug] as const,
   logs: () => [...adminKeys.simulations(), 'logs'] as const,

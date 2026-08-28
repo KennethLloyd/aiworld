@@ -158,7 +158,7 @@ describe('deriveSimulationHealth', () => {
           lastProviderFailureAt: new Date('2026-08-12T22:30:00.000Z'),
         },
       ),
-    ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });
+    ).toMatchObject({ status: 'HEALTHY', providerStatus: 'UNKNOWN' });
   });
 
   it('marks retries and recent provider failures as degraded', () => {

@@ -295,7 +295,7 @@ export class BullMqSchedulerAdapter
       ? job.name.slice('tick_'.length)
       : '';
     if (worldId.length > 0) {
-      await this.markTickSettled(worldId);
+      await this.markStopped(worldId);
     }
     const deadLetter = await this.deadLetter(job, error);
     if (worldId.length > 0) {

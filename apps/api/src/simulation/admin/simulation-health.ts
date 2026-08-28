@@ -48,11 +48,12 @@ export function normalizeProviderExecutionTimestamps(
   };
 }
 
-function isRecent(timestamp: Date | null, now: Date): boolean {
-  return (
-    timestamp !== null &&
-    now.getTime() - timestamp.getTime() <= SIMULATION_HEALTH_RECENCY_WINDOW_MS
-  );
+function isRecent(
+  timestamp: Date | null,
+  now: Date,
+  windowMs = SIMULATION_HEALTH_RECENCY_WINDOW_MS,
+): boolean {
+  return timestamp !== null && now.getTime() - timestamp.getTime() <= windowMs;
 }
 
 /** Derives operator-facing health from lifecycle state and runtime evidence.
@@ -88,14 +89,23 @@ export function deriveSimulationHealth(
     lastProviderSuccessAt,
     lastProviderFailureAt,
   } = normalizeProviderExecutionTimestamps(telemetry);
+  const effectiveCadenceMs =
+    config.speedMultiplier > 0
+      ? (config.intervalMs + config.jitterMs) / config.speedMultiplier
+      : SIMULATION_HEALTH_RECENCY_WINDOW_MS;
+  const healthFreshnessWindowMs = Math.max(
+    SIMULATION_HEALTH_RECENCY_WINDOW_MS,
+    effectiveCadenceMs,
+  );
   const providerFailureIsRecent =
     lastProviderFailureAt !== null &&
-    isRecent(lastProviderFailureAt, now) &&
+    isRecent(lastProviderFailureAt, now, healthFreshnessWindowMs) &&
     (lastProviderSuccessAt === null ||
       lastProviderFailureAt > lastProviderSuccessAt);
   const providerStatus: SimulationProviderHealthStatus = providerFailureIsRecent
     ? 'DEGRADED'
-    : lastProviderSuccessAt !== null
+    : lastProviderSuccessAt !== null &&
+        isRecent(lastProviderSuccessAt, now, healthFreshnessWindowMs)
       ? 'HEALTHY'
       : 'UNKNOWN';
 
@@ -128,10 +138,7 @@ export function deriveSimulationHealth(
     (scheduler.lastTickCompletedAt === null ||
       scheduler.lastTickStartedAt > scheduler.lastTickCompletedAt);
 
-  const tickStallThresholdMs = Math.max(
-    config.intervalMs + config.jitterMs,
-    SIMULATION_HEALTH_RECENCY_WINDOW_MS,
-  );
+  const tickStallThresholdMs = healthFreshnessWindowMs;
   if (
     tickInFlight &&
     scheduler.lastTickStartedAt !== null &&
@@ -146,7 +153,10 @@ export function deriveSimulationHealth(
   }
 
   if (scheduler.pending && scheduler.nextTickAt !== null) {
-    if (scheduler.nextTickAt <= now) {
+    if (
+      scheduler.nextTickAt.getTime() + SIMULATION_HEALTH_RECENCY_WINDOW_MS <=
+      now.getTime()
+    ) {
       return {
         status: 'UNHEALTHY',
         reason: 'The next scheduled tick is overdue.',

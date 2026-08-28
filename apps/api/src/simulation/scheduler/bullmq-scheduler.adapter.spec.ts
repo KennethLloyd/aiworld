@@ -282,8 +282,13 @@ describe('BullMqSchedulerAdapter', () => {
     );
 
     observability = await adapter.getObservability('world-1');
-    expect(observability.deadLetterCount).toBe(1);
-    expect(observability.lastDeadLetterReason).toBe('TIMEOUT');
+    expect(observability).toMatchObject({
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+      deadLetterCount: 1,
+      lastDeadLetterReason: 'TIMEOUT',
+    });
     expect(dlq.add).toHaveBeenCalledWith(
       'tick_world-1',
       expect.objectContaining({ reason: 'TIMEOUT' }),
