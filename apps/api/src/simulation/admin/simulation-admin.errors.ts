@@ -7,6 +7,7 @@ import {
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
   InvalidSimulationStateTransitionError,
+  SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
   SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
@@ -28,6 +29,10 @@ export function mapSimulationAdminError(error: unknown): never {
   }
 
   if (error instanceof SimulationCharacterNotActiveError) {
+    throw new BadRequestException(error.message);
+  }
+
+  if (error instanceof SimulationConfigMalformedError) {
     throw new BadRequestException(error.message);
   }
 

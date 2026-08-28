@@ -1,3 +1,5 @@
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
+
 import { SimulationActionExecutor } from './simulation-action-executor';
 
 describe('SimulationActionExecutor', () => {
@@ -86,5 +88,19 @@ describe('SimulationActionExecutor', () => {
       status: 'failed',
       failure: { code: 'TIMEOUT', message: 'Mock timeout', retryable: true },
     });
+  });
+
+  it('passes a World-resolved provider to the selected action', async () => {
+    const { executor, postAction } = createExecutor();
+    const provider = { config: { providerId: 'mock', model: 'world-model' } };
+    const command = {
+      action: 'POST' as const,
+      worldSlug: 'mbti-house',
+      characterId: 'character-1',
+    };
+
+    await executor.execute(command, provider as unknown as LlmProvider);
+
+    expect(postAction.execute).toHaveBeenCalledWith(command, provider);
   });
 });

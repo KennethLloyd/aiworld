@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { Prisma, WorldSimulationConfig } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { providerIds, type ProviderId } from '@/lib/llm/provider-config';
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import {
   ActionWeights,
@@ -39,8 +40,34 @@ function toActionWeights(
   );
 }
 
+function toProviderId(worldId: string, value: string): ProviderId {
+  if (!providerIds.some((providerId) => providerId === value)) {
+    throw new SimulationConfigMalformedError(
+      worldId,
+      `providerId "${value}" is not supported`,
+    );
+  }
+
+  return value as ProviderId;
+}
+
+function toModel(worldId: string, value: string): string {
+  if (value.trim() === '') {
+    throw new SimulationConfigMalformedError(
+      worldId,
+      'model must be a non-empty string',
+    );
+  }
+
+  return value;
+}
+
 @Injectable()
 export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfigRepository {
+  private readonly logger = new Logger(
+    PrismaWorldSimulationConfigRepository.name,
+  );
+
   constructor(private readonly prisma: PrismaService) {
     super();
   }
@@ -56,8 +83,8 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
       intervalMs: config.intervalMs,
       jitterMs: config.jitterMs,
       actionWeights: toActionWeights(config.worldId, config.actionWeights),
-      providerId: config.providerId,
-      model: config.model,
+      providerId: toProviderId(config.worldId, config.providerId),
+      model: toModel(config.worldId, config.model),
       createdAt: config.createdAt,
       updatedAt: config.updatedAt,
     };
@@ -80,7 +107,25 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
       where: { state },
     });
 
-    return rows.map((row) => this.mapToRecord(row));
+    const configs: WorldSimulationConfigRecord[] = [];
+    for (const row of rows) {
+      try {
+        configs.push(this.mapToRecord(row));
+      } catch (error) {
+        if (!(error instanceof SimulationConfigMalformedError)) {
+          throw error;
+        }
+        this.logger.warn(
+          JSON.stringify({
+            event: 'simulation_config_malformed',
+            worldId: row.worldId,
+            error: error.message,
+          }),
+        );
+      }
+    }
+
+    return configs;
   }
 
   async transitionState(

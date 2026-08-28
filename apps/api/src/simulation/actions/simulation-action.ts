@@ -47,11 +47,14 @@ export abstract class SimulationAction<
     command: TCommand,
   ): TDecision;
 
-  async execute(command: TCommand): Promise<SimulationActionResult<TDecision>> {
+  async execute(
+    command: TCommand,
+    provider: LlmProvider = this.provider,
+  ): Promise<SimulationActionResult<TDecision>> {
     try {
       const context = await this.fetchContext(command);
       const prompt = this.buildPrompt(context, command);
-      const { output, telemetry } = await this.provider.generateStructured({
+      const { output, telemetry } = await provider.generateStructured({
         prompt,
         schema: this.outputSchema,
       });

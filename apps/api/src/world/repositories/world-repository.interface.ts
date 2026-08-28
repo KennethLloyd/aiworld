@@ -7,6 +7,10 @@ import {
 
 import { WorldRecord } from '@/world/domain/world-record';
 
+export const WORLD_SIMULATION_CONFIG_DEFAULTS = Symbol(
+  'WORLD_SIMULATION_CONFIG_DEFAULTS',
+);
+
 export type ActiveSimulationLockResult<T> =
   | { status: 'executed'; value: T }
   | { status: 'inactive' }

@@ -45,6 +45,8 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
   beforeAll(async () => {
     process.env.SCHEDULER_ADAPTER = 'bullmq';
     process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+    process.env.LLM_PROVIDER = 'mock';
+    process.env.LLM_MODEL = 'fixture-model';
 
     await seedWorld(prisma);
 

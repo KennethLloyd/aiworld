@@ -17,6 +17,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
+import { SimulationLlmProviderResolver } from '@/simulation/providers/simulation-llm-provider.resolver';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
@@ -43,6 +44,11 @@ type LogContext = {
   jobId?: string | null;
 };
 
+const UNKNOWN_PROVIDER_METADATA = {
+  provider: 'unknown',
+  model: 'unknown',
+};
+
 /** Executes one iteration of simulated work — the shared body of scheduled
  * ticks, Run One Action, and Custom Action. Every operation hands the runner a
  * serializable `SimulationCommand` (the same shape both queue adapters
@@ -64,6 +70,7 @@ export class SimulationTickRunner {
     private readonly contentWriter: SimulationContentWriter,
     private readonly logService: SimulationLogService,
     private readonly provider: LlmProvider,
+    private readonly providerResolver: SimulationLlmProviderResolver,
   ) {}
 
   async runScheduledTick(
@@ -85,13 +92,14 @@ export class SimulationTickRunner {
         throw error;
       }
       if (error instanceof SimulationWorkRejectedError) {
+        const provider = await this.providerMetadata(world.id);
         const log = await this.logService.writeRejected({
           worldId: world.id,
           characterId: command.characterId,
           action: command.actionType,
           executionSource: command.executionSource,
-          provider: this.provider.config.providerId,
-          model: this.provider.config.model,
+          provider: provider.provider,
+          model: provider.model,
           reason: error.message,
           jobId,
         });
@@ -117,7 +125,10 @@ export class SimulationTickRunner {
     jobId?: string | null;
   }): Promise<IterationRunResult> {
     const { world, command, jobId } = input;
-    await this.assertWorkAllowed(world.id, command.executionSource);
+    const allowedConfig = await this.assertWorkAllowed(
+      world.id,
+      command.executionSource,
+    );
     const workKind =
       command.executionSource === 'scheduled' ? 'SCHEDULED' : 'MANUAL';
     const logContext: LogContext = {
@@ -152,8 +163,8 @@ export class SimulationTickRunner {
       };
       const log = await this.logService.writeFailure({
         ...logContext,
-        provider: this.provider.config.providerId,
-        model: this.provider.config.model,
+        provider: allowedConfig.providerId,
+        model: allowedConfig.model,
         failure,
       });
       return { status: 'failed', failure, log };
@@ -180,12 +191,16 @@ export class SimulationTickRunner {
       input.logContext.worldId,
       input.logContext.executionSource,
     );
-    const outcome = await this.executor.execute(input.executorCommand);
+    const provider = this.providerResolver.resolve(allowedConfig);
+    const outcome = await this.executor.execute(
+      input.executorCommand,
+      provider,
+    );
     if (outcome.status === 'failed') {
       const log = await this.logService.writeFailure({
         ...input.logContext,
-        provider: this.provider.config.providerId,
-        model: this.provider.config.model,
+        provider: provider.config.providerId,
+        model: provider.config.model,
         failure: outcome.failure,
       });
       return { status: 'failed', failure: outcome.failure, log };
@@ -250,17 +265,34 @@ export class SimulationTickRunner {
     const retryableFailure = isTransientSchedulerError(error)
       ? { ...failure, retryable: true }
       : failure;
+    const provider = await this.providerMetadata(worldId);
     const log = await this.logService.writeFailure({
       worldId,
       characterId: command.characterId,
       action: command.actionType,
       executionSource: command.executionSource,
-      provider: this.provider.config.providerId,
-      model: this.provider.config.model,
+      provider: provider.provider,
+      model: provider.model,
       failure: retryableFailure,
       jobId,
     });
     return { status: 'failed', failure: retryableFailure, log };
+  }
+
+  private async providerMetadata(
+    worldId: string,
+  ): Promise<{ provider: string; model: string }> {
+    try {
+      const config = await this.lifecycleService.getByWorldId(worldId);
+      return config
+        ? { provider: config.providerId, model: config.model }
+        : {
+            provider: this.provider.config.providerId,
+            model: this.provider.config.model,
+          };
+    } catch {
+      return UNKNOWN_PROVIDER_METADATA;
+    }
   }
 
   private async requireWorld(worldSlug: string): Promise<WorldRecord> {

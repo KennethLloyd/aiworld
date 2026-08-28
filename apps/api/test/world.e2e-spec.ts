@@ -1,3 +1,4 @@
+import { simulationConfigResponseSchema } from '@aiworld/shared/schemas/simulation-state.schema';
 import {
   listWorldsResponseSchema,
   worldResponseSchema,
@@ -16,6 +17,7 @@ import type { MockAuthSessionHolder } from './__mocks__/nestjs-better-auth';
 
 describe('Worlds API (e2e)', () => {
   let app: INestApplication<App>;
+  let createdSimulationConfig: Record<string, unknown> | null;
 
   const mbtiWorldRecord: WorldRecord = {
     id: '00000000-0000-4000-8000-000000000001',
@@ -49,12 +51,10 @@ describe('Worlds API (e2e)', () => {
     updatedAt: new Date('2026-08-02T00:00:00.000Z'),
   };
 
-  // Infrastructure-boundary stub replacing PrismaService. PrismaWorldRepository
-  // only touches world.findMany/findUnique/count/create/update/delete, so the
-  // stub exposes exactly those methods. findUnique returns the MBTI fixture for
-  // the 'mbti' slug and null for every other slug, covering both the existing
-  // and missing-slug code paths.
+  // Infrastructure-boundary stub replacing PrismaService. World creation uses
+  // the same transaction handle for the World and its simulation config.
   const prismaStub = {
+    $transaction: jest.fn(),
     world: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -63,20 +63,50 @@ describe('Worlds API (e2e)', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    worldSimulationConfig: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+    },
   };
-
   beforeEach(async () => {
+    createdSimulationConfig = null;
     prismaStub.world.findMany.mockResolvedValue([mbtiWorldRecord]);
     prismaStub.world.count.mockResolvedValue(1);
     prismaStub.world.findUnique.mockImplementation(
       (args: { where: { slug: string } }) =>
         Promise.resolve(
-          args.where.slug === mbtiWorldRecord.slug ? mbtiWorldRecord : null,
+          args.where.slug === mbtiWorldRecord.slug
+            ? mbtiWorldRecord
+            : args.where.slug === createdWorldRecord.slug
+              ? createdWorldRecord
+              : null,
         ),
     );
     prismaStub.world.create.mockResolvedValue(createdWorldRecord);
     prismaStub.world.update.mockResolvedValue(updatedWorldRecord);
     prismaStub.world.delete.mockResolvedValue(undefined);
+    prismaStub.worldSimulationConfig.create.mockImplementation(
+      ({ data }: { data: Record<string, unknown> }) => {
+        createdSimulationConfig = {
+          id: '00000000-0000-4000-8000-000000000010',
+          createdAt: new Date('2026-08-01T12:00:00.000Z'),
+          updatedAt: new Date('2026-08-01T12:00:00.000Z'),
+          ...data,
+        };
+        return Promise.resolve(createdSimulationConfig);
+      },
+    );
+    prismaStub.worldSimulationConfig.findUnique.mockImplementation(
+      ({ where }: { where: { worldId: string } }) =>
+        Promise.resolve(
+          where.worldId === createdWorldRecord.id
+            ? createdSimulationConfig
+            : null,
+        ),
+    );
+    prismaStub.$transaction.mockImplementation(async (callback) =>
+      callback(prismaStub),
+    );
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -144,6 +174,42 @@ describe('Worlds API (e2e)', () => {
       .expect(201)
       .expect((res) => {
         expect(worldResponseSchema.safeParse(res.body).success).toBe(true);
+      });
+  });
+
+  it('makes the new World simulation config readable immediately', async () => {
+    await request(app.getHttpServer())
+      .post('/api/worlds')
+      .send({
+        name: 'New World',
+        slug: 'new-world',
+        description: { about: 'A brand new world' },
+        rules: ['Rule one', 'Rule two'],
+        topicScope: 'Anything goes',
+      })
+      .expect(201);
+
+    expect(createdSimulationConfig).toEqual(
+      expect.objectContaining({
+        worldId: createdWorldRecord.id,
+        state: 'PAUSED',
+        speedMultiplier: 1,
+        intervalMs: 1_800_000,
+        jitterMs: 300_000,
+        actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
+      }),
+    );
+
+    return request(app.getHttpServer())
+      .get('/api/worlds/new-world/simulation')
+      .expect(200)
+      .expect((res) => {
+        expect(simulationConfigResponseSchema.safeParse(res.body).success).toBe(
+          true,
+        );
+        expect(res.body.worldId).toBe(createdWorldRecord.id);
+        expect(res.body.providerId).toBe(createdSimulationConfig?.providerId);
+        expect(res.body.model).toBe(createdSimulationConfig?.model);
       });
   });
 

@@ -9,11 +9,11 @@ model WorldSimulationConfig {
   worldId         String          @unique
   state           SimulationState @default(PAUSED)
   speedMultiplier Float           @default(1)
-  intervalMs      Int             @default(30000)
-  jitterMs        Int             @default(5000)
-  actionWeights   Json
+  intervalMs      Int             @default(1800000)
+  jitterMs        Int             @default(300000)
+  actionWeights   Json             @default("{\"POST\":0.2,\"VOTE\":0.5,\"COMMENT\":0.3}")
   providerId      String          @default("mock")
-  model           String          @default("fixture-model")
+  model           String          @default("mock")
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
