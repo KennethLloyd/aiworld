@@ -99,6 +99,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
       pending: false,
       workExpected: false,
       nextTickAt: null,
+      retrying: false,
     });
   }
 

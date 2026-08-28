@@ -148,5 +148,16 @@ export function deriveSimulationHealth(
     };
   }
 
+  if (
+    lastFailureAt !== null &&
+    (lastSuccessAt === null || lastFailureAt > lastSuccessAt)
+  ) {
+    return {
+      status: 'DEGRADED',
+      reason: 'Recent simulation executions have failed.',
+      providerStatus,
+    };
+  }
+
   return { status: 'HEALTHY', reason: null, providerStatus };
 }

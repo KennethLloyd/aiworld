@@ -173,7 +173,11 @@ describe('deriveSimulationHealth', () => {
           lastProviderFailureAt: null,
         },
       ),
-    ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });
+    ).toMatchObject({
+      status: 'DEGRADED',
+      reason: 'Recent simulation executions have failed.',
+      providerStatus: 'HEALTHY',
+    });
   });
   it('keeps dead-letter failures visible without expected work', () => {
     expect(
