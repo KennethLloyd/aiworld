@@ -20,6 +20,7 @@ export type ActionFailure = {
   code: ActionFailureCode;
   message: string;
   retryable: boolean;
+  providerFailure?: boolean;
 };
 
 export class SimulationActionError extends Error {
@@ -46,20 +47,22 @@ export class SimulationOutputSafetyError extends SimulationActionError {
     this.name = 'SimulationOutputSafetyError';
   }
 }
-
 function toFailure(
   code: ActionFailureCode,
   message: string,
   retryable: boolean,
+  providerFailure?: boolean,
 ): ActionFailure {
-  return { code, message, retryable };
+  return providerFailure === undefined
+    ? { code, message, retryable }
+    : { code, message, retryable, providerFailure };
 }
 
 export function toActionFailure(error: unknown): ActionFailure {
-  if (
-    error instanceof ProviderError ||
-    error instanceof SimulationActionError
-  ) {
+  if (error instanceof ProviderError) {
+    return toFailure(error.code, error.message, error.retryable, true);
+  }
+  if (error instanceof SimulationActionError) {
     return toFailure(error.code, error.message, error.retryable);
   }
 

@@ -34,6 +34,7 @@ model SimulationLog {
   tokensUsed      Int?
   costEstimate    Decimal?                  @db.Decimal(12, 6)
   status          SimulationLogStatus
+  providerFailure Boolean                   @default(false)
   errorMessage    String?                   @db.Text
   executedAt      DateTime                  @default(now())
 

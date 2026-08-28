@@ -51,8 +51,14 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
       updateData.lastRetryAt = input.lastRetryAt;
     }
     if (input.bootResumeFailure !== undefined) {
-      updateData.bootResumeFailureAt = input.bootResumeFailure?.occurredAt;
-      updateData.bootResumeFailureReason = input.bootResumeFailure?.reason;
+      updateData.bootResumeFailureAt =
+        input.bootResumeFailure === null
+          ? null
+          : input.bootResumeFailure.occurredAt;
+      updateData.bootResumeFailureReason =
+        input.bootResumeFailure === null
+          ? null
+          : input.bootResumeFailure.reason;
     }
 
     await this.prisma.simulationRuntimeState.upsert({

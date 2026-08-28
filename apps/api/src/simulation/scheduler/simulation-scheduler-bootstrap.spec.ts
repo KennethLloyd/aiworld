@@ -59,4 +59,25 @@ describe('SimulationSchedulerBootstrap', () => {
       expect.any(Error),
     );
   });
+  it('keeps boot alive when recording a resume failure also fails', async () => {
+    const configRepository = {
+      findAllByState: jest.fn().mockResolvedValue([{ worldId: 'world-1' }]),
+    } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
+    const worldRepository = {
+      findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
+    } as unknown as jest.Mocked<WorldRepository>;
+    const scheduler = {
+      start: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+      recordBootResumeFailure: jest
+        .fn()
+        .mockRejectedValue(new Error('Database unavailable')),
+    } as unknown as jest.Mocked<SimulationScheduler>;
+    const bootstrap = new SimulationSchedulerBootstrap(
+      configRepository,
+      scheduler,
+      worldRepository,
+    );
+
+    await expect(bootstrap.onModuleInit()).resolves.toBeUndefined();
+  });
 });

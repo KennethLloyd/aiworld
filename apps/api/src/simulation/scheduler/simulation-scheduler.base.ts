@@ -80,16 +80,14 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   }
 
   protected async markSchedulerStartSucceeded(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
-      bootResumeFailure: null,
-    });
+    await this.persistRuntimeState(worldId, { bootResumeFailure: null });
   }
 
   protected async markScheduled(
     worldId: string,
     nextTickAt: Date,
   ): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.persistRuntimeState(worldId, {
       pending: true,
       workExpected: true,
       nextTickAt,
@@ -97,7 +95,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   }
 
   protected async markStopped(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.persistRuntimeState(worldId, {
       pending: false,
       workExpected: false,
       nextTickAt: null,
@@ -105,7 +103,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   }
 
   protected async markTickStarted(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.persistRuntimeState(worldId, {
       pending: false,
       nextTickAt: null,
       lastTickStartedAt: new Date(),
@@ -113,19 +111,34 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
   }
 
   protected async markTickAttemptCompleted(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.persistRuntimeState(worldId, {
       lastTickCompletedAt: new Date(),
     });
   }
 
   protected async markTickSettled(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.persistRuntimeState(worldId, {
       retrying: false,
     });
   }
 
   protected async markRetry(worldId: string): Promise<void> {
-    await this.runtimeStateRepository.recordRetry(worldId);
+    try {
+      await this.runtimeStateRepository.recordRetry(worldId);
+    } catch {
+      // Runtime health must never turn a provider/content result into a retry.
+    }
+  }
+
+  private async persistRuntimeState(
+    worldId: string,
+    input: Parameters<SimulationRuntimeStateRepository['update']>[1],
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.update(worldId, input);
+    } catch {
+      // Runtime health is observability; scheduler execution remains primary.
+    }
   }
 
   protected async getRuntimeObservability(

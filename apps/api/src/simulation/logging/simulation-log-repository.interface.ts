@@ -21,6 +21,7 @@ export type SimulationLogCreateInput = {
   executionSource: SimulationExecutionSource;
   tokensUsed?: number | null;
   costEstimate?: number | null;
+  providerFailure?: boolean;
   status: SimulationLogStatus;
   errorMessage?: string | null;
 };

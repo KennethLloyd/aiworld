@@ -7,7 +7,6 @@ import {
   SimulationLog,
 } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { providerErrorCodes } from '@/lib/llm/provider-error';
 import { SimulationExecutionSource as DomainExecutionSource } from '@/simulation/domain/simulation-log';
 import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
@@ -39,9 +38,7 @@ const executionSourceFromDb: Record<
 };
 const providerFailureWhere: Prisma.SimulationLogWhereInput = {
   status: 'FAILED',
-  OR: providerErrorCodes.map((code) => ({
-    errorMessage: { startsWith: `${code}:` },
-  })),
+  providerFailure: true,
 };
 
 @Injectable()
@@ -66,6 +63,7 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
         tokensUsed: input.tokensUsed ?? null,
         costEstimate: input.costEstimate ?? null,
         status: input.status,
+        providerFailure: input.providerFailure ?? false,
         errorMessage: input.errorMessage ?? null,
       },
     });

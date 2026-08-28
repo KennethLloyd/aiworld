@@ -104,7 +104,7 @@ export function deriveSimulationHealth(
         providerStatus,
       };
     }
-  } else if (!scheduler.workExpected) {
+  } else if (!scheduler.workExpected && scheduler.deadLetterCount === 0) {
     return {
       status: 'UNKNOWN',
       reason: 'No active scheduled work is expected right now.',

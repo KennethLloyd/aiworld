@@ -175,4 +175,15 @@ describe('deriveSimulationHealth', () => {
       ),
     ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });
   });
+  it('keeps dead-letter failures visible without expected work', () => {
+    expect(
+      derive(
+        {},
+        {
+          workExpected: false,
+          deadLetterCount: 1,
+        },
+      ),
+    ).toMatchObject({ status: 'DEGRADED' });
+  });
 });

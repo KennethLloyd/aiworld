@@ -98,7 +98,7 @@ export class BullMqSchedulerAdapter
           job.attemptsMade === undefined ||
           job.attemptsMade >= (job.opts.attempts ?? 1))
       ) {
-        void this.deadLetter(job, error).catch(() => undefined);
+        return this.handleFinalFailure(job, error).catch(() => undefined);
       }
     });
   }
@@ -317,6 +317,16 @@ export class BullMqSchedulerAdapter
     const pending = await this.queue.getJobs(['delayed', 'waiting']);
     const jobs = pending.filter((job) => job.name === tickJobName(worldId));
     await Promise.all(jobs.map((job) => job.remove().catch(() => undefined)));
+  }
+
+  private async handleFinalFailure(job: Job, error: Error): Promise<void> {
+    const worldId = job.name.startsWith('tick_')
+      ? job.name.slice('tick_'.length)
+      : '';
+    if (worldId.length > 0) {
+      await this.markTickSettled(worldId);
+    }
+    await this.deadLetter(job, error);
   }
 
   private async deadLetter(job: Job, error: Error): Promise<void> {
