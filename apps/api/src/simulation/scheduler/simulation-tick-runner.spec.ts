@@ -426,6 +426,29 @@ describe('SimulationTickRunner', () => {
       expect(result).toMatchObject({ status: 'failed' });
     });
 
+    it('preserves failed results when metadata lookup is unavailable', async () => {
+      const { runner, lifecycleService, logService } = createRunner();
+      const lookupFailure = new Error('configuration lookup failed');
+      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
+        lookupFailure,
+      );
+      lifecycleService.getByWorldId.mockRejectedValue(lookupFailure);
+
+      const result = await runner.runScheduledTick(
+        scheduledCommand(),
+        'job-11',
+      );
+
+      expect(logService.writeFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'unknown',
+          model: 'unknown',
+          jobId: 'job-11',
+        }),
+      );
+      expect(result).toMatchObject({ status: 'failed' });
+    });
+
     it('logs a transient write-path error as a retryable failed result', async () => {
       const { runner, executor, contentWriter, logService } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);

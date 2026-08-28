@@ -12,10 +12,7 @@ import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import {
-  SimulationConfigMalformedError,
-  SimulationWorkRejectedError,
-} from '@/simulation/lifecycle/simulation-lifecycle.error';
+import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
@@ -293,10 +290,7 @@ export class SimulationTickRunner {
             provider: this.provider.config.providerId,
             model: this.provider.config.model,
           };
-    } catch (error) {
-      if (!(error instanceof SimulationConfigMalformedError)) {
-        throw error;
-      }
+    } catch {
       return UNKNOWN_PROVIDER_METADATA;
     }
   }
