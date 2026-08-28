@@ -41,7 +41,7 @@ export type SimulationProviderSelection = Pick<
 export function createDefaultSimulationConfig(
   provider: SimulationProviderSelection = {
     providerId: 'mock',
-    model: 'fixture-model',
+    model: 'mock',
   },
 ): SimulationConfigDefaults {
   return {

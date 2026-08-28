@@ -9,7 +9,7 @@ describe('createDefaultSimulationConfig', () => {
       jitterMs: 300_000,
       actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
       providerId: 'mock',
-      model: 'fixture-model',
+      model: 'mock',
     });
   });
 
