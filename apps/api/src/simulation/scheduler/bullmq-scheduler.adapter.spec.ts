@@ -8,6 +8,8 @@ import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
@@ -110,6 +112,32 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const connection = {
     quit: jest.fn().mockResolvedValue(undefined),
   };
+  let runtimeState: SimulationRuntimeStateRecord = {
+    worldId: 'world-1',
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    bootResumeFailure: null,
+  };
+  const runtimeStateRepository = {
+    findByWorldId: jest.fn().mockImplementation(async () => runtimeState),
+    update: jest.fn().mockImplementation(async (_worldId, input) => {
+      runtimeState = { ...runtimeState, ...input };
+    }),
+    recordRetry: jest.fn().mockImplementation(async () => {
+      runtimeState = {
+        ...runtimeState,
+        retrying: true,
+        recentRetryCount: runtimeState.recentRetryCount + 1,
+        lastRetryAt: new Date(),
+      };
+    }),
+  } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new BullMqSchedulerAdapter(
     schedulerConfig,
@@ -119,6 +147,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     castingRepository,
     randomSource,
     tickRunner,
+    runtimeStateRepository,
     queue as never,
     dlq as never,
     connection as never,
@@ -222,6 +251,7 @@ describe('BullMqSchedulerAdapter', () => {
     expect(observability).toMatchObject({
       available: true,
       pending: true,
+      workExpected: true,
       recentRetryCount: 0,
       deadLetterCount: 0,
     });
@@ -229,6 +259,7 @@ describe('BullMqSchedulerAdapter', () => {
 
     dlq.getJobs.mockResolvedValue([
       {
+        name: 'tick_world-1',
         data: {
           command: { worldSlug: 'mbti-house' },
           reason: 'TIMEOUT',
@@ -236,6 +267,7 @@ describe('BullMqSchedulerAdapter', () => {
         },
       },
       {
+        name: 'tick_other-world',
         data: {
           command: { worldSlug: 'other-world' },
           reason: 'ignored',

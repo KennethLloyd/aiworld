@@ -169,6 +169,7 @@ describe('SimulationAdminResponseMapper', () => {
       scheduler: {
         available: true,
         pending: true,
+        workExpected: true,
         nextTickAt: new Date('2026-08-13T01:00:00.000Z'),
         lastTickStartedAt: new Date('2026-08-13T00:20:00.000Z'),
         lastTickCompletedAt: new Date('2026-08-13T00:20:07.000Z'),

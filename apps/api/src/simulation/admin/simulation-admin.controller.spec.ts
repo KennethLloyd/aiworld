@@ -94,6 +94,7 @@ const healthRecord: SimulationHealthRecord = {
   scheduler: {
     available: true,
     pending: false,
+    workExpected: false,
     nextTickAt: null,
     lastTickStartedAt: null,
     lastTickCompletedAt: null,
@@ -114,6 +115,7 @@ const healthResponse: SimulationHealthResponse = {
   scheduler: {
     available: true,
     pending: false,
+    workExpected: false,
     nextTickAt: null,
     lastTickStartedAt: null,
     lastTickCompletedAt: null,
@@ -134,6 +136,7 @@ const healthResponse: SimulationHealthResponse = {
     ...telemetryRecord,
     lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
     lastSuccessAt: null,
+    lastProviderSuccessAt: null,
     lastFailureAt: null,
     lastProviderFailureAt: null,
   },
@@ -359,6 +362,8 @@ describe('SimulationAdminController', () => {
         ...telemetryRecord,
         lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
         lastSuccessAt: telemetryRecord.lastSuccessAt?.toISOString() ?? null,
+        lastProviderSuccessAt:
+          telemetryRecord.lastProviderSuccessAt?.toISOString() ?? null,
         lastFailureAt: telemetryRecord.lastFailureAt?.toISOString() ?? null,
         lastProviderFailureAt:
           telemetryRecord.lastProviderFailureAt?.toISOString() ?? null,

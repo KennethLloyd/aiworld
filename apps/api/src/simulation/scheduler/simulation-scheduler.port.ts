@@ -10,6 +10,7 @@ export type RunCustomActionInput = {
 export type SimulationSchedulerObservabilityRecord = {
   available: boolean;
   pending: boolean;
+  workExpected: boolean;
   nextTickAt: Date | null;
   lastTickStartedAt: Date | null;
   lastTickCompletedAt: Date | null;
@@ -48,7 +49,8 @@ export abstract class SimulationScheduler {
   abstract getObservability(
     worldId: string,
   ): Promise<SimulationSchedulerObservabilityRecord>;
-  /** Preserve a boot-resume failure for admin visibility without failing app
-   * startup. The next successful start clears this signal. */
-  abstract recordBootResumeFailure(worldId: string, error: unknown): void;
+  abstract recordBootResumeFailure(
+    worldId: string,
+    error: unknown,
+  ): Promise<void>;
 }

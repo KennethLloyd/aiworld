@@ -50,13 +50,20 @@ export function deriveSimulationHealth(
   const { config, scheduler, telemetry } = input;
   const lastSuccessAt = telemetry.lastSuccessAt ?? null;
   const lastFailureAt = telemetry.lastFailureAt ?? null;
+  const lastProviderSuccessAt =
+    telemetry.lastProviderSuccessAt === undefined
+      ? lastSuccessAt
+      : telemetry.lastProviderSuccessAt;
   const lastProviderFailureAt =
-    telemetry.lastProviderFailureAt ?? lastFailureAt;
+    telemetry.lastProviderFailureAt === undefined
+      ? lastFailureAt
+      : telemetry.lastProviderFailureAt;
   const providerStatus: SimulationProviderHealthStatus =
     lastProviderFailureAt !== null &&
-    (lastSuccessAt === null || lastProviderFailureAt > lastSuccessAt)
+    (lastProviderSuccessAt === null ||
+      lastProviderFailureAt > lastProviderSuccessAt)
       ? 'DEGRADED'
-      : lastSuccessAt !== null
+      : lastProviderSuccessAt !== null
         ? 'HEALTHY'
         : 'UNKNOWN';
 
@@ -84,6 +91,11 @@ export function deriveSimulationHealth(
     };
   }
 
+  const tickInFlight =
+    scheduler.lastTickStartedAt !== null &&
+    (scheduler.lastTickCompletedAt === null ||
+      scheduler.lastTickStartedAt > scheduler.lastTickCompletedAt);
+
   if (scheduler.pending && scheduler.nextTickAt !== null) {
     if (scheduler.nextTickAt <= now) {
       return {
@@ -92,16 +104,22 @@ export function deriveSimulationHealth(
         providerStatus,
       };
     }
-  } else if (scheduler.lastTickCompletedAt === null) {
+  } else if (!scheduler.workExpected) {
     return {
       status: 'UNKNOWN',
-      reason: 'No pending tick or completed tick is available yet.',
+      reason: 'No active scheduled work is expected right now.',
       providerStatus,
     };
-  } else {
+  } else if (!tickInFlight && scheduler.lastTickCompletedAt === null) {
+    return {
+      status: 'UNHEALTHY',
+      reason: 'Expected scheduled work has no pending tick.',
+      providerStatus,
+    };
+  } else if (!tickInFlight) {
     return {
       status: 'DEGRADED',
-      reason: 'No pending scheduled work is currently available.',
+      reason: 'Scheduler has stopped progressing and has no pending tick.',
       providerStatus,
     };
   }

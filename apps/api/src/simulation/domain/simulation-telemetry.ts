@@ -14,6 +14,7 @@ export interface SimulationTelemetryRecord {
   lastRunAt: Date | null;
   lastSuccessAt?: Date | null;
   lastFailureAt?: Date | null;
+  lastProviderSuccessAt?: Date | null;
   lastProviderFailureAt?: Date | null;
 }
 

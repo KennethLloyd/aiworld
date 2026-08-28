@@ -56,12 +56,7 @@ export class SimulationAdminService {
   ) {}
 
   async getConfig(slug: string): Promise<WorldSimulationConfigRecord> {
-    const world = await this.requireWorld(slug);
-    const config = await this.lifecycleService.getByWorldId(world.id);
-    if (!config) {
-      throw new SimulationConfigNotFoundError(world.id);
-    }
-    return config;
+    return (await this.requireConfig(slug)).config;
   }
 
   async updateState(
@@ -110,16 +105,21 @@ export class SimulationAdminService {
     return telemetry ?? emptySimulationTelemetry(world.id);
   }
   async getHealth(slug: string): Promise<SimulationHealthRecord> {
-    const world = await this.requireWorld(slug);
-    const config = await this.lifecycleService.getByWorldId(world.id);
-    if (!config) {
-      throw new SimulationConfigNotFoundError(world.id);
-    }
+    const { world, config } = await this.requireConfig(slug);
 
-    const [scheduler, storedTelemetry] = await Promise.all([
+    const [observedScheduler, storedTelemetry] = await Promise.all([
       this.scheduler.getObservability(world.id),
       this.logRepository.getTelemetry(world.id),
     ]);
+    const scheduler =
+      config.state === 'RUNNING'
+        ? observedScheduler
+        : {
+            ...observedScheduler,
+            pending: false,
+            workExpected: false,
+            nextTickAt: null,
+          };
     const telemetry = storedTelemetry ?? emptySimulationTelemetry(world.id);
     const decision = deriveSimulationHealth({
       config,
@@ -128,8 +128,14 @@ export class SimulationAdminService {
     });
     const lastSuccessAt = telemetry.lastSuccessAt ?? null;
     const lastFailureAt = telemetry.lastFailureAt ?? null;
+    const lastProviderSuccessAt =
+      telemetry.lastProviderSuccessAt === undefined
+        ? lastSuccessAt
+        : telemetry.lastProviderSuccessAt;
     const lastProviderFailureAt =
-      telemetry.lastProviderFailureAt ?? lastFailureAt;
+      telemetry.lastProviderFailureAt === undefined
+        ? lastFailureAt
+        : telemetry.lastProviderFailureAt;
 
     return {
       lifecycleState: config.state,
@@ -141,11 +147,23 @@ export class SimulationAdminService {
       execution: { lastSuccessAt, lastFailureAt },
       provider: {
         status: decision.providerStatus,
-        lastSuccessAt,
+        lastSuccessAt: lastProviderSuccessAt,
         lastFailureAt: lastProviderFailureAt,
       },
       telemetry,
     };
+  }
+
+  private async requireConfig(slug: string): Promise<{
+    world: WorldRecord;
+    config: WorldSimulationConfigRecord;
+  }> {
+    const world = await this.requireWorld(slug);
+    const config = await this.lifecycleService.getByWorldId(world.id);
+    if (!config) {
+      throw new SimulationConfigNotFoundError(world.id);
+    }
+    return { world, config };
   }
 
   private async requireWorld(slug: string): Promise<WorldRecord> {

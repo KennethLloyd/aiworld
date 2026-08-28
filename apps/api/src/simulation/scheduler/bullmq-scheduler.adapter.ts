@@ -14,6 +14,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
@@ -71,6 +72,7 @@ export class BullMqSchedulerAdapter
     castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
     tickRunner: SimulationTickRunner,
+    runtimeStateRepository: SimulationRuntimeStateRepository,
     private readonly queue: Queue,
     private readonly dlq: Queue,
     private readonly connection: IORedis,
@@ -81,6 +83,7 @@ export class BullMqSchedulerAdapter
       picker,
       castingRepository,
       tickRunner,
+      runtimeStateRepository,
     );
   }
 
@@ -99,48 +102,40 @@ export class BullMqSchedulerAdapter
       }
     });
   }
-
   async start(worldId: string): Promise<void> {
     const config = await this.requireConfig(worldId);
     if (config.state !== 'RUNNING') {
-      this.markStopped(worldId);
+      await this.markStopped(worldId);
       return;
     }
     await this.removePendingTicks(worldId);
     this.pendingTickJobIds.delete(worldId);
     await this.enqueueTick(worldId);
-    this.markSchedulerStartSucceeded(worldId);
+    await this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
     await this.removeTrackedTick(worldId);
-    this.markStopped(worldId);
+    await this.markStopped(worldId);
   }
 
   async getObservability(
     worldId: string,
   ): Promise<SimulationSchedulerObservabilityRecord> {
-    const runtime = this.getRuntimeObservability(
+    const runtime = await this.getRuntimeObservability(
       worldId,
       this.worker?.isRunning() ?? false,
     );
-    let worldSlug = this.runtimeWorldSlug(worldId);
 
     try {
-      if (worldSlug === undefined) {
-        worldSlug = (await this.worldRepository.findById(worldId))?.slug;
-      }
       const deadLetterJobs = await this.dlq.getJobs(
         ['waiting', 'active', 'delayed', 'failed'],
         0,
         -1,
       );
-      const matchingJobs = deadLetterJobs.filter((job) => {
-        const data = job.data as {
-          command?: { worldSlug?: string };
-        } | null;
-        return data?.command?.worldSlug === worldSlug;
-      });
+      const matchingJobs = deadLetterJobs.filter(
+        (job) => job.name === tickJobName(worldId),
+      );
       const latestJob = matchingJobs.reduce<
         (typeof matchingJobs)[number] | undefined
       >((latest, job) => {
@@ -185,7 +180,7 @@ export class BullMqSchedulerAdapter
       // failure here must not prevent it from applying its existing policy.
     }
     if (worldId !== undefined) {
-      this.markTickStarted(worldId);
+      await this.markTickStarted(worldId);
     }
 
     let result: Awaited<ReturnType<SimulationTickRunner['runScheduledTick']>>;
@@ -193,11 +188,11 @@ export class BullMqSchedulerAdapter
       result = await this.tickRunner.runScheduledTick(command, job.id);
     } catch (error) {
       if (worldId !== undefined) {
-        this.markTickAttemptCompleted(worldId);
+        await this.markTickAttemptCompleted(worldId);
         if (isTransientSchedulerError(error)) {
-          this.markRetry(worldId);
+          await this.markRetry(worldId);
         } else {
-          this.markTickSettled(worldId);
+          await this.markTickSettled(worldId);
         }
       }
       // The runner only throws when logging the attempt itself failed (for
@@ -213,11 +208,11 @@ export class BullMqSchedulerAdapter
 
     if (result.status === 'failed') {
       if (worldId !== undefined) {
-        this.markTickAttemptCompleted(worldId);
+        await this.markTickAttemptCompleted(worldId);
       }
       if (result.failure.retryable) {
         if (worldId !== undefined) {
-          this.markRetry(worldId);
+          await this.markRetry(worldId);
         }
         throw new Error(
           redactDiagnostics(
@@ -226,7 +221,7 @@ export class BullMqSchedulerAdapter
         );
       }
       if (worldId !== undefined) {
-        this.markTickSettled(worldId);
+        await this.markTickSettled(worldId);
       }
       throw new UnrecoverableError(
         redactDiagnostics(`${result.failure.code}: ${result.failure.message}`),
@@ -237,14 +232,14 @@ export class BullMqSchedulerAdapter
       await this.scheduleNextTick(result.log.worldId);
     } catch (error) {
       if (worldId !== undefined) {
-        this.markTickAttemptCompleted(worldId);
-        this.markTickSettled(worldId);
+        await this.markTickAttemptCompleted(worldId);
+        await this.markTickSettled(worldId);
       }
       throw error;
     }
     if (worldId !== undefined) {
-      this.markTickAttemptCompleted(worldId);
-      this.markTickSettled(worldId);
+      await this.markTickAttemptCompleted(worldId);
+      await this.markTickSettled(worldId);
     }
   }
 
@@ -273,6 +268,7 @@ export class BullMqSchedulerAdapter
   }
 
   private async enqueueTick(worldId: string): Promise<void> {
+    await this.markStopped(worldId);
     const composed = await this.composeScheduledCommand(worldId);
     if (!composed) {
       return;
@@ -298,11 +294,7 @@ export class BullMqSchedulerAdapter
       removeOnFail: false,
     });
     this.pendingTickJobIds.set(worldId, jobId);
-    this.markScheduled(
-      worldId,
-      new Date(Date.now() + delay),
-      composed.command.worldSlug,
-    );
+    await this.markScheduled(worldId, new Date(Date.now() + delay));
   }
 
   /** Removes the single pending delayed tick for a World by its tracked id —

@@ -80,9 +80,14 @@ export function useUpdateSimulationState() {
     }) => adminGateway.updateSimulationState(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
-      await queryClient.invalidateQueries({
-        queryKey: adminKeys.simulation(slug),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.simulation(slug),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.health(slug),
+        }),
+      ]);
     },
   });
 }
@@ -100,9 +105,14 @@ export function useUpdateSimulationSpeed() {
     }) => adminGateway.updateSimulationSpeed(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
-      await queryClient.invalidateQueries({
-        queryKey: adminKeys.simulation(slug),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.simulation(slug),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.health(slug),
+        }),
+      ]);
     },
   });
 }

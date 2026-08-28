@@ -10,6 +10,10 @@ import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import type {
+  SimulationRuntimeStateRecord,
+  SimulationRuntimeStateRepository,
+} from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SimulationCharacterNotActiveError,
   SimulationIterationPickError,
@@ -28,19 +32,20 @@ import { WorldRepository } from '@/world/repositories/world-repository.interface
 
 const RECENT_RETRY_WINDOW_MS = 15 * 60 * 1_000;
 
-type RuntimeState = {
-  worldSlug?: string;
-  pending: boolean;
-  nextTickAt: Date | null;
-  lastTickStartedAt: Date | null;
-  lastTickCompletedAt: Date | null;
-  retrying: boolean;
-  retryTimestamps: Date[];
-  bootResumeFailure: {
-    occurredAt: Date;
-    reason: string;
-  } | null;
-};
+function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
+  return {
+    worldId,
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    bootResumeFailure: null,
+  };
+}
 
 /** Shared behavior for both scheduler adapters: the port's manual operations
  * and the scheduled-command composition. Both `runOneAction` and
@@ -55,109 +60,98 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     protected readonly picker: SimulationIterationPicker,
     protected readonly castingRepository: SimulationCastingRepository,
     protected readonly tickRunner: SimulationTickRunner,
+    protected readonly runtimeStateRepository: SimulationRuntimeStateRepository,
   ) {
     super();
   }
 
-  recordBootResumeFailure(worldId: string, error: unknown): void {
-    const state = this.runtimeStateFor(worldId);
-    state.bootResumeFailure = {
-      occurredAt: new Date(),
-      reason: redactDiagnostics(
-        error instanceof Error ? error.message : 'Scheduler resume failed',
-      ),
-    };
+  async recordBootResumeFailure(
+    worldId: string,
+    error: unknown,
+  ): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      bootResumeFailure: {
+        occurredAt: new Date(),
+        reason: redactDiagnostics(
+          error instanceof Error ? error.message : 'Scheduler resume failed',
+        ),
+      },
+    });
   }
 
-  protected markSchedulerStartSucceeded(worldId: string): void {
-    this.runtimeStateFor(worldId).bootResumeFailure = null;
+  protected async markSchedulerStartSucceeded(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      bootResumeFailure: null,
+    });
   }
 
-  protected markScheduled(
+  protected async markScheduled(
     worldId: string,
     nextTickAt: Date,
-    worldSlug?: string,
-  ): void {
-    const state = this.runtimeStateFor(worldId);
-    state.pending = true;
-    state.nextTickAt = nextTickAt;
-    if (worldSlug !== undefined) {
-      state.worldSlug = worldSlug;
-    }
+  ): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      pending: true,
+      workExpected: true,
+      nextTickAt,
+    });
   }
 
-  protected markStopped(worldId: string): void {
-    const state = this.runtimeStateFor(worldId);
-    state.pending = false;
-    state.nextTickAt = null;
+  protected async markStopped(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+    });
   }
 
-  protected markTickStarted(worldId: string): void {
-    const state = this.runtimeStateFor(worldId);
-    state.pending = false;
-    state.nextTickAt = null;
-    state.lastTickStartedAt = new Date();
+  protected async markTickStarted(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      pending: false,
+      nextTickAt: null,
+      lastTickStartedAt: new Date(),
+    });
   }
 
-  protected markTickAttemptCompleted(worldId: string): void {
-    this.runtimeStateFor(worldId).lastTickCompletedAt = new Date();
+  protected async markTickAttemptCompleted(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      lastTickCompletedAt: new Date(),
+    });
   }
 
-  protected markTickSettled(worldId: string): void {
-    this.runtimeStateFor(worldId).retrying = false;
+  protected async markTickSettled(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      retrying: false,
+    });
   }
 
-  protected markRetry(worldId: string): void {
-    const state = this.runtimeStateFor(worldId);
-    state.retrying = true;
-    state.retryTimestamps.push(new Date());
+  protected async markRetry(worldId: string): Promise<void> {
+    await this.runtimeStateRepository.recordRetry(worldId);
   }
 
-  protected getRuntimeObservability(
+  protected async getRuntimeObservability(
     worldId: string,
     available: boolean,
-  ): SimulationSchedulerObservabilityRecord {
-    const state = this.runtimeStateFor(worldId);
-    const cutoff = Date.now() - RECENT_RETRY_WINDOW_MS;
-    state.retryTimestamps = state.retryTimestamps.filter(
-      (timestamp) => timestamp.getTime() >= cutoff,
-    );
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    const stored =
+      (await this.runtimeStateRepository.findByWorldId(worldId)) ??
+      emptyRuntimeState(worldId);
+    const retryIsRecent =
+      stored.lastRetryAt !== null &&
+      Date.now() - stored.lastRetryAt.getTime() < RECENT_RETRY_WINDOW_MS;
     return {
       available,
-      pending: state.pending,
-      nextTickAt: state.nextTickAt,
-      lastTickStartedAt: state.lastTickStartedAt,
-      lastTickCompletedAt: state.lastTickCompletedAt,
-      retrying: state.retrying,
-      recentRetryCount: state.retryTimestamps.length,
+      pending: stored.pending,
+      workExpected: stored.workExpected,
+      nextTickAt: stored.nextTickAt,
+      lastTickStartedAt: stored.lastTickStartedAt,
+      lastTickCompletedAt: stored.lastTickCompletedAt,
+      retrying: stored.retrying,
+      recentRetryCount: retryIsRecent ? stored.recentRetryCount : 0,
       deadLetterCount: 0,
       lastDeadLetterAt: null,
       lastDeadLetterReason: null,
-      bootResumeFailure: state.bootResumeFailure,
+      bootResumeFailure: stored.bootResumeFailure,
     };
-  }
-
-  protected runtimeWorldSlug(worldId: string): string | undefined {
-    return this.runtimeStateFor(worldId).worldSlug;
-  }
-
-  private readonly runtimeStates = new Map<string, RuntimeState>();
-
-  private runtimeStateFor(worldId: string): RuntimeState {
-    let state = this.runtimeStates.get(worldId);
-    if (state === undefined) {
-      state = {
-        pending: false,
-        nextTickAt: null,
-        lastTickStartedAt: null,
-        lastTickCompletedAt: null,
-        retrying: false,
-        retryTimestamps: [],
-        bootResumeFailure: null,
-      };
-      this.runtimeStates.set(worldId, state);
-    }
-    return state;
   }
 
   async runOneAction(worldSlug: string): Promise<IterationRunResult> {

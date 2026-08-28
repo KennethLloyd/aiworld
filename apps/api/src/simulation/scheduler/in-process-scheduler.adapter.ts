@@ -5,6 +5,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SCHEDULER_CONFIG } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
@@ -38,6 +39,7 @@ export class InProcessSchedulerAdapter
     private readonly randomSource: SimulationRandomSource,
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
+    runtimeStateRepository: SimulationRuntimeStateRepository,
   ) {
     super(
       lifecycleService,
@@ -45,12 +47,13 @@ export class InProcessSchedulerAdapter
       picker,
       castingRepository,
       tickRunner,
+      runtimeStateRepository,
     );
   }
 
   async start(worldId: string): Promise<void> {
     await this.scheduleNextTick(worldId);
-    this.markSchedulerStartSucceeded(worldId);
+    await this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
@@ -59,13 +62,13 @@ export class InProcessSchedulerAdapter
       clearTimeout(handle);
       this.scheduledTicks.delete(worldId);
     }
-    this.markStopped(worldId);
+    await this.markStopped(worldId);
   }
 
-  getObservability(
+  async getObservability(
     worldId: string,
   ): Promise<SimulationSchedulerObservabilityRecord> {
-    return Promise.resolve(this.getRuntimeObservability(worldId, true));
+    return this.getRuntimeObservability(worldId, true);
   }
 
   onModuleDestroy(): void {
@@ -81,7 +84,7 @@ export class InProcessSchedulerAdapter
       clearTimeout(existing);
       this.scheduledTicks.delete(worldId);
     }
-    this.markStopped(worldId);
+    await this.markStopped(worldId);
 
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
@@ -108,12 +111,12 @@ export class InProcessSchedulerAdapter
       });
     }, delay);
     this.scheduledTicks.set(worldId, handle);
-    this.markScheduled(worldId, new Date(Date.now() + delay), world.slug);
+    await this.markScheduled(worldId, new Date(Date.now() + delay));
   }
 
   private async handleTick(worldId: string): Promise<void> {
     this.scheduledTicks.delete(worldId);
-    this.markTickStarted(worldId);
+    await this.markTickStarted(worldId);
 
     try {
       const composed = await this.composeScheduledCommand(worldId);
@@ -130,7 +133,7 @@ export class InProcessSchedulerAdapter
           result.failure.retryable &&
           attempt < this.schedulerConfig.maxAttempts
         ) {
-          this.markRetry(worldId);
+          await this.markRetry(worldId);
           await this.sleep(this.backoffDelay(attempt));
           attempt += 1;
           continue;
@@ -143,8 +146,8 @@ export class InProcessSchedulerAdapter
       // HALTED, or a stop during flight) is not restarted.
       await this.scheduleNextTick(worldId);
     } finally {
-      this.markTickAttemptCompleted(worldId);
-      this.markTickSettled(worldId);
+      await this.markTickAttemptCompleted(worldId);
+      await this.markTickSettled(worldId);
     }
   }
 

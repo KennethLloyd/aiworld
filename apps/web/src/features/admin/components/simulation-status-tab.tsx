@@ -541,6 +541,9 @@ function TelemetryPanel({
             <TelemetryRow label="Last Successful Execution">
               <span>{formatDate(health?.execution.lastSuccessAt)}</span>
             </TelemetryRow>
+            <TelemetryRow label="Last Run">
+              <span>{formatDate(telemetry?.lastRunAt)}</span>
+            </TelemetryRow>
             <TelemetryRow label="Success">
               <span>{telemetry?.successCount ?? 0}</span>
             </TelemetryRow>

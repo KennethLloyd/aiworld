@@ -15,6 +15,7 @@ export const simulationTelemetryResponseSchema = z.object({
   lastRunAt: z.iso.datetime().nullable(),
   lastSuccessAt: z.iso.datetime().nullable().optional(),
   lastFailureAt: z.iso.datetime().nullable().optional(),
+  lastProviderSuccessAt: z.iso.datetime().nullable().optional(),
   lastProviderFailureAt: z.iso.datetime().nullable().optional(),
 });
 

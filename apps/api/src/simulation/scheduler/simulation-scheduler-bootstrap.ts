@@ -41,7 +41,7 @@ export class SimulationSchedulerBootstrap implements OnModuleInit {
 
         await this.scheduler.start(config.worldId);
       } catch (error) {
-        this.scheduler.recordBootResumeFailure(config.worldId, error);
+        await this.scheduler.recordBootResumeFailure(config.worldId, error);
         this.logger.warn(
           JSON.stringify({
             event: 'simulation_bootstrap_resume_failed',

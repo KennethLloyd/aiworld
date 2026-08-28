@@ -26,9 +26,11 @@ import { SimulationLogService } from '@/simulation/logging/simulation-log.servic
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
 import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
+import { PrismaSimulationRuntimeStateRepository } from '@/simulation/scheduler/prisma-simulation-runtime-state.repository';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
 import {
   loadSchedulerConfig,
@@ -87,6 +89,10 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       useClass: PrismaSimulationCastingRepository,
     },
     {
+      provide: SimulationRuntimeStateRepository,
+      useClass: PrismaSimulationRuntimeStateRepository,
+    },
+    {
       provide: SimulationScheduler,
       inject: [
         SCHEDULER_CONFIG,
@@ -96,6 +102,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
         SimulationCastingRepository,
         SimulationRandomSource,
         SimulationTickRunner,
+        SimulationRuntimeStateRepository,
       ],
       useFactory: (
         config: SchedulerConfig,
@@ -105,6 +112,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
         castingRepository: SimulationCastingRepository,
         randomSource: SimulationRandomSource,
         tickRunner: SimulationTickRunner,
+        runtimeStateRepository: SimulationRuntimeStateRepository,
       ) =>
         createSimulationScheduler(
           config,
@@ -114,6 +122,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
           castingRepository,
           randomSource,
           tickRunner,
+          runtimeStateRepository,
         ),
     },
     SimulationContextProvider,

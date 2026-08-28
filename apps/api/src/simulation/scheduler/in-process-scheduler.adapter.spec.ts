@@ -7,6 +7,8 @@ import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-sch
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
@@ -103,6 +105,32 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retryBaseDelayMs: 1000,
     ...config,
   };
+  let runtimeState: SimulationRuntimeStateRecord = {
+    worldId: 'world-1',
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    bootResumeFailure: null,
+  };
+  const runtimeStateRepository = {
+    findByWorldId: jest.fn().mockImplementation(async () => runtimeState),
+    update: jest.fn().mockImplementation(async (_worldId, input) => {
+      runtimeState = { ...runtimeState, ...input };
+    }),
+    recordRetry: jest.fn().mockImplementation(async () => {
+      runtimeState = {
+        ...runtimeState,
+        retrying: true,
+        recentRetryCount: runtimeState.recentRetryCount + 1,
+        lastRetryAt: new Date(),
+      };
+    }),
+  } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new InProcessSchedulerAdapter(
     lifecycleService,
@@ -112,6 +140,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     tickRunner,
     randomSource,
     schedulerConfig,
+    runtimeStateRepository,
   );
 
   return {
@@ -183,6 +212,7 @@ describe('InProcessSchedulerAdapter', () => {
     expect(pending).toMatchObject({
       available: true,
       pending: true,
+      workExpected: true,
       lastTickStartedAt: null,
       lastTickCompletedAt: null,
       retrying: false,

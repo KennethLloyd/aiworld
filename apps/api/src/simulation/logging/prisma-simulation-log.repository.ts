@@ -121,6 +121,7 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
       aggregate,
       statusCounts,
       lastSuccess,
+      lastProviderSuccess,
       lastFailure,
       lastProviderFailure,
     ] = await Promise.all([
@@ -138,6 +139,11 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
       }),
       this.prisma.simulationLog.findFirst({
         where: { worldId, status: 'SUCCESS' },
+        orderBy: { executedAt: 'desc' },
+        select: { executedAt: true },
+      }),
+      this.prisma.simulationLog.findFirst({
+        where: { worldId, status: { in: ['SUCCESS', 'SKIPPED'] } },
         orderBy: { executedAt: 'desc' },
         select: { executedAt: true },
       }),
@@ -178,6 +184,7 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
           : Math.round(aggregate._avg.latencyMs),
       lastRunAt: aggregate._max.executedAt,
       lastSuccessAt: lastSuccess?.executedAt ?? null,
+      lastProviderSuccessAt: lastProviderSuccess?.executedAt ?? null,
       lastFailureAt: lastFailure?.executedAt ?? null,
       lastProviderFailureAt: lastProviderFailure?.executedAt ?? null,
     };

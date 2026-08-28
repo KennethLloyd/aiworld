@@ -40,6 +40,7 @@ export class SimulationAdminResponseMapper {
       scheduler: {
         available: health.scheduler.available,
         pending: health.scheduler.pending,
+        workExpected: health.scheduler.workExpected,
         nextTickAt: health.scheduler.nextTickAt?.toISOString() ?? null,
         lastTickStartedAt:
           health.scheduler.lastTickStartedAt?.toISOString() ?? null,
@@ -132,6 +133,8 @@ export class SimulationAdminResponseMapper {
       averageLatencyMs: telemetry.averageLatencyMs,
       lastRunAt: telemetry.lastRunAt ? telemetry.lastRunAt.toISOString() : null,
       lastSuccessAt: telemetry.lastSuccessAt?.toISOString() ?? null,
+      lastProviderSuccessAt:
+        telemetry.lastProviderSuccessAt?.toISOString() ?? null,
       lastFailureAt: telemetry.lastFailureAt?.toISOString() ?? null,
       lastProviderFailureAt:
         telemetry.lastProviderFailureAt?.toISOString() ?? null,

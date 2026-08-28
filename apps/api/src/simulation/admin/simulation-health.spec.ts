@@ -33,6 +33,7 @@ const telemetry: SimulationTelemetryRecord = {
 const progressingScheduler: SimulationSchedulerObservabilityRecord = {
   available: true,
   pending: true,
+  workExpected: true,
   nextTickAt: new Date('2026-08-13T01:00:00.000Z'),
   lastTickStartedAt: new Date('2026-08-13T00:20:00.000Z'),
   lastTickCompletedAt: new Date('2026-08-13T00:20:20.000Z'),
@@ -97,10 +98,37 @@ describe('deriveSimulationHealth', () => {
         {},
         {
           pending: false,
+          lastTickStartedAt: new Date('2026-08-11T00:00:00.000Z'),
           lastTickCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
         },
       ),
     ).toMatchObject({ status: 'DEGRADED' });
+  });
+  it('treats a World without expected work as unknown', () => {
+    expect(
+      derive(
+        {},
+        {
+          pending: false,
+          workExpected: false,
+          lastTickCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
+        },
+      ).status,
+    ).toBe('UNKNOWN');
+  });
+
+  it('does not report an in-flight tick as stalled', () => {
+    expect(
+      derive(
+        {},
+        {
+          pending: false,
+          workExpected: true,
+          lastTickStartedAt: new Date('2026-08-13T00:29:00.000Z'),
+          lastTickCompletedAt: new Date('2026-08-13T00:20:00.000Z'),
+        },
+      ).status,
+    ).toBe('HEALTHY');
   });
 
   it('marks retries and recent provider failures as degraded', () => {
@@ -129,6 +157,20 @@ describe('deriveSimulationHealth', () => {
         {
           lastSuccessAt: new Date('2026-08-13T00:29:00.000Z'),
           lastFailureAt: new Date('2026-08-13T00:25:00.000Z'),
+        },
+      ),
+    ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });
+  });
+  it('does not treat non-provider failures as provider degradation', () => {
+    expect(
+      derive(
+        {},
+        {},
+        {
+          lastSuccessAt: new Date('2026-08-13T00:00:00.000Z'),
+          lastFailureAt: new Date('2026-08-13T00:25:00.000Z'),
+          lastProviderSuccessAt: new Date('2026-08-13T00:29:00.000Z'),
+          lastProviderFailureAt: null,
         },
       ),
     ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });

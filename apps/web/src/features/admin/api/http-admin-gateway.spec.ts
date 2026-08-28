@@ -39,6 +39,7 @@ const health: SimulationHealthResponse = {
   scheduler: {
     available: true,
     pending: false,
+    workExpected: false,
     nextTickAt: null,
     lastTickStartedAt: null,
     lastTickCompletedAt: null,

@@ -30,6 +30,7 @@ export const simulationHealthResponseSchema = z.object({
   scheduler: z.object({
     available: z.boolean(),
     pending: z.boolean(),
+    workExpected: z.boolean(),
     nextTickAt: timestampSchema,
     lastTickStartedAt: timestampSchema,
     lastTickCompletedAt: timestampSchema,

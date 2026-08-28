@@ -1,0 +1,18 @@
+model SimulationRuntimeState {
+  id                      String    @id @default(uuid())
+  worldId                 String    @unique
+  pending                 Boolean   @default(false)
+  workExpected            Boolean   @default(false)
+  nextTickAt              DateTime?
+  lastTickStartedAt       DateTime?
+  lastTickCompletedAt     DateTime?
+  retrying                Boolean   @default(false)
+  recentRetryCount        Int       @default(0)
+  lastRetryAt             DateTime?
+  bootResumeFailureAt     DateTime?
+  bootResumeFailureReason String?   @db.Text
+
+  world World @relation(fields: [worldId], references: [id], onDelete: Cascade)
+
+  @@map("simulation_runtime_state")
+}

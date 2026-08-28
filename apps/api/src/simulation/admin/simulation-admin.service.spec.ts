@@ -276,6 +276,7 @@ describe('SimulationAdminService', () => {
       scheduler.getObservability.mockResolvedValue({
         available: true,
         pending: true,
+        workExpected: true,
         nextTickAt: new Date(Date.now() + 60_000),
         lastTickStartedAt: new Date(),
         lastTickCompletedAt: new Date(),
