@@ -1,4 +1,5 @@
 import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
+import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 
 export type RunCustomActionInput = {
@@ -7,23 +8,10 @@ export type RunCustomActionInput = {
   actionType?: SimulationActionType;
 };
 
-export type SimulationSchedulerObservabilityRecord = {
-  available: boolean;
-  pending: boolean;
-  workExpected: boolean;
-  nextTickAt: Date | null;
-  lastTickStartedAt: Date | null;
-  lastTickCompletedAt: Date | null;
-  retrying: boolean;
-  recentRetryCount: number;
-  deadLetterCount: number;
-  lastDeadLetterAt: Date | null;
-  lastDeadLetterReason: string | null;
-  bootResumeFailure: {
-    occurredAt: Date;
-    reason: string;
-  } | null;
-};
+export type SimulationSchedulerObservabilityRecord =
+  SimulationRuntimeSignals & {
+    available: boolean;
+  };
 
 /** The seam that drives simulation ticks. `start`/`stop` control scheduled
  * work for a World; `runOneAction` and `runCustomAction` compose and await a

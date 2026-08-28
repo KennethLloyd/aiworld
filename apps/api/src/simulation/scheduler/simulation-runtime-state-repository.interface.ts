@@ -1,20 +1,8 @@
-export type SimulationRuntimeStateRecord = {
+import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
+
+export type SimulationRuntimeStateRecord = SimulationRuntimeSignals & {
   worldId: string;
-  pending: boolean;
-  workExpected: boolean;
-  nextTickAt: Date | null;
-  lastTickStartedAt: Date | null;
-  lastTickCompletedAt: Date | null;
-  retrying: boolean;
-  recentRetryCount: number;
   lastRetryAt: Date | null;
-  deadLetterCount: number;
-  lastDeadLetterAt: Date | null;
-  lastDeadLetterReason: string | null;
-  bootResumeFailure: {
-    occurredAt: Date;
-    reason: string;
-  } | null;
 };
 
 export type SimulationRuntimeStateUpdate = Partial<

@@ -130,6 +130,36 @@ describe('deriveSimulationHealth', () => {
       ).status,
     ).toBe('HEALTHY');
   });
+  it('marks an in-flight tick unhealthy after the expected interval', () => {
+    expect(
+      derive(
+        {},
+        {
+          pending: false,
+          workExpected: true,
+          lastTickStartedAt: new Date('2026-08-12T00:00:00.000Z'),
+          lastTickCompletedAt: new Date('2026-08-11T23:00:00.000Z'),
+        },
+      ),
+    ).toMatchObject({
+      status: 'UNHEALTHY',
+      reason:
+        'A scheduled tick has not completed within the expected interval.',
+    });
+  });
+
+  it('lets provider health recover after the recent-failure window', () => {
+    expect(
+      derive(
+        {},
+        {},
+        {
+          lastProviderSuccessAt: new Date('2026-08-12T22:00:00.000Z'),
+          lastProviderFailureAt: new Date('2026-08-12T22:30:00.000Z'),
+        },
+      ),
+    ).toMatchObject({ status: 'HEALTHY', providerStatus: 'HEALTHY' });
+  });
 
   it('marks retries and recent provider failures as degraded', () => {
     expect(derive({}, { retrying: true }).status).toBe('DEGRADED');

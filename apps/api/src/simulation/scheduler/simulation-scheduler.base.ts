@@ -10,6 +10,7 @@ import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
 import type {
   SimulationRuntimeStateRecord,
   SimulationRuntimeStateRepository,
@@ -29,8 +30,6 @@ import {
 } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
-
-const RECENT_RETRY_WINDOW_MS = 15 * 60 * 1_000;
 
 function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
   return {

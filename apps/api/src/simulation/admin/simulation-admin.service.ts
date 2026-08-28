@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
   deriveSimulationHealth,
+  normalizeProviderExecutionTimestamps,
   SimulationHealthRecord,
 } from '@/simulation/admin/simulation-health';
 import {
@@ -126,16 +127,12 @@ export class SimulationAdminService {
       scheduler,
       telemetry,
     });
-    const lastSuccessAt = telemetry.lastSuccessAt ?? null;
-    const lastFailureAt = telemetry.lastFailureAt ?? null;
-    const lastProviderSuccessAt =
-      telemetry.lastProviderSuccessAt === undefined
-        ? lastSuccessAt
-        : telemetry.lastProviderSuccessAt;
-    const lastProviderFailureAt =
-      telemetry.lastProviderFailureAt === undefined
-        ? lastFailureAt
-        : telemetry.lastProviderFailureAt;
+    const {
+      lastSuccessAt,
+      lastFailureAt,
+      lastProviderSuccessAt,
+      lastProviderFailureAt,
+    } = normalizeProviderExecutionTimestamps(telemetry);
 
     return {
       lifecycleState: config.state,

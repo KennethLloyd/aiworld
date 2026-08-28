@@ -124,7 +124,7 @@ export class BullMqSchedulerAdapter
   ): Promise<SimulationSchedulerObservabilityRecord> {
     const runtime = await this.getRuntimeObservability(
       worldId,
-      this.worker?.isRunning() ?? false,
+      this.connection.status === 'ready' && (this.worker?.isRunning() ?? false),
     );
 
     return runtime;

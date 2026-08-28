@@ -111,6 +111,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   };
   const connection = {
     quit: jest.fn().mockResolvedValue(undefined),
+    status: 'ready',
   };
   let runtimeState: SimulationRuntimeStateRecord = {
     worldId: 'world-1',
@@ -180,6 +181,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     castingRepository,
     tickRunner,
     queue,
+    connection,
     dlq,
     worker,
   };
@@ -288,6 +290,15 @@ describe('BullMqSchedulerAdapter', () => {
       expect.anything(),
     );
     expect(dlq.getJobs).not.toHaveBeenCalled();
+  });
+  it('reports the scheduler unavailable while Redis is not ready', async () => {
+    const { adapter, connection } = createAdapter();
+
+    connection.status = 'reconnecting';
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      available: false,
+    });
   });
 
   it('start is a no-op for a world that is not RUNNING', async () => {

@@ -2,13 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 import { Prisma, SimulationRuntimeState } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
 import {
   SimulationRuntimeStateRecord,
   SimulationRuntimeStateRepository,
   SimulationRuntimeStateUpdate,
 } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
-
-const RECENT_RETRY_WINDOW_MS = 15 * 60 * 1_000;
 
 @Injectable()
 export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeStateRepository {

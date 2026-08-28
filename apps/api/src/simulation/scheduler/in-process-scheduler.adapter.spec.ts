@@ -268,6 +268,24 @@ describe('InProcessSchedulerAdapter', () => {
     expect(randomSource.next).not.toHaveBeenCalled();
     expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
   });
+  it('clears expected work when a tick cannot be composed', async () => {
+    const { adapter, picker } = createAdapter();
+    picker.pickCharacter.mockRejectedValueOnce(
+      new SimulationIterationPickError(
+        'NO_ACTIVE_CHARACTERS',
+        'No active characters',
+      ),
+    );
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(1800000);
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+    });
+  });
 
   it('stop removes the pending tick', async () => {
     const { adapter, tickRunner } = createAdapter();

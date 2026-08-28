@@ -14,12 +14,46 @@ export type SimulationHealthDecision = {
   reason: string | null;
   providerStatus: SimulationProviderHealthStatus;
 };
-
 export type SimulationHealthInput = {
   config: WorldSimulationConfigRecord;
   scheduler: SimulationSchedulerObservabilityRecord;
   telemetry: SimulationTelemetryRecord;
 };
+
+export const SIMULATION_HEALTH_RECENCY_WINDOW_MS = 15 * 60 * 1_000;
+
+type ProviderExecutionTimestamps = {
+  lastSuccessAt: Date | null;
+  lastFailureAt: Date | null;
+  lastProviderSuccessAt: Date | null;
+  lastProviderFailureAt: Date | null;
+};
+
+export function normalizeProviderExecutionTimestamps(
+  telemetry: SimulationTelemetryRecord,
+): ProviderExecutionTimestamps {
+  const lastSuccessAt = telemetry.lastSuccessAt ?? null;
+  const lastFailureAt = telemetry.lastFailureAt ?? null;
+  return {
+    lastSuccessAt,
+    lastFailureAt,
+    lastProviderSuccessAt:
+      telemetry.lastProviderSuccessAt === undefined
+        ? lastSuccessAt
+        : telemetry.lastProviderSuccessAt,
+    lastProviderFailureAt:
+      telemetry.lastProviderFailureAt === undefined
+        ? lastFailureAt
+        : telemetry.lastProviderFailureAt,
+  };
+}
+
+function isRecent(timestamp: Date | null, now: Date): boolean {
+  return (
+    timestamp !== null &&
+    now.getTime() - timestamp.getTime() <= SIMULATION_HEALTH_RECENCY_WINDOW_MS
+  );
+}
 
 /** Derives operator-facing health from lifecycle state and runtime evidence.
  * Lifecycle states intentionally short-circuit to IDLE: PAUSED and HALTED are
@@ -48,24 +82,22 @@ export function deriveSimulationHealth(
   now = new Date(),
 ): SimulationHealthDecision {
   const { config, scheduler, telemetry } = input;
-  const lastSuccessAt = telemetry.lastSuccessAt ?? null;
-  const lastFailureAt = telemetry.lastFailureAt ?? null;
-  const lastProviderSuccessAt =
-    telemetry.lastProviderSuccessAt === undefined
-      ? lastSuccessAt
-      : telemetry.lastProviderSuccessAt;
-  const lastProviderFailureAt =
-    telemetry.lastProviderFailureAt === undefined
-      ? lastFailureAt
-      : telemetry.lastProviderFailureAt;
-  const providerStatus: SimulationProviderHealthStatus =
+  const {
+    lastSuccessAt,
+    lastFailureAt,
+    lastProviderSuccessAt,
+    lastProviderFailureAt,
+  } = normalizeProviderExecutionTimestamps(telemetry);
+  const providerFailureIsRecent =
     lastProviderFailureAt !== null &&
+    isRecent(lastProviderFailureAt, now) &&
     (lastProviderSuccessAt === null ||
-      lastProviderFailureAt > lastProviderSuccessAt)
-      ? 'DEGRADED'
-      : lastProviderSuccessAt !== null
-        ? 'HEALTHY'
-        : 'UNKNOWN';
+      lastProviderFailureAt > lastProviderSuccessAt);
+  const providerStatus: SimulationProviderHealthStatus = providerFailureIsRecent
+    ? 'DEGRADED'
+    : lastProviderSuccessAt !== null
+      ? 'HEALTHY'
+      : 'UNKNOWN';
 
   if (config.state !== 'RUNNING') {
     return {
@@ -95,6 +127,23 @@ export function deriveSimulationHealth(
     scheduler.lastTickStartedAt !== null &&
     (scheduler.lastTickCompletedAt === null ||
       scheduler.lastTickStartedAt > scheduler.lastTickCompletedAt);
+
+  const tickStallThresholdMs = Math.max(
+    config.intervalMs + config.jitterMs,
+    SIMULATION_HEALTH_RECENCY_WINDOW_MS,
+  );
+  if (
+    tickInFlight &&
+    scheduler.lastTickStartedAt !== null &&
+    now.getTime() - scheduler.lastTickStartedAt.getTime() > tickStallThresholdMs
+  ) {
+    return {
+      status: 'UNHEALTHY',
+      reason:
+        'A scheduled tick has not completed within the expected interval.',
+      providerStatus,
+    };
+  }
 
   if (scheduler.pending && scheduler.nextTickAt !== null) {
     if (scheduler.nextTickAt <= now) {
@@ -150,6 +199,7 @@ export function deriveSimulationHealth(
 
   if (
     lastFailureAt !== null &&
+    isRecent(lastFailureAt, now) &&
     (lastSuccessAt === null || lastFailureAt > lastSuccessAt)
   ) {
     return {

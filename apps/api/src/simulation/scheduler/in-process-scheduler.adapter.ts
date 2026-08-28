@@ -121,6 +121,7 @@ export class InProcessSchedulerAdapter
     try {
       const composed = await this.composeScheduledCommand(worldId);
       if (!composed) {
+        await this.markStopped(worldId);
         return; // not RUNNING anymore, or the World cannot act — cadence stops
       }
 
