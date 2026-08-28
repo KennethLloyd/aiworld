@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import { Prisma, WorldSimulationConfig } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
@@ -64,6 +64,10 @@ function toModel(worldId: string, value: string): string {
 
 @Injectable()
 export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfigRepository {
+  private readonly logger = new Logger(
+    PrismaWorldSimulationConfigRepository.name,
+  );
+
   constructor(private readonly prisma: PrismaService) {
     super();
   }
@@ -103,7 +107,25 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
       where: { state },
     });
 
-    return rows.map((row) => this.mapToRecord(row));
+    const configs: WorldSimulationConfigRecord[] = [];
+    for (const row of rows) {
+      try {
+        configs.push(this.mapToRecord(row));
+      } catch (error) {
+        if (!(error instanceof SimulationConfigMalformedError)) {
+          throw error;
+        }
+        this.logger.warn(
+          JSON.stringify({
+            event: 'simulation_config_malformed',
+            worldId: row.worldId,
+            error: error.message,
+          }),
+        );
+      }
+    }
+
+    return configs;
   }
 
   async transitionState(

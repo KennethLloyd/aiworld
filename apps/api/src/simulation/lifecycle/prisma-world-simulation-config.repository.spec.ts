@@ -69,6 +69,18 @@ describe('PrismaWorldSimulationConfigRepository', () => {
     expect(result.map((record) => record.id)).toEqual(['config-1', 'config-2']);
   });
 
+  it('skips malformed rows while listing configs for scheduler bootstrap', async () => {
+    const { repository, prisma } = createRepository();
+    prisma.worldSimulationConfig.findMany.mockResolvedValue([
+      row({ id: 'config-bad', providerId: 'unsupported-provider' }),
+      row({ id: 'config-good' }),
+    ]);
+
+    const result = await repository.findAllByState('RUNNING');
+
+    expect(result.map((record) => record.id)).toEqual(['config-good']);
+  });
+
   it('surfaces malformed persisted weights instead of fabricating them', async () => {
     const { repository, prisma } = createRepository();
     prisma.worldSimulationConfig.findUnique.mockResolvedValue(
