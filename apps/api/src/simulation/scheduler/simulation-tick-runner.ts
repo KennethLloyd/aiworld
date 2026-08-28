@@ -12,7 +12,10 @@ import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
+import {
+  SimulationConfigMalformedError,
+  SimulationWorkRejectedError,
+} from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
@@ -42,6 +45,11 @@ type LogContext = {
   action: SimulationActionType;
   executionSource: SimulationExecutionSource;
   jobId?: string | null;
+};
+
+const UNKNOWN_PROVIDER_METADATA = {
+  provider: 'unknown',
+  model: 'unknown',
 };
 
 /** Executes one iteration of simulated work — the shared body of scheduled
@@ -277,13 +285,20 @@ export class SimulationTickRunner {
   private async providerMetadata(
     worldId: string,
   ): Promise<{ provider: string; model: string }> {
-    const config = await this.lifecycleService.getByWorldId(worldId);
-    return config
-      ? { provider: config.providerId, model: config.model }
-      : {
-          provider: this.provider.config.providerId,
-          model: this.provider.config.model,
-        };
+    try {
+      const config = await this.lifecycleService.getByWorldId(worldId);
+      return config
+        ? { provider: config.providerId, model: config.model }
+        : {
+            provider: this.provider.config.providerId,
+            model: this.provider.config.model,
+          };
+    } catch (error) {
+      if (!(error instanceof SimulationConfigMalformedError)) {
+        throw error;
+      }
+      return UNKNOWN_PROVIDER_METADATA;
+    }
   }
 
   private async requireWorld(worldSlug: string): Promise<WorldRecord> {

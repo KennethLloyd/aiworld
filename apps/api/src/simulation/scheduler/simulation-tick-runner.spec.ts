@@ -2,6 +2,7 @@ import { SimulationActionExecutor } from '@/simulation/actions/simulation-action
 import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import {
+  SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
@@ -396,6 +397,30 @@ describe('SimulationTickRunner', () => {
           jobId: 'job-5',
           worldId: 'world-1',
           failure: expect.objectContaining({ retryable: false }),
+        }),
+      );
+      expect(result).toMatchObject({ status: 'failed' });
+    });
+
+    it('logs malformed configuration failures with safe metadata', async () => {
+      const { runner, lifecycleService, logService } = createRunner();
+      const malformed = new SimulationConfigMalformedError(
+        'world-1',
+        'model must be a non-empty string',
+      );
+      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(malformed);
+      lifecycleService.getByWorldId.mockRejectedValue(malformed);
+
+      const result = await runner.runScheduledTick(
+        scheduledCommand(),
+        'job-10',
+      );
+
+      expect(logService.writeFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'unknown',
+          model: 'unknown',
+          jobId: 'job-10',
         }),
       );
       expect(result).toMatchObject({ status: 'failed' });
