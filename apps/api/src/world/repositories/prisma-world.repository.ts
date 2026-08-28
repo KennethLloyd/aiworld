@@ -9,7 +9,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, World } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import {
+  ActiveSimulationLockResult,
+  WorldRepository,
+} from '@/world/repositories/world-repository.interface';
 
 const residentMemberWhere: Prisma.WorldMemberWhereInput = {
   role: 'AI',
@@ -20,6 +23,9 @@ const residentMemberWhere: Prisma.WorldMemberWhereInput = {
 const residentCountInclude = {
   _count: { select: { members: { where: residentMemberWhere } } },
 } as const;
+
+const simulationWorldLock = (worldId: string) =>
+  Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${worldId}, 0))`;
 
 function isStringRecord(
   value: Prisma.JsonValue | null,
@@ -116,6 +122,28 @@ export class PrismaWorldRepository extends WorldRepository {
     return item ? this.mapToWorldRecord(item) : null;
   }
 
+  async withActiveSimulationLock<T>(
+    worldId: string,
+    operation: () => Promise<T>,
+  ): Promise<ActiveSimulationLockResult<T>> {
+    return this.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(simulationWorldLock(worldId));
+      const world = await transaction.world.findUnique({
+        where: { id: worldId },
+        select: { isActive: true },
+      });
+
+      if (!world) {
+        return { status: 'missing' };
+      }
+      if (!world.isActive) {
+        return { status: 'inactive' };
+      }
+
+      return { status: 'executed', value: await operation() };
+    });
+  }
+
   async create(data: CreateWorld): Promise<WorldRecord> {
     const item = await this.prisma.world.create({
       data: {
@@ -136,15 +164,43 @@ export class PrismaWorldRepository extends WorldRepository {
       return null;
     }
 
+    const updateData = {
+      ...data,
+      description:
+        data.description === undefined
+          ? undefined
+          : (data.description ?? Prisma.DbNull),
+    };
+
+    if (data.isActive === false) {
+      // Deactivation pauses only RUNNING simulation configs atomically with the
+      // visibility change; reactivation leaves the persisted lifecycle paused.
+      const item = await this.prisma.$transaction(async (transaction) => {
+        const current = await transaction.world.findUnique({
+          where: { slug },
+        });
+        if (!current) {
+          return null;
+        }
+
+        await transaction.$executeRaw(simulationWorldLock(current.id));
+        const updatedWorld = await transaction.world.update({
+          where: { id: current.id },
+          data: updateData,
+        });
+        await transaction.worldSimulationConfig.updateMany({
+          where: { worldId: current.id, state: 'RUNNING' },
+          data: { state: 'PAUSED' },
+        });
+        return updatedWorld;
+      });
+
+      return item ? this.mapToWorldRecord(item) : null;
+    }
+
     const item = await this.prisma.world.update({
       where: { slug },
-      data: {
-        ...data,
-        description:
-          data.description === undefined
-            ? undefined
-            : (data.description ?? Prisma.DbNull),
-      },
+      data: updateData,
     });
 
     return this.mapToWorldRecord(item);

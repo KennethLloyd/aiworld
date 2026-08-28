@@ -19,7 +19,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { ApiError } from '@/core/api/api-error';
@@ -95,6 +95,7 @@ function AdminWorldsList() {
   const navigate = useNavigate({ from: '/admin/worlds' });
   const { toast } = useToast();
   const [deleting, setDeleting] = useState<WorldResponse | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [togglingSlug, setTogglingSlug] = useState<string | null>(null);
   const [draft, setDraft] = useState(search.search ?? '');
   const didMount = useRef(false);
@@ -107,6 +108,10 @@ function AdminWorldsList() {
 
   const deleteWorld = useDeleteWorld();
   const updateWorld = useUpdateWorld();
+  const deleteConfirmationMatches =
+    deleting !== null &&
+    (deleteConfirmation === deleting.name ||
+      deleteConfirmation === deleting.slug);
 
   const data = worldsQuery.data;
 
@@ -173,18 +178,29 @@ function AdminWorldsList() {
     );
   };
 
+  const closeDeleteDialog = useCallback(() => {
+    setDeleting(null);
+    setDeleteConfirmation('');
+  }, []);
+
+  const requestDelete = (world: WorldResponse) => {
+    setDeleting(world);
+    setDeleteConfirmation('');
+  };
+
   const confirmDelete = () => {
-    if (deleting === null) {
+    if (deleting === null || !deleteConfirmationMatches) {
       return;
     }
     const world = deleting;
+
     deleteWorld.mutate(world.slug, {
       onSuccess: () => {
-        setDeleting(null);
+        closeDeleteDialog();
         toast({ tone: 'success', title: 'World deleted' });
       },
       onError: (error) => {
-        setDeleting(null);
+        closeDeleteDialog();
         toast({
           tone: 'error',
           title: 'Could not delete world',
@@ -253,7 +269,7 @@ function AdminWorldsList() {
           </Link>
           <button
             type="button"
-            onClick={() => setDeleting(world)}
+            onClick={() => requestDelete(world)}
             aria-label={`Delete ${world.name}`}
             className={buttonClasses('ghost', 'sm')}
           >
@@ -350,27 +366,50 @@ function AdminWorldsList() {
 
       <Modal
         open={deleting !== null}
-        onClose={() => setDeleting(null)}
-        title="Delete world"
+        onClose={closeDeleteDialog}
+        title={
+          deleting
+            ? `Delete “${deleting.name}” permanently?`
+            : 'Delete world permanently'
+        }
         footer={
           <>
-            <Button variant="outline" onClick={() => setDeleting(null)}>
+            <Button variant="outline" onClick={closeDeleteDialog}>
               Cancel
             </Button>
             <Button
               variant="danger"
               onClick={confirmDelete}
+              disabled={!deleteConfirmationMatches}
               loading={deleteWorld.isPending}
             >
-              Delete
+              Delete permanently
             </Button>
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-ink/80">
-          Delete &quot;{deleting?.name}&quot;? This removes the world from the
-          directory and cannot be undone.
-        </p>
+        {deleting ? (
+          <>
+            <p className="text-sm leading-relaxed text-ink/80">
+              This permanently deletes this World and its related data,
+              including memberships, posts, comments, votes, simulation history,
+              and simulation configuration.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-ink/80">
+              This cannot be undone.
+            </p>
+            <div className="mt-4">
+              <Input
+                label="Confirmation"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                placeholder={deleting.name}
+                hint={`Type “${deleting.name}” or “${deleting.slug}” exactly.`}
+                autoComplete="off"
+              />
+            </div>
+          </>
+        ) : null}
       </Modal>
     </div>
   );

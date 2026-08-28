@@ -11,6 +11,7 @@ import {
 import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import { SimulationDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
+import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
@@ -46,12 +47,13 @@ type LogContext = {
  * ticks, Run One Action, and Custom Action. Every operation hands the runner a
  * serializable `SimulationCommand` (the same shape both queue adapters
  * transport) and receives a result: success, a logged failure, or a lifecycle
- * rejection. The runner enforces the lifecycle gates (scheduled work only
- * while RUNNING, manual work rejected in HALTED), resolves VOTE/COMMENT target
- * posts, and funnels every outcome through the action executor → content
- * writer → log service pipeline. Thrown errors are turned into logged failures
- * here — transient ones stay retryable so the adapter's policy applies — and
- * the runner never talks to a queue or an LLM provider directly. */
+ * rejection. The runner enforces World activity and the lifecycle gates
+ * (scheduled work only while RUNNING, manual work rejected in HALTED), resolves
+ * VOTE/COMMENT target posts, and funnels every outcome through the action
+ * executor → content writer → log service pipeline. Thrown errors are turned
+ * into logged failures here — transient ones stay retryable so the adapter's
+ * policy applies — and the runner never talks to a queue or an LLM provider
+ * directly. */
 @Injectable()
 export class SimulationTickRunner {
   constructor(
@@ -74,8 +76,14 @@ export class SimulationTickRunner {
     const world = await this.requireWorld(command.worldSlug);
 
     try {
-      await this.lifecycleService.assertScheduledWorkAllowed(world.id);
+      return await this.executeIteration({ world, command, jobId });
     } catch (error) {
+      if (
+        error instanceof SimulationActionError &&
+        error.code === 'WORLD_NOT_FOUND'
+      ) {
+        throw error;
+      }
       if (error instanceof SimulationWorkRejectedError) {
         const log = await this.logService.writeRejected({
           worldId: world.id,
@@ -91,24 +99,15 @@ export class SimulationTickRunner {
       }
       return this.failScheduled(command, world.id, jobId, error);
     }
-
-    try {
-      return await this.executeIteration({ world, command, jobId });
-    } catch (error) {
-      return this.failScheduled(command, world.id, jobId, error);
-    }
   }
 
-  /** Manual work (Run One Action / Custom Action) awaits the result. The
-   * command is already fully composed (specific character and action, or
-   * Any Character / Automatic resolved by the caller); a HALTED World throws
-   * instead of executing. */
+  /** Manual work (Run One Action / Custom Action) awaits the result. A
+   * HALTED or inactive World throws instead of executing. */
   async runManualIteration(
     command: ScheduledCommand,
     jobId?: string | null,
   ): Promise<IterationRunResult> {
     const world = await this.requireWorld(command.worldSlug);
-    await this.lifecycleService.assertManualWorkAllowed(world.id);
     return this.executeIteration({ world, command, jobId });
   }
 
@@ -118,6 +117,9 @@ export class SimulationTickRunner {
     jobId?: string | null;
   }): Promise<IterationRunResult> {
     const { world, command, jobId } = input;
+    await this.assertWorkAllowed(world.id, command.executionSource);
+    const workKind =
+      command.executionSource === 'scheduled' ? 'SCHEDULED' : 'MANUAL';
     const logContext: LogContext = {
       worldId: world.id,
       characterId: command.characterId,
@@ -134,6 +136,7 @@ export class SimulationTickRunner {
           worldSlug: command.worldSlug,
           characterId: command.characterId,
         },
+        workKind,
       });
     }
 
@@ -164,13 +167,19 @@ export class SimulationTickRunner {
         characterId: command.characterId,
         postId: targetPostId,
       },
+      workKind,
     });
   }
 
   private async executeExecutorCommand(input: {
     logContext: LogContext;
     executorCommand: SimulationCommand;
+    workKind: 'MANUAL' | 'SCHEDULED';
   }): Promise<IterationRunResult> {
+    const allowedConfig = await this.assertWorkAllowed(
+      input.logContext.worldId,
+      input.logContext.executionSource,
+    );
     const outcome = await this.executor.execute(input.executorCommand);
     if (outcome.status === 'failed') {
       const log = await this.logService.writeFailure({
@@ -183,7 +192,31 @@ export class SimulationTickRunner {
     }
 
     const decision = outcome.decision;
-    await this.contentWriter.persist(decision);
+    // The provider may finish while deactivation is in flight. Serialize the
+    // final write with deactivation so inactive Worlds cannot gain new content.
+    const persisted = await this.worldRepository.withActiveSimulationLock(
+      input.logContext.worldId,
+      async () => {
+        await this.assertWorkAllowed(
+          input.logContext.worldId,
+          input.logContext.executionSource,
+        );
+        await this.contentWriter.persist(decision);
+      },
+    );
+    if (persisted.status === 'inactive') {
+      throw new SimulationWorkRejectedError(
+        input.workKind,
+        allowedConfig.state,
+        'INACTIVE',
+      );
+    }
+    if (persisted.status === 'missing') {
+      throw new SimulationActionError(
+        'WORLD_NOT_FOUND',
+        `World "${input.executorCommand.worldSlug}" was not found`,
+      );
+    }
     const log = await this.logService.writeSuccess(
       decision,
       outcome.telemetry,
@@ -191,6 +224,16 @@ export class SimulationTickRunner {
       input.logContext.jobId,
     );
     return { status: 'success', decision, log };
+  }
+
+  private assertWorkAllowed(
+    worldId: string,
+    executionSource: ScheduledCommand['executionSource'],
+  ): Promise<WorldSimulationConfigRecord> {
+    if (executionSource === 'scheduled') {
+      return this.lifecycleService.assertScheduledWorkAllowed(worldId);
+    }
+    return this.lifecycleService.assertManualWorkAllowed(worldId);
   }
 
   /** Converts a thrown error into a logged failed result so every attempt

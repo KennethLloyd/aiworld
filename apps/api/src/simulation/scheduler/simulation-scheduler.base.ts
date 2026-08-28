@@ -61,10 +61,10 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     return this.tickRunner.runManualIteration(command);
   }
 
-  /** Composes the next scheduled tick for a World along with its pacing
-   * config, or returns null when the World is not RUNNING, was deleted, or
-   * cannot act (no active characters) — in all of these the cadence simply
-   * stops and is resumed by the next `start` or boot. Permanent composition
+  /** Composes the next scheduled tick for an active World with its pacing
+   * config, or returns null when the World is inactive, not RUNNING, deleted,
+   * or cannot act (no active characters). In all of these cases cadence stops
+   * and is resumed by the next `start` or boot. Permanent composition
    * conditions never throw: a throw here would be a job retry and a duplicate
    * run of the identical command. */
   protected async composeScheduledCommand(worldId: string): Promise<{
@@ -84,6 +84,9 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
         return null;
       }
       throw error;
+    }
+    if (!world.isActive) {
+      return null;
     }
 
     let characterId: string;

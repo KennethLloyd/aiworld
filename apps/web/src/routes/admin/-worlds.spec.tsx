@@ -190,7 +190,7 @@ describe('/admin/worlds route', () => {
     });
   });
 
-  it('deletes a world after confirmation', async () => {
+  it('requires deliberate typed confirmation before permanent deletion', async () => {
     const client = createQueryClient();
     client.setQueryData(sessionKeys.current, makeSession('ADMIN'));
 
@@ -202,12 +202,38 @@ describe('/admin/worlds route', () => {
       screen.getAllByRole('button', { name: 'Delete World 1' })[0],
     );
 
-    const dialog = await screen.findByRole('dialog', { name: 'Delete world' });
-    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Delete “World 1” permanently?',
+    });
+    expect(dialog).toHaveTextContent('memberships');
+    expect(dialog).toHaveTextContent('posts');
+    expect(dialog).toHaveTextContent('comments');
+    expect(dialog).toHaveTextContent('votes');
+    expect(dialog).toHaveTextContent('simulation history');
+    expect(dialog).toHaveTextContent('simulation configuration');
 
-    await userEvent.click(
-      within(dialog).getByRole('button', { name: 'Delete' }),
+    const deleteButton = within(dialog).getByRole('button', {
+      name: 'Delete permanently',
+    });
+    expect(deleteButton).toBeDisabled();
+
+    await userEvent.type(
+      within(dialog).getByLabelText('Confirmation'),
+      'wrong',
     );
+    expect(deleteButton).toBeDisabled();
+
+    await userEvent.clear(within(dialog).getByLabelText('Confirmation'));
+    await userEvent.type(
+      within(dialog).getByLabelText('Confirmation'),
+      'World 1',
+    );
+    expect(within(dialog).getByLabelText('Confirmation')).toHaveValue(
+      'World 1',
+    );
+    await waitFor(() => expect(deleteButton).toBeEnabled());
+
+    await userEvent.click(deleteButton);
 
     expect(await screen.findByText('World deleted')).toBeInTheDocument();
     expect(deleteRequests).toEqual(['world-1']);
@@ -215,6 +241,31 @@ describe('/admin/worlds route', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
     expect(screen.queryAllByText('World 1')).toHaveLength(0);
+  });
+
+  it('leaves the World untouched when permanent deletion is cancelled', async () => {
+    const client = createQueryClient();
+    client.setQueryData(sessionKeys.current, makeSession('ADMIN'));
+
+    renderAuthRoutes('/admin/worlds', { queryClient: client });
+
+    await screen.findAllByText('World 1');
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Delete World 1' })[0],
+    );
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Delete “World 1” permanently?',
+    });
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Cancel' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(deleteRequests).toEqual([]);
+    expect(screen.getAllByText('World 1').length).toBeGreaterThan(0);
   });
 
   it('renders the empty state for an empty directory', async () => {

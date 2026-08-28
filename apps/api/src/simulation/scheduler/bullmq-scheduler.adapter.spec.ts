@@ -226,6 +226,18 @@ describe('BullMqSchedulerAdapter', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
+  it('start is a no-op for an inactive World even when RUNNING is persisted', async () => {
+    const { adapter, worldRepository, queue } = createAdapter();
+    worldRepository.findById.mockResolvedValue({
+      ...world,
+      isActive: false,
+    });
+
+    await adapter.start('world-1');
+
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
   it('stop removes the tracked pending tick without scanning the queue', async () => {
     const { adapter, queue } = createAdapter();
 

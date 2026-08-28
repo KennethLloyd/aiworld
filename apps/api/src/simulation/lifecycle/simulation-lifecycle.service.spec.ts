@@ -8,6 +8,7 @@ import {
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 function configRecord(
   overrides: Partial<WorldSimulationConfigRecord> = {},
@@ -28,7 +29,7 @@ function configRecord(
   };
 }
 
-function createService(state: SimulationState = 'PAUSED') {
+function createService(state: SimulationState = 'PAUSED', isActive = true) {
   const repository = {
     findByWorldId: jest.fn(),
     findAllByState: jest.fn(),
@@ -39,8 +40,30 @@ function createService(state: SimulationState = 'PAUSED') {
     start: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<SimulationScheduler>;
-  const service = new SimulationLifecycleService(repository, scheduler);
-  return { service, repository, scheduler, persisted: configRecord({ state }) };
+  const worldRepository = {
+    findById: jest.fn().mockResolvedValue({
+      id: 'world-1',
+      isActive,
+    }),
+    withActiveSimulationLock: jest.fn(async (_worldId, operation) => {
+      if (!isActive) {
+        return { status: 'inactive' as const };
+      }
+      return { status: 'executed' as const, value: await operation() };
+    }),
+  } as unknown as jest.Mocked<WorldRepository>;
+  const service = new SimulationLifecycleService(
+    repository,
+    scheduler,
+    worldRepository,
+  );
+  return {
+    service,
+    repository,
+    scheduler,
+    worldRepository,
+    persisted: configRecord({ state }),
+  };
 }
 
 describe('SimulationLifecycleService', () => {
@@ -95,6 +118,25 @@ describe('SimulationLifecycleService', () => {
 
       await expect(service.transitionTo('world-1', 'RUNNING')).rejects.toThrow(
         'Invalid simulation state transition',
+      );
+      expect(repository.transitionState).not.toHaveBeenCalled();
+    });
+
+    it('rejects starting an inactive World before persisting RUNNING', async () => {
+      const { service, repository, persisted, worldRepository } = createService(
+        'PAUSED',
+        false,
+      );
+      repository.findByWorldId.mockResolvedValue(persisted);
+
+      await expect(service.start('world-1')).rejects.toMatchObject({
+        kind: 'LIFECYCLE',
+        reason: 'INACTIVE',
+      });
+
+      expect(worldRepository.withActiveSimulationLock).toHaveBeenCalledWith(
+        'world-1',
+        expect.any(Function),
       );
       expect(repository.transitionState).not.toHaveBeenCalled();
     });
@@ -303,6 +345,18 @@ describe('SimulationLifecycleService', () => {
       await expect(rejection).rejects.toMatchObject({ kind: 'MANUAL' });
       expect(repository.findByWorldId).toHaveBeenCalledWith('world-1');
     });
+
+    it('rejects manual work for an inactive World even when its state allows it', async () => {
+      const { service, repository, persisted } = createService('PAUSED', false);
+      repository.findByWorldId.mockResolvedValue(persisted);
+
+      await expect(
+        service.assertManualWorkAllowed('world-1'),
+      ).rejects.toMatchObject({
+        kind: 'MANUAL',
+        reason: 'INACTIVE',
+      });
+    });
   });
 
   describe('assertScheduledWorkAllowed', () => {
@@ -327,5 +381,20 @@ describe('SimulationLifecycleService', () => {
         await expect(rejection).rejects.toMatchObject({ kind: 'SCHEDULED' });
       },
     );
+
+    it('rejects scheduled work for an inactive World even when RUNNING is persisted', async () => {
+      const { service, repository, persisted } = createService(
+        'RUNNING',
+        false,
+      );
+      repository.findByWorldId.mockResolvedValue(persisted);
+
+      await expect(
+        service.assertScheduledWorkAllowed('world-1'),
+      ).rejects.toMatchObject({
+        kind: 'SCHEDULED',
+        reason: 'INACTIVE',
+      });
+    });
   });
 });

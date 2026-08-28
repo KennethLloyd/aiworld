@@ -30,17 +30,21 @@ export class SimulationStateConcurrentChangeError extends Error {
   }
 }
 
-export type SimulationWorkKind = 'MANUAL' | 'SCHEDULED';
+export type SimulationWorkKind = 'MANUAL' | 'SCHEDULED' | 'LIFECYCLE';
+export type SimulationWorkRejectionReason = 'STATE' | 'INACTIVE';
 
-/** A lifecycle gate rejected work because the persisted state does not allow
- * it: manual work is rejected in HALTED, scheduled work outside RUNNING. */
+/** A lifecycle gate rejected work because the persisted simulation state or
+ * the owning World does not allow it. */
 export class SimulationWorkRejectedError extends Error {
   constructor(
     public readonly kind: SimulationWorkKind,
     state: SimulationState,
+    public readonly reason: SimulationWorkRejectionReason = 'STATE',
   ) {
     super(
-      `Simulation ${kind.toLowerCase()} work is rejected in state ${state}`,
+      reason === 'INACTIVE'
+        ? `Simulation ${kind.toLowerCase()} work is rejected because World is inactive`
+        : `Simulation ${kind.toLowerCase()} work is rejected in state ${state}`,
     );
     this.name = 'SimulationWorkRejectedError';
   }

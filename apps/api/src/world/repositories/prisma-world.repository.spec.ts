@@ -18,6 +18,7 @@ function worldRow(overrides: Record<string, unknown> = {}) {
 
 function createRepository() {
   const prisma = {
+    $transaction: jest.fn(),
     world: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -25,6 +26,9 @@ function createRepository() {
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+    },
+    worldSimulationConfig: {
+      updateMany: jest.fn(),
     },
   };
 
@@ -60,5 +64,103 @@ describe('PrismaWorldRepository resident counts', () => {
         },
       }),
     );
+  });
+
+  it('pauses a running simulation in the same transaction as World deactivation', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      $executeRaw: jest.fn(),
+      world: {
+        findUnique: jest.fn().mockResolvedValue(worldRow()),
+        update: jest.fn().mockResolvedValue(worldRow({ isActive: false })),
+      },
+      worldSimulationConfig: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    prisma.world.findUnique.mockResolvedValue(worldRow());
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await repository.update('mbti-house', { isActive: false });
+
+    expect(transaction.worldSimulationConfig.updateMany).toHaveBeenCalledWith({
+      where: {
+        worldId: '00000000-0000-4000-8000-000000000001',
+        state: 'RUNNING',
+      },
+      data: { state: 'PAUSED' },
+    });
+    expect(transaction.world.update).toHaveBeenCalledWith({
+      where: {
+        id: '00000000-0000-4000-8000-000000000001',
+      },
+      data: { isActive: false },
+    });
+  });
+  it('reactivates a World without resuming its simulation configuration', async () => {
+    const { prisma, repository } = createRepository();
+    prisma.world.findUnique.mockResolvedValue(worldRow({ isActive: false }));
+    prisma.world.update.mockResolvedValue(worldRow({ isActive: true }));
+
+    const result = await repository.update('mbti-house', { isActive: true });
+
+    expect(result?.isActive).toBe(true);
+    expect(prisma.world.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { slug: 'mbti-house' },
+        data: expect.objectContaining({ isActive: true }),
+      }),
+    );
+    expect(prisma.worldSimulationConfig.updateMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('PrismaWorldRepository simulation execution lock', () => {
+  it('runs the operation while the active World lock is held', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      $executeRaw: jest.fn(),
+      world: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'world-1', isActive: true }),
+      },
+    };
+    const operation = jest.fn().mockResolvedValue('completed');
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await expect(
+      repository.withActiveSimulationLock('world-1', operation),
+    ).resolves.toEqual({ status: 'executed', value: 'completed' });
+
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(transaction.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not run the operation for an inactive World', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      $executeRaw: jest.fn(),
+      world: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'world-1', isActive: false }),
+      },
+    };
+    const operation = jest.fn();
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    await expect(
+      repository.withActiveSimulationLock('world-1', operation),
+    ).resolves.toEqual({ status: 'inactive' });
+
+    expect(operation).not.toHaveBeenCalled();
   });
 });
