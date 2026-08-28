@@ -2,8 +2,8 @@ import '../src/lib/config/environment';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@/generated/prisma/client';
+import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
 
 import {
   buildSeedVotes,

@@ -1,7 +1,26 @@
 import type { ProviderConfig } from '@/lib/llm/provider-config';
 
-export const defaultSimulationConfig = {
-  state: 'PAUSED' as const,
+export type SimulationActionWeights = {
+  POST: number;
+  VOTE: number;
+  COMMENT: number;
+};
+
+export type SimulationConfigDefaults = {
+  state: 'PAUSED';
+  speedMultiplier: number;
+  intervalMs: number;
+  jitterMs: number;
+  actionWeights: SimulationActionWeights;
+  providerId: ProviderConfig['providerId'];
+  model: string;
+};
+
+export const defaultSimulationConfig: Omit<
+  SimulationConfigDefaults,
+  'providerId' | 'model'
+> = {
+  state: 'PAUSED',
   speedMultiplier: 1,
   intervalMs: 1_800_000,
   jitterMs: 300_000,
@@ -10,7 +29,7 @@ export const defaultSimulationConfig = {
     VOTE: 0.5,
     COMMENT: 0.3,
   },
-} as const;
+};
 
 export type SimulationProviderSelection = Pick<
   ProviderConfig,
@@ -24,7 +43,7 @@ export function createDefaultSimulationConfig(
     providerId: 'mock',
     model: 'fixture-model',
   },
-) {
+): SimulationConfigDefaults {
   return {
     ...defaultSimulationConfig,
     actionWeights: { ...defaultSimulationConfig.actionWeights },

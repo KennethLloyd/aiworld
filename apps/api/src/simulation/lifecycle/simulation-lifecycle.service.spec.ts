@@ -1,4 +1,4 @@
-import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
+import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import {

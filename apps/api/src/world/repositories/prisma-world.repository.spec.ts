@@ -1,3 +1,4 @@
+import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PrismaWorldRepository } from '@/world/repositories/prisma-world.repository';
 
@@ -35,7 +36,10 @@ function createRepository() {
 
   return {
     prisma,
-    repository: new PrismaWorldRepository(prisma as never),
+    repository: new PrismaWorldRepository(
+      prisma as never,
+      createDefaultSimulationConfig(loadProviderConfig()),
+    ),
   };
 }
 
@@ -165,6 +169,38 @@ describe('PrismaWorldRepository World creation', () => {
       }),
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('copies mutable action weights for each World', async () => {
+    const { prisma, repository } = createRepository();
+    const transaction = {
+      world: {
+        create: jest.fn().mockResolvedValue(worldRow()),
+      },
+      worldSimulationConfig: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction),
+    );
+
+    const world = {
+      name: 'The MBTI House',
+      slug: 'mbti-house',
+      description: null,
+      rules: ['Stay in character'],
+      topicScope: 'Personality types.',
+    };
+    await repository.create(world);
+    await repository.create({ ...world, slug: 'another-world' });
+
+    const firstConfig =
+      transaction.worldSimulationConfig.create.mock.calls[0][0].data;
+    const secondConfig =
+      transaction.worldSimulationConfig.create.mock.calls[1][0].data;
+    expect(firstConfig.actionWeights).not.toBe(secondConfig.actionWeights);
+    expect(firstConfig.actionWeights).toEqual(secondConfig.actionWeights);
   });
 
   it('propagates simulation config failure through the transaction', async () => {

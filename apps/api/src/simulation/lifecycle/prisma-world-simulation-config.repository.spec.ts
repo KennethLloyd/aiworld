@@ -1,4 +1,4 @@
-import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
+import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 import { PrismaWorldSimulationConfigRepository } from '@/simulation/lifecycle/prisma-world-simulation-config.repository';
 import {
   SimulationConfigMalformedError,

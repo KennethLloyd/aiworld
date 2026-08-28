@@ -4,15 +4,15 @@ import {
   ListWorldsQuery,
   UpdateWorld,
 } from '@aiworld/shared/schemas/world.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { Prisma, World } from '@/generated/prisma/client';
+import type { SimulationConfigDefaults } from '@/lib/config/simulation-config-defaults';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { createDefaultSimulationConfig } from '@/simulation/lifecycle/domain/simulation-config-defaults';
 import { WorldRecord } from '@/world/domain/world-record';
 import {
   ActiveSimulationLockResult,
+  WORLD_SIMULATION_CONFIG_DEFAULTS,
   WorldRepository,
 } from '@/world/repositories/world-repository.interface';
 
@@ -47,7 +47,11 @@ function isStringArray(value: Prisma.JsonValue): value is string[] {
 
 @Injectable()
 export class PrismaWorldRepository extends WorldRepository {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(WORLD_SIMULATION_CONFIG_DEFAULTS)
+    private readonly simulationDefaults: SimulationConfigDefaults,
+  ) {
     super();
   }
 
@@ -147,7 +151,6 @@ export class PrismaWorldRepository extends WorldRepository {
   }
 
   async create(data: CreateWorld): Promise<WorldRecord> {
-    const defaults = createDefaultSimulationConfig(loadProviderConfig());
     const item = await this.prisma.$transaction(async (transaction) => {
       const world = await transaction.world.create({
         data: {
@@ -159,7 +162,8 @@ export class PrismaWorldRepository extends WorldRepository {
       await transaction.worldSimulationConfig.create({
         data: {
           worldId: world.id,
-          ...defaults,
+          ...this.simulationDefaults,
+          actionWeights: { ...this.simulationDefaults.actionWeights },
         },
       });
 

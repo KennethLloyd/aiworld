@@ -1,4 +1,4 @@
-import { createDefaultSimulationConfig } from './simulation-config-defaults';
+import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 
 describe('createDefaultSimulationConfig', () => {
   it('returns the canonical lifecycle, pacing, weighting, and provider defaults', () => {
