@@ -166,6 +166,21 @@ describe('deriveSimulationHealth', () => {
     expect(
       derive(
         {},
+        {
+          pending: false,
+          workExpected: true,
+          retrying: true,
+          lastTickCompletedAt: null,
+        },
+      ),
+    ).toEqual({
+      status: 'DEGRADED',
+      reason: 'Scheduler retries are active or accumulating.',
+      providerStatus: 'HEALTHY',
+    });
+    expect(
+      derive(
+        {},
         {},
         {
           lastSuccessAt: new Date('2026-08-13T00:00:00.000Z'),

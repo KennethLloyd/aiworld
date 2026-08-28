@@ -132,6 +132,13 @@ export function deriveSimulationHealth(
       providerStatus,
     };
   }
+  if (scheduler.retrying || scheduler.recentRetryCount > 0) {
+    return {
+      status: 'DEGRADED',
+      reason: 'Scheduler retries are active or accumulating.',
+      providerStatus,
+    };
+  }
 
   const tickInFlight =
     scheduler.lastTickStartedAt !== null &&
@@ -187,14 +194,6 @@ export function deriveSimulationHealth(
     return {
       status: 'DEGRADED',
       reason: `${scheduler.deadLetterCount} scheduler job${scheduler.deadLetterCount === 1 ? '' : 's'} failed permanently.`,
-      providerStatus,
-    };
-  }
-
-  if (scheduler.retrying || scheduler.recentRetryCount > 0) {
-    return {
-      status: 'DEGRADED',
-      reason: 'Scheduler retries are active or accumulating.',
       providerStatus,
     };
   }
