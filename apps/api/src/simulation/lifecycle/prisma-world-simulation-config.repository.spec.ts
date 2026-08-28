@@ -72,7 +72,7 @@ describe('PrismaWorldSimulationConfigRepository', () => {
   it('skips malformed rows while listing configs for scheduler bootstrap', async () => {
     const { repository, prisma } = createRepository();
     prisma.worldSimulationConfig.findMany.mockResolvedValue([
-      row({ id: 'config-bad', providerId: 'unsupported-provider' }),
+      row({ id: 'config-bad', actionWeights: { POST: 0.5 } }),
       row({ id: 'config-good' }),
     ]);
 
@@ -89,28 +89,6 @@ describe('PrismaWorldSimulationConfigRepository', () => {
 
     await expect(repository.findByWorldId('world-1')).rejects.toThrow(
       SimulationConfigMalformedError,
-    );
-  });
-
-  it('rejects an unsupported persisted provider id', async () => {
-    const { repository, prisma } = createRepository();
-    prisma.worldSimulationConfig.findUnique.mockResolvedValue(
-      row({ providerId: 'unknown-provider' }),
-    );
-
-    await expect(repository.findByWorldId('world-1')).rejects.toThrow(
-      'providerId "unknown-provider" is not supported',
-    );
-  });
-
-  it('rejects an empty persisted model', async () => {
-    const { repository, prisma } = createRepository();
-    prisma.worldSimulationConfig.findUnique.mockResolvedValue(
-      row({ model: '   ' }),
-    );
-
-    await expect(repository.findByWorldId('world-1')).rejects.toThrow(
-      'model must be a non-empty string',
     );
   });
 

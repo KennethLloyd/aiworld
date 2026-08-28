@@ -15,8 +15,6 @@ export interface WorldSimulationConfigRecord {
   intervalMs: number;
   jitterMs: number;
   actionWeights: ActionWeights;
-  providerId: string;
-  model: string;
   createdAt: Date;
   updatedAt: Date;
 }

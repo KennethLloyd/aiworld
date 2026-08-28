@@ -37,8 +37,6 @@ function configRecord(
     intervalMs: 1800000,
     jitterMs: 300000,
     actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-    providerId: 'mock',
-    model: 'fixture-model',
     createdAt: new Date('2026-08-01T00:00:00.000Z'),
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
     ...overrides,
