@@ -122,6 +122,9 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
     bootResumeFailure: null,
   };
   const runtimeStateRepository = {
@@ -137,6 +140,16 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
         lastRetryAt: new Date(),
       };
     }),
+    recordDeadLetter: jest
+      .fn()
+      .mockImplementation(async (_worldId, occurredAt, reason) => {
+        runtimeState = {
+          ...runtimeState,
+          deadLetterCount: runtimeState.deadLetterCount + 1,
+          lastDeadLetterAt: occurredAt,
+          lastDeadLetterReason: reason,
+        };
+      }),
   } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new BullMqSchedulerAdapter(
@@ -242,8 +255,8 @@ describe('BullMqSchedulerAdapter', () => {
       removeOnFail: false,
     });
   });
-  it('exposes pending scheduler progress and aggregate dead-letter signals', async () => {
-    const { adapter, dlq } = createAdapter();
+  it('exposes pending scheduler progress and persisted dead-letter signals', async () => {
+    const { adapter, worker, dlq } = createAdapter();
 
     await adapter.start('world-1');
     let observability = await adapter.getObservability('world-1');
@@ -257,28 +270,24 @@ describe('BullMqSchedulerAdapter', () => {
     });
     expect(observability.nextTickAt).toBeInstanceOf(Date);
 
-    dlq.getJobs.mockResolvedValue([
-      {
-        name: 'tick_world-1',
-        data: {
-          command: { worldSlug: 'mbti-house' },
-          reason: 'TIMEOUT',
-          failedAt: '2026-08-13T00:20:00.000Z',
-        },
-      },
-      {
-        name: 'tick_other-world',
-        data: {
-          command: { worldSlug: 'other-world' },
-          reason: 'ignored',
-          failedAt: '2026-08-13T00:21:00.000Z',
-        },
-      },
-    ]);
-    observability = await adapter.getObservability('world-1');
+    const handler = worker.on.mock.calls.find(
+      ([event]) => event === 'failed',
+    )?.[1];
+    expect(handler).toBeDefined();
+    await (handler as (job: unknown, error: Error) => Promise<void>)(
+      fakeJob({ id: 'dead-job' }),
+      new Error('TIMEOUT'),
+    );
 
+    observability = await adapter.getObservability('world-1');
     expect(observability.deadLetterCount).toBe(1);
     expect(observability.lastDeadLetterReason).toBe('TIMEOUT');
+    expect(dlq.add).toHaveBeenCalledWith(
+      'tick_world-1',
+      expect.objectContaining({ reason: 'TIMEOUT' }),
+      expect.anything(),
+    );
+    expect(dlq.getJobs).not.toHaveBeenCalled();
   });
 
   it('start is a no-op for a world that is not RUNNING', async () => {

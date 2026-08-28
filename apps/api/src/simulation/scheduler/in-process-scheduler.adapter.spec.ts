@@ -115,6 +115,9 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
     bootResumeFailure: null,
   };
   const runtimeStateRepository = {
@@ -130,6 +133,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
         lastRetryAt: new Date(),
       };
     }),
+    recordDeadLetter: jest.fn(),
   } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new InProcessSchedulerAdapter(

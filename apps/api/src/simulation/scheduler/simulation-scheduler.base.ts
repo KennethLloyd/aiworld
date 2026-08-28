@@ -43,6 +43,9 @@ function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
     bootResumeFailure: null,
   };
 }
@@ -131,6 +134,22 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     }
   }
 
+  protected async markDeadLettered(
+    worldId: string,
+    occurredAt: Date,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.recordDeadLetter(
+        worldId,
+        occurredAt,
+        reason,
+      );
+    } catch {
+      // Runtime health is observability; scheduler execution remains primary.
+    }
+  }
+
   private async persistRuntimeState(
     worldId: string,
     input: Parameters<SimulationRuntimeStateRepository['update']>[1],
@@ -161,9 +180,9 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
       lastTickCompletedAt: stored.lastTickCompletedAt,
       retrying: stored.retrying,
       recentRetryCount: retryIsRecent ? stored.recentRetryCount : 0,
-      deadLetterCount: 0,
-      lastDeadLetterAt: null,
-      lastDeadLetterReason: null,
+      deadLetterCount: stored.deadLetterCount,
+      lastDeadLetterAt: stored.lastDeadLetterAt,
+      lastDeadLetterReason: stored.lastDeadLetterReason,
       bootResumeFailure: stored.bootResumeFailure,
     };
   }

@@ -8,6 +8,9 @@ export type SimulationRuntimeStateRecord = {
   retrying: boolean;
   recentRetryCount: number;
   lastRetryAt: Date | null;
+  deadLetterCount: number;
+  lastDeadLetterAt: Date | null;
+  lastDeadLetterReason: string | null;
   bootResumeFailure: {
     occurredAt: Date;
     reason: string;
@@ -28,5 +31,10 @@ export abstract class SimulationRuntimeStateRepository {
     input: SimulationRuntimeStateUpdate,
   ): Promise<void>;
 
+  abstract recordDeadLetter(
+    worldId: string,
+    occurredAt: Date,
+    reason: string,
+  ): Promise<void>;
   abstract recordRetry(worldId: string): Promise<void>;
 }

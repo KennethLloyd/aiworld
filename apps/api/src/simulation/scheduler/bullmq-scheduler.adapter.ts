@@ -127,36 +127,7 @@ export class BullMqSchedulerAdapter
       this.worker?.isRunning() ?? false,
     );
 
-    try {
-      const deadLetterJobs = await this.dlq.getJobs(
-        ['waiting', 'active', 'delayed', 'failed'],
-        0,
-        -1,
-      );
-      const matchingJobs = deadLetterJobs.filter(
-        (job) => job.name === tickJobName(worldId),
-      );
-      const latestJob = matchingJobs.reduce<
-        (typeof matchingJobs)[number] | undefined
-      >((latest, job) => {
-        const latestAt = latest?.data?.failedAt;
-        const jobAt = job.data?.failedAt;
-        return latestAt === undefined ||
-          (jobAt !== undefined && jobAt > latestAt)
-          ? job
-          : latest;
-      }, undefined);
-      return {
-        ...runtime,
-        deadLetterCount: matchingJobs.length,
-        lastDeadLetterAt: latestJob?.data?.failedAt
-          ? new Date(latestJob.data.failedAt)
-          : null,
-        lastDeadLetterReason: latestJob?.data?.reason ?? null,
-      };
-    } catch {
-      return { ...runtime, available: false };
-    }
+    return runtime;
   }
 
   /** Worker processor: runs the tick and decides the job's fate. A transient
@@ -326,19 +297,32 @@ export class BullMqSchedulerAdapter
     if (worldId.length > 0) {
       await this.markTickSettled(worldId);
     }
-    await this.deadLetter(job, error);
+    const deadLetter = await this.deadLetter(job, error);
+    if (worldId.length > 0) {
+      await this.markDeadLettered(
+        worldId,
+        deadLetter.occurredAt,
+        deadLetter.reason,
+      );
+    }
   }
 
-  private async deadLetter(job: Job, error: Error): Promise<void> {
+  private async deadLetter(
+    job: Job,
+    error: Error,
+  ): Promise<{ occurredAt: Date; reason: string }> {
+    const occurredAt = new Date();
+    const reason = redactDiagnostics(error?.message ?? 'Unknown failure');
     await this.dlq.add(
       job.name,
       {
         command: job.data ?? null,
         jobId: job.id,
-        reason: redactDiagnostics(error?.message ?? 'Unknown failure'),
-        failedAt: new Date().toISOString(),
+        reason,
+        failedAt: occurredAt.toISOString(),
       },
       { removeOnComplete: true },
     );
+    return { occurredAt, reason };
   }
 }
