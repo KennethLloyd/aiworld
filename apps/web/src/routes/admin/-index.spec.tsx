@@ -77,8 +77,6 @@ const config: SimulationConfigResponse = {
   intervalMs: 900_000,
   jitterMs: 300_000,
   actionWeights: { POST: 5, VOTE: 3, COMMENT: 2 },
-  providerId: 'mock',
-  model: 'fixture-model',
   createdAt: '2026-07-01T10:00:00.000Z',
   updatedAt: '2026-07-15T10:00:00.000Z',
 };

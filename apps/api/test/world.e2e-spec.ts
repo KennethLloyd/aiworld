@@ -208,8 +208,6 @@ describe('Worlds API (e2e)', () => {
           true,
         );
         expect(res.body.worldId).toBe(createdWorldRecord.id);
-        expect(res.body.providerId).toBe(createdSimulationConfig?.providerId);
-        expect(res.body.model).toBe(createdSimulationConfig?.model);
       });
   });
 

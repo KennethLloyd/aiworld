@@ -1,5 +1,4 @@
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
-import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PrismaWorldRepository } from '@/world/repositories/prisma-world.repository';
 
 function worldRow(overrides: Record<string, unknown> = {}) {
@@ -38,7 +37,7 @@ function createRepository() {
     prisma,
     repository: new PrismaWorldRepository(
       prisma as never,
-      createDefaultSimulationConfig(loadProviderConfig()),
+      createDefaultSimulationConfig(),
     ),
   };
 }
@@ -124,7 +123,6 @@ describe('PrismaWorldRepository resident counts', () => {
 });
 describe('PrismaWorldRepository World creation', () => {
   it('creates the World and canonical simulation config in one transaction', async () => {
-    const providerConfig = loadProviderConfig();
     const { prisma, repository } = createRepository();
     const transaction = {
       world: {
@@ -164,8 +162,6 @@ describe('PrismaWorldRepository World creation', () => {
         intervalMs: 1_800_000,
         jitterMs: 300_000,
         actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-        providerId: providerConfig.providerId,
-        model: providerConfig.model,
       }),
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);

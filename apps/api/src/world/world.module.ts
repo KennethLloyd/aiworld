@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
-import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { WorldResponseMapper } from '@/world/mappers/world-response.mapper';
 import { PrismaWorldRepository } from '@/world/repositories/prisma-world.repository';
 import {
@@ -16,7 +15,7 @@ import { WorldService } from '@/world/world.service';
   providers: [
     {
       provide: WORLD_SIMULATION_CONFIG_DEFAULTS,
-      useFactory: () => createDefaultSimulationConfig(loadProviderConfig()),
+      useFactory: createDefaultSimulationConfig,
     },
     {
       provide: WorldRepository,

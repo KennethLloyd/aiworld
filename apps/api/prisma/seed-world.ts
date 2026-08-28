@@ -3,7 +3,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@/generated/prisma/client';
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
-import { loadProviderConfig } from '@/lib/llm/provider-config';
 
 import {
   buildSeedVotes,
@@ -24,8 +23,7 @@ export async function seedWorld(prisma: PrismaClient) {
     validateCommentDepth(post.comments);
   }
 
-  const simulationDefaults =
-    createDefaultSimulationConfig(loadProviderConfig());
+  const simulationDefaults = createDefaultSimulationConfig();
 
   return prisma.$transaction(async (tx) => {
     // Remove the starter world's obsolete slug while leaving generic World CRUD intact.

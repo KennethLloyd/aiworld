@@ -1,5 +1,3 @@
-import type { ProviderConfig } from '@/lib/llm/provider-config';
-
 export type SimulationActionWeights = {
   POST: number;
   VOTE: number;
@@ -12,14 +10,10 @@ export type SimulationConfigDefaults = {
   intervalMs: number;
   jitterMs: number;
   actionWeights: SimulationActionWeights;
-  providerId: ProviderConfig['providerId'];
-  model: string;
 };
 
-export const defaultSimulationConfig: Omit<
-  SimulationConfigDefaults,
-  'providerId' | 'model'
-> = {
+/** Canonical persisted behavior for a newly created World. */
+export const defaultSimulationConfig: SimulationConfigDefaults = {
   state: 'PAUSED',
   speedMultiplier: 1,
   intervalMs: 1_800_000,
@@ -31,23 +25,11 @@ export const defaultSimulationConfig: Omit<
   },
 };
 
-export type SimulationProviderSelection = Pick<
-  ProviderConfig,
-  'providerId' | 'model'
->;
-
 /** Builds an independent config value for a new World. The nested weights are
  * copied so callers never share mutable JSON state across Worlds. */
-export function createDefaultSimulationConfig(
-  provider: SimulationProviderSelection = {
-    providerId: 'mock',
-    model: 'mock',
-  },
-): SimulationConfigDefaults {
+export function createDefaultSimulationConfig(): SimulationConfigDefaults {
   return {
     ...defaultSimulationConfig,
     actionWeights: { ...defaultSimulationConfig.actionWeights },
-    providerId: provider.providerId,
-    model: provider.model,
   };
 }

@@ -33,7 +33,7 @@ describe('mapSimulationAdminError', () => {
       mapSimulationAdminError(
         new SimulationConfigMalformedError(
           'world-1',
-          'model must be a non-empty string',
+          'actionWeights must be { POST, VOTE, COMMENT } numbers',
         ),
       ),
     ).toThrow('Simulation configuration for world world-1 is malformed');

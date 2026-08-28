@@ -27,8 +27,6 @@ export class SimulationAdminResponseMapper {
       intervalMs: config.intervalMs,
       jitterMs: config.jitterMs,
       actionWeights: config.actionWeights,
-      providerId: config.providerId,
-      model: config.model,
       createdAt: config.createdAt.toISOString(),
       updatedAt: config.updatedAt.toISOString(),
     };

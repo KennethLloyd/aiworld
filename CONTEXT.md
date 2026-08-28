@@ -71,8 +71,9 @@ _Avoid_: cycle, cron
 **Simulation lifecycle**:
 The RUNNING / PAUSED / HALTED state machine of a World's simulation, persisted
 in WorldSimulationConfig — the single source of truth for lifecycle, speed,
-scheduling, and provider configuration. State never lives in process memory.
-_Avoid_: Scheduler state, engine state
+scheduling, and World-specific simulation behavior. LLM provider/model selection
+comes from server-level process configuration and is not World state.
+State never lives in process memory.
 
 **Classification**:
 Generic, optional metadata attached to a Character (the seed vocabulary happens

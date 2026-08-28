@@ -1,5 +1,11 @@
+import { loadProviderConfig } from '@/lib/llm/provider-config';
+import { PostAction } from '@/simulation/actions/post.action';
 import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
-import { PostDecision } from '@/simulation/actions/simulation-decision';
+import { SimulationCommand } from '@/simulation/actions/simulation-command';
+import {
+  PostDecision,
+  SimulationActionOutcome,
+} from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import {
   SimulationConfigMalformedError,
@@ -10,7 +16,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
-import { SimulationLlmProviderResolver } from '@/simulation/providers/simulation-llm-provider.resolver';
+import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
@@ -38,8 +44,6 @@ const config: WorldSimulationConfigRecord = {
   intervalMs: 1800000,
   jitterMs: 300000,
   actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-  providerId: 'mock',
-  model: 'fixture-model',
   createdAt: new Date('2026-08-01T00:00:00.000Z'),
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
@@ -98,6 +102,13 @@ function logRecord(
 function createRunner(
   overrides: {
     gateState?: 'scheduled' | 'manual' | 'halted';
+    providerConfig?: { providerId: string; model: string };
+    simulationConfig?: WorldSimulationConfigRecord;
+    provider?: LlmProvider;
+    execute?: (
+      command: SimulationCommand,
+      provider?: LlmProvider,
+    ) => Promise<SimulationActionOutcome>;
   } = {},
 ) {
   const worldRepository = {
@@ -107,14 +118,14 @@ function createRunner(
       value: await operation(),
     })),
   } as unknown as jest.Mocked<WorldRepository>;
+  const lifecycleConfig = overrides.simulationConfig ?? config;
   const lifecycleService = {
     assertScheduledWorkAllowed: jest.fn(),
     assertManualWorkAllowed: jest.fn(),
-    getByWorldId: jest.fn().mockResolvedValue(config),
   } as unknown as jest.Mocked<
     Pick<
       SimulationLifecycleService,
-      'assertScheduledWorkAllowed' | 'assertManualWorkAllowed' | 'getByWorldId'
+      'assertScheduledWorkAllowed' | 'assertManualWorkAllowed'
     >
   >;
 
@@ -127,8 +138,10 @@ function createRunner(
       new SimulationWorkRejectedError('MANUAL', 'HALTED'),
     );
   } else {
-    lifecycleService.assertScheduledWorkAllowed.mockResolvedValue(config);
-    lifecycleService.assertManualWorkAllowed.mockResolvedValue(config);
+    lifecycleService.assertScheduledWorkAllowed.mockResolvedValue(
+      lifecycleConfig,
+    );
+    lifecycleService.assertManualWorkAllowed.mockResolvedValue(lifecycleConfig);
   }
 
   const picker = {
@@ -137,8 +150,12 @@ function createRunner(
     pickTargetPost: jest.fn().mockResolvedValue('post-1'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
+  const execute = jest.fn();
+  if (overrides.execute !== undefined) {
+    execute.mockImplementation(overrides.execute);
+  }
   const executor = {
-    execute: jest.fn(),
+    execute,
   } as unknown as jest.Mocked<SimulationActionExecutor>;
 
   const contentWriter = {
@@ -153,12 +170,14 @@ function createRunner(
       .mockResolvedValue(logRecord({ status: 'REJECTED' })),
   } as unknown as jest.Mocked<SimulationLogService>;
 
-  const provider = {
-    config: { providerId: 'mock', model: 'fixture-model' },
-  } as unknown as LlmProvider;
-  const providerResolver = {
-    resolve: jest.fn().mockReturnValue(provider),
-  } as unknown as jest.Mocked<SimulationLlmProviderResolver>;
+  const provider =
+    overrides.provider ??
+    ({
+      config: overrides.providerConfig ?? {
+        providerId: 'mock',
+        model: 'fixture-model',
+      },
+    } as unknown as LlmProvider);
 
   const runner = new SimulationTickRunner(
     worldRepository,
@@ -168,7 +187,6 @@ function createRunner(
     contentWriter,
     logService,
     provider,
-    providerResolver,
   );
 
   return {
@@ -179,8 +197,6 @@ function createRunner(
     executor,
     contentWriter,
     logService,
-    provider,
-    providerResolver,
   };
 }
 
@@ -197,16 +213,9 @@ const successOutcome = {
 
 describe('SimulationTickRunner', () => {
   describe('runScheduledTick', () => {
-    it('gates scheduled work, resolves the World provider, persists, and logs', async () => {
-      const {
-        runner,
-        lifecycleService,
-        executor,
-        contentWriter,
-        logService,
-        provider,
-        providerResolver,
-      } = createRunner();
+    it('gates scheduled work, uses the process-global provider, persists, and logs', async () => {
+      const { runner, lifecycleService, executor, contentWriter, logService } =
+        createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runScheduledTick(scheduledCommand(), 'job-1');
@@ -214,15 +223,11 @@ describe('SimulationTickRunner', () => {
       expect(lifecycleService.assertScheduledWorkAllowed).toHaveBeenCalledWith(
         'world-1',
       );
-      expect(providerResolver.resolve).toHaveBeenCalledWith(config);
-      expect(executor.execute).toHaveBeenCalledWith(
-        {
-          action: 'POST',
-          worldSlug: 'mbti-house',
-          characterId: 'character-1',
-        },
-        provider,
-      );
+      expect(executor.execute).toHaveBeenCalledWith({
+        action: 'POST',
+        worldSlug: 'mbti-house',
+        characterId: 'character-1',
+      });
       expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,
@@ -232,6 +237,110 @@ describe('SimulationTickRunner', () => {
       );
       expect(result).toMatchObject({ status: 'success' });
     });
+    it.each([
+      { providerId: 'mock', model: 'server-model-v1' },
+      { providerId: 'openai-compatible', model: 'server-model-v2' },
+    ] as const)(
+      'logs the current process provider/model rather than World configuration',
+      async (providerConfig) => {
+        const { runner, executor, logService } = createRunner({
+          providerConfig,
+        });
+        executor.execute.mockResolvedValue({
+          status: 'failed',
+          failure: {
+            code: 'TIMEOUT',
+            message: 'Provider request timed out',
+            retryable: true,
+          },
+        });
+
+        await runner.runScheduledTick(scheduledCommand(), 'job-global');
+
+        expect(logService.writeFailure).toHaveBeenCalledWith(
+          expect.objectContaining({
+            provider: providerConfig.providerId,
+            model: providerConfig.model,
+            jobId: 'job-global',
+          }),
+        );
+      },
+    );
+
+    it.each(['server-model-v1', 'server-model-v2'] as const)(
+      'executes actions with the process provider, ignoring legacy World LLM fields (%s)',
+      async (model) => {
+        const processProvider = new MockLlmProvider(
+          loadProviderConfig({
+            LLM_PROVIDER: 'mock',
+            LLM_MODEL: model,
+          }),
+          [
+            {
+              id: 'post',
+              output: {
+                title: postDecision.title,
+                content: postDecision.content,
+                reasoning: postDecision.reasoning,
+              },
+            },
+          ],
+        );
+        const legacyWorldConfig = {
+          ...config,
+          providerId: 'mock',
+          model: 'legacy-world-model',
+        } as unknown as WorldSimulationConfigRecord;
+        const contextProvider = {
+          resolveActor: jest.fn().mockResolvedValue({
+            world,
+            character: {
+              id: 'character-1',
+              handle: 'resident',
+              name: 'Resident',
+              classification: 'ISTJ',
+              classificationGroup: 'SJ',
+              avatarUrl: null,
+              biography: 'Loves order.',
+              traits: ['Rigorous'],
+              systemPrompt: 'You are Resident.',
+              isActive: true,
+              createdAt: new Date('2026-08-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+            },
+            memberId: 'member-1',
+          }),
+        };
+        const { runner, executor, contentWriter, logService } = createRunner({
+          provider: processProvider,
+          simulationConfig: legacyWorldConfig,
+          execute: async (command, providerOverride) =>
+            new PostAction(
+              contextProvider as never,
+              providerOverride ?? processProvider,
+            ).execute(command as never),
+        });
+
+        const result = await runner.runScheduledTick(
+          scheduledCommand(),
+          `job-${model}`,
+        );
+
+        expect(result).toMatchObject({ status: 'success' });
+        expect(executor.execute).toHaveBeenCalledWith({
+          action: 'POST',
+          worldSlug: 'mbti-house',
+          characterId: 'character-1',
+        });
+        expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
+        expect(logService.writeSuccess).toHaveBeenCalledWith(
+          postDecision,
+          expect.objectContaining({ source: 'mock', model }),
+          'scheduled',
+          `job-${model}`,
+        );
+      },
+    );
 
     it('rejects before persistence when the World deactivates mid-iteration', async () => {
       const { runner, worldRepository, executor, contentWriter, logService } =
@@ -274,22 +383,19 @@ describe('SimulationTickRunner', () => {
     });
 
     it('targets a picked post for a VOTE command', async () => {
-      const { runner, picker, executor, provider } = createRunner();
+      const { runner, picker, executor } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
       picker.pickTargetPost.mockResolvedValue('post-3');
 
       await runner.runScheduledTick(scheduledCommand({ actionType: 'VOTE' }));
 
       expect(picker.pickTargetPost).toHaveBeenCalledWith('world-1');
-      expect(executor.execute).toHaveBeenCalledWith(
-        {
-          action: 'VOTE',
-          worldSlug: 'mbti-house',
-          characterId: 'character-1',
-          postId: 'post-3',
-        },
-        provider,
-      );
+      expect(executor.execute).toHaveBeenCalledWith({
+        action: 'VOTE',
+        worldSlug: 'mbti-house',
+        characterId: 'character-1',
+        postId: 'post-3',
+      });
     });
 
     it('logs a lifecycle rejection as REJECTED and never retries', async () => {
@@ -402,14 +508,13 @@ describe('SimulationTickRunner', () => {
       expect(result).toMatchObject({ status: 'failed' });
     });
 
-    it('logs malformed configuration failures with safe metadata', async () => {
+    it('logs configuration failures with process-global metadata', async () => {
       const { runner, lifecycleService, logService } = createRunner();
       const malformed = new SimulationConfigMalformedError(
         'world-1',
-        'model must be a non-empty string',
+        'configuration is malformed',
       );
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(malformed);
-      lifecycleService.getByWorldId.mockRejectedValue(malformed);
 
       const result = await runner.runScheduledTick(
         scheduledCommand(),
@@ -418,21 +523,20 @@ describe('SimulationTickRunner', () => {
 
       expect(logService.writeFailure).toHaveBeenCalledWith(
         expect.objectContaining({
-          provider: 'unknown',
-          model: 'unknown',
+          provider: 'mock',
+          model: 'fixture-model',
           jobId: 'job-10',
         }),
       );
       expect(result).toMatchObject({ status: 'failed' });
     });
 
-    it('preserves failed results when metadata lookup is unavailable', async () => {
+    it('preserves process-global metadata when configuration lookup fails', async () => {
       const { runner, lifecycleService, logService } = createRunner();
       const lookupFailure = new Error('configuration lookup failed');
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
         lookupFailure,
       );
-      lifecycleService.getByWorldId.mockRejectedValue(lookupFailure);
 
       const result = await runner.runScheduledTick(
         scheduledCommand(),
@@ -441,8 +545,8 @@ describe('SimulationTickRunner', () => {
 
       expect(logService.writeFailure).toHaveBeenCalledWith(
         expect.objectContaining({
-          provider: 'unknown',
-          model: 'unknown',
+          provider: 'mock',
+          model: 'fixture-model',
           jobId: 'job-11',
         }),
       );
@@ -484,8 +588,7 @@ describe('SimulationTickRunner', () => {
 
   describe('runManualIteration', () => {
     it('uses the composed command and gates manual work', async () => {
-      const { runner, lifecycleService, executor, logService, provider } =
-        createRunner();
+      const { runner, lifecycleService, executor, logService } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runManualIteration(
@@ -504,7 +607,6 @@ describe('SimulationTickRunner', () => {
           action: 'COMMENT',
           characterId: 'character-2',
         }),
-        provider,
       );
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,

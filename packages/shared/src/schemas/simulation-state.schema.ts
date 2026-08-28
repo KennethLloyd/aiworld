@@ -21,8 +21,6 @@ export const simulationConfigResponseSchema = z.object({
     VOTE: z.number().min(0),
     COMMENT: z.number().min(0),
   }),
-  providerId: z.string(),
-  model: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

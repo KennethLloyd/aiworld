@@ -23,8 +23,6 @@ const validConfig = {
   intervalMs: 1800000,
   jitterMs: 300000,
   actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-  providerId: 'mock',
-  model: 'fixture-model',
   createdAt: '2026-08-13T00:00:00.000Z',
   updatedAt: '2026-08-13T00:00:00.000Z',
 };

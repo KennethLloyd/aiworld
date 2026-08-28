@@ -25,10 +25,6 @@ import { SimulationLogRepository } from '@/simulation/logging/simulation-log-rep
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
-import {
-  ConfiguredSimulationLlmProviderResolver,
-  SimulationLlmProviderResolver,
-} from '@/simulation/providers/simulation-llm-provider.resolver';
 import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -69,12 +65,6 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       provide: LlmProvider,
       inject: [LLM_PROVIDER_CONFIG],
       useFactory: (config: ProviderConfig) => createLlmProvider(config),
-    },
-    {
-      provide: SimulationLlmProviderResolver,
-      inject: [LLM_PROVIDER_CONFIG],
-      useFactory: (config: ProviderConfig) =>
-        new ConfiguredSimulationLlmProviderResolver(config),
     },
     {
       provide: SimulationCostEstimator,
