@@ -1,42 +1,27 @@
-# AIWorld Agent Instructions
+# AGENTS.md
 
-## Work tracking
+## Agent skills
 
-- Use GitHub Issues and the public AIWorld project for status. Use `gh` for
-  issue and pull request operations.
-- Assign implementation tickets to `KennethLloyd` before starting.
-- Move a ticket to `In Progress` before implementation. Mark it `Done` only
-  after the pull request is open, checks pass, review is complete, and the
-  pull request is merged.
-- Use a dedicated `codex/` branch for each ticket. Keep commits focused and
-  link pull requests with `Refs #<ticket>` or `Closes #<ticket>` when the
-  ticket is complete.
-- Treat an opened pull request as the default handoff point. After opening it
-  and posting verification details, stop for user review. Never merge a pull
-  request, close an issue, mark a ticket `Done`, or change project status
-  unless the user explicitly requests that exact post-PR action in the current
-  conversation. Passing checks or agent review is not user approval.
-- Split substantial work into child tickets before implementation. Represent
-  blocking relationships with native GitHub issue dependencies.
+### Issue tracker
 
-## Implementation workflow
+Issues live as GitHub issues, driven through the `gh` CLI.
 
-1. Follow the complete workflow defined by the `/implement` skill.
-2. Use current online documentation when external library or platform facts
-   are needed.
-3. Before declaring authenticated UI verification blocked, inspect local
-   configuration for test credentials without printing secrets.
-4. For UI changes, use the in-app browser to exercise affected routes and
-   surrounding navigation states in addition to automated tests.
-5. Capture desktop and iPhone 15 review screenshots for UI pull requests,
-   inspect them for secrets, and include a concise “What to expect” section.
-6. Write code comments that are concise, straightforward, and no longer than
-   one or two lines unless a longer explanation is essential.
-7. Update the ticket and pull request with implementation and verification
-   details in the same task.
-8. Run the relevant checks, push the branch, open the pull request, post
-   implementation and verification details, and stop for user review. Continue
-   to merge or close the ticket only after the user explicitly requests it.
+### Issue workflow — branch + PR, never close early
+
+Every issue ships through a pull request, never a direct commit to `main`:
+
+1. **Check out a new feature branch first**: `git checkout -b feat/issue-<n>-<slug>` (match existing naming, e.g. `feat/issue-1-scaffold`).
+2. **Commit all changes to the feature branch** — never commit to `main`.
+3. **Push the branch and open a PR** with `gh pr create`, body starting with `Closes #<n>`.
+4. **Never close the issue while its PR is still open.** The issue closes only when the PR merges (GitHub auto-closes via `Closes #<n>`). If the PR is open or under review, the issue stays open.
+
+### Triage labels
+
+Five canonical roles use these default label names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`.
+
+### Domain docs
+
+Single-context: use `CONTEXT.md` at the repository root for domain vocabulary and constraints.
 
 ## Architecture boundaries
 
@@ -83,9 +68,24 @@ pnpm --filter @aiworld/api exec prisma migrate deploy
 pnpm --filter @aiworld/api test:e2e
 ```
 
-For UI work, verify the affected public, authenticated, loading, empty, error,
-unauthorized, forbidden, interaction, keyboard, and responsive states directly
-in the browser. Automated tests do not replace direct browser verification.
+### UI change verification and PR evidence
+
+Every UI pull request follows a browser-first, exhaustive verification pass before the PR is created or updated:
+
+1. Use the `control-in-app-browser` skill to exercise the changed flow end-to-end, then test the surrounding affected areas (including validation, loading/error states, edits, retrieval/rendering, downloads, and deletes when applicable). Re-snapshot after navigation or dynamic state changes.
+2. Verify responsive behavior at an iPhone 15-sized viewport (`393×852`) and a desktop viewport (`1280px` wide or larger). Cover every materially different page or state involved in the change.
+3. Capture PR screenshots from the in-app browser. Two screenshots are sufficient only when they each show a complete page and together cover the change; otherwise include additional screenshots for the other pages or states. The evidence must include both mobile and desktop views and visibly showcase the new behavior.
+4. Add a `What to expect` section to the PR description or a PR comment, written in simplified technical, product-facing English. It must explain the visible change, key interactions, responsive behavior, and any demo-data limitations.
+
+The UI verification step is complete only when the relevant browser scenarios pass, the necessary desktop/mobile screenshots are attached, and the PR includes the `What to expect` section. For destructive cloud actions, obtain confirmation at the moment of the action; if confirmation is unavailable, use safe checks and document the limitation.
+
+For UI work, prefer the `control-in-app-browser` skill when it is available:
+use it to inspect the rendered page, exercise the affected interactions, and
+spot responsive or visual UX regressions directly. Run the relevant
+`agent-browser` flow from the plan as a complementary automated check or as a
+fallback when the in-app browser is unavailable. Re-snapshot after navigation
+or dynamic UI changes; automated tests do not replace direct browser
+verification for UI behavior.
 
 ## Security and Git hygiene
 
@@ -94,9 +94,3 @@ in the browser. Automated tests do not replace direct browser verification.
 - Inspect `git status`, `git diff`, and recent history before committing.
 - Stage only files related to the requested ticket.
 - Do not reset, checkout, revert, or modify unrelated user changes.
-
-## Project context
-
-`CONTEXT.md` is the source of truth for AIWorld domain vocabulary. Runtime
-configuration, package scripts, and the repository layout are the source of
-truth for commands and supported local services.
