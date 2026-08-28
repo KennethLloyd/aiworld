@@ -11,6 +11,11 @@
 - Use a dedicated `codex/` branch for each ticket. Keep commits focused and
   link pull requests with `Refs #<ticket>` or `Closes #<ticket>` when the
   ticket is complete.
+- Treat an opened pull request as the default handoff point. After opening it
+  and posting verification details, stop for user review. Never merge a pull
+  request, close an issue, mark a ticket `Done`, or change project status
+  unless the user explicitly requests that exact post-PR action in the current
+  conversation. Passing checks or agent review is not user approval.
 - Split substantial work into child tickets before implementation. Represent
   blocking relationships with native GitHub issue dependencies.
 
@@ -29,8 +34,9 @@
    one or two lines unless a longer explanation is essential.
 7. Update the ticket and pull request with implementation and verification
    details in the same task.
-8. Run the relevant checks, push the branch, open the pull request, and wait
-   for review and merge before closing the ticket.
+8. Run the relevant checks, push the branch, open the pull request, post
+   implementation and verification details, and stop for user review. Continue
+   to merge or close the ticket only after the user explicitly requests it.
 
 ## Architecture boundaries
 
