@@ -133,7 +133,16 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
         lastRetryAt: new Date(),
       };
     }),
-    recordDeadLetter: jest.fn(),
+    recordDeadLetter: jest
+      .fn()
+      .mockImplementation(async (_worldId, occurredAt, reason) => {
+        runtimeState = {
+          ...runtimeState,
+          deadLetterCount: runtimeState.deadLetterCount + 1,
+          lastDeadLetterAt: occurredAt,
+          lastDeadLetterReason: reason,
+        };
+      }),
   } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new InProcessSchedulerAdapter(
@@ -284,6 +293,26 @@ describe('InProcessSchedulerAdapter', () => {
       pending: false,
       workExpected: false,
       nextTickAt: null,
+    });
+  });
+  it('records a final scheduled failure in runtime health', async () => {
+    const { adapter, tickRunner } = createAdapter();
+    tickRunner.runScheduledTick.mockResolvedValue({
+      status: 'failed',
+      failure: {
+        code: 'CHARACTER_INACTIVE',
+        message: 'inactive',
+        retryable: false,
+      },
+      log: logRecord({ status: 'FAILED' }),
+    });
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(1800000);
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      deadLetterCount: 1,
+      lastDeadLetterReason: 'CHARACTER_INACTIVE: inactive',
     });
   });
 

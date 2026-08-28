@@ -1,6 +1,7 @@
 import { deriveScheduledDelayMs } from '@aiworld/shared/schemas/simulation-command.schema';
 import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 
+import { redactDiagnostics } from '@/common/diagnostics';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -140,6 +141,15 @@ export class InProcessSchedulerAdapter
           continue;
         }
         break;
+      }
+      if (result.status === 'failed') {
+        await this.markDeadLettered(
+          worldId,
+          new Date(),
+          redactDiagnostics(
+            `${result.failure.code}: ${result.failure.message}`,
+          ),
+        );
       }
 
       // Completion-to-start: schedule the next tick after this one finishes,
