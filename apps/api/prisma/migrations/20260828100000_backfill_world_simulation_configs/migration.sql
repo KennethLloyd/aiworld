@@ -16,11 +16,21 @@ INSERT INTO "world_simulation_config" (
   "updatedAt"
 )
 SELECT
-  md5('world-simulation-config:' || w."id"),
+  format(
+    '%s-%s-5%s-8%s-%s',
+    substr(config_hash.hash, 1, 8),
+    substr(config_hash.hash, 9, 4),
+    substr(config_hash.hash, 14, 3),
+    substr(config_hash.hash, 18, 3),
+    substr(config_hash.hash, 21, 12)
+  ),
   w."id",
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 FROM "world" AS w
+CROSS JOIN LATERAL (
+  SELECT md5('world-simulation-config:' || w."id") AS hash
+) AS config_hash
 WHERE NOT EXISTS (
   SELECT 1
   FROM "world_simulation_config" AS c
