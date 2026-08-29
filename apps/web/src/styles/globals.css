@@ -1,18 +1,18 @@
 @import 'tailwindcss';
 
 @theme {
-  /* The dark application shell follows the observer's cyan/teal visual language. */
-  --color-surface: #0b1721;
-  --color-surface-2: #112633;
-  --color-ink: #e8f4f8;
-  --color-glass-100: rgba(180, 225, 236, 0.1);
-  --color-glass-50: rgba(180, 225, 236, 0.06);
-  --color-glass-20: rgba(180, 225, 236, 0.035);
-  --color-glass-border: rgba(91, 170, 196, 0.2);
-  --color-brand-analyst: #83b7d6;
-  --color-brand-diplomat: #45cbb7;
-  --color-brand-sentinel: #57b9f2;
-  --color-brand-explorer: #efb275;
+  /* The dark application shell follows the observer's icy blue/orange language. */
+  --color-surface: #0a1017;
+  --color-surface-2: #121c27;
+  --color-ink: #edf3f6;
+  --color-glass-100: rgba(224, 239, 246, 0.1);
+  --color-glass-50: rgba(224, 239, 246, 0.06);
+  --color-glass-20: rgba(224, 239, 246, 0.035);
+  --color-glass-border: rgba(128, 188, 220, 0.22);
+  --color-brand-analyst: #8bbbe0;
+  --color-brand-diplomat: #63c4ef;
+  --color-brand-sentinel: #8adfff;
+  --color-brand-explorer: #f0ad67;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -92,59 +92,59 @@
     background:
       radial-gradient(
         circle at 8% 2%,
-        rgba(74, 197, 224, 0.14),
+        rgba(111, 211, 245, 0.13),
         transparent 27rem
       ),
       radial-gradient(
         circle at 98% 12%,
-        rgba(100, 150, 226, 0.12),
+        rgba(125, 171, 235, 0.1),
         transparent 30rem
       ),
-      linear-gradient(145deg, #0b1721 0%, #0d1f2b 48%, #102633 100%);
+      linear-gradient(145deg, #0a1017 0%, #0e1d29 48%, #122330 100%);
   }
 
   .admin-shell .glass-panel {
-    border-color: rgba(91, 170, 196, 0.2);
+    border-color: rgba(128, 188, 220, 0.22);
     background: linear-gradient(
       145deg,
-      rgba(25, 52, 67, 0.9),
-      rgba(14, 31, 42, 0.94)
+      rgba(27, 49, 65, 0.9),
+      rgba(14, 26, 37, 0.96)
     );
     box-shadow:
-      inset 0 1px 0 rgba(216, 244, 250, 0.06),
-      0 18px 50px rgba(3, 12, 18, 0.34);
-    backdrop-filter: blur(22px) saturate(115%);
+      inset 0 1px 0 rgba(235, 247, 251, 0.06),
+      0 18px 50px rgba(2, 9, 15, 0.4);
+    backdrop-filter: blur(22px) saturate(110%);
   }
 
   .admin-shell .glass-panel-hover:hover {
-    border-color: rgba(112, 203, 224, 0.32);
+    border-color: rgba(138, 223, 255, 0.36);
     background: linear-gradient(
       145deg,
-      rgba(30, 64, 80, 0.94),
-      rgba(17, 38, 51, 0.96)
+      rgba(33, 60, 78, 0.94),
+      rgba(17, 34, 47, 0.98)
     );
     box-shadow:
-      inset 0 1px 0 rgba(216, 244, 250, 0.08),
-      0 22px 58px rgba(3, 12, 18, 0.46);
+      inset 0 1px 0 rgba(235, 247, 251, 0.08),
+      0 22px 58px rgba(2, 9, 15, 0.52);
   }
 
   .admin-shell .app-header {
-    border-bottom-color: rgba(91, 170, 196, 0.2);
-    background: rgba(11, 23, 33, 0.84);
-    box-shadow: 0 12px 35px rgba(3, 12, 18, 0.24);
-    backdrop-filter: blur(22px) saturate(120%);
+    border-bottom-color: rgba(128, 188, 220, 0.22);
+    background: rgba(10, 16, 23, 0.86);
+    box-shadow: 0 12px 35px rgba(2, 9, 15, 0.3);
+    backdrop-filter: blur(22px) saturate(115%);
   }
 
   .admin-shell .mesh-bg {
     background-image:
       radial-gradient(
         circle at 12% 42%,
-        rgba(74, 197, 224, 0.16),
+        rgba(111, 211, 245, 0.15),
         transparent 45%
       ),
       radial-gradient(
         circle at 88% 28%,
-        rgba(100, 150, 226, 0.12),
+        rgba(125, 171, 235, 0.1),
         transparent 42%
       );
   }
@@ -152,19 +152,17 @@
   .admin-shell .blob-1 {
     background-image: radial-gradient(
       circle,
-      rgba(74, 197, 224, 0.14) 0%,
+      rgba(111, 211, 245, 0.13) 0%,
       transparent 70%
     );
   }
-
   .admin-shell .blob-2 {
     background-image: radial-gradient(
       circle,
-      rgba(100, 150, 226, 0.12) 0%,
+      rgba(125, 171, 235, 0.1) 0%,
       transparent 70%
     );
   }
-
   .glass-panel {
     border: 1px solid var(--color-glass-border);
     border-radius: 1.25rem;
@@ -180,16 +178,16 @@
   }
 
   .admin-modal {
-    border-color: rgba(91, 170, 196, 0.2);
+    border-color: rgba(128, 188, 220, 0.22);
     background: linear-gradient(
       145deg,
-      rgba(25, 52, 67, 0.97),
-      rgba(14, 31, 42, 0.98)
+      rgba(27, 49, 65, 0.98),
+      rgba(14, 26, 37, 0.99)
     );
     box-shadow:
-      inset 0 1px 0 rgba(216, 244, 250, 0.06),
-      0 18px 50px rgba(3, 12, 18, 0.48);
-    backdrop-filter: blur(22px) saturate(115%);
+      inset 0 1px 0 rgba(235, 247, 251, 0.06),
+      0 18px 50px rgba(2, 9, 15, 0.54);
+    backdrop-filter: blur(22px) saturate(110%);
   }
 
   .glass-panel-hover {
