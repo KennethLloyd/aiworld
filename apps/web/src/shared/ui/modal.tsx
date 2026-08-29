@@ -14,6 +14,8 @@ export interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** Wide layout for data-dense administrative dialogs. */
+  size?: 'default' | 'wide';
 }
 
 /**
@@ -28,6 +30,7 @@ export function Modal({
   children,
   footer,
   className,
+  size = 'default',
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -78,7 +81,8 @@ export function Modal({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          'glass-panel relative z-10 w-full max-w-lg p-6 outline-none',
+          'glass-panel relative z-10 w-full p-6 outline-none',
+          size === 'wide' ? 'admin-modal max-w-6xl' : 'max-w-lg',
           className,
         )}
       >

@@ -298,7 +298,8 @@ export function CharacterRegistryTab() {
                 ? 'New Character'
                 : `Edit ${selectedCharacter?.name ?? 'Character'}`
             }
-            className="max-h-[calc(100vh-2rem)] max-w-4xl overflow-y-auto sm:max-h-[calc(100vh-3rem)]"
+            size="wide"
+            className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-h-[calc(100vh-3rem)]"
           >
             <CharacterEditor
               key={editor}

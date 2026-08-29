@@ -45,16 +45,27 @@ const candidateCharacter = makeCharacter({
   handle: 'bright_signal',
   isActive: true,
 });
+const reactivationCharacter = makeCharacter({
+  id: 'aa3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f14',
+  name: 'Restored Signal',
+  handle: 'restored_signal',
+  isActive: true,
+});
 
 const activeMember = makeMember({
-  id: 'aa3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f14',
+  id: 'ba3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f15',
   characterId: activeCharacter.id,
   isActive: true,
 });
 const inactiveMember = makeMember({
-  id: 'ba3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f15',
+  id: 'ca3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f16',
   characterId: inactiveCharacter.id,
   isActive: true,
+});
+const inactiveMembership = makeMember({
+  id: 'da3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f17',
+  characterId: reactivationCharacter.id,
+  isActive: false,
 });
 
 describe('WorldMembersTab', () => {
@@ -62,22 +73,29 @@ describe('WorldMembersTab', () => {
     const user = userEvent.setup();
     const listMembers = vi
       .fn<WorldMemberGateway['list']>()
-      .mockResolvedValue(paginated([activeMember, inactiveMember]));
+      .mockResolvedValue(
+        paginated([activeMember, inactiveMember, inactiveMembership]),
+      );
     const createMember = vi
       .fn<WorldMemberGateway['create']>()
       .mockResolvedValue(
         makeMember({
-          id: 'ca3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f16',
+          id: 'ea3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f18',
           characterId: candidateCharacter.id,
         }),
       );
     const updateMember = vi
       .fn<WorldMemberGateway['update']>()
-      .mockResolvedValue({ ...activeMember, isActive: false });
+      .mockResolvedValue({ ...activeMember, isActive: true });
     const listCharacters = vi
       .fn<AdminCharacterGateway['listAdmin']>()
       .mockResolvedValue(
-        paginated([activeCharacter, inactiveCharacter, candidateCharacter]),
+        paginated([
+          activeCharacter,
+          inactiveCharacter,
+          candidateCharacter,
+          reactivationCharacter,
+        ]),
       );
 
     renderMembers({
@@ -107,9 +125,21 @@ describe('WorldMembersTab', () => {
     expect(
       screen.getAllByRole('button', { name: 'Assign Bright Signal' })[0],
     ).toBeEnabled();
+    expect(
+      screen.getAllByRole('button', { name: 'Reactivate Restored Signal' })[0],
+    ).toBeEnabled();
 
     await user.click(
       screen.getAllByRole('button', { name: 'Assign Bright Signal' })[0]!,
+    );
+    const assignmentDialog = screen.getByRole('dialog', {
+      name: 'Assign Bright Signal as a Resident?',
+    });
+    expect(createMember).not.toHaveBeenCalled();
+    await user.click(
+      within(assignmentDialog).getByRole('button', {
+        name: 'Assign Resident',
+      }),
     );
     await waitFor(() =>
       expect(createMember).toHaveBeenCalledWith({
@@ -118,6 +148,27 @@ describe('WorldMembersTab', () => {
         isActive: true,
       }),
     );
+
+    await user.click(
+      screen.getAllByRole('button', {
+        name: 'Reactivate Restored Signal',
+      })[0]!,
+    );
+    const reactivationDialog = screen.getByRole('dialog', {
+      name: 'Reactivate Restored Signal as a Resident?',
+    });
+    expect(updateMember).not.toHaveBeenCalled();
+    await user.click(
+      within(reactivationDialog).getByRole('button', {
+        name: 'Reactivate Resident',
+      }),
+    );
+    await waitFor(() =>
+      expect(updateMember).toHaveBeenCalledWith(inactiveMembership.id, {
+        isActive: true,
+      }),
+    );
+
     await user.click(
       within(
         screen.getByRole('dialog', {
@@ -263,6 +314,13 @@ describe('WorldMembersTab', () => {
           name: 'Assign Bright Signal',
         })
       )[0]!,
+    );
+    await user.click(
+      within(
+        screen.getByRole('dialog', {
+          name: 'Assign Bright Signal as a Resident?',
+        }),
+      ).getByRole('button', { name: 'Assign Resident' }),
     );
 
     expect(

@@ -448,6 +448,7 @@ function AdminWorldsList() {
             ? `Delete “${deleting.name}” permanently?`
             : 'Delete world permanently'
         }
+        size="wide"
         footer={
           <>
             <Button variant="outline" onClick={closeDeleteDialog}>
