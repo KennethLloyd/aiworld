@@ -463,11 +463,19 @@ describe('/admin control room', () => {
       'starship',
     );
 
+    await waitFor(() => expect(worldSearches).toContain('starship'));
     expect(
       await screen.findByRole('option', {
         name: 'The Starship (the-starship)',
       }),
     ).toBeInTheDocument();
+    const searchInput = screen.getByRole('searchbox', {
+      name: 'Search Worlds',
+    });
+    expect(searchInput).toHaveAttribute(
+      'aria-activedescendant',
+      'admin-selected-world-options-the-starship',
+    );
     expect(worldSearches).toContain('starship');
     expect(
       screen.getByRole('heading', { name: world.name }),

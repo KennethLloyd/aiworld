@@ -609,6 +609,7 @@ function WorldPicker({
     0,
     worlds.findIndex((world) => world.slug === value),
   );
+  const worldOptionKey = worlds.map((world) => world.slug).join('|');
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const listboxId = 'admin-selected-world-options';
   const searchId = 'admin-selected-world-search';
@@ -622,13 +623,21 @@ function WorldPicker({
       setActiveIndex(selectedIndex);
       return;
     }
-    setActiveIndex((current) =>
-      worlds.length === 0
+    setActiveIndex((current) => {
+      if (searchValue.trim().length > 0) {
+        const firstSearchResult = worlds.findIndex(
+          (world) => world.slug !== value,
+        );
+        if (firstSearchResult >= 0) {
+          return firstSearchResult;
+        }
+      }
+      return worlds.length === 0
         ? 0
-        : Math.min(worlds.length - 1, Math.max(0, current)),
-    );
+        : Math.min(worlds.length - 1, Math.max(0, current));
+    });
     searchRef.current?.focus();
-  }, [open, selectedIndex, worlds.length]);
+  }, [open, searchValue, selectedIndex, value, worldOptionKey]);
 
   useEffect(() => {
     if (!open) {
@@ -753,6 +762,11 @@ function WorldPicker({
               value={searchValue}
               placeholder="Search Worlds"
               aria-controls={listboxId}
+              aria-activedescendant={
+                worlds[activeIndex]
+                  ? `${listboxId}-${worlds[activeIndex].slug}`
+                  : undefined
+              }
               onChange={(event) => onSearchChange(event.target.value)}
               onKeyDown={handleSearchKeyDown}
               className="h-9 w-full rounded-md border border-glass-border bg-glass-20 px-3 text-sm text-ink outline-none placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:ring-2 focus:ring-brand-sentinel/30"
