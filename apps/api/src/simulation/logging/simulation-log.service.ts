@@ -68,6 +68,9 @@ export class SimulationLogService {
       jobId: input.jobId ?? null,
       status: 'FAILED',
       errorMessage: `${input.failure.code}: ${input.failure.message}`,
+      ...(input.failure.providerFailure === true
+        ? { providerFailure: true }
+        : {}),
     });
   }
 

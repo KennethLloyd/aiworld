@@ -1,4 +1,5 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
+import { simulationHealthResponseSchema } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   listSimulationLogsResponseSchema,
   simulationLogResponseSchema,
@@ -156,6 +157,47 @@ describe('SimulationAdminResponseMapper', () => {
     );
     expect(response.averageLatencyMs).toBe(25);
     expect(response.lastRunAt).toBe('2026-08-13T00:00:00.000Z');
+  });
+
+  it('maps runtime health without exposing scheduler or provider secrets', () => {
+    const response = mapper.mapHealth({
+      lifecycleState: 'RUNNING',
+      health: {
+        status: 'DEGRADED',
+        reason: 'Recent provider-backed executions have failed.',
+      },
+      scheduler: {
+        available: true,
+        pending: true,
+        workExpected: true,
+        nextTickAt: new Date('2026-08-13T01:00:00.000Z'),
+        lastTickStartedAt: new Date('2026-08-13T00:20:00.000Z'),
+        lastTickCompletedAt: new Date('2026-08-13T00:20:07.000Z'),
+        retrying: true,
+        recentRetryCount: 2,
+        deadLetterCount: 1,
+        lastDeadLetterAt: new Date('2026-08-13T00:21:00.000Z'),
+        lastDeadLetterReason: 'TIMEOUT',
+        bootResumeFailure: null,
+      },
+      execution: {
+        lastSuccessAt: new Date('2026-08-13T00:20:07.000Z'),
+        lastFailureAt: new Date('2026-08-13T00:21:00.000Z'),
+      },
+      provider: {
+        status: 'DEGRADED',
+        lastSuccessAt: new Date('2026-08-13T00:20:07.000Z'),
+        lastFailureAt: new Date('2026-08-13T00:21:00.000Z'),
+      },
+      telemetry: telemetryRecord,
+    });
+
+    expect(simulationHealthResponseSchema.safeParse(response).success).toBe(
+      true,
+    );
+    expect(response.scheduler.recentRetryCount).toBe(2);
+    expect(response.provider).not.toHaveProperty('apiKey');
+    expect(response.telemetry.successCount).toBe(4);
   });
 
   it('maps a telemetry record with null aggregates', () => {

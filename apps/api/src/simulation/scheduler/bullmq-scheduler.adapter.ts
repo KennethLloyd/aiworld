@@ -14,12 +14,14 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
 } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
 import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -70,6 +72,7 @@ export class BullMqSchedulerAdapter
     castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
     tickRunner: SimulationTickRunner,
+    runtimeStateRepository: SimulationRuntimeStateRepository,
     private readonly queue: Queue,
     private readonly dlq: Queue,
     private readonly connection: IORedis,
@@ -80,6 +83,7 @@ export class BullMqSchedulerAdapter
       picker,
       castingRepository,
       tickRunner,
+      runtimeStateRepository,
     );
   }
 
@@ -88,24 +92,42 @@ export class BullMqSchedulerAdapter
   attachWorker(worker: Worker): void {
     this.worker = worker;
     worker.on('failed', (job, error) => {
-      if (job) {
-        void this.deadLetter(job, error).catch(() => undefined);
+      if (
+        job &&
+        (error instanceof UnrecoverableError ||
+          job.attemptsMade === undefined ||
+          job.attemptsMade >= (job.opts.attempts ?? 1))
+      ) {
+        return this.handleFinalFailure(job, error).catch(() => undefined);
       }
     });
   }
-
   async start(worldId: string): Promise<void> {
     const config = await this.requireConfig(worldId);
     if (config.state !== 'RUNNING') {
+      await this.markStopped(worldId);
       return;
     }
     await this.removePendingTicks(worldId);
     this.pendingTickJobIds.delete(worldId);
     await this.enqueueTick(worldId);
+    await this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
     await this.removeTrackedTick(worldId);
+    await this.markStopped(worldId);
+  }
+
+  async getObservability(
+    worldId: string,
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    const runtime = await this.getRuntimeObservability(
+      worldId,
+      this.connection.status === 'ready' && (this.worker?.isRunning() ?? false),
+    );
+
+    return runtime;
   }
 
   /** Worker processor: runs the tick and decides the job's fate. A transient
@@ -121,10 +143,29 @@ export class BullMqSchedulerAdapter
       throw new UnrecoverableError('Invalid simulation tick command');
     }
 
+    let worldId: string | undefined;
+    try {
+      worldId = (await this.worldRepository.findBySlug(command.worldSlug))?.id;
+    } catch {
+      // The runner remains the source of truth for processing errors. A lookup
+      // failure here must not prevent it from applying its existing policy.
+    }
+    if (worldId !== undefined) {
+      await this.markTickStarted(worldId);
+    }
+
     let result: Awaited<ReturnType<SimulationTickRunner['runScheduledTick']>>;
     try {
       result = await this.tickRunner.runScheduledTick(command, job.id);
     } catch (error) {
+      if (worldId !== undefined) {
+        await this.markTickAttemptCompleted(worldId);
+        if (isTransientSchedulerError(error)) {
+          await this.markRetry(worldId);
+        } else {
+          await this.markTickSettled(worldId);
+        }
+      }
       // The runner only throws when logging the attempt itself failed (for
       // example the database is down); retry transient errors, dead-letter
       // permanent ones.
@@ -137,19 +178,40 @@ export class BullMqSchedulerAdapter
     }
 
     if (result.status === 'failed') {
+      if (worldId !== undefined) {
+        await this.markTickAttemptCompleted(worldId);
+      }
       if (result.failure.retryable) {
+        if (worldId !== undefined) {
+          await this.markRetry(worldId);
+        }
         throw new Error(
           redactDiagnostics(
             `${result.failure.code}: ${result.failure.message}`,
           ),
         );
       }
+      if (worldId !== undefined) {
+        await this.markTickSettled(worldId);
+      }
       throw new UnrecoverableError(
         redactDiagnostics(`${result.failure.code}: ${result.failure.message}`),
       );
     }
 
-    await this.scheduleNextTick(result.log.worldId);
+    try {
+      await this.scheduleNextTick(result.log.worldId);
+    } catch (error) {
+      if (worldId !== undefined) {
+        await this.markTickAttemptCompleted(worldId);
+        await this.markTickSettled(worldId);
+      }
+      throw error;
+    }
+    if (worldId !== undefined) {
+      await this.markTickAttemptCompleted(worldId);
+      await this.markTickSettled(worldId);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -177,6 +239,7 @@ export class BullMqSchedulerAdapter
   }
 
   private async enqueueTick(worldId: string): Promise<void> {
+    await this.markStopped(worldId);
     const composed = await this.composeScheduledCommand(worldId);
     if (!composed) {
       return;
@@ -202,6 +265,7 @@ export class BullMqSchedulerAdapter
       removeOnFail: false,
     });
     this.pendingTickJobIds.set(worldId, jobId);
+    await this.markScheduled(worldId, new Date(Date.now() + delay));
   }
 
   /** Removes the single pending delayed tick for a World by its tracked id —
@@ -226,16 +290,39 @@ export class BullMqSchedulerAdapter
     await Promise.all(jobs.map((job) => job.remove().catch(() => undefined)));
   }
 
-  private async deadLetter(job: Job, error: Error): Promise<void> {
+  private async handleFinalFailure(job: Job, error: Error): Promise<void> {
+    const worldId = job.name.startsWith('tick_')
+      ? job.name.slice('tick_'.length)
+      : '';
+    if (worldId.length > 0) {
+      await this.markStopped(worldId);
+    }
+    const deadLetter = await this.deadLetter(job, error);
+    if (worldId.length > 0) {
+      await this.markDeadLettered(
+        worldId,
+        deadLetter.occurredAt,
+        deadLetter.reason,
+      );
+    }
+  }
+
+  private async deadLetter(
+    job: Job,
+    error: Error,
+  ): Promise<{ occurredAt: Date; reason: string }> {
+    const occurredAt = new Date();
+    const reason = redactDiagnostics(error?.message ?? 'Unknown failure');
     await this.dlq.add(
       job.name,
       {
         command: job.data ?? null,
         jobId: job.id,
-        reason: redactDiagnostics(error?.message ?? 'Unknown failure'),
-        failedAt: new Date().toISOString(),
+        reason,
+        failedAt: occurredAt.toISOString(),
       },
       { removeOnComplete: true },
     );
+    return { occurredAt, reason };
   }
 }

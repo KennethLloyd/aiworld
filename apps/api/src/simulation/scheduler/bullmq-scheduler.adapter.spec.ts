@@ -8,6 +8,8 @@ import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
@@ -104,11 +106,52 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   };
   const dlq = {
     add: jest.fn().mockResolvedValue(undefined),
+    getJobs: jest.fn().mockResolvedValue([]),
     close: jest.fn().mockResolvedValue(undefined),
   };
   const connection = {
     quit: jest.fn().mockResolvedValue(undefined),
+    status: 'ready',
   };
+  let runtimeState: SimulationRuntimeStateRecord = {
+    worldId: 'world-1',
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  };
+  const runtimeStateRepository = {
+    findByWorldId: jest.fn().mockImplementation(async () => runtimeState),
+    update: jest.fn().mockImplementation(async (_worldId, input) => {
+      runtimeState = { ...runtimeState, ...input };
+    }),
+    recordRetry: jest.fn().mockImplementation(async () => {
+      runtimeState = {
+        ...runtimeState,
+        retrying: true,
+        recentRetryCount: runtimeState.recentRetryCount + 1,
+        lastRetryAt: new Date(),
+      };
+    }),
+    recordDeadLetter: jest
+      .fn()
+      .mockImplementation(async (_worldId, occurredAt, reason) => {
+        runtimeState = {
+          ...runtimeState,
+          deadLetterCount: runtimeState.deadLetterCount + 1,
+          lastDeadLetterAt: occurredAt,
+          lastDeadLetterReason: reason,
+        };
+      }),
+  } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new BullMqSchedulerAdapter(
     schedulerConfig,
@@ -118,13 +161,14 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     castingRepository,
     randomSource,
     tickRunner,
+    runtimeStateRepository,
     queue as never,
     dlq as never,
     connection as never,
   );
-
   const worker = {
     on: jest.fn(),
+    isRunning: jest.fn().mockReturnValue(true),
     close: jest.fn().mockResolvedValue(undefined),
   };
   adapter.attachWorker(worker as never);
@@ -137,6 +181,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     castingRepository,
     tickRunner,
     queue,
+    connection,
     dlq,
     worker,
   };
@@ -210,6 +255,54 @@ describe('BullMqSchedulerAdapter', () => {
       backoff: { type: 'exponential', delay: 1000 },
       removeOnComplete: true,
       removeOnFail: false,
+    });
+  });
+  it('exposes pending scheduler progress and persisted dead-letter signals', async () => {
+    const { adapter, worker, dlq } = createAdapter();
+
+    await adapter.start('world-1');
+    let observability = await adapter.getObservability('world-1');
+
+    expect(observability).toMatchObject({
+      available: true,
+      pending: true,
+      workExpected: true,
+      recentRetryCount: 0,
+      deadLetterCount: 0,
+    });
+    expect(observability.nextTickAt).toBeInstanceOf(Date);
+
+    const handler = worker.on.mock.calls.find(
+      ([event]) => event === 'failed',
+    )?.[1];
+    expect(handler).toBeDefined();
+    await (handler as (job: unknown, error: Error) => Promise<void>)(
+      fakeJob({ id: 'dead-job' }),
+      new Error('TIMEOUT'),
+    );
+
+    observability = await adapter.getObservability('world-1');
+    expect(observability).toMatchObject({
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+      deadLetterCount: 1,
+      lastDeadLetterReason: 'TIMEOUT',
+    });
+    expect(dlq.add).toHaveBeenCalledWith(
+      'tick_world-1',
+      expect.objectContaining({ reason: 'TIMEOUT' }),
+      expect.anything(),
+    );
+    expect(dlq.getJobs).not.toHaveBeenCalled();
+  });
+  it('reports the scheduler unavailable while Redis is not ready', async () => {
+    const { adapter, connection } = createAdapter();
+
+    connection.status = 'reconnecting';
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      available: false,
     });
   });
 
@@ -381,6 +474,20 @@ describe('BullMqSchedulerAdapter', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('does not count an intermediate retry as a dead-lettered job', async () => {
+    const { worker, dlq } = createAdapter();
+    const handler = worker.on.mock.calls.find(
+      ([event]) => event === 'failed',
+    )?.[1];
+
+    await (handler as (job: unknown, error: Error) => void)(
+      fakeJob({ attemptsMade: 1, opts: { attempts: 3 } }),
+      new Error('temporary timeout'),
+    );
+
+    expect(dlq.add).not.toHaveBeenCalled();
   });
 
   it('composes runOneAction into a scheduled-style command and runs it manually', async () => {

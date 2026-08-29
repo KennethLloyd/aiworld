@@ -37,11 +37,11 @@ describe('simulationAdminOpenApiDocument', () => {
     '/worlds/{slug}/simulation/speed',
     '/worlds/{slug}/simulation/run-one-action',
     '/worlds/{slug}/simulation/custom-action',
+    '/worlds/{slug}/simulation/health',
     '/worlds/{slug}/simulation/telemetry',
     '/worlds/{slug}/simulation/logs',
   ];
-
-  it('registers all seven admin simulation operations', () => {
+  it('registers all eight admin simulation operations', () => {
     for (const path of simulationPaths) {
       expect(paths[path]).toBeDefined();
     }

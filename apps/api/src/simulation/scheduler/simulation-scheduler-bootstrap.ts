@@ -41,6 +41,20 @@ export class SimulationSchedulerBootstrap implements OnModuleInit {
 
         await this.scheduler.start(config.worldId);
       } catch (error) {
+        try {
+          await this.scheduler.recordBootResumeFailure(config.worldId, error);
+        } catch (recordError) {
+          this.logger.warn(
+            JSON.stringify({
+              event: 'simulation_bootstrap_failure_record_failed',
+              worldId: config.worldId,
+              errorName:
+                recordError instanceof Error
+                  ? recordError.name
+                  : 'UnknownError',
+            }),
+          );
+        }
         this.logger.warn(
           JSON.stringify({
             event: 'simulation_bootstrap_resume_failed',

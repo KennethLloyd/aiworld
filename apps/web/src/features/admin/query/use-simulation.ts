@@ -31,11 +31,11 @@ export function useSimulation(slug: string) {
   });
 }
 
-export function useSimulationTelemetry(slug: string) {
+export function useSimulationHealth(slug: string) {
   const { adminGateway } = useGateways();
   return useQuery({
-    queryKey: adminKeys.telemetry(slug),
-    queryFn: () => adminGateway.getSimulationTelemetry(slug),
+    queryKey: adminKeys.health(slug),
+    queryFn: () => adminGateway.getSimulationHealth(slug),
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
@@ -70,9 +70,14 @@ export function useUpdateSimulationState() {
     }) => adminGateway.updateSimulationState(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
-      await queryClient.invalidateQueries({
-        queryKey: adminKeys.simulation(slug),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.simulation(slug),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.health(slug),
+        }),
+      ]);
     },
   });
 }
@@ -90,9 +95,14 @@ export function useUpdateSimulationSpeed() {
     }) => adminGateway.updateSimulationSpeed(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
-      await queryClient.invalidateQueries({
-        queryKey: adminKeys.simulation(slug),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.simulation(slug),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: adminKeys.health(slug),
+        }),
+      ]);
     },
   });
 }
@@ -102,7 +112,7 @@ async function invalidateManualRunQueries(
   slug: string,
 ) {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: adminKeys.telemetry(slug) }),
+    queryClient.invalidateQueries({ queryKey: adminKeys.health(slug) }),
     queryClient.invalidateQueries({ queryKey: adminKeys.logs() }),
   ]);
 }

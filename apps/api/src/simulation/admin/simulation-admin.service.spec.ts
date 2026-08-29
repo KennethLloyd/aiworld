@@ -98,8 +98,12 @@ function createService() {
   const scheduler = {
     runOneAction: jest.fn(),
     runCustomAction: jest.fn(),
+    getObservability: jest.fn(),
   } as unknown as jest.Mocked<
-    Pick<SimulationScheduler, 'runOneAction' | 'runCustomAction'>
+    Pick<
+      SimulationScheduler,
+      'runOneAction' | 'runCustomAction' | 'getObservability'
+    >
   >;
   const logRepository = {
     findMany: jest.fn(),
@@ -258,6 +262,47 @@ describe('SimulationAdminService', () => {
         page: 1,
         limit: 20,
       });
+    });
+  });
+
+  describe('getHealth', () => {
+    it('combines lifecycle, scheduler, and telemetry runtime signals', async () => {
+      const { service, lifecycleService, scheduler, logRepository } =
+        createService();
+      lifecycleService.getByWorldId.mockResolvedValue({
+        ...configRecord,
+        state: 'RUNNING',
+      });
+      scheduler.getObservability.mockResolvedValue({
+        available: true,
+        pending: true,
+        workExpected: true,
+        nextTickAt: new Date(Date.now() + 60_000),
+        lastTickStartedAt: new Date(),
+        lastTickCompletedAt: new Date(),
+        retrying: false,
+        recentRetryCount: 0,
+        deadLetterCount: 0,
+        lastDeadLetterAt: null,
+        lastDeadLetterReason: null,
+        bootResumeFailure: null,
+      });
+      logRepository.getTelemetry.mockResolvedValue({
+        ...telemetryRecord,
+        lastSuccessAt: new Date('2026-08-13T00:20:07.000Z'),
+        lastFailureAt: null,
+      });
+
+      const result = await service.getHealth('mbti-house');
+
+      expect(result.lifecycleState).toBe('RUNNING');
+      expect(result.health.status).toBe('HEALTHY');
+      expect(result.scheduler.pending).toBe(true);
+      expect(result.execution.lastSuccessAt).toEqual(
+        new Date('2026-08-13T00:20:07.000Z'),
+      );
+      expect(result.telemetry.successCount).toBe(4);
+      expect(scheduler.getObservability).toHaveBeenCalledWith(worldRecord.id);
     });
   });
 

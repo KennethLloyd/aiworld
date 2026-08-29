@@ -3,12 +3,18 @@ import {
   SimulationCommand,
 } from '@aiworld/shared/schemas/simulation-command.schema';
 
+import { redactDiagnostics } from '@/common/diagnostics';
 import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
+import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
+import type {
+  SimulationRuntimeStateRecord,
+  SimulationRuntimeStateRepository,
+} from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SimulationCharacterNotActiveError,
   SimulationIterationPickError,
@@ -16,6 +22,7 @@ import {
 import {
   RunCustomActionInput,
   SimulationScheduler,
+  SimulationSchedulerObservabilityRecord,
 } from '@/simulation/scheduler/simulation-scheduler.port';
 import {
   IterationRunResult,
@@ -23,6 +30,24 @@ import {
 } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
+
+function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
+  return {
+    worldId,
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  };
+}
 
 /** Shared behavior for both scheduler adapters: the port's manual operations
  * and the scheduled-command composition. Both `runOneAction` and
@@ -37,8 +62,128 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     protected readonly picker: SimulationIterationPicker,
     protected readonly castingRepository: SimulationCastingRepository,
     protected readonly tickRunner: SimulationTickRunner,
+    protected readonly runtimeStateRepository: SimulationRuntimeStateRepository,
   ) {
     super();
+  }
+
+  async recordBootResumeFailure(
+    worldId: string,
+    error: unknown,
+  ): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      bootResumeFailure: {
+        occurredAt: new Date(),
+        reason: redactDiagnostics(
+          error instanceof Error ? error.message : 'Scheduler resume failed',
+        ),
+      },
+    });
+  }
+
+  protected async markSchedulerStartSucceeded(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, { bootResumeFailure: null });
+  }
+
+  protected async markScheduled(
+    worldId: string,
+    nextTickAt: Date,
+  ): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: true,
+      workExpected: true,
+      nextTickAt,
+    });
+  }
+
+  protected async markStopped(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+      retrying: false,
+    });
+  }
+
+  protected async markTickStarted(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: false,
+      nextTickAt: null,
+      lastTickStartedAt: new Date(),
+    });
+  }
+
+  protected async markTickAttemptCompleted(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      lastTickCompletedAt: new Date(),
+    });
+  }
+
+  protected async markTickSettled(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      retrying: false,
+    });
+  }
+
+  protected async markRetry(worldId: string): Promise<void> {
+    try {
+      await this.runtimeStateRepository.recordRetry(worldId);
+    } catch {
+      // Runtime health must never turn a provider/content result into a retry.
+    }
+  }
+
+  protected async markDeadLettered(
+    worldId: string,
+    occurredAt: Date,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.recordDeadLetter(
+        worldId,
+        occurredAt,
+        reason,
+      );
+    } catch {
+      // Runtime health is observability; scheduler execution remains primary.
+    }
+  }
+
+  private async persistRuntimeState(
+    worldId: string,
+    input: Parameters<SimulationRuntimeStateRepository['update']>[1],
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.update(worldId, input);
+    } catch {
+      // Runtime health is observability; scheduler execution remains primary.
+    }
+  }
+
+  protected async getRuntimeObservability(
+    worldId: string,
+    available: boolean,
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    const stored =
+      (await this.runtimeStateRepository.findByWorldId(worldId)) ??
+      emptyRuntimeState(worldId);
+    const retryIsRecent =
+      stored.lastRetryAt !== null &&
+      Date.now() - stored.lastRetryAt.getTime() < RECENT_RETRY_WINDOW_MS;
+    return {
+      available,
+      pending: stored.pending,
+      workExpected: stored.workExpected,
+      nextTickAt: stored.nextTickAt,
+      lastTickStartedAt: stored.lastTickStartedAt,
+      lastTickCompletedAt: stored.lastTickCompletedAt,
+      retrying: stored.retrying,
+      recentRetryCount: retryIsRecent ? stored.recentRetryCount : 0,
+      deadLetterCount: stored.deadLetterCount,
+      lastDeadLetterAt: stored.lastDeadLetterAt,
+      lastDeadLetterReason: stored.lastDeadLetterReason,
+      bootResumeFailure: stored.bootResumeFailure,
+    };
   }
 
   async runOneAction(worldSlug: string): Promise<IterationRunResult> {

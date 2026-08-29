@@ -1,3 +1,4 @@
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import type {
   ListSimulationLogsQuery,
   ListSimulationLogsResponse,
@@ -29,6 +30,7 @@ export interface AdminGateway {
     input: RunCustomAction,
   ): Promise<SimulationRunResultResponse>;
   getSimulationTelemetry(slug: string): Promise<SimulationTelemetryResponse>;
+  getSimulationHealth(slug: string): Promise<SimulationHealthResponse>;
   listSimulationLogs(
     slug: string,
     query: ListSimulationLogsQuery,

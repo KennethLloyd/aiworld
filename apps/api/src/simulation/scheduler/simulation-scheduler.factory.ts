@@ -11,6 +11,7 @@ import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-sch
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
@@ -28,6 +29,7 @@ export function createSimulationScheduler(
   castingRepository: SimulationCastingRepository,
   randomSource: SimulationRandomSource,
   tickRunner: SimulationTickRunner,
+  runtimeStateRepository: SimulationRuntimeStateRepository,
 ): SimulationScheduler {
   if (config.adapterId === 'in-process') {
     return new InProcessSchedulerAdapter(
@@ -38,6 +40,7 @@ export function createSimulationScheduler(
       tickRunner,
       randomSource,
       config,
+      runtimeStateRepository,
     );
   }
 
@@ -54,6 +57,7 @@ export function createSimulationScheduler(
     castingRepository,
     randomSource,
     tickRunner,
+    runtimeStateRepository,
     queue,
     dlq,
     connection,

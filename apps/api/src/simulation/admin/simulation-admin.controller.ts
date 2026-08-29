@@ -1,3 +1,4 @@
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import { listSimulationLogsQuerySchema } from '@aiworld/shared/schemas/simulation-log.schema';
 import type {
   ListSimulationLogsQuery,
@@ -122,6 +123,20 @@ export class SimulationAdminController {
           characterId: body.characterId,
           actionType: body.actionType,
         }),
+      );
+    } catch (error) {
+      throw mapSimulationAdminError(error);
+    }
+  }
+
+  @Get('health')
+  @Roles(['ADMIN'])
+  async getHealth(
+    @Param('slug') slug: string,
+  ): Promise<SimulationHealthResponse> {
+    try {
+      return this.responseMapper.mapHealth(
+        await this.adminService.getHealth(slug),
       );
     } catch (error) {
       throw mapSimulationAdminError(error);

@@ -1,4 +1,5 @@
 import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
+import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 
 export type RunCustomActionInput = {
@@ -6,6 +7,11 @@ export type RunCustomActionInput = {
   characterId?: string;
   actionType?: SimulationActionType;
 };
+
+export type SimulationSchedulerObservabilityRecord =
+  SimulationRuntimeSignals & {
+    available: boolean;
+  };
 
 /** The seam that drives simulation ticks. `start`/`stop` control scheduled
  * work for a World; `runOneAction` and `runCustomAction` compose and await a
@@ -26,4 +32,13 @@ export abstract class SimulationScheduler {
   abstract runCustomAction(
     input: RunCustomActionInput,
   ): Promise<IterationRunResult>;
+  /** Return application-level scheduler signals without exposing queue
+   * implementation details or provider credentials. */
+  abstract getObservability(
+    worldId: string,
+  ): Promise<SimulationSchedulerObservabilityRecord>;
+  abstract recordBootResumeFailure(
+    worldId: string,
+    error: unknown,
+  ): Promise<void>;
 }

@@ -2,6 +2,7 @@ import type {
   AdminCharacterResponse,
   CharacterResponse,
 } from '@aiworld/shared/schemas/character-response.schema';
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationConfigResponse } from '@aiworld/shared/schemas/simulation-state.schema';
 import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
@@ -93,6 +94,37 @@ const telemetry: SimulationTelemetryResponse = {
   averageLatencyMs: 480,
   lastRunAt: '2026-07-15T10:00:00.000Z',
 };
+const health: SimulationHealthResponse = {
+  lifecycle: { state: 'PAUSED' },
+  health: {
+    status: 'IDLE',
+    reason: 'Simulation is intentionally PAUSED.',
+  },
+  scheduler: {
+    available: true,
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  },
+  execution: {
+    lastSuccessAt: '2026-07-15T10:00:00.000Z',
+    lastFailureAt: null,
+  },
+  provider: {
+    status: 'HEALTHY',
+    lastSuccessAt: '2026-07-15T10:00:00.000Z',
+    lastFailureAt: null,
+  },
+  telemetry,
+};
 
 const simulationLog: SimulationLogResponse = {
   id: 'aa3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f14',
@@ -117,7 +149,7 @@ let currentConfig: SimulationConfigResponse;
 let stateRequests: string[];
 let speedRequests: number[];
 let customActionRequests: Record<string, unknown>[];
-let telemetryRequests: number;
+let healthRequests: number;
 let logRequests: number;
 let logQueryRequests: URLSearchParams[];
 let currentWorld: WorldResponse;
@@ -199,9 +231,16 @@ const server = setupServer(
       return HttpResponse.json(makeRunResult('custom'));
     },
   ),
-  http.get('*/api/worlds/mbti-house/simulation/telemetry', () => {
-    telemetryRequests += 1;
-    return HttpResponse.json(telemetry);
+  http.get('*/api/worlds/mbti-house/simulation/health', () => {
+    healthRequests += 1;
+    return HttpResponse.json({
+      ...health,
+      lifecycle: { state: currentConfig.state },
+      health:
+        currentConfig.state === 'PAUSED'
+          ? health.health
+          : { status: 'HEALTHY', reason: null },
+    });
   }),
   http.get('*/api/worlds/mbti-house/simulation/logs', ({ request }) => {
     logRequests += 1;
@@ -252,7 +291,7 @@ describe('/admin control room', () => {
     stateRequests = [];
     speedRequests = [];
     customActionRequests = [];
-    telemetryRequests = 0;
+    healthRequests = 0;
     logRequests = 0;
     logQueryRequests = [];
   });
@@ -264,11 +303,41 @@ describe('/admin control room', () => {
     stateRequests = [];
     speedRequests = [];
     customActionRequests = [];
-    telemetryRequests = 0;
+    healthRequests = 0;
     logRequests = 0;
     logQueryRequests = [];
   });
   afterAll(() => server.close());
+
+  it('warns when lifecycle is RUNNING but runtime health is unhealthy', async () => {
+    currentConfig = { ...config, state: 'RUNNING' };
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/health', () =>
+        HttpResponse.json({
+          ...health,
+          lifecycle: { state: 'RUNNING' },
+          health: {
+            status: 'UNHEALTHY',
+            reason: 'Scheduler worker is unavailable.',
+          },
+          scheduler: {
+            ...health.scheduler,
+            available: false,
+          },
+        }),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/', { queryClient: client });
+
+    expect(
+      await screen.findByText('Runtime health: UNHEALTHY'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Scheduler worker is unavailable.'),
+    ).toBeInTheDocument();
+  });
 
   it('redirects anonymous visitors to sign-in', async () => {
     const client = createQueryClient();
@@ -309,6 +378,9 @@ describe('/admin control room', () => {
     expect(worldPicker).toHaveAttribute('aria-expanded', 'false');
     expect(await screen.findAllByText('PAUSED')).not.toHaveLength(0);
     expect(await screen.findByText('8')).toBeInTheDocument();
+    expect(screen.getByText('Runtime Health')).toBeInTheDocument();
+    expect(screen.getByText('Last Successful Execution')).toBeInTheDocument();
+    expect(screen.getByText('Success')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Run One Action' }),
     ).toBeInTheDocument();
@@ -380,7 +452,7 @@ describe('/admin control room', () => {
     expect(screen.getByRole('button', { name: 'Halt' })).toBeDisabled();
   });
 
-  it('runs a targeted custom action and refreshes telemetry and logs', async () => {
+  it('runs a targeted custom action and refreshes health and logs', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
     renderAuthRoutes('/admin/', { queryClient: client });
@@ -402,7 +474,7 @@ describe('/admin control room', () => {
       { characterId: character.id, actionType: 'COMMENT' },
     ]);
     await waitFor(() => {
-      expect(telemetryRequests).toBeGreaterThan(1);
+      expect(healthRequests).toBeGreaterThan(1);
       expect(logRequests).toBeGreaterThan(1);
     });
   });

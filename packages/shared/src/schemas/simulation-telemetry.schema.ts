@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 // Admin telemetry excludes provider keys, prompts, and raw responses.
 
@@ -13,6 +13,10 @@ export const simulationTelemetryResponseSchema = z.object({
   totalCostEstimateUsd: z.number().min(0).nullable(),
   averageLatencyMs: z.int().min(0).nullable(),
   lastRunAt: z.iso.datetime().nullable(),
+  lastSuccessAt: z.iso.datetime().nullable().optional(),
+  lastFailureAt: z.iso.datetime().nullable().optional(),
+  lastProviderSuccessAt: z.iso.datetime().nullable().optional(),
+  lastProviderFailureAt: z.iso.datetime().nullable().optional(),
 });
 
 export type SimulationTelemetryResponse = z.infer<

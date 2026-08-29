@@ -3,6 +3,11 @@ import { Injectable } from '@nestjs/common';
 
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import {
+  deriveSimulationHealth,
+  normalizeProviderExecutionTimestamps,
+  SimulationHealthRecord,
+} from '@/simulation/admin/simulation-health';
+import {
   emptySimulationTelemetry,
   SimulationTelemetryRecord,
 } from '@/simulation/domain/simulation-telemetry';
@@ -52,12 +57,7 @@ export class SimulationAdminService {
   ) {}
 
   async getConfig(slug: string): Promise<WorldSimulationConfigRecord> {
-    const world = await this.requireWorld(slug);
-    const config = await this.lifecycleService.getByWorldId(world.id);
-    if (!config) {
-      throw new SimulationConfigNotFoundError(world.id);
-    }
-    return config;
+    return (await this.requireConfig(slug)).config;
   }
 
   async updateState(
@@ -104,6 +104,63 @@ export class SimulationAdminService {
     const world = await this.requireWorld(slug);
     const telemetry = await this.logRepository.getTelemetry(world.id);
     return telemetry ?? emptySimulationTelemetry(world.id);
+  }
+  async getHealth(slug: string): Promise<SimulationHealthRecord> {
+    const { world, config } = await this.requireConfig(slug);
+
+    const [observedScheduler, storedTelemetry] = await Promise.all([
+      this.scheduler.getObservability(world.id),
+      this.logRepository.getTelemetry(world.id),
+    ]);
+    const scheduler =
+      config.state === 'RUNNING'
+        ? observedScheduler
+        : {
+            ...observedScheduler,
+            pending: false,
+            workExpected: false,
+            nextTickAt: null,
+          };
+    const telemetry = storedTelemetry ?? emptySimulationTelemetry(world.id);
+    const decision = deriveSimulationHealth({
+      config,
+      scheduler,
+      telemetry,
+    });
+    const {
+      lastSuccessAt,
+      lastFailureAt,
+      lastProviderSuccessAt,
+      lastProviderFailureAt,
+    } = normalizeProviderExecutionTimestamps(telemetry);
+
+    return {
+      lifecycleState: config.state,
+      health: {
+        status: decision.status,
+        reason: decision.reason,
+      },
+      scheduler,
+      execution: { lastSuccessAt, lastFailureAt },
+      provider: {
+        status: decision.providerStatus,
+        lastSuccessAt: lastProviderSuccessAt,
+        lastFailureAt: lastProviderFailureAt,
+      },
+      telemetry,
+    };
+  }
+
+  private async requireConfig(slug: string): Promise<{
+    world: WorldRecord;
+    config: WorldSimulationConfigRecord;
+  }> {
+    const world = await this.requireWorld(slug);
+    const config = await this.lifecycleService.getByWorldId(world.id);
+    if (!config) {
+      throw new SimulationConfigNotFoundError(world.id);
+    }
+    return { world, config };
   }
 
   private async requireWorld(slug: string): Promise<WorldRecord> {

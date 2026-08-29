@@ -36,6 +36,10 @@ const executionSourceFromDb: Record<
   ONE_ACTION: 'one-action',
   CUSTOM: 'custom',
 };
+const providerFailureWhere: Prisma.SimulationLogWhereInput = {
+  status: 'FAILED',
+  providerFailure: true,
+};
 
 @Injectable()
 export class PrismaSimulationLogRepository extends SimulationLogRepository {
@@ -59,6 +63,7 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
         tokensUsed: input.tokensUsed ?? null,
         costEstimate: input.costEstimate ?? null,
         status: input.status,
+        providerFailure: input.providerFailure ?? false,
         errorMessage: input.errorMessage ?? null,
       },
     });
@@ -110,7 +115,14 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
   async getTelemetry(
     worldId: string,
   ): Promise<SimulationTelemetryRecord | null> {
-    const [aggregate, statusCounts] = await Promise.all([
+    const [
+      aggregate,
+      statusCounts,
+      lastSuccess,
+      lastProviderSuccess,
+      lastFailure,
+      lastProviderFailure,
+    ] = await Promise.all([
       this.prisma.simulationLog.aggregate({
         where: { worldId },
         _count: { id: true },
@@ -122,6 +134,26 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
         by: ['status'],
         where: { worldId },
         _count: { status: true },
+      }),
+      this.prisma.simulationLog.findFirst({
+        where: { worldId, status: 'SUCCESS' },
+        orderBy: { executedAt: 'desc' },
+        select: { executedAt: true },
+      }),
+      this.prisma.simulationLog.findFirst({
+        where: { worldId, status: { in: ['SUCCESS', 'SKIPPED'] } },
+        orderBy: { executedAt: 'desc' },
+        select: { executedAt: true },
+      }),
+      this.prisma.simulationLog.findFirst({
+        where: { worldId, status: 'FAILED' },
+        orderBy: { executedAt: 'desc' },
+        select: { executedAt: true },
+      }),
+      this.prisma.simulationLog.findFirst({
+        where: { worldId, ...providerFailureWhere },
+        orderBy: { executedAt: 'desc' },
+        select: { executedAt: true },
       }),
     ]);
 
@@ -149,6 +181,10 @@ export class PrismaSimulationLogRepository extends SimulationLogRepository {
           ? null
           : Math.round(aggregate._avg.latencyMs),
       lastRunAt: aggregate._max.executedAt,
+      lastSuccessAt: lastSuccess?.executedAt ?? null,
+      lastProviderSuccessAt: lastProviderSuccess?.executedAt ?? null,
+      lastFailureAt: lastFailure?.executedAt ?? null,
+      lastProviderFailureAt: lastProviderFailure?.executedAt ?? null,
     };
   }
 

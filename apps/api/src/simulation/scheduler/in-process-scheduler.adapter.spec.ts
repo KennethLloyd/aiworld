@@ -7,6 +7,8 @@ import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-sch
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
@@ -103,6 +105,45 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retryBaseDelayMs: 1000,
     ...config,
   };
+  let runtimeState: SimulationRuntimeStateRecord = {
+    worldId: 'world-1',
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  };
+  const runtimeStateRepository = {
+    findByWorldId: jest.fn().mockImplementation(async () => runtimeState),
+    update: jest.fn().mockImplementation(async (_worldId, input) => {
+      runtimeState = { ...runtimeState, ...input };
+    }),
+    recordRetry: jest.fn().mockImplementation(async () => {
+      runtimeState = {
+        ...runtimeState,
+        retrying: true,
+        recentRetryCount: runtimeState.recentRetryCount + 1,
+        lastRetryAt: new Date(),
+      };
+    }),
+    recordDeadLetter: jest
+      .fn()
+      .mockImplementation(async (_worldId, occurredAt, reason) => {
+        runtimeState = {
+          ...runtimeState,
+          deadLetterCount: runtimeState.deadLetterCount + 1,
+          lastDeadLetterAt: occurredAt,
+          lastDeadLetterReason: reason,
+        };
+      }),
+  } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
   const adapter = new InProcessSchedulerAdapter(
     lifecycleService,
@@ -112,6 +153,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     tickRunner,
     randomSource,
     schedulerConfig,
+    runtimeStateRepository,
   );
 
   return {
@@ -174,6 +216,29 @@ describe('InProcessSchedulerAdapter', () => {
     expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(2);
   });
 
+  it('exposes pending and completed tick timestamps', async () => {
+    const { adapter, tickRunner } = createAdapter();
+    tickRunner.runScheduledTick.mockResolvedValue(successResult);
+
+    await adapter.start('world-1');
+    const pending = await adapter.getObservability('world-1');
+    expect(pending).toMatchObject({
+      available: true,
+      pending: true,
+      workExpected: true,
+      lastTickStartedAt: null,
+      lastTickCompletedAt: null,
+      retrying: false,
+    });
+    expect(pending.nextTickAt).toBeInstanceOf(Date);
+
+    await jest.advanceTimersByTimeAsync(1_800_000);
+    const completed = await adapter.getObservability('world-1');
+    expect(completed.lastTickStartedAt).toBeInstanceOf(Date);
+    expect(completed.lastTickCompletedAt).toBeInstanceOf(Date);
+    expect(completed.pending).toBe(true);
+  });
+
   it('never runs two ticks at once (next handle starts after completion)', async () => {
     const { adapter, tickRunner } = createAdapter();
     tickRunner.runScheduledTick.mockResolvedValue(successResult);
@@ -211,6 +276,44 @@ describe('InProcessSchedulerAdapter', () => {
 
     expect(randomSource.next).not.toHaveBeenCalled();
     expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
+  });
+  it('clears expected work when a tick cannot be composed', async () => {
+    const { adapter, picker } = createAdapter();
+    picker.pickCharacter.mockRejectedValueOnce(
+      new SimulationIterationPickError(
+        'NO_ACTIVE_CHARACTERS',
+        'No active characters',
+      ),
+    );
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(1800000);
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+    });
+  });
+  it('records a final scheduled failure in runtime health', async () => {
+    const { adapter, tickRunner } = createAdapter();
+    tickRunner.runScheduledTick.mockResolvedValue({
+      status: 'failed',
+      failure: {
+        code: 'CHARACTER_INACTIVE',
+        message: 'inactive',
+        retryable: false,
+      },
+      log: logRecord({ status: 'FAILED' }),
+    });
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(1800000);
+
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      deadLetterCount: 1,
+      lastDeadLetterReason: 'CHARACTER_INACTIVE: inactive',
+    });
   });
 
   it('stop removes the pending tick', async () => {

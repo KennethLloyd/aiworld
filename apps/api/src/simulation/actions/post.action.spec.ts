@@ -179,7 +179,11 @@ describe('PostAction', () => {
 
     expect(result).toMatchObject({
       status: 'failed',
-      failure: { code: 'MALFORMED_RESPONSE', retryable: false },
+      failure: {
+        code: 'MALFORMED_RESPONSE',
+        retryable: false,
+        providerFailure: true,
+      },
     });
   });
 
