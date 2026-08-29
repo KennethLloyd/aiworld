@@ -169,6 +169,9 @@ function AdminWorldsList() {
           toast({
             tone: 'success',
             title: world.isActive ? 'World deactivated' : 'World activated',
+            description: world.isActive
+              ? 'Running simulation activity is paused. Reactivation does not resume it automatically.'
+              : 'The World is active again, but its simulation remains paused until you resume it.',
           });
         },
         onError: (error) => {

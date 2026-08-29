@@ -246,7 +246,9 @@ function formatNumber(value: number | null): string {
 }
 
 function formatCost(value: number | null): string {
-  return value === null ? '—' : `$${value.toFixed(2)}`;
+  if (value === null) return '—';
+  if (value === 0) return '$0.00';
+  return `$${Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(2)}`;
 }
 
 function formatDate(value: string): string {

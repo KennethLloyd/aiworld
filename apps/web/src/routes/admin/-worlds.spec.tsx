@@ -184,6 +184,11 @@ describe('/admin/worlds route', () => {
     );
 
     expect(await screen.findByText('World deactivated')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Running simulation activity is paused. Reactivation does not resume it automatically.',
+      ),
+    ).toBeInTheDocument();
     expect(patchRequests[0]).toEqual({
       slug: 'world-2',
       body: { isActive: false },

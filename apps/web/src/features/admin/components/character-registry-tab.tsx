@@ -23,15 +23,44 @@ import { UnsavedChangesDialog } from './unsaved-changes-dialog';
 type EditorSelection = 'new' | string | null;
 type ActivityFilter = 'all' | 'active' | 'inactive';
 
-export function CharacterRegistryTab() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
-  const debouncedSearch = useDebouncedValue(search, 300);
+export interface CharacterRegistrySearchState {
+  search?: string;
+  page?: number;
+  isActive?: boolean;
+}
+
+export interface CharacterRegistryTabProps {
+  searchState?: CharacterRegistrySearchState;
+  onSearchChange?: (search: string) => void;
+  onPageChange?: (page: number) => void;
+  onActivityFilterChange?: (isActive: boolean | undefined) => void;
+}
+
+export function CharacterRegistryTab({
+  searchState,
+  onSearchChange,
+  onPageChange,
+  onActivityFilterChange,
+}: CharacterRegistryTabProps = {}) {
+  const isUrlBacked = searchState !== undefined;
+  const [localPage, setLocalPage] = useState(1);
+  const [draftSearch, setDraftSearch] = useState(searchState?.search ?? '');
+  const [localActivityFilter, setLocalActivityFilter] =
+    useState<ActivityFilter>('all');
+  const search = isUrlBacked ? (searchState.search ?? '') : draftSearch;
+  const page = isUrlBacked ? (searchState.page ?? 1) : localPage;
+  const activityFilter = isUrlBacked
+    ? searchState.isActive === undefined
+      ? 'all'
+      : searchState.isActive
+        ? 'active'
+        : 'inactive'
+    : localActivityFilter;
+  const debouncedSearch = useDebouncedValue(draftSearch, 300);
   const charactersQuery = useAdminCharacters({
     page,
     limit: 20,
-    search: debouncedSearch.trim() || undefined,
+    search: search || undefined,
     isActive:
       activityFilter === 'all' ? undefined : activityFilter === 'active',
   });
@@ -71,14 +100,65 @@ export function CharacterRegistryTab() {
     setHasPendingEditor(false);
   };
 
+  const handleActivityFilterChange = (nextFilter: ActivityFilter) => {
+    if (onActivityFilterChange !== undefined) {
+      onActivityFilterChange(
+        nextFilter === 'all' ? undefined : nextFilter === 'active',
+      );
+      return;
+    }
+    setLocalActivityFilter(nextFilter);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    if (onPageChange !== undefined) {
+      onPageChange(nextPage);
+      return;
+    }
+    setLocalPage(nextPage);
+  };
+
+  useEffect(() => {
+    if (isUrlBacked) {
+      setDraftSearch(searchState.search ?? '');
+    }
+  }, [isUrlBacked, searchState?.search]);
+
+  useEffect(() => {
+    if (!isUrlBacked || onSearchChange === undefined) {
+      return;
+    }
+    const nextSearch = debouncedSearch.trim();
+    if (nextSearch !== search) {
+      onSearchChange(nextSearch);
+    }
+  }, [debouncedSearch, isUrlBacked, onSearchChange, search]);
+
+  useEffect(() => {
+    if (!isUrlBacked) {
+      setLocalPage(1);
+    }
+  }, [activityFilter, debouncedSearch, isUrlBacked]);
+
+  const totalPages = Math.max(1, charactersQuery.data?.meta.totalPages ?? 1);
+  useEffect(() => {
+    if (
+      charactersQuery.data === undefined ||
+      charactersQuery.isFetching ||
+      page <= totalPages
+    ) {
+      return;
+    }
+    handlePageChange(totalPages);
+    // The URL-backed page is corrected through the parent callback; the local
+    // page follows the same invariant when this component is used standalone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [charactersQuery.data, charactersQuery.isFetching, page, totalPages]);
+
   const selectedCharacter =
     editor !== null && editor !== 'new'
       ? characters.find((character) => character.id === editor)
       : undefined;
-
-  useEffect(() => {
-    setPage(1);
-  }, [activityFilter, debouncedSearch]);
 
   if (charactersQuery.isPending && charactersQuery.data === undefined) {
     return <CharacterRegistrySkeleton />;
@@ -181,9 +261,9 @@ export function CharacterRegistryTab() {
             id="character-registry-search"
             label="Search Characters"
             placeholder="Search by name or handle"
-            value={search}
+            value={draftSearch}
             disabled={editorDirty}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setDraftSearch(event.target.value)}
             className="pr-10"
           />
           <Search
@@ -202,7 +282,7 @@ export function CharacterRegistryTab() {
             { value: 'inactive', label: 'Inactive only' },
           ]}
           onChange={(event) =>
-            setActivityFilter(event.target.value as ActivityFilter)
+            handleActivityFilterChange(event.target.value as ActivityFilter)
           }
         />
       </div>
@@ -243,26 +323,20 @@ export function CharacterRegistryTab() {
             variant="outline"
             size="sm"
             disabled={page <= 1 || charactersQuery.isFetching || editorDirty}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => handlePageChange(Math.max(1, page - 1))}
           >
             Previous
           </Button>
           <span className="font-mono text-xs text-ink/60">
-            Page {page} of {charactersQuery.data.meta.totalPages}
+            Page {page} of {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
             disabled={
-              page >= charactersQuery.data.meta.totalPages ||
-              charactersQuery.isFetching ||
-              editorDirty
+              page >= totalPages || charactersQuery.isFetching || editorDirty
             }
-            onClick={() =>
-              setPage((current) =>
-                Math.min(current + 1, charactersQuery.data!.meta.totalPages),
-              )
-            }
+            onClick={() => handlePageChange(Math.min(page + 1, totalPages))}
           >
             Next
           </Button>

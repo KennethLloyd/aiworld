@@ -120,6 +120,35 @@ describe('PrismaWorldRepository resident counts', () => {
     expect(prisma.worldSimulationConfig.updateMany).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+  it('searches World names and topic scopes case-insensitively', async () => {
+    const { prisma, repository } = createRepository();
+    prisma.world.findMany.mockResolvedValue([worldRow()]);
+    prisma.world.count.mockResolvedValue(1);
+
+    await repository.findAll({
+      page: 1,
+      limit: 20,
+      search: 'personality',
+      isActive: true,
+    });
+
+    expect(prisma.world.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { name: { contains: 'personality', mode: 'insensitive' } },
+            {
+              topicScope: {
+                contains: 'personality',
+                mode: 'insensitive',
+              },
+            },
+          ],
+          isActive: true,
+        },
+      }),
+    );
+  });
 });
 describe('PrismaWorldRepository World creation', () => {
   it('creates the World and canonical simulation config in one transaction', async () => {

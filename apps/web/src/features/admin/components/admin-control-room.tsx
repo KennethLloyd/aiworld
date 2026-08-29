@@ -161,6 +161,39 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
   ) => {
     requestNavigation({ tab: section });
   };
+  const handleCharacterSearchChange = (value: string) => {
+    void navigate({
+      to: '/admin/characters',
+      search: (previous) => ({
+        ...previous,
+        characterSearch: value || undefined,
+        characterPage: 1,
+      }),
+    });
+  };
+
+  const handleCharacterPageChange = (page: number) => {
+    void navigate({
+      to: '/admin/characters',
+      search: (previous) => ({
+        ...previous,
+        characterPage: page,
+      }),
+    });
+  };
+
+  const handleCharacterActivityFilterChange = (
+    isActive: boolean | undefined,
+  ) => {
+    void navigate({
+      to: '/admin/characters',
+      search: (previous) => ({
+        ...previous,
+        characterIsActive: isActive,
+        characterPage: 1,
+      }),
+    });
+  };
 
   const handleOpenLog = useCallback(
     (logId: string) => {
@@ -174,6 +207,17 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
           logStatus: undefined,
           logSource: undefined,
           logPage: undefined,
+        }),
+      });
+    },
+    [navigate],
+  );
+  const handleSelectedLogChange = useCallback(
+    (logId: string | undefined) => {
+      void navigate({
+        search: (previous) => ({
+          ...previous,
+          log: logId,
         }),
       });
     },
@@ -350,7 +394,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                       role="tab"
                       aria-selected={active}
                       aria-controls="admin-tab-panel"
-                      tabIndex={active ? 0 : -1}
+                      tabIndex={-1}
                       ref={(element) => {
                         tabRefs.current[tab.value] = element;
                       }}
@@ -371,7 +415,16 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
               aria-label={activeTabLabel(search.tab)}
             >
               {globalScope ? (
-                <CharacterRegistryTab />
+                <CharacterRegistryTab
+                  searchState={{
+                    search: search.characterSearch,
+                    page: search.characterPage,
+                    isActive: search.characterIsActive,
+                  }}
+                  onSearchChange={handleCharacterSearchChange}
+                  onPageChange={handleCharacterPageChange}
+                  onActivityFilterChange={handleCharacterActivityFilterChange}
+                />
               ) : worldDataError ? (
                 <ErrorState
                   title="Could not load admin worlds"
@@ -441,6 +494,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                     void navigate({
                       search: (previous) => ({
                         ...previous,
+                        log: undefined,
                         logCharacterId: filters.characterId,
                         logAction: filters.action,
                         logStatus: filters.status,
@@ -453,10 +507,12 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                     void navigate({
                       search: (previous) => ({
                         ...previous,
+                        log: undefined,
                         logPage: nextPage,
                       }),
                     })
                   }
+                  onSelectedLogChange={handleSelectedLogChange}
                 />
               ) : (
                 <EmptyState
@@ -566,13 +622,21 @@ function WorldPicker({
       setActiveIndex(selectedIndex);
       return;
     }
-    setActiveIndex((current) =>
-      worlds.length === 0
+    setActiveIndex((current) => {
+      if (searchValue.trim().length > 0) {
+        const firstSearchResult = worlds.findIndex(
+          (world) => world.slug !== value,
+        );
+        if (firstSearchResult >= 0) {
+          return firstSearchResult;
+        }
+      }
+      return worlds.length === 0
         ? 0
-        : Math.min(worlds.length - 1, Math.max(0, current)),
-    );
+        : Math.min(worlds.length - 1, Math.max(0, current));
+    });
     searchRef.current?.focus();
-  }, [open, selectedIndex, worlds.length]);
+  }, [open, searchValue, selectedIndex, value, worlds]);
 
   useEffect(() => {
     if (!open) {
@@ -617,17 +681,35 @@ function WorldPicker({
       }
       return;
     }
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.key === ' ' && !open) {
       event.preventDefault();
       setOpen(true);
     }
   };
 
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        triggerRef.current?.focus();
+      }
       setOpen(false);
-      triggerRef.current?.focus();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) => {
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        return Math.min(worlds.length - 1, Math.max(0, current + direction));
+      });
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const activeWorld = worlds[activeIndex];
+      if (activeWorld) {
+        chooseWorld(activeWorld.slug);
+      }
     }
   };
 
@@ -679,6 +761,11 @@ function WorldPicker({
               value={searchValue}
               placeholder="Search Worlds"
               aria-controls={listboxId}
+              aria-activedescendant={
+                worlds[activeIndex]
+                  ? `${listboxId}-${worlds[activeIndex].slug}`
+                  : undefined
+              }
               onChange={(event) => onSearchChange(event.target.value)}
               onKeyDown={handleSearchKeyDown}
               className="h-9 w-full rounded-md border border-glass-border bg-glass-20 px-3 text-sm text-ink outline-none placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:ring-2 focus:ring-brand-sentinel/30"

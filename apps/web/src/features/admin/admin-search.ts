@@ -29,6 +29,10 @@ export const adminDashboardSearchSchema = z.object({
   logStatus: z.enum(simulationLogStatuses).optional(),
   logSource: z.enum(simulationExecutionSources).optional(),
   logPage: z.coerce.number().int().min(1).optional(),
+  /** URL-backed state for the global Character registry. */
+  characterSearch: z.string().trim().min(1).max(200).optional(),
+  characterPage: z.coerce.number().int().min(1).optional(),
+  characterIsActive: z.stringbool().optional(),
 });
 
 export type AdminDashboardSearch = z.infer<typeof adminDashboardSearchSchema>;
