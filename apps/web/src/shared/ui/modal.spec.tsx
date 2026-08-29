@@ -62,6 +62,78 @@ describe('Modal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('closes only the topmost nested modal on Escape', () => {
+    function Harness() {
+      const [outerOpen, setOuterOpen] = useState(false);
+      const [innerOpen, setInnerOpen] = useState(false);
+
+      return (
+        <>
+          <button type="button" onClick={() => setOuterOpen(true)}>
+            Open outer
+          </button>
+          {outerOpen ? (
+            <Modal open onClose={() => setOuterOpen(false)} title="Outer modal">
+              <button type="button" onClick={() => setInnerOpen(true)}>
+                Open inner
+              </button>
+              {innerOpen ? (
+                <Modal
+                  open
+                  onClose={() => setInnerOpen(false)}
+                  title="Inner modal"
+                >
+                  <button type="button">Inner action</button>
+                </Modal>
+              ) : null}
+            </Modal>
+          ) : null}
+        </>
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open outer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open inner' }));
+
+    expect(screen.getByRole('dialog', { name: 'Outer modal' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Inner modal' })).toBeVisible();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(
+      screen.getByRole('dialog', { name: 'Outer modal' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: 'Inner modal' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps form focus when modal content rerenders', async () => {
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [value, setValue] = useState('');
+      return (
+        <Modal open onClose={() => {}} title="Edit character">
+          <input
+            aria-label="Character name"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </Modal>
+      );
+    }
+
+    render(<Harness />);
+    const input = screen.getByRole('textbox', { name: 'Character name' });
+    input.focus();
+    await user.type(input, 'Mystic Aura');
+
+    expect(input).toHaveValue('Mystic Aura');
+    expect(input).toHaveFocus();
+  });
+
   it('locks body scroll while open and restores it on close', () => {
     const { unmount } = render(
       <Modal open onClose={() => {}} title="Delete world">

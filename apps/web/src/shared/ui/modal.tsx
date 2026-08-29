@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { FocusTrap } from '@/shared/accessibility/focus-trap';
 import { cn } from '@/shared/ui/cn';
 
+const openModalStack: HTMLDivElement[] = [];
 /* eslint-disable jsx-a11y/prefer-tag-over-role -- Custom focus management uses a div dialog. */
 
 export interface ModalProps {
@@ -34,33 +35,47 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) {
       return;
     }
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+    openModalStack.push(dialog);
     previouslyFocused.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    dialogRef.current?.focus();
+    dialog.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
+      if (event.key === 'Escape' && openModalStack.at(-1) === dialog) {
+        event.preventDefault();
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', onKeyDown);
 
     return () => {
+      const stackIndex = openModalStack.lastIndexOf(dialog);
+      if (stackIndex >= 0) {
+        openModalStack.splice(stackIndex, 1);
+      }
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previouslyFocused.current?.focus();
+      if (previouslyFocused.current?.isConnected) {
+        previouslyFocused.current.focus();
+      }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;

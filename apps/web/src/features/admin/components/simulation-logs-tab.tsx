@@ -44,8 +44,8 @@ export interface SimulationLogsTabProps {
   page: number;
   onFiltersChange: (filters: LogFilters) => void;
   onPageChange: (page: number) => void;
+  onSelectedLogChange?: (logId: string | undefined) => void;
 }
-
 export function SimulationLogsTab({
   world,
   selectedLogId,
@@ -53,6 +53,7 @@ export function SimulationLogsTab({
   page,
   onFiltersChange,
   onPageChange,
+  onSelectedLogChange,
 }: SimulationLogsTabProps) {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const charactersQuery = useAdminCharacterDirectory();
@@ -70,13 +71,9 @@ export function SimulationLogsTab({
       new Map(characters.map((character) => [character.id, character.name])),
     [characters],
   );
-
   useEffect(() => {
-    if (selectedLogId !== undefined) {
-      setExpandedLogId(selectedLogId);
-    }
+    setExpandedLogId(selectedLogId ?? null);
   }, [selectedLogId]);
-
   const updateFilter = <K extends keyof LogFilters>(
     key: K,
     value: LogFilters[K] | '',
@@ -86,18 +83,22 @@ export function SimulationLogsTab({
       [key]: value === '' ? undefined : value,
     };
     onFiltersChange(nextFilters);
-    onPageChange(1);
     setExpandedLogId(null);
   };
 
   const clearFilters = () => {
     onFiltersChange({});
-    onPageChange(1);
     setExpandedLogId(null);
   };
   const changePage = (nextPage: number) => {
     onPageChange(nextPage);
     setExpandedLogId(null);
+  };
+
+  const toggleLog = (logId: string) => {
+    const nextLogId = expandedLogId === logId ? undefined : logId;
+    setExpandedLogId(nextLogId ?? null);
+    onSelectedLogChange?.(nextLogId);
   };
 
   if (logsQuery.isPending && logsQuery.data === undefined) {
@@ -126,6 +127,11 @@ export function SimulationLogsTab({
   if (data === undefined) {
     return null;
   }
+
+  const selectedLogMissing =
+    !logsQuery.isFetching &&
+    selectedLogId !== undefined &&
+    !data.items.some((log) => log.id === selectedLogId);
 
   const hasFilters = Object.values(filters).some(
     (value) => value !== undefined,
@@ -239,6 +245,26 @@ export function SimulationLogsTab({
           </div>
         </div>
       </GlassPanel>
+      {selectedLogMissing ? (
+        <div
+          role="alert"
+          aria-label="Selected log unavailable"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100"
+        >
+          <span>
+            The selected log is not on this page or is no longer available.
+          </span>
+          {onSelectedLogChange ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onSelectedLogChange(undefined)}
+            >
+              Clear selected log
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {logsQuery.isError ? (
         <div
@@ -259,11 +285,17 @@ export function SimulationLogsTab({
       {data.items.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No simulation logs"
+          title={
+            selectedLogMissing
+              ? 'Selected log unavailable'
+              : 'No simulation logs'
+          }
           description={
-            hasFilters
-              ? 'No execution records match the selected filters.'
-              : 'No execution records yet.'
+            selectedLogMissing
+              ? 'The selected log is not available in the current results.'
+              : hasFilters
+                ? 'No execution records match the selected filters.'
+                : 'No execution records yet.'
           }
         />
       ) : (
@@ -271,9 +303,7 @@ export function SimulationLogsTab({
           logs={data.items}
           residentNames={residentNames}
           expandedLogId={expandedLogId}
-          onToggle={(logId) =>
-            setExpandedLogId((current) => (current === logId ? null : logId))
-          }
+          onToggle={toggleLog}
         />
       )}
 

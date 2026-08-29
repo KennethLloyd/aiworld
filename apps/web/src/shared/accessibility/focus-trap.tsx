@@ -43,6 +43,14 @@ export function FocusTrap({
       if (event.key !== 'Tab') {
         return;
       }
+      const targetDialog =
+        event.target instanceof HTMLElement
+          ? event.target.closest('[role="dialog"]')
+          : null;
+      const trapDialog = container.closest('[role="dialog"]');
+      if (targetDialog !== null && targetDialog !== trapDialog) {
+        return;
+      }
       const focusable = Array.from(
         container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
       );

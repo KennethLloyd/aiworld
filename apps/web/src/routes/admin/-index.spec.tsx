@@ -1068,4 +1068,136 @@ describe('/admin control room', () => {
       screen.getByText('You need the ADMIN role to view this content.'),
     ).toBeInTheDocument();
   });
+  it('keeps global Character filters in the shareable admin URL', async () => {
+    const user = userEvent.setup();
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes(
+      '/admin/characters?characterSearch=mystic&characterIsActive=false',
+      { queryClient: client },
+    );
+
+    const searchInput = await screen.findByLabelText('Search Characters');
+    expect(searchInput).toHaveValue('mystic');
+    await user.clear(searchInput);
+    await user.type(searchInput, 'orbit');
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        characterSearch: 'orbit',
+        characterPage: 1,
+        characterIsActive: false,
+      }),
+    );
+
+    await user.selectOptions(await screen.findByLabelText('Status'), 'active');
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        characterSearch: 'orbit',
+        characterPage: 1,
+        characterIsActive: true,
+      }),
+    );
+  });
+
+  it('persists selected log details and clears them when filters change', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        return HttpResponse.json({
+          items: [simulationLog],
+          meta: {
+            page: Number(params.get('page') ?? 1),
+            limit: 10,
+            total: 1,
+            totalPages: 1,
+          },
+        });
+      }),
+    );
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes('/admin/?tab=logs', {
+      queryClient: client,
+    });
+
+    const table = await screen.findByRole('region', {
+      name: 'Simulation log records table',
+    });
+    await user.click(
+      within(table).getByRole('button', {
+        name: 'Show desktop details for Mystic Aura',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        tab: 'logs',
+        log: simulationLog.id,
+      }),
+    );
+    expect(
+      within(table).getByText('Provider timed out after the retry budget.'),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Status'), 'FAILED');
+    await waitFor(() =>
+      expect(router.state.location.search.log).toBeUndefined(),
+    );
+  });
+
+  it('keeps precise small costs visible in log details', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json({
+          items: [{ ...simulationLog, costEstimate: 0.001833 }],
+          meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        }),
+      ),
+    );
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
+
+    const table = await screen.findByRole('region', {
+      name: 'Simulation log records table',
+    });
+    await userEvent.click(
+      within(table).getByRole('button', {
+        name: 'Show desktop details for Mystic Aura',
+      }),
+    );
+
+    expect(screen.getAllByText('$0.001833').length).toBeGreaterThan(0);
+  });
+
+  it('offers recovery when a selected log is no longer available', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json({
+          items: [],
+          meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+        }),
+      ),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes(
+      `/admin/?tab=logs&log=${simulationLog.id}`,
+      { queryClient: client },
+    );
+
+    expect(
+      await screen.findByRole('alert', {
+        name: 'Selected log unavailable',
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear selected log' }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.search.log).toBeUndefined(),
+    );
+  });
 });

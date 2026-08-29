@@ -72,9 +72,17 @@ export class PrismaWorldRepository extends WorldRepository {
 
   async findAll(query: ListWorldsQuery): Promise<Paginated<WorldRecord>> {
     const { search, isActive, page, limit } = query;
+    const searchFilter: Prisma.WorldWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { topicScope: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
 
     const where: Prisma.WorldWhereInput = {
-      name: search ? { contains: search, mode: 'insensitive' } : undefined,
+      ...searchFilter,
       isActive,
     };
 
