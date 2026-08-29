@@ -1,62 +1,50 @@
 # AGENTS.md
 
-## Agent skills
+## Delivery workflow
 
-### Issue tracker
+Use GitHub issues as task records and `gh` for issue and pull-request operations. Ship every issue through a pull request.
 
-Issues live as GitHub issues, driven through the `gh` CLI.
+1. Create a feature branch before editing: `git checkout -b feat/issue-<n>-<slug>`. Follow the existing naming pattern, such as `feat/issue-1-scaffold`. Completion: the work is isolated on its feature branch.
+2. Read the root `CONTEXT.md` before changing domain behavior, terminology, or cross-layer contracts. Completion: the implementation uses the documented vocabulary and constraints.
+3. Before committing, inspect `git status`, `git diff`, and recent history. Preserve unrelated work, stage only files for the issue, and commit the requested changes on the feature branch. Completion: `git diff --cached` contains only the requested changes immediately before the commit.
+4. Run the checks under Verification for each changed surface. Completion: every selected check passes, or each unavailable or failing check is recorded in the pull request.
+5. Push the feature branch and open a pull request with `gh pr create`. Start the body with `Closes #<n>`. Completion: the pull request is open and describes the change.
+6. Keep the issue open until its pull request merges; GitHub closes it through `Closes #<n>`. Completion: no open pull request has a manually closed issue.
 
-### Issue workflow — branch + PR, never close early
+## Triage labels
 
-Every issue ships through a pull request, never a direct commit to `main`:
-
-1. **Check out a new feature branch first**: `git checkout -b feat/issue-<n>-<slug>` (match existing naming, e.g. `feat/issue-1-scaffold`).
-2. **Commit all changes to the feature branch** — never commit to `main`.
-3. **Push the branch and open a PR** with `gh pr create`, body starting with `Closes #<n>`.
-4. **Never close the issue while its PR is still open.** The issue closes only when the PR merges (GitHub auto-closes via `Closes #<n>`). If the PR is open or under review, the issue stays open.
-
-### Triage labels
-
-Five canonical roles use these default label names: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`.
-
-### Domain docs
-
-Single-context: use `CONTEXT.md` at the repository root for domain vocabulary and constraints.
+Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`.
 
 ## Architecture boundaries
 
-- Keep transport schemas in `packages/shared` when data crosses the API
-  boundary; do not duplicate them in the web app.
-- Keep generated Prisma types inside concrete repository adapters and seed
-  infrastructure.
-- Use dependency injection and repository or provider ports at genuine
-  infrastructure seams.
-- Enforce authorization on the NestJS server. Client route guards are UX
-  behavior only.
-- Keep public observer responses separate from admin prompts, raw provider
-  responses, and telemetry.
-- Add focused unit tests for domain decisions and integration or end-to-end
-  tests for boundary behavior.
+- Place transport schemas in `packages/shared` as the single source when data crosses the API boundary.
+- Keep generated Prisma types inside concrete repository adapters and seed infrastructure.
+- Use dependency injection and repository or provider ports at genuine infrastructure seams.
+- Enforce authorization on the NestJS server; use client route guards for UX behavior.
+- Keep public observer responses separate from admin prompts, raw provider responses, and telemetry.
+- Cover domain decisions with focused unit tests and boundary behavior with integration or end-to-end tests.
 
 ## Engineering standard
 
-- Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS
-  capabilities before adding custom infrastructure.
-- Keep existing feature boundaries and dependency direction intact.
-- Avoid ceremonial indirection, duplicated schemas, direct controller-to-Prisma
-  access, and workaround layers that hide unclear ownership.
+- Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS capabilities before adding custom infrastructure.
+- Preserve existing feature boundaries and dependency direction.
+- Keep schemas, persistence, and controllers behind their existing boundaries, with explicit ownership and only genuine seams. This prevents duplicated schemas, direct controller-to-Prisma access, ceremonial indirection, and workaround layers.
 
 ## Verification
 
-From the repository root, run the checks relevant to the change:
+Run these checks from the repository root for code changes:
 
 ```bash
-pnpm install --frozen-lockfile
-pnpm --filter @aiworld/api db:generate
 pnpm format:check
 pnpm lint
 pnpm test
 pnpm build
+```
+
+For API changes involving Prisma schema or generated types, also run:
+
+```bash
+pnpm --filter @aiworld/api db:generate
 ```
 
 For API end-to-end work, PostgreSQL and Redis must be available:
@@ -68,29 +56,19 @@ pnpm --filter @aiworld/api exec prisma migrate deploy
 pnpm --filter @aiworld/api test:e2e
 ```
 
-### UI change verification and PR evidence
+## UI changes
 
-Every UI pull request follows a browser-first, exhaustive verification pass before the PR is created or updated:
+Before opening or updating a UI pull request, complete this browser-first gate:
 
-1. Use the `control-in-app-browser` skill to exercise the changed flow end-to-end, then test the surrounding affected areas (including validation, loading/error states, edits, retrieval/rendering, downloads, and deletes when applicable). Re-snapshot after navigation or dynamic state changes.
-2. Verify responsive behavior at an iPhone 15-sized viewport (`393×852`) and a desktop viewport (`1280px` wide or larger). Cover every materially different page or state involved in the change.
-3. Capture PR screenshots from the in-app browser. Two screenshots are sufficient only when they each show a complete page and together cover the change; otherwise include additional screenshots for the other pages or states. The evidence must include both mobile and desktop views and visibly showcase the new behavior.
-4. Add a `What to expect` section to the PR description or a PR comment, written in simplified technical, product-facing English. It must explain the visible change, key interactions, responsive behavior, and any demo-data limitations.
+1. Use the `control-in-app-browser` skill to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
+2. Verify every materially different affected page and state at an iPhone 15-sized viewport (`393×852`) and a desktop viewport at least `1280px` wide. Completion: both responsive views pass without overflow or behavior regressions.
+3. Capture enough screenshots from the in-app browser to cover the change, including complete mobile and desktop views that visibly show the new behavior. Completion: the pull request has the necessary evidence for every affected page or state.
+4. Add a `What to expect` section to the pull request description or a pull-request comment in simplified, product-facing technical English. Explain the visible change, key interactions, responsive behavior, and demo-data limitations. Completion: a reviewer can understand and reproduce the changed behavior from the section.
 
-The UI verification step is complete only when the relevant browser scenarios pass, the necessary desktop/mobile screenshots are attached, and the PR includes the `What to expect` section. For destructive cloud actions, obtain confirmation at the moment of the action; if confirmation is unavailable, use safe checks and document the limitation.
+Treat direct browser verification as the acceptance gate; use `agent-browser` for a complementary automated check or fallback when the in-app browser is unavailable.
 
-For UI work, prefer the `control-in-app-browser` skill when it is available:
-use it to inspect the rendered page, exercise the affected interactions, and
-spot responsive or visual UX regressions directly. Run the relevant
-`agent-browser` flow from the plan as a complementary automated check or as a
-fallback when the in-app browser is unavailable. Re-snapshot after navigation
-or dynamic UI changes; automated tests do not replace direct browser
-verification for UI behavior.
+## Safety
 
-## Security and Git hygiene
-
-- Never commit credentials, `.env` files, cookies, auth state, provider keys,
-  or screenshots containing secrets.
-- Inspect `git status`, `git diff`, and recent history before committing.
-- Stage only files related to the requested ticket.
-- Do not reset, checkout, revert, or modify unrelated user changes.
+- Keep credentials, `.env` files, cookies, auth state, provider keys, and screenshots containing secrets out of commits.
+- Obtain user confirmation immediately before destructive cloud actions. When confirmation is unavailable, use safe checks and document the limitation.
+- Preserve unrelated user changes and use recoverable, non-destructive Git operations.
