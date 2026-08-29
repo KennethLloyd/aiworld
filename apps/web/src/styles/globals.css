@@ -580,13 +580,14 @@
 
 .admin-shell .bg-brand-analyst\/20,
 .admin-modal .bg-brand-analyst\/20 {
-  background-color: var(--color-brand-analyst);
-  color: #0b0f15;
+  background: linear-gradient(135deg, #1e40af 0%, #1f5fe0 52%, #1d4ed8 100%);
+  border-color: var(--color-brand-analyst);
+  color: var(--color-ink);
 }
 
 .admin-shell .hover\:bg-brand-analyst\/30:hover,
 .admin-modal .hover\:bg-brand-analyst\/30:hover {
-  background-color: var(--color-brand-neon);
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 52%, #1e40af 100%);
 }
 .admin-shell .text-ink\/40,
 .admin-modal .text-ink\/40,
