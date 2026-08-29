@@ -1,9 +1,8 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
-import { Link } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, UserPlus, Users } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   adminErrorMessage,
@@ -14,14 +13,11 @@ import {
   useUpdateWorldMember,
 } from '@/features/admin/query/use-world-member-mutations';
 import { useWorldMembers } from '@/features/admin/query/use-world-members';
-import {
-  useAdminCharacterDirectory,
-  useAdminCharacters,
-} from '@/features/characters/query/use-admin-characters';
+import { useAdminCharacterDirectory } from '@/features/characters/query/use-admin-characters';
 import { useToast } from '@/shared/feedback/toaster';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
-import { buttonClasses, Button } from '@/shared/ui/button';
+import { Button } from '@/shared/ui/button';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
@@ -38,6 +34,10 @@ interface MemberRow {
   member: WorldMemberResponse;
   character: AdminCharacterResponse | undefined;
 }
+interface CandidateRow {
+  character: AdminCharacterResponse;
+  existingMembership: WorldMemberResponse | undefined;
+}
 type MemberFilter = 'all' | 'active' | 'inactive';
 
 export function WorldMembersTab({ world }: { world: WorldResponse }) {
@@ -47,16 +47,24 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
   const [candidatePage, setCandidatePage] = useState(1);
   const [candidateSearch, setCandidateSearch] = useState('');
   const [memberFilter, setMemberFilter] = useState<MemberFilter>('all');
+  const [addResidentsOpen, setAddResidentsOpen] = useState(false);
   const debouncedCandidateSearch = useDebouncedValue(candidateSearch, 300);
-  const candidateQuery = useAdminCharacters({
-    page: candidatePage,
-    limit: CANDIDATE_PAGE_SIZE,
-    search: debouncedCandidateSearch || undefined,
+  const candidateDirectoryQuery = useAdminCharacterDirectory({
+    enabled: addResidentsOpen,
+    search: debouncedCandidateSearch,
   });
   const [deactivationTarget, setDeactivationTarget] =
     useState<MemberRow | null>(null);
   const assignMutation = useAssignWorldMember();
   const updateMutation = useUpdateWorldMember();
+  const closeAddResidents = useCallback(() => {
+    if (!assignMutation.isPending && !updateMutation.isPending) {
+      setAddResidentsOpen(false);
+    }
+  }, [assignMutation.isPending, updateMutation.isPending]);
+  const [assignmentTarget, setAssignmentTarget] = useState<CandidateRow | null>(
+    null,
+  );
   const { toast } = useToast();
 
   useEffect(() => {
@@ -107,29 +115,81 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
     (memberPage - 1) * MEMBER_PAGE_SIZE,
     memberPage * MEMBER_PAGE_SIZE,
   );
-  const membershipCharacterIds = useMemo(
-    () => new Set(memberRows.map(({ member }) => member.characterId)),
+  const membershipReady = membersQuery.isSuccess;
+  const membershipByCharacterId = useMemo(
+    () =>
+      new Map(
+        memberRows.map(({ member }) => [member.characterId, member] as const),
+      ),
     [memberRows],
   );
-  const membershipReady = membersQuery.isSuccess;
-  const candidates = (candidateQuery.data?.items ?? []).filter(
-    (character) => !membershipCharacterIds.has(character.id),
+  const unassignedCandidates = (candidateDirectoryQuery.data ?? [])
+    .map(
+      (character): CandidateRow => ({
+        character,
+        existingMembership: membershipByCharacterId.get(character.id),
+      }),
+    )
+    .filter(
+      ({ existingMembership }) =>
+        existingMembership === undefined || !existingMembership.isActive,
+    );
+  const candidates = unassignedCandidates.slice(
+    (candidatePage - 1) * CANDIDATE_PAGE_SIZE,
+    candidatePage * CANDIDATE_PAGE_SIZE,
   );
+  const candidateCount = unassignedCandidates.length;
   const candidatePageCount = Math.max(
     1,
-    candidateQuery.data?.meta.totalPages ?? 1,
+    Math.ceil(candidateCount / CANDIDATE_PAGE_SIZE),
   );
+  useEffect(() => {
+    setCandidatePage((current) => Math.min(current, candidatePageCount));
+  }, [candidatePageCount]);
 
-  const assignCharacter = (character: AdminCharacterResponse) => {
+  const requestAssignment = (candidate: CandidateRow) => {
     assignMutation.reset();
+    updateMutation.reset();
+    setAssignmentTarget(candidate);
+  };
+
+  const confirmAssignment = () => {
+    if (assignmentTarget === null || !assignmentTarget.character.isActive) {
+      return;
+    }
+    if (assignmentTarget.existingMembership !== undefined) {
+      updateMutation.mutate(
+        {
+          worldSlug: world.slug,
+          memberId: assignmentTarget.existingMembership.id,
+          input: { isActive: true },
+        },
+        {
+          onSuccess: () => {
+            setAssignmentTarget(null);
+            toast({
+              tone: 'success',
+              title: 'Membership reactivated',
+              description: `${assignmentTarget.character.name} is now an AI Resident of ${world.name}.`,
+            });
+          },
+        },
+      );
+      return;
+    }
     assignMutation.mutate(
-      { worldSlug: world.slug, characterId: character.id, isActive: true },
+      {
+        worldSlug: world.slug,
+        characterId: assignmentTarget.character.id,
+        isActive: true,
+      },
       {
         onSuccess: () => {
+          setAssignmentTarget(null);
           toast({
             tone: 'success',
             title: 'Character assigned',
-            description: `${character.name} is now an AI Resident of ${world.name}.`,
+            description: `${assignmentTarget.character.name} is now an AI Resident of ${world.name}.`,
           });
         },
       },
@@ -155,22 +215,31 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
       },
     );
   };
-
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight">
-            World Members
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-brand-diplomat/80">
+            World workspace / residents
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">
+            Residents
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Assign and manage Characters in {world.name}.
+            Manage the active AI Residents of {world.name}. Character status and
+            World membership status remain separate.
           </p>
         </div>
-        <Badge tone="info" dot={false}>
-          {memberRows.length} AI{' '}
-          {memberRows.length === 1 ? 'Resident' : 'Residents'}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="info" dot={false}>
+            {memberRows.length} AI{' '}
+            {memberRows.length === 1 ? 'Resident' : 'Residents'}
+          </Badge>
+          <Button onClick={() => setAddResidentsOpen(true)}>
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+            Add Residents
+          </Button>
+        </div>
       </header>
 
       {membersQuery.isError && membersQuery.data !== undefined ? (
@@ -246,7 +315,9 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
           <DataTable
             rows={visibleMembers}
             columns={memberColumns({
-              updateMutation,
+              pendingMemberId: updateMutation.isPending
+                ? updateMutation.variables?.memberId
+                : undefined,
               onDeactivate: setDeactivationTarget,
               onReactivate: (row) => updateMembership(row, true),
             })}
@@ -288,84 +359,87 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
           />
         ) : null}
       </GlassPanel>
-
-      <GlassPanel
-        as="section"
-        aria-labelledby="assign-world-character"
-        className="p-5 sm:p-6"
+      <Modal
+        open={addResidentsOpen}
+        onClose={closeAddResidents}
+        title={`Add Residents to ${world.name}`}
+        size="wide"
+        className="max-h-[calc(100vh-2rem)] overflow-x-auto overflow-y-auto sm:max-h-[calc(100vh-3rem)]"
       >
-        <div className="mb-5 flex flex-col gap-1">
-          <h3
-            id="assign-world-character"
-            className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-ink/60"
-          >
-            Assign a Character
-          </h3>
-          <p className="text-sm leading-relaxed text-ink/60">
-            Assign Characters to this World.
-          </p>
-        </div>
+        <div className="flex flex-col gap-5">
+          <div>
+            <p className="text-sm leading-relaxed text-ink/70">
+              Search the complete global Character registry. Active memberships
+              are excluded; inactive memberships appear as Reactivate actions.
+              Inactive Characters are shown but cannot be assigned.
+            </p>
+            <p className="mt-2 text-xs text-ink/50">
+              Assigning or reactivating a Character always requires confirmation
+              and never changes the global Character record.
+            </p>
+          </div>
 
-        {candidateQuery.isError && candidateQuery.data === undefined ? (
-          <ErrorState
-            title="Could not load assignment candidates"
-            message={
-              isForbiddenError(candidateQuery.error)
-                ? undefined
-                : adminErrorMessage(
-                    candidateQuery.error,
-                    'Candidates unavailable.',
-                  )
-            }
-            forbidden={isForbiddenError(candidateQuery.error)}
-            onRetry={() => void candidateQuery.refetch()}
+          <Input
+            id="world-member-character-search"
+            label="Search Characters"
+            placeholder="Search by name or handle"
+            value={candidateSearch}
+            onChange={(event) => setCandidateSearch(event.target.value)}
           />
-        ) : (
-          <>
-            <div className="max-w-xl">
-              <Input
-                id="world-member-character-search"
-                label="Search Characters"
-                placeholder="Search by name or handle"
-                value={candidateSearch}
-                onChange={(event) => setCandidateSearch(event.target.value)}
-              />
-            </div>
-            {candidateQuery.isError ? (
-              <RefreshNotice
-                message={adminErrorMessage(
-                  candidateQuery.error,
-                  'Candidates unavailable.',
-                )}
-                onRetry={() => void candidateQuery.refetch()}
-              />
-            ) : null}
-            <div className="mt-5">
+
+          {candidateDirectoryQuery.isError &&
+          candidateDirectoryQuery.data === undefined ? (
+            <ErrorState
+              title="Could not load assignment candidates"
+              message={
+                isForbiddenError(candidateDirectoryQuery.error)
+                  ? undefined
+                  : adminErrorMessage(
+                      candidateDirectoryQuery.error,
+                      'Candidates unavailable.',
+                    )
+              }
+              forbidden={isForbiddenError(candidateDirectoryQuery.error)}
+              onRetry={() => void candidateDirectoryQuery.refetch()}
+            />
+          ) : (
+            <>
+              {candidateDirectoryQuery.isError ? (
+                <RefreshNotice
+                  message={adminErrorMessage(
+                    candidateDirectoryQuery.error,
+                    'Candidates unavailable.',
+                  )}
+                  onRetry={() => void candidateDirectoryQuery.refetch()}
+                />
+              ) : null}
               <DataTable
                 rows={candidates}
                 columns={candidateColumns({
-                  assignMutation,
-                  onAssign: assignCharacter,
+                  pendingCharacterId: assignMutation.isPending
+                    ? assignMutation.variables?.characterId
+                    : undefined,
+                  pendingMemberId: updateMutation.isPending
+                    ? updateMutation.variables?.memberId
+                    : undefined,
+                  onAssign: requestAssignment,
                   assignmentDisabled: !membershipReady,
                 })}
-                rowKey={(character) => character.id}
-                caption="Unassigned Characters"
+                rowKey={({ character }) => character.id}
+                caption="Characters available to add as Residents"
                 loading={
-                  candidateQuery.isPending && candidateQuery.data === undefined
+                  candidateDirectoryQuery.isPending &&
+                  candidateDirectoryQuery.data === undefined
                 }
                 loadingSlot={<CandidateRowsSkeleton />}
                 emptySlot={
                   <EmptyState
                     icon={UserPlus}
-                    title="No World-unassigned Characters found"
+                    title="No available Characters found"
                     description={
                       candidateSearch.trim().length > 0
                         ? 'Try another search.'
-                        : candidateQuery.data?.items.length
-                          ? candidatePageCount === 1
-                            ? 'Every matching Character is already assigned to this World.'
-                            : `No unassigned Characters on page ${candidatePage}. Use pagination or search to find another candidate.`
-                          : 'Assign an active Character to add the first resident.'
+                        : 'Every global Character is already assigned to this World.'
                     }
                     action={
                       candidateSearch.trim().length > 0 ? (
@@ -376,50 +450,86 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
                         >
                           Clear search
                         </Button>
-                      ) : (
-                        <Link
-                          to="/admin"
-                          search={{ tab: 'characters' }}
-                          className={buttonClasses('outline', 'sm')}
-                        >
-                          Open Character registry
-                        </Link>
-                      )
+                      ) : undefined
                     }
                   />
                 }
               />
-            </div>
-            {candidatePageCount > 1 ? (
-              <Pagination
-                label="Character candidate pages"
-                page={candidatePage}
-                totalPages={candidatePageCount}
-                onPrevious={() =>
-                  setCandidatePage((page) => Math.max(1, page - 1))
-                }
-                onNext={() =>
-                  setCandidatePage((page) =>
-                    Math.min(candidatePageCount, page + 1),
-                  )
-                }
-                disabled={candidateQuery.isFetching}
-              />
-            ) : null}
-          </>
-        )}
+              {candidatePageCount > 1 ? (
+                <Pagination
+                  label="Character candidate pages"
+                  page={candidatePage}
+                  totalPages={candidatePageCount}
+                  onPrevious={() =>
+                    setCandidatePage((page) => Math.max(1, page - 1))
+                  }
+                  onNext={() =>
+                    setCandidatePage((page) =>
+                      Math.min(candidatePageCount, page + 1),
+                    )
+                  }
+                  disabled={candidateDirectoryQuery.isFetching}
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      </Modal>
+      {assignmentTarget !== null ? (
+        <Modal
+          open
+          onClose={() => {
+            if (!assignMutation.isPending && !updateMutation.isPending) {
+              setAssignmentTarget(null);
+            }
+          }}
+          title={`${assignmentTarget.existingMembership === undefined ? 'Assign' : 'Reactivate'} ${assignmentTarget.character.name} as a Resident?`}
+          size="wide"
+          className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-h-[calc(100vh-3rem)]"
+          footer={
+            <>
+              <Button
+                variant="ghost"
+                disabled={assignMutation.isPending || updateMutation.isPending}
+                onClick={() => setAssignmentTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                loading={assignMutation.isPending || updateMutation.isPending}
+                onClick={confirmAssignment}
+              >
+                {assignmentTarget.existingMembership === undefined
+                  ? 'Assign Resident'
+                  : 'Reactivate Resident'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm leading-relaxed text-ink/70">
+            {assignmentTarget.existingMembership === undefined
+              ? `This will add ${assignmentTarget.character.name} to ${world.name} as an AI Resident.`
+              : `This will reactivate ${assignmentTarget.character.name}'s existing membership in ${world.name}.`}
+          </p>
+          {assignMutation.isError || updateMutation.isError ? (
+            <MutationError
+              message={
+                assignmentTarget.existingMembership === undefined
+                  ? adminErrorMessage(
+                      assignMutation.error,
+                      'Character assignment failed.',
+                    )
+                  : adminErrorMessage(
+                      updateMutation.error,
+                      'Membership reactivation failed.',
+                    )
+              }
+            />
+          ) : null}
+        </Modal>
+      ) : null}
 
-        {assignMutation.isError ? (
-          <MutationError
-            message={adminErrorMessage(
-              assignMutation.error,
-              'Character assignment failed.',
-            )}
-          />
-        ) : null}
-      </GlassPanel>
-
-      {updateMutation.isError ? (
+      {assignmentTarget === null && updateMutation.isError ? (
         <MutationError
           message={adminErrorMessage(
             updateMutation.error,
@@ -436,6 +546,7 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
           }
         }}
         title="Deactivate World membership?"
+        size="wide"
         footer={
           <>
             <Button
@@ -474,11 +585,11 @@ export function WorldMembersTab({ world }: { world: WorldResponse }) {
 }
 
 function memberColumns({
-  updateMutation,
+  pendingMemberId,
   onDeactivate,
   onReactivate,
 }: {
-  updateMutation: ReturnType<typeof useUpdateWorldMember>;
+  pendingMemberId: string | undefined;
   onDeactivate: (row: MemberRow) => void;
   onReactivate: (row: MemberRow) => void;
 }): readonly DataTableColumn<MemberRow>[] {
@@ -550,10 +661,9 @@ function memberColumns({
     },
     {
       header: 'Actions',
+      className: 'whitespace-nowrap',
       cell: (row) => {
-        const pending =
-          updateMutation.isPending &&
-          updateMutation.variables?.memberId === row.member.id;
+        const pending = pendingMemberId === row.member.id;
         return row.member.isActive ? (
           <Button
             variant="danger"
@@ -581,18 +691,20 @@ function memberColumns({
 }
 
 function candidateColumns({
-  assignMutation,
+  pendingCharacterId,
+  pendingMemberId,
   onAssign,
   assignmentDisabled,
 }: {
-  assignMutation: ReturnType<typeof useAssignWorldMember>;
-  onAssign: (character: AdminCharacterResponse) => void;
+  pendingCharacterId: string | undefined;
+  pendingMemberId: string | undefined;
+  onAssign: (candidate: CandidateRow) => void;
   assignmentDisabled: boolean;
-}): readonly DataTableColumn<AdminCharacterResponse>[] {
+}): readonly DataTableColumn<CandidateRow>[] {
   return [
     {
       header: 'Character',
-      cell: (character) => (
+      cell: ({ character }) => (
         <div className="flex items-center gap-3">
           <Avatar
             src={character.avatarUrl}
@@ -612,7 +724,7 @@ function candidateColumns({
     },
     {
       header: 'Classification',
-      cell: (character) => (
+      cell: ({ character }) => (
         <span className="text-ink/70">
           {character.classification ?? 'Unclassified'}
           {character.classificationGroup
@@ -623,7 +735,7 @@ function candidateColumns({
     },
     {
       header: 'Character status',
-      cell: (character) => (
+      cell: ({ character }) => (
         <Badge tone={character.isActive ? 'success' : 'neutral'}>
           {character.isActive ? 'Active' : 'Inactive'}
         </Badge>
@@ -631,17 +743,20 @@ function candidateColumns({
     },
     {
       header: 'Actions',
-      cell: (character) => {
-        const pending =
-          assignMutation.isPending &&
-          assignMutation.variables?.characterId === character.id;
+      className: 'whitespace-nowrap',
+      cell: ({ character, existingMembership }) => {
+        const reactivating = existingMembership !== undefined;
+        const pending = reactivating
+          ? pendingMemberId === existingMembership.id
+          : pendingCharacterId === character.id;
+        const actionLabel = reactivating ? 'Reactivate' : 'Assign';
         return (
           <Button
             size="sm"
             loading={pending}
             disabled={!character.isActive || assignmentDisabled}
-            onClick={() => onAssign(character)}
-            aria-label={`Assign ${character.name}`}
+            onClick={() => onAssign({ character, existingMembership })}
+            aria-label={`${actionLabel} ${character.name}`}
             title={
               !character.isActive
                 ? 'Inactive Characters cannot be assigned'
@@ -650,7 +765,7 @@ function candidateColumns({
                   : undefined
             }
           >
-            Assign
+            {actionLabel}
           </Button>
         );
       },

@@ -34,6 +34,7 @@ import {
   useUpdateSimulationSpeed,
   useUpdateSimulationState,
 } from '@/features/admin/query/use-simulation';
+import { useAdminCharacterDirectory } from '@/features/characters/query/use-admin-characters';
 import { useToast } from '@/shared/feedback/toaster';
 import { Badge, type BadgeTone } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
@@ -42,6 +43,8 @@ import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
+
+import { LogList } from './simulation-log-list';
 
 const speedPresets = [0.5, 1, 2, 5, 10] as const;
 const automaticAction = 'AUTOMATIC' as const;
@@ -66,6 +69,7 @@ export function SimulationStatusTab({
   const healthQuery = useSimulationHealth(world.slug);
   const logsQuery = useSimulationLogs(world.slug);
   const residentsQuery = useAdminResidents(world.slug);
+  const characterDirectoryQuery = useAdminCharacterDirectory();
   const { toast } = useToast();
   const updateState = useUpdateSimulationState();
   const updateSpeed = useUpdateSimulationSpeed();
@@ -119,6 +123,15 @@ export function SimulationStatusTab({
   }
 
   const residents = residentsQuery.data?.items ?? [];
+  const residentNames = new Map<string, string>([
+    ...(characterDirectoryQuery.data ?? []).map(
+      (character): [string, string] => [character.id, character.name],
+    ),
+    ...residents.map((resident): [string, string] => [
+      resident.id,
+      resident.name,
+    ]),
+  ]);
   const hasActiveResidents = residents.length > 0;
   const residentsUnavailable = residentsQuery.isError;
   const manualControlsBlocked =
@@ -230,8 +243,8 @@ export function SimulationStatusTab({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 border-b border-glass-border pb-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink/50">
-            Simulation Status
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-brand-diplomat/80">
+            World workspace / simulation
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <h2 className="font-display text-2xl font-bold">{world.name}</h2>
@@ -310,7 +323,7 @@ export function SimulationStatusTab({
           <PanelHeading
             id="demo-controls-heading"
             icon={Terminal}
-            title="Demo Controls"
+            title="Operator controls"
           />
           <div className="mt-5 flex flex-col gap-5">
             <Select
@@ -328,6 +341,40 @@ export function SimulationStatusTab({
               Choose a speed preset for scheduled work. Manual actions run
               immediately through the same pipeline.
             </p>
+
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-glass-border bg-glass-20 p-3">
+                <dt className="text-xs uppercase tracking-wider text-ink/50">
+                  Base cadence
+                </dt>
+                <dd className="mt-1 font-mono text-sm">
+                  {formatDuration(config.intervalMs)}
+                </dd>
+              </div>
+              <div className="rounded-lg border border-glass-border bg-glass-20 p-3">
+                <dt className="text-xs uppercase tracking-wider text-ink/50">
+                  Jitter window
+                </dt>
+                <dd className="mt-1 font-mono text-sm">
+                  ±{formatDuration(config.jitterMs)}
+                </dd>
+              </div>
+            </dl>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-ink/50">
+                Action weights
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {simulationActionTypes.map((action) => (
+                  <span
+                    key={action}
+                    className="rounded-md border border-glass-border bg-glass-20 px-2.5 py-1.5 font-mono text-xs"
+                  >
+                    {titleCaseAction(action)} {config.actionWeights[action]}
+                  </span>
+                ))}
+              </div>
+            </div>
 
             <Button
               variant="primary"
@@ -404,6 +451,7 @@ export function SimulationStatusTab({
         </GlassPanel>
         <RecentActivityPanel
           logs={logsQuery.data?.items ?? []}
+          residentNames={residentNames}
           isPending={logsQuery.isPending && logsQuery.data === undefined}
           isError={logsQuery.isError}
           onRetry={() => void logsQuery.refetch()}
@@ -595,12 +643,14 @@ function TelemetryPanel({
 
 function RecentActivityPanel({
   logs,
+  residentNames,
   isPending,
   isError,
   onRetry,
   onOpenLog,
 }: {
   logs: readonly SimulationLogResponse[];
+  residentNames: ReadonlyMap<string, string>;
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
@@ -636,72 +686,14 @@ function RecentActivityPanel({
       ) : logs.length === 0 ? (
         <EmptyState icon={Clock3} title="No activity yet" className="mt-4" />
       ) : (
-        <>
-          <p className="mt-3 text-xs text-ink/50 sm:hidden">
-            Swipe horizontally to view all execution columns.
-          </p>
-          <section
-            className="mt-4 overflow-x-auto rounded-lg border border-glass-border"
-            aria-label="Recent simulation execution table"
-          >
-            <table className="w-full min-w-[42rem] text-left text-sm">
-              <caption className="sr-only">Recent simulation execution</caption>
-              <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
-                <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Action
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Source
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Latency
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
-                    Executed
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-glass-border">
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {onOpenLog ? (
-                        <button
-                          type="button"
-                          className="rounded text-left text-brand-sentinel underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
-                          onClick={() => onOpenLog(log.id)}
-                          aria-label={`View details for ${log.action} execution`}
-                        >
-                          {log.action}
-                        </button>
-                      ) : (
-                        log.action
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-ink/70">
-                      {log.executionSource}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone={logStatusTone(log.status)}>
-                        {log.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-ink/70">
-                      {log.latencyMs === null ? '—' : `${log.latencyMs} ms`}
-                    </td>
-                    <td className="px-4 py-3 text-ink/70">
-                      {formatDate(log.executedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        </>
+        <div className="mt-4">
+          <LogList
+            logs={logs}
+            residentNames={residentNames}
+            expandedLogId={null}
+            onToggle={(logId) => onOpenLog?.(logId)}
+          />
+        </div>
       )}
     </GlassPanel>
   );
@@ -832,13 +824,6 @@ function healthTone(
   return 'neutral';
 }
 
-function logStatusTone(status: SimulationLogResponse['status']): BadgeTone {
-  if (status === 'SUCCESS') return 'success';
-  if (status === 'REJECTED') return 'warning';
-  if (status === 'SKIPPED') return 'neutral';
-  return 'danger';
-}
-
 function titleCaseAction(action: SimulationActionType): string {
   return action[0] + action.slice(1).toLowerCase();
 }
@@ -856,6 +841,13 @@ function formatCost(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   if (value === 0) return '$0.00';
   return `$${Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(2)}`;
+}
+
+function formatDuration(milliseconds: number): string {
+  if (milliseconds >= 60_000 && milliseconds % 60_000 === 0) {
+    return `${milliseconds / 60_000}m`;
+  }
+  return `${Math.round(milliseconds / 1_000)}s`;
 }
 
 function formatDate(value: string | null | undefined): string {

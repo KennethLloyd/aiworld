@@ -1,6 +1,6 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { adminErrorMessage } from '@/features/admin/admin-errors';
 import { WorldForm } from '@/features/worlds/forms/world-form';
@@ -19,7 +19,19 @@ import {
   useUnsavedChangesBlocker,
 } from './unsaved-changes-dialog';
 
-export function WorldConfigEditor({ world }: { world: WorldResponse }) {
+export function WorldConfigEditor({
+  world,
+  title = 'World Config',
+  cancelTab = 'status',
+  onDirtyChange: onDirtyChangeProp,
+  onNavigationReset,
+}: {
+  world: WorldResponse;
+  title?: string;
+  cancelTab?: 'overview' | 'status';
+  onDirtyChange?: (dirty: boolean) => void;
+  onNavigationReset?: (reset: () => void) => void;
+}) {
   const navigate = useNavigate({ from: '/admin/' });
   const { toast } = useToast();
   const updateWorld = useUpdateWorld();
@@ -29,7 +41,23 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
   const [isDirty, setIsDirty] = useState(false);
   const lastPropUpdatedAt = useRef(world.updatedAt);
   const blocker = useUnsavedChangesBlocker(isDirty);
-  const onDirtyChange = useCallback((dirty: boolean) => setIsDirty(dirty), []);
+  const onDirtyChange = useCallback(
+    (dirty: boolean) => {
+      setIsDirty(dirty);
+      onDirtyChangeProp?.(dirty);
+    },
+    [onDirtyChangeProp],
+  );
+  const resetDirtyNavigation = useCallback(() => {
+    blocker.allowNextNavigation();
+    setIsDirty(false);
+    onDirtyChangeProp?.(false);
+  }, [blocker, onDirtyChangeProp]);
+
+  useEffect(() => {
+    onNavigationReset?.(resetDirtyNavigation);
+    return () => onNavigationReset?.(() => undefined);
+  }, [onNavigationReset, resetDirtyNavigation]);
 
   useEffect(() => {
     if (world.updatedAt === lastPropUpdatedAt.current) {
@@ -53,7 +81,7 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
           onSuccess: (updatedWorld) => {
             setSavedWorld(updatedWorld);
             setFormVersion((version) => version + 1);
-            setIsDirty(false);
+            onDirtyChange(false);
             if (updatedWorld.slug !== world.slug) {
               void navigate({
                 search: (previous) => ({
@@ -81,13 +109,20 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
     }
   };
 
+  const initialValues = useMemo(
+    () => worldToFormValues(savedWorld),
+    [savedWorld],
+  );
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight">
-            World Config
+            {title}
           </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
+            Identity, public context, and directory visibility for this World.
+          </p>
           <p className="mt-1 font-mono text-xs text-ink/50">/{world.slug}</p>
         </div>
         <Link
@@ -100,14 +135,17 @@ export function WorldConfigEditor({ world }: { world: WorldResponse }) {
       </header>
       <WorldForm
         mode="edit"
-        initialValues={worldToFormValues(savedWorld)}
+        initialValues={initialValues}
         isSubmitting={updateWorld.isPending}
         submitError={submitError}
         resetKey={formVersion}
         onDirtyChange={onDirtyChange}
         onCancel={() =>
           void navigate({
-            search: (previous) => ({ ...previous, tab: 'status' }),
+            search: (previous) => ({
+              ...previous,
+              tab: cancelTab,
+            }),
           })
         }
         onSubmit={handleSubmit}

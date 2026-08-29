@@ -12,7 +12,19 @@ import { Skeleton } from '@/shared/ui/skeleton';
 
 import { WorldConfigEditor } from './world-config-editor';
 
-export function WorldConfigTab({ world }: { world: WorldResponse }) {
+export function WorldConfigTab({
+  world,
+  title = 'World Config',
+  cancelTab = 'status',
+  onDirtyChange,
+  onNavigationReset,
+}: {
+  world: WorldResponse;
+  title?: string;
+  cancelTab?: 'overview' | 'status';
+  onDirtyChange?: (dirty: boolean) => void;
+  onNavigationReset?: (reset: () => void) => void;
+}) {
   const worldQuery = useWorld(world.slug);
 
   if (worldQuery.isPending && worldQuery.data === undefined) {
@@ -51,7 +63,13 @@ export function WorldConfigTab({ world }: { world: WorldResponse }) {
           onRetry={() => void worldQuery.refetch()}
         />
       ) : null}
-      <WorldConfigEditor world={worldQuery.data} />
+      <WorldConfigEditor
+        world={worldQuery.data}
+        title={title}
+        cancelTab={cancelTab}
+        onDirtyChange={onDirtyChange}
+        onNavigationReset={onNavigationReset}
+      />
     </div>
   );
 }

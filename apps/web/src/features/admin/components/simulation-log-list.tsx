@@ -20,14 +20,11 @@ export function LogList({
 }) {
   return (
     <>
-      <p className="mb-3 text-xs text-ink/50 sm:hidden">
-        Swipe horizontally to view all log columns.
-      </p>
       <section
-        className="overflow-x-auto rounded-xl border border-glass-border"
+        className="hidden overflow-x-auto rounded-xl border border-glass-border sm:block"
         aria-label="Simulation log records table"
       >
-        <table className="w-full min-w-[60rem] text-left text-sm">
+        <table className="w-full text-left text-sm">
           <caption className="sr-only">Simulation log records</caption>
           <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
             <tr>
@@ -63,7 +60,7 @@ export function LogList({
                         className="group inline-flex items-center gap-2 text-left font-medium text-brand-sentinel hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
                         aria-expanded={expanded}
                         aria-controls={detailsId}
-                        aria-label={`${expanded ? 'Hide' : 'Show'} details for ${label}`}
+                        aria-label={`${expanded ? 'Hide' : 'Show'} desktop details for ${label}`}
                         onClick={() => onToggle(log.id)}
                       >
                         {expanded ? (
@@ -109,6 +106,69 @@ export function LogList({
             })}
           </tbody>
         </table>
+      </section>
+
+      <section
+        className="flex flex-col gap-2 sm:hidden"
+        aria-label="Simulation log records"
+      >
+        {logs.map((log) => {
+          const residentName = residentNames.get(log.characterId);
+          const label = residentName ?? 'Unknown Character';
+          const expanded = expandedLogId === log.id;
+          const detailsId = `simulation-log-details-mobile-${log.id}`;
+          return (
+            <article
+              key={log.id}
+              className="rounded-xl border border-glass-border bg-glass-20"
+            >
+              <button
+                type="button"
+                className="flex w-full items-start justify-between gap-3 p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand-sentinel/60"
+                aria-expanded={expanded}
+                aria-controls={detailsId}
+                aria-label={`${expanded ? 'Hide' : 'Show'} details for ${label}`}
+                onClick={() => onToggle(log.id)}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-brand-sentinel">
+                    {label}
+                  </span>
+                  <span className="mt-1 block font-mono text-xs text-ink/60">
+                    {titleCase(log.action)} · {titleCase(log.executionSource)}
+                  </span>
+                  <span className="mt-1 block text-xs text-ink/55">
+                    {formatDate(log.executedAt)}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <Badge tone={statusTone(log.status)}>
+                    {titleCase(log.status)}
+                  </Badge>
+                  {expanded ? (
+                    <ChevronUp
+                      className="h-4 w-4 text-ink/60"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <ChevronDown
+                      className="h-4 w-4 text-ink/60"
+                      aria-hidden="true"
+                    />
+                  )}
+                </span>
+              </button>
+              {expanded ? (
+                <div
+                  id={detailsId}
+                  className="border-t border-glass-border bg-glass-20 px-4 py-4"
+                >
+                  <LogDetails log={log} />
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
       </section>
     </>
   );

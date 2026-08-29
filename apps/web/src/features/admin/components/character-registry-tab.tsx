@@ -1,6 +1,6 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import { Edit3, Plus, Search, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   adminErrorMessage,
@@ -13,6 +13,7 @@ import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
 import { Input } from '@/shared/ui/input';
+import { Modal } from '@/shared/ui/modal';
 import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
@@ -39,18 +40,29 @@ export function CharacterRegistryTab() {
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingEditor, setPendingEditor] = useState<EditorSelection>(null);
   const [hasPendingEditor, setHasPendingEditor] = useState(false);
+  const editorRef = useRef<EditorSelection>(editor);
+  const editorDirtyRef = useRef(editorDirty);
+  editorRef.current = editor;
+  editorDirtyRef.current = editorDirty;
 
-  const requestEditor = (next: EditorSelection) => {
-    if (next === editor) {
+  const requestEditor = useCallback((next: EditorSelection) => {
+    const currentEditor = editorRef.current;
+    if (next === currentEditor) {
       return;
     }
-    if (editor !== null && editorDirty) {
+    if (currentEditor !== null && editorDirtyRef.current) {
       setPendingEditor(next);
       setHasPendingEditor(true);
       return;
     }
     setEditor(next);
-  };
+  }, []);
+  const closeEditor = useCallback(() => {
+    requestEditor(null);
+  }, [requestEditor]);
+  const handleEditorDirtyChange = useCallback((dirty: boolean) => {
+    setEditorDirty(dirty);
+  }, []);
 
   const discardAndSwitch = () => {
     setEditorDirty(false);
@@ -153,7 +165,8 @@ export function CharacterRegistryTab() {
             Global Character Registry
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Manage reusable Characters. Assign them in Members.
+            Characters are reusable identities. Assign them to Worlds as
+            Residents; editing a Character never changes World membership.
           </p>
         </div>
         <Button onClick={() => requestEditor('new')}>
@@ -169,6 +182,7 @@ export function CharacterRegistryTab() {
             label="Search Characters"
             placeholder="Search by name or handle"
             value={search}
+            disabled={editorDirty}
             onChange={(event) => setSearch(event.target.value)}
             className="pr-10"
           />
@@ -181,6 +195,7 @@ export function CharacterRegistryTab() {
           id="character-registry-status"
           label="Status"
           value={activityFilter}
+          disabled={editorDirty}
           options={[
             { value: 'all', label: 'All Characters' },
             { value: 'active', label: 'Active only' },
@@ -275,13 +290,25 @@ export function CharacterRegistryTab() {
 
       {editor !== null ? (
         selectedCharacter !== undefined || editor === 'new' ? (
-          <CharacterEditor
-            key={editor}
-            mode={editor === 'new' ? 'create' : 'edit'}
-            character={selectedCharacter}
-            onClose={() => requestEditor(null)}
-            onDirtyChange={setEditorDirty}
-          />
+          <Modal
+            open
+            onClose={closeEditor}
+            title={
+              editor === 'new'
+                ? 'New Character'
+                : `Edit ${selectedCharacter?.name ?? 'Character'}`
+            }
+            size="wide"
+            className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-h-[calc(100vh-3rem)]"
+          >
+            <CharacterEditor
+              key={editor}
+              mode={editor === 'new' ? 'create' : 'edit'}
+              character={selectedCharacter}
+              onClose={closeEditor}
+              onDirtyChange={handleEditorDirtyChange}
+            />
+          </Modal>
         ) : (
           <ErrorState
             title="Character no longer available"

@@ -1,6 +1,6 @@
 import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import { X } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { adminErrorMessage } from '@/features/admin/admin-errors';
 import { CharacterForm } from '@/features/characters/forms/character-form';
@@ -45,14 +45,17 @@ export function CharacterEditor({
   const [isDirty, setIsDirty] = useState(false);
   const blocker = useUnsavedChangesBlocker(isDirty);
 
+  const initialValues = useMemo(
+    () =>
+      mode === 'edit' && savedCharacter !== undefined
+        ? characterToFormValues(savedCharacter)
+        : blankCharacterFormValues(),
+    [mode, savedCharacter],
+  );
+
   if (mode === 'edit' && savedCharacter === undefined) {
     return null;
   }
-
-  const initialValues =
-    mode === 'edit' && savedCharacter !== undefined
-      ? characterToFormValues(savedCharacter)
-      : blankCharacterFormValues();
 
   const handleSubmit = (values: CharacterFormValues) => {
     setSubmitError(null);

@@ -47,8 +47,8 @@ export function DataTable<T>({
 
   return (
     <div>
-      <div className="hidden overflow-hidden rounded-xl border border-glass-border sm:block">
-        <table className="w-full text-left text-sm">
+      <div className="hidden overflow-x-auto rounded-xl border border-glass-border sm:block">
+        <table className="w-full min-w-[42rem] text-left text-sm">
           {caption ? <caption className="sr-only">{caption}</caption> : null}
           <thead className="border-b border-glass-border bg-glass-20 text-xs uppercase tracking-wider text-ink/60">
             <tr>

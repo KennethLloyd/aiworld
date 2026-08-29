@@ -42,6 +42,7 @@ export function UnsavedChangesDialog({
       open={open}
       onClose={onContinue}
       title="Unsaved changes"
+      size="wide"
       footer={
         <>
           <Button variant="ghost" onClick={onContinue}>

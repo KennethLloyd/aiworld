@@ -17,7 +17,7 @@ describe('Modal', () => {
     expect((await axe(document.body)).violations).toEqual([]);
   });
 
-  it('renders a labelled dialog with aria-modal', () => {
+  it('renders a labelled dialog with aria-modal and moves focus into it', () => {
     render(
       <Modal open onClose={() => {}} title="Delete world">
         <button type="button">Confirm</button>
@@ -27,6 +27,16 @@ describe('Modal', () => {
     const dialog = screen.getByRole('dialog', { name: 'Delete world' });
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(dialog).toHaveFocus();
+  });
+  it('supports a wide layout for data-dense dialogs', () => {
+    render(
+      <Modal open onClose={() => {}} title="Add Residents" size="wide">
+        <button type="button">Assign</button>
+      </Modal>,
+    );
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl');
   });
 
   it('renders nothing when closed', () => {

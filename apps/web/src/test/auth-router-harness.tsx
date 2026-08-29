@@ -12,6 +12,7 @@ import type { ReactNode } from 'react';
 import { authClient } from '@/core/auth/auth-client';
 import { gateways, GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
+import { Route as AdminCharactersRoute } from '@/routes/admin/characters';
 import { Route as AdminIndexRoute } from '@/routes/admin/index';
 import { Route as AdminRoute } from '@/routes/admin/route';
 import { Route as AdminWorldsRoute } from '@/routes/admin/worlds';
@@ -61,6 +62,11 @@ export function renderAuthRoutes(
     path: '/',
     getParentRoute: () => adminRoute,
   } as unknown as Parameters<typeof AdminIndexRoute.update>[0]);
+  const adminCharactersRoute = AdminCharactersRoute.update({
+    id: '/characters',
+    path: '/characters',
+    getParentRoute: () => adminRoute,
+  } as unknown as Parameters<typeof AdminCharactersRoute.update>[0]);
   const adminWorldsRoute = AdminWorldsRoute.update({
     id: '/worlds',
     path: '/worlds',
@@ -81,13 +87,13 @@ export function renderAuthRoutes(
     path: '/auth/sign-in',
     getParentRoute: () => rootRoute,
   } as unknown as Parameters<typeof AuthSignInRoute.update>[0]);
-
   const adminWorlds = adminWorldsRoute.addChildren({
     $slug: adminWorldsSlugRoute,
     new: adminWorldsNewRoute,
   });
   const admin = adminRoute.addChildren({
     index: adminIndexRoute,
+    characters: adminCharactersRoute,
     worlds: adminWorlds,
   });
   // Landing stub for post-auth redirect targets (/worlds), which are not part

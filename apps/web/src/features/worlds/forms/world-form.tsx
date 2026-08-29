@@ -299,8 +299,9 @@ export function WorldForm({
               Visibility
             </h3>
             <p className="mt-1 text-sm leading-relaxed text-ink/60">
-              Hidden from browsing and simulation when inactive. Deactivating
-              pauses a running simulation; reactivating does not resume it.
+              Hidden from public browsing when inactive. Simulation lifecycle is
+              managed in Simulation; deactivating a World pauses a running
+              simulation, and reactivation leaves it paused.
             </p>
           </div>
         </div>

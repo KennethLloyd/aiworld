@@ -17,8 +17,8 @@ import {
   adminErrorMessage,
   isForbiddenError,
 } from '@/features/admin/admin-errors';
-import { useAdminResidents } from '@/features/admin/query/use-admin-residents';
 import { useSimulationLogs } from '@/features/admin/query/use-simulation';
+import { useAdminCharacterDirectory } from '@/features/characters/query/use-admin-characters';
 import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
@@ -30,27 +30,35 @@ import { LogList, titleCase } from './simulation-log-list';
 
 const LOG_PAGE_SIZE = 10;
 
-interface LogFilters {
+export interface LogFilters {
   characterId?: string;
   action?: SimulationActionType;
   status?: SimulationLogStatus;
   executionSource?: SimulationExecutionSource;
 }
 
+export interface SimulationLogsTabProps {
+  world: WorldResponse;
+  selectedLogId?: string;
+  filters: LogFilters;
+  page: number;
+  onFiltersChange: (filters: LogFilters) => void;
+  onPageChange: (page: number) => void;
+}
+
 export function SimulationLogsTab({
   world,
   selectedLogId,
-}: {
-  world: WorldResponse;
-  selectedLogId?: string;
-}) {
-  const [filters, setFilters] = useState<LogFilters>({});
-  const [page, setPage] = useState(1);
+  filters,
+  page,
+  onFiltersChange,
+  onPageChange,
+}: SimulationLogsTabProps) {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const residentsQuery = useAdminResidents(world.slug);
-  const residents = useMemo(
-    () => residentsQuery.data?.items ?? [],
-    [residentsQuery.data],
+  const charactersQuery = useAdminCharacterDirectory();
+  const characters = useMemo(
+    () => charactersQuery.data ?? [],
+    [charactersQuery.data],
   );
   const query = useMemo<ListSimulationLogsQuery>(
     () => ({ ...filters, page, limit: LOG_PAGE_SIZE }),
@@ -58,8 +66,9 @@ export function SimulationLogsTab({
   );
   const logsQuery = useSimulationLogs(world.slug, query);
   const residentNames = useMemo(
-    () => new Map(residents.map((resident) => [resident.id, resident.name])),
-    [residents],
+    () =>
+      new Map(characters.map((character) => [character.id, character.name])),
+    [characters],
   );
 
   useEffect(() => {
@@ -72,17 +81,22 @@ export function SimulationLogsTab({
     key: K,
     value: LogFilters[K] | '',
   ) => {
-    setFilters((current) => ({
-      ...current,
+    const nextFilters = {
+      ...filters,
       [key]: value === '' ? undefined : value,
-    }));
-    setPage(1);
+    };
+    onFiltersChange(nextFilters);
+    onPageChange(1);
     setExpandedLogId(null);
   };
 
   const clearFilters = () => {
-    setFilters({});
-    setPage(1);
+    onFiltersChange({});
+    onPageChange(1);
+    setExpandedLogId(null);
+  };
+  const changePage = (nextPage: number) => {
+    onPageChange(nextPage);
     setExpandedLogId(null);
   };
 
@@ -121,11 +135,15 @@ export function SimulationLogsTab({
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight">
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-brand-diplomat/80">
+            World workspace / logs
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">
             Simulation Logs
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Review execution history.
+            Review execution history for {world.name}. Expand a record for
+            provider, latency, token, cost, and safe error details.
           </p>
         </div>
         <p className="font-mono text-xs text-ink/50" aria-live="polite">
@@ -162,9 +180,9 @@ export function SimulationLogsTab({
               label="Character"
               value={filters.characterId ?? ''}
               placeholder="Any Character"
-              options={residents.map((resident) => ({
-                value: resident.id,
-                label: resident.name,
+              options={characters.map((character) => ({
+                value: character.id,
+                label: character.name,
               }))}
               onChange={(event) =>
                 updateFilter('characterId', event.target.value)
@@ -269,10 +287,7 @@ export function SimulationLogsTab({
             size="sm"
             aria-label="Previous page"
             disabled={page <= 1 || logsQuery.isFetching}
-            onClick={() => {
-              setPage((current) => Math.max(1, current - 1));
-              setExpandedLogId(null);
-            }}
+            onClick={() => changePage(Math.max(1, page - 1))}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">Previous page</span>
@@ -285,10 +300,7 @@ export function SimulationLogsTab({
             size="sm"
             aria-label="Next page"
             disabled={page >= data.meta.totalPages || logsQuery.isFetching}
-            onClick={() => {
-              setPage((current) => Math.min(data.meta.totalPages, current + 1));
-              setExpandedLogId(null);
-            }}
+            onClick={() => changePage(Math.min(data.meta.totalPages, page + 1))}
           >
             <span className="hidden sm:inline">Next page</span>
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
