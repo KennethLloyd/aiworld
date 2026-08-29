@@ -484,7 +484,7 @@ function AdminHeader({ world }: { world: WorldResponse | undefined }) {
       <div>
         <h1 className="flex flex-wrap items-center gap-3 font-mono text-xl font-bold tracking-tight text-ink sm:text-2xl">
           <Terminal
-            className="h-6 w-6 text-brand-diplomat"
+            className="h-6 w-6 text-brand-sentinel"
             aria-hidden="true"
           />
           AIWorld Admin <span className="text-ink/45">·</span> WORLD_ENGINE

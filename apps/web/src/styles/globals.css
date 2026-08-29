@@ -1,18 +1,21 @@
 @import 'tailwindcss';
 
 @theme {
-  /* The dark application shell follows the observer's icy blue/orange language. */
-  --color-surface: #0a1017;
-  --color-surface-2: #121c27;
-  --color-ink: #edf3f6;
-  --color-glass-100: rgba(224, 239, 246, 0.1);
-  --color-glass-50: rgba(224, 239, 246, 0.06);
-  --color-glass-20: rgba(224, 239, 246, 0.035);
-  --color-glass-border: rgba(128, 188, 220, 0.22);
-  --color-brand-analyst: #8bbbe0;
-  --color-brand-diplomat: #63c4ef;
-  --color-brand-sentinel: #8adfff;
-  --color-brand-explorer: #f0ad67;
+  /* The admin shell follows the provided control-center palette. */
+  --color-surface: #0b0f15;
+  --color-surface-2: #121826;
+  --color-ink: #e6f0ff;
+  --color-ink-secondary: #9ca3af;
+  --color-glass-100: rgba(230, 240, 255, 0.1);
+  --color-glass-50: rgba(230, 240, 255, 0.06);
+  --color-glass-20: rgba(230, 240, 255, 0.04);
+  --color-glass-border: #273244;
+  --color-brand-analyst: #3b82f6;
+  --color-brand-diplomat: #22c55e;
+  --color-brand-sentinel: #00e5ff;
+  --color-brand-explorer: #ffb020;
+  --color-brand-accent: #8b5cf6;
+  --color-brand-neon: #00b2ff;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
@@ -67,12 +70,12 @@
     background-image:
       radial-gradient(
         circle at 12% -10%,
-        rgba(94, 82, 170, 0.22),
+        rgba(0, 178, 255, 0.1),
         transparent 38rem
       ),
       radial-gradient(
         circle at 100% 15%,
-        rgba(41, 125, 145, 0.13),
+        rgba(139, 92, 246, 0.08),
         transparent 34rem
       );
     color: var(--color-ink);
@@ -92,46 +95,46 @@
     background:
       radial-gradient(
         circle at 8% 2%,
-        rgba(111, 211, 245, 0.13),
+        rgba(0, 178, 255, 0.1),
         transparent 27rem
       ),
       radial-gradient(
         circle at 98% 12%,
-        rgba(125, 171, 235, 0.1),
+        rgba(139, 92, 246, 0.08),
         transparent 30rem
       ),
-      linear-gradient(145deg, #0a1017 0%, #0e1d29 48%, #122330 100%);
+      linear-gradient(145deg, #0b0f15 0%, #121826 48%, #1a2233 100%);
   }
 
   .admin-shell .glass-panel {
-    border-color: rgba(128, 188, 220, 0.22);
+    border-color: #273244;
     background: linear-gradient(
       145deg,
-      rgba(27, 49, 65, 0.9),
-      rgba(14, 26, 37, 0.96)
+      rgba(26, 34, 51, 0.95),
+      rgba(18, 24, 38, 0.98)
     );
     box-shadow:
-      inset 0 1px 0 rgba(235, 247, 251, 0.06),
-      0 18px 50px rgba(2, 9, 15, 0.4);
+      inset 0 1px 0 rgba(230, 240, 255, 0.06),
+      0 18px 50px rgba(3, 6, 15, 0.5);
     backdrop-filter: blur(22px) saturate(110%);
   }
 
   .admin-shell .glass-panel-hover:hover {
-    border-color: rgba(138, 223, 255, 0.36);
+    border-color: #3b82f6;
     background: linear-gradient(
       145deg,
-      rgba(33, 60, 78, 0.94),
-      rgba(17, 34, 47, 0.98)
+      rgba(39, 50, 68, 0.95),
+      rgba(26, 34, 51, 0.98)
     );
     box-shadow:
-      inset 0 1px 0 rgba(235, 247, 251, 0.08),
-      0 22px 58px rgba(2, 9, 15, 0.52);
+      inset 0 1px 0 rgba(230, 240, 255, 0.08),
+      0 22px 58px rgba(3, 6, 15, 0.58);
   }
 
   .admin-shell .app-header {
-    border-bottom-color: rgba(128, 188, 220, 0.22);
-    background: rgba(10, 16, 23, 0.86);
-    box-shadow: 0 12px 35px rgba(2, 9, 15, 0.3);
+    border-bottom-color: #273244;
+    background: rgba(11, 15, 21, 0.92);
+    box-shadow: 0 12px 35px rgba(3, 6, 15, 0.42);
     backdrop-filter: blur(22px) saturate(115%);
   }
 
@@ -139,12 +142,12 @@
     background-image:
       radial-gradient(
         circle at 12% 42%,
-        rgba(111, 211, 245, 0.15),
+        rgba(0, 229, 255, 0.1),
         transparent 45%
       ),
       radial-gradient(
         circle at 88% 28%,
-        rgba(125, 171, 235, 0.1),
+        rgba(139, 92, 246, 0.08),
         transparent 42%
       );
   }
@@ -152,14 +155,14 @@
   .admin-shell .blob-1 {
     background-image: radial-gradient(
       circle,
-      rgba(111, 211, 245, 0.13) 0%,
+      rgba(0, 178, 255, 0.08) 0%,
       transparent 70%
     );
   }
   .admin-shell .blob-2 {
     background-image: radial-gradient(
       circle,
-      rgba(125, 171, 235, 0.1) 0%,
+      rgba(255, 176, 32, 0.06) 0%,
       transparent 70%
     );
   }
@@ -178,15 +181,15 @@
   }
 
   .admin-modal {
-    border-color: rgba(128, 188, 220, 0.22);
+    border-color: #273244;
     background: linear-gradient(
       145deg,
-      rgba(27, 49, 65, 0.98),
-      rgba(14, 26, 37, 0.99)
+      rgba(26, 34, 51, 0.99),
+      rgba(18, 24, 38, 1)
     );
     box-shadow:
-      inset 0 1px 0 rgba(235, 247, 251, 0.06),
-      0 18px 50px rgba(2, 9, 15, 0.54);
+      inset 0 1px 0 rgba(230, 240, 255, 0.06),
+      0 18px 50px rgba(3, 6, 15, 0.64);
     backdrop-filter: blur(22px) saturate(110%);
   }
 
@@ -575,6 +578,39 @@
   }
 }
 
+.admin-shell .bg-brand-analyst\/20,
+.admin-modal .bg-brand-analyst\/20 {
+  background-color: var(--color-brand-analyst);
+  color: #0b0f15;
+}
+
+.admin-shell .hover\:bg-brand-analyst\/30:hover,
+.admin-modal .hover\:bg-brand-analyst\/30:hover {
+  background-color: var(--color-brand-neon);
+}
+.admin-shell .text-ink\/40,
+.admin-modal .text-ink\/40,
+.admin-shell .text-ink\/45,
+.admin-modal .text-ink\/45,
+.admin-shell .text-ink\/50,
+.admin-modal .text-ink\/50,
+.admin-shell .text-ink\/55,
+.admin-modal .text-ink\/55,
+.admin-shell .text-ink\/60,
+.admin-modal .text-ink\/60,
+.admin-shell .text-ink\/65,
+.admin-modal .text-ink\/65,
+.admin-shell .text-ink\/70,
+.admin-modal .text-ink\/70,
+.admin-shell .text-ink\/80,
+.admin-modal .text-ink\/80 {
+  color: var(--color-ink-secondary);
+}
+
+.admin-shell .hover\:text-ink:hover,
+.admin-modal .hover\:text-ink:hover {
+  color: var(--color-ink);
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -37,7 +37,7 @@ export function AppHeader({
             aria-label="AIWorld home"
             className="group flex items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-sentinel"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-sentinel via-brand-analyst to-brand-diplomat text-white shadow-lg shadow-brand-sentinel/20 transition-transform group-hover:rotate-6">
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-analyst via-brand-neon to-brand-sentinel text-white shadow-lg shadow-brand-sentinel/20 transition-transform group-hover:rotate-6">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
             </span>
             <span className="flex flex-col">
