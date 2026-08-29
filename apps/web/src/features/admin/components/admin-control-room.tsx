@@ -609,7 +609,6 @@ function WorldPicker({
     0,
     worlds.findIndex((world) => world.slug === value),
   );
-  const worldOptionKey = worlds.map((world) => world.slug).join('|');
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const listboxId = 'admin-selected-world-options';
   const searchId = 'admin-selected-world-search';
@@ -637,7 +636,7 @@ function WorldPicker({
         : Math.min(worlds.length - 1, Math.max(0, current));
     });
     searchRef.current?.focus();
-  }, [open, searchValue, selectedIndex, value, worldOptionKey]);
+  }, [open, searchValue, selectedIndex, value, worlds]);
 
   useEffect(() => {
     if (!open) {
