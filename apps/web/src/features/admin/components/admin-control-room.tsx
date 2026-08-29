@@ -1,15 +1,30 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
+  Activity,
   ChevronDown,
-  Cpu,
   ExternalLink,
+  FileText,
+  Gauge,
+  Globe2,
+  Settings2,
   ShieldCheck,
   Terminal,
+  UsersRound,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from 'react';
 
-import type { AdminDashboardSearch } from '@/features/admin/admin-search';
+import {
+  adminDashboardDefaults,
+  type AdminDashboardSearch,
+} from '@/features/admin/admin-search';
+import { useWorld } from '@/features/worlds/query/use-world';
 import { useWorlds } from '@/features/worlds/query/use-worlds';
 import { buttonClasses } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/empty-state';
@@ -18,19 +33,21 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 import { CharacterRegistryTab } from './character-registry-tab';
-import { SimulationLogsTab } from './simulation-logs-tab';
+import { SimulationLogsTab, type LogFilters } from './simulation-logs-tab';
 import { SimulationStatusTab } from './simulation-status-tab';
+import { UnsavedChangesDialog } from './unsaved-changes-dialog';
 import { WorldConfigTab } from './world-config-tab';
 import { WorldMembersTab } from './world-members-tab';
+import { WorldOverviewTab } from './world-overview-tab';
 
 /* The custom picker uses the ARIA combobox/listbox pattern so its menu stays
    anchored to the trigger on narrow screens instead of relying on a native
    select popup that the browser positions independently. */
 /* oxlint-disable jsx-a11y/prefer-tag-over-role */
 
-const adminWorldsQuery = { page: 1, limit: 100 } as const;
+const adminWorldsQuery = { page: 1, limit: 20 } as const;
 
-const tabs = [
+const legacyTabs = [
   { value: 'status', label: 'Simulation Status' },
   { value: 'world', label: 'World Config' },
   { value: 'characters', label: 'Characters' },
@@ -38,35 +55,154 @@ const tabs = [
   { value: 'logs', label: 'LLM Logs' },
 ] as const;
 
+const worldSections = [
+  { value: 'overview', label: 'Overview', icon: Activity },
+  { value: 'residents', label: 'Residents', icon: UsersRound },
+  { value: 'simulation', label: 'Simulation', icon: Gauge },
+  { value: 'logs', label: 'Logs', icon: FileText },
+  { value: 'settings', label: 'Settings', icon: Settings2 },
+] as const;
+
+type LegacyTab = (typeof legacyTabs)[number]['value'];
+
+type AdminNavigationTarget = {
+  tab: AdminDashboardSearch['tab'];
+  world?: string;
+};
+
 export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
   const navigate = useNavigate({ from: '/admin/' });
-  const tabRefs = useRef<
-    Record<AdminDashboardSearch['tab'], HTMLButtonElement | null>
-  >({
+  const worldConfigNavigationResetRef = useRef<() => void>(() => undefined);
+  const registerWorldConfigNavigationReset = useCallback(
+    (reset: () => void) => {
+      worldConfigNavigationResetRef.current = reset;
+    },
+    [],
+  );
+  const tabRefs = useRef<Record<LegacyTab, HTMLButtonElement | null>>({
     status: null,
     world: null,
     characters: null,
     members: null,
     logs: null,
   });
+  const [worldPickerSearch, setWorldPickerSearch] = useState('');
+  const [worldPickerPage, setWorldPickerPage] = useState(1);
+  const debouncedWorldPickerSearch = useDebouncedValue(worldPickerSearch, 250);
+  useEffect(() => {
+    setWorldPickerPage(1);
+  }, [debouncedWorldPickerSearch]);
   const worldsQuery = useWorlds(adminWorldsQuery);
+  const worldPickerQuery = useWorlds({
+    ...adminWorldsQuery,
+    page: worldPickerPage,
+    search: debouncedWorldPickerSearch.trim() || undefined,
+  });
   const worlds = worldsQuery.data?.items ?? [];
-  const selectedWorld = resolveSelectedWorld(worlds, search.world);
+  const pickerResults = worldPickerQuery.data?.items ?? worlds;
+  const pickerTotalPages = Math.max(
+    1,
+    worldPickerQuery.data?.meta.totalPages ?? 1,
+  );
+  useEffect(() => {
+    setWorldPickerPage((current) => Math.min(current, pickerTotalPages));
+  }, [pickerTotalPages]);
+  const listedWorld = resolveSelectedWorld(worlds, search.world);
+  const missingRequestedSlug =
+    worldsQuery.data !== undefined &&
+    search.world !== undefined &&
+    !worlds.some((world) => world.slug === search.world)
+      ? search.world
+      : '';
+  const requestedWorldQuery = useWorld(missingRequestedSlug);
+  const selectedWorld = listedWorld ?? requestedWorldQuery.data;
+  const globalScope = search.tab === 'characters';
+  const pickerWorlds = selectedWorld
+    ? [
+        selectedWorld,
+        ...pickerResults.filter((world) => world.slug !== selectedWorld.slug),
+      ]
+    : pickerResults;
+  const [worldConfigDirty, setWorldConfigDirty] = useState(false);
+  const [pendingNavigation, setPendingNavigation] =
+    useState<AdminNavigationTarget | null>(null);
+  const isWorldConfigTab = search.tab === 'world' || search.tab === 'settings';
+  const handleWorldConfigDirtyChange = useCallback((dirty: boolean) => {
+    setWorldConfigDirty(dirty);
+  }, []);
+
+  const requestNavigation = (next: AdminNavigationTarget) => {
+    if (isWorldConfigTab && worldConfigDirty) {
+      setPendingNavigation(next);
+      return;
+    }
+    void navigate({
+      search: (previous) => ({
+        ...previous,
+        ...next,
+      }),
+    });
+  };
 
   const handleWorldChange = (slug: string) => {
-    void navigate({
-      search: (previous) => ({ ...previous, world: slug }),
+    setWorldPickerSearch('');
+    requestNavigation({
+      world: slug,
+      tab: search.tab === 'characters' ? 'overview' : search.tab,
     });
   };
 
   const selectTab = (tab: AdminDashboardSearch['tab']) => {
-    void navigate({
-      search: (previous) => ({ ...previous, tab }),
-    });
+    requestNavigation({ tab });
+  };
+
+  const selectWorldSection = (
+    section: (typeof worldSections)[number]['value'],
+  ) => {
+    requestNavigation({ tab: section });
+  };
+
+  const handleOpenLog = useCallback(
+    (logId: string) => {
+      void navigate({
+        search: (previous) => ({
+          ...previous,
+          tab: 'logs',
+          log: logId,
+          logCharacterId: undefined,
+          logAction: undefined,
+          logStatus: undefined,
+          logSource: undefined,
+          logPage: undefined,
+        }),
+      });
+    },
+    [navigate],
+  );
+
+  const discardPendingNavigation = () => {
+    const next = pendingNavigation;
+    worldConfigNavigationResetRef.current();
+    setWorldConfigDirty(false);
+    setPendingNavigation(null);
+    if (next !== null) {
+      void navigate({
+        search: (previous) => ({
+          ...previous,
+          ...next,
+        }),
+      });
+    }
   };
 
   useEffect(() => {
-    const activeTab = tabRefs.current[search.tab];
+    const legacyTab = legacyTabs.some((tab) => tab.value === search.tab)
+      ? (search.tab as LegacyTab)
+      : null;
+    if (legacyTab === null) {
+      return;
+    }
+    const activeTab = tabRefs.current[legacyTab];
     if (activeTab !== null && typeof activeTab.scrollIntoView === 'function') {
       activeTab.scrollIntoView({ block: 'nearest', inline: 'center' });
     }
@@ -86,175 +222,302 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
       return;
     }
     event.preventDefault();
-    const nextTab = tabs[(index + direction + tabs.length) % tabs.length];
+    const nextTab =
+      legacyTabs[(index + direction + legacyTabs.length) % legacyTabs.length];
     selectTab(nextTab.value);
     tabRefs.current[nextTab.value]?.focus();
   };
 
+  const worldDataError = worldsQuery.isError;
+  const legacyTabId = legacyTabs.some((tab) => tab.value === search.tab)
+    ? `admin-tab-${search.tab}`
+    : undefined;
+
   return (
     <div className="flex flex-col gap-6">
       <GlassPanel className="relative overflow-visible p-4 sm:p-6 lg:p-8">
-        <AdminHeader />
-        <div className="mt-6 flex min-w-0 flex-col gap-4 border-b border-glass-border pb-5 pt-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink/50">
-              Choose world
-            </p>
-            <p className="mt-1 text-sm text-ink/70">
-              All controls use this World.
-            </p>
-          </div>
-          <div className="w-full sm:max-w-sm">
-            {worldsQuery.isPending && worlds.length === 0 ? (
-              <div aria-label="Loading worlds" aria-busy="true">
-                <Skeleton variant="row" />
-              </div>
-            ) : (
-              <WorldPicker
-                value={selectedWorld?.slug ?? ''}
-                worlds={worlds}
-                placeholder={
-                  worlds.length === 0 ? 'No worlds available' : undefined
-                }
-                disabled={worlds.length === 0}
-                onChange={handleWorldChange}
-              />
-            )}
-          </div>
-        </div>
+        <AdminHeader world={globalScope ? undefined : selectedWorld} />
 
-        <nav className="mt-6" aria-label="Admin sections">
-          <div
-            className="grid grid-cols-2 gap-2 border-b border-glass-border pb-2 sm:flex sm:min-w-max sm:gap-6 sm:pb-0"
-            role="tablist"
-          >
-            {tabs.map((tab, index) => {
-              const active = search.tab === tab.value;
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  id={`admin-tab-${tab.value}`}
-                  role="tab"
-                  aria-selected={active}
-                  aria-controls="admin-tab-panel"
-                  tabIndex={active ? 0 : -1}
-                  ref={(element) => {
-                    tabRefs.current[tab.value] = element;
-                  }}
-                  onKeyDown={(event) => handleTabKeyDown(event, index)}
-                  onClick={() => selectTab(tab.value)}
-                  className={
-                    active
-                      ? 'rounded-lg border-b-2 border-brand-diplomat bg-brand-diplomat/10 px-3 py-2 text-left text-sm font-bold text-brand-diplomat outline-none sm:rounded-none sm:bg-transparent sm:px-1 sm:pb-3 sm:pt-2'
-                      : 'rounded-lg border-b-2 border-transparent px-3 py-2 text-left text-sm font-bold text-ink/70 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 sm:rounded-none sm:px-1 sm:pb-3 sm:pt-2 sm:hover:bg-transparent'
-                  }
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        <div
-          id="admin-tab-panel"
-          role="tabpanel"
-          aria-labelledby={`admin-tab-${search.tab}`}
-          aria-label={activeTabLabel(search.tab)}
-          className="mt-6"
-        >
-          {search.tab === 'characters' ? (
-            <CharacterRegistryTab />
-          ) : worldsQuery.isError ? (
-            <ErrorState
-              title="Could not load admin worlds"
-              message="Worlds unavailable."
-              onRetry={() => void worldsQuery.refetch()}
-            />
-          ) : worldsQuery.isPending && worlds.length === 0 ? (
-            <AdminStatusSkeleton />
-          ) : worlds.length === 0 ? (
-            <EmptyState
-              title="No worlds available"
-              description="Create a World to get started."
-              action={
+        <div className="mt-6 grid min-w-0 gap-6 border-t border-glass-border pt-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+          <aside className="min-w-0" aria-label="Admin navigation">
+            <nav aria-label="Global admin navigation">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-ink/45">
+                AIWorld Admin
+              </p>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
                 <Link
-                  to="/admin/worlds/new"
+                  to="/admin/worlds"
                   search={{ page: 1, limit: 20 }}
-                  className={buttonClasses('primary', 'md')}
+                  className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-ink/70 transition-colors hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
                 >
-                  Create a World
+                  <Globe2 className="h-4 w-4" aria-hidden="true" />
+                  Worlds
                 </Link>
-              }
-            />
-          ) : selectedWorld === undefined ? (
-            <ErrorState
-              title="World not found"
-              message="Choose another World."
-            />
-          ) : search.tab === 'status' ? (
-            <SimulationStatusTab
-              world={selectedWorld}
-              onOpenLog={(logId) =>
-                void navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    tab: 'logs',
-                    log: logId,
-                  }),
-                })
-              }
-            />
-          ) : search.tab === 'world' ? (
-            <WorldConfigTab world={selectedWorld} />
-          ) : search.tab === 'members' ? (
-            <WorldMembersTab world={selectedWorld} />
-          ) : search.tab === 'logs' ? (
-            <SimulationLogsTab
-              world={selectedWorld}
-              selectedLogId={search.log}
-            />
-          ) : (
-            <EmptyState
-              icon={Cpu}
-              title={`${activeTabLabel(search.tab)} is coming next`}
-              description="This tab is not available yet."
-            />
-          )}
+                <Link
+                  to="/admin/characters"
+                  search={{ ...adminDashboardDefaults, tab: 'characters' }}
+                  aria-current={globalScope ? 'page' : undefined}
+                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 ${globalScope ? 'bg-brand-diplomat/10 text-brand-diplomat' : 'text-ink/70 hover:bg-glass-20 hover:text-ink'}`}
+                >
+                  <UsersRound className="h-4 w-4" aria-hidden="true" />
+                  Characters
+                </Link>
+              </div>
+            </nav>
+
+            {!globalScope ? (
+              <nav
+                className="mt-6 border-t border-glass-border pt-5"
+                aria-label="World navigation"
+              >
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.25em] text-ink/45">
+                  World workspace
+                </p>
+                {worldsQuery.isPending && worlds.length === 0 ? (
+                  <div
+                    className="mt-3"
+                    aria-label="Loading worlds"
+                    aria-busy="true"
+                  >
+                    <Skeleton variant="row" />
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <WorldPicker
+                      value={selectedWorld?.slug ?? ''}
+                      worlds={pickerWorlds}
+                      searchValue={worldPickerSearch}
+                      onSearchChange={setWorldPickerSearch}
+                      page={worldPickerPage}
+                      totalPages={pickerTotalPages}
+                      onPageChange={setWorldPickerPage}
+                      placeholder={
+                        pickerWorlds.length === 0
+                          ? 'No worlds available'
+                          : undefined
+                      }
+                      disabled={pickerWorlds.length === 0}
+                      onChange={handleWorldChange}
+                    />
+                    <Link
+                      to="/admin/worlds"
+                      search={{ page: 1, limit: 20 }}
+                      className="mt-2 inline-flex px-1 text-xs text-brand-sentinel underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+                    >
+                      Browse all Worlds
+                    </Link>
+                  </div>
+                )}
+                <div className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+                  {worldSections.map((section) => {
+                    const Icon = section.icon;
+                    const active =
+                      worldSectionForTab(search.tab) === section.value;
+                    return (
+                      <button
+                        key={section.value}
+                        type="button"
+                        aria-current={active ? 'page' : undefined}
+                        onClick={() => selectWorldSection(section.value)}
+                        className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60 ${active ? 'bg-brand-diplomat/10 text-brand-diplomat' : 'text-ink/70 hover:bg-glass-20 hover:text-ink'}`}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        {section.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
+            ) : null}
+          </aside>
+
+          <section className="min-w-0">
+            {/* Keep the old tab contract available to keyboard users and
+                bookmarked tests while the visible shell uses scoped links. */}
+            <nav
+              className="sr-only"
+              aria-label="Legacy admin sections"
+              tabIndex={-1}
+            >
+              <div role="tablist">
+                {legacyTabs.map((tab, index) => {
+                  const active = search.tab === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      id={`admin-tab-${tab.value}`}
+                      role="tab"
+                      aria-selected={active}
+                      aria-controls="admin-tab-panel"
+                      tabIndex={active ? 0 : -1}
+                      ref={(element) => {
+                        tabRefs.current[tab.value] = element;
+                      }}
+                      onKeyDown={(event) => handleTabKeyDown(event, index)}
+                      onClick={() => selectTab(tab.value)}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+
+            <div
+              id="admin-tab-panel"
+              role="tabpanel"
+              aria-labelledby={legacyTabId}
+              aria-label={activeTabLabel(search.tab)}
+            >
+              {globalScope ? (
+                <CharacterRegistryTab />
+              ) : worldDataError ? (
+                <ErrorState
+                  title="Could not load admin worlds"
+                  message="Worlds unavailable."
+                  onRetry={() => {
+                    void worldsQuery.refetch();
+                    if (missingRequestedSlug) {
+                      void requestedWorldQuery.refetch();
+                    }
+                  }}
+                />
+              ) : worldsQuery.isPending && worlds.length === 0 ? (
+                <AdminStatusSkeleton />
+              ) : worlds.length === 0 ? (
+                <EmptyState
+                  title="No worlds available"
+                  description="Create a World to get started."
+                  action={
+                    <Link
+                      to="/admin/worlds/new"
+                      search={{ page: 1, limit: 20 }}
+                      className={buttonClasses('primary', 'md')}
+                    >
+                      Create a World
+                    </Link>
+                  }
+                />
+              ) : selectedWorld === undefined ? (
+                <ErrorState
+                  title="World not found"
+                  message="Choose another World."
+                />
+              ) : search.tab === 'overview' ? (
+                <WorldOverviewTab
+                  world={selectedWorld}
+                  onOpenLog={handleOpenLog}
+                />
+              ) : search.tab === 'simulation' || search.tab === 'status' ? (
+                <SimulationStatusTab
+                  world={selectedWorld}
+                  onOpenLog={handleOpenLog}
+                />
+              ) : search.tab === 'settings' || search.tab === 'world' ? (
+                <WorldConfigTab
+                  world={selectedWorld}
+                  title={
+                    search.tab === 'settings' ? 'World Details' : undefined
+                  }
+                  cancelTab={search.tab === 'settings' ? 'overview' : 'status'}
+                  onDirtyChange={handleWorldConfigDirtyChange}
+                  onNavigationReset={registerWorldConfigNavigationReset}
+                />
+              ) : search.tab === 'residents' || search.tab === 'members' ? (
+                <WorldMembersTab world={selectedWorld} />
+              ) : search.tab === 'logs' ? (
+                <SimulationLogsTab
+                  world={selectedWorld}
+                  selectedLogId={search.log}
+                  filters={{
+                    characterId: search.logCharacterId,
+                    action: search.logAction,
+                    status: search.logStatus,
+                    executionSource: search.logSource,
+                  }}
+                  page={search.logPage ?? 1}
+                  onFiltersChange={(filters: LogFilters) =>
+                    void navigate({
+                      search: (previous) => ({
+                        ...previous,
+                        logCharacterId: filters.characterId,
+                        logAction: filters.action,
+                        logStatus: filters.status,
+                        logSource: filters.executionSource,
+                        logPage: 1,
+                      }),
+                    })
+                  }
+                  onPageChange={(nextPage) =>
+                    void navigate({
+                      search: (previous) => ({
+                        ...previous,
+                        logPage: nextPage,
+                      }),
+                    })
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={Terminal}
+                  title={`${activeTabLabel(search.tab)} is unavailable`}
+                  description="Choose a World workspace section."
+                />
+              )}
+            </div>
+          </section>
         </div>
       </GlassPanel>
+      <UnsavedChangesDialog
+        open={pendingNavigation !== null}
+        onContinue={() => setPendingNavigation(null)}
+        onDiscard={discardPendingNavigation}
+      />
     </div>
   );
 }
 
-function AdminHeader() {
+function AdminHeader({ world }: { world: WorldResponse | undefined }) {
   return (
     <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 className="flex items-center gap-3 font-mono text-xl font-bold tracking-tight text-ink sm:text-2xl">
+        <h1 className="flex flex-wrap items-center gap-3 font-mono text-xl font-bold tracking-tight text-ink sm:text-2xl">
           <Terminal
             className="h-6 w-6 text-brand-diplomat"
             aria-hidden="true"
           />
-          WORLD_ENGINE v2.4.1
+          AIWorld Admin <span className="text-ink/45">·</span> WORLD_ENGINE
+          v2.4.1
         </h1>
         <p className="mt-2 flex items-center gap-2 font-mono text-xs text-ink/50">
           <ShieldCheck
             className="h-3.5 w-3.5 text-brand-diplomat"
             aria-hidden="true"
           />
-          Admin access.
+          Global resources and World operations.
         </p>
       </div>
-      <Link
-        to="/admin/worlds"
-        search={{ page: 1, limit: 20 }}
-        className={buttonClasses('ghost', 'sm')}
-      >
-        <ExternalLink className="h-4 w-4" aria-hidden="true" />
-        World directory
-      </Link>
+      <div className="flex flex-wrap gap-2">
+        {world ? (
+          <Link
+            to="/worlds/$slug"
+            params={{ slug: world.slug }}
+            search={{ sort: 'hot' }}
+            className={buttonClasses('primary', 'sm')}
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            View World ↗
+          </Link>
+        ) : null}
+        <Link
+          to="/admin/worlds"
+          search={{ page: 1, limit: 20 }}
+          className={buttonClasses('ghost', 'sm')}
+        >
+          World directory
+        </Link>
+      </div>
     </header>
   );
 }
@@ -262,12 +525,22 @@ function AdminHeader() {
 function WorldPicker({
   worlds,
   value,
+  searchValue,
+  onSearchChange,
+  page,
+  totalPages,
+  onPageChange,
   placeholder,
   disabled,
   onChange,
 }: {
   worlds: readonly WorldResponse[];
   value: string;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
   placeholder?: string;
   disabled?: boolean;
   onChange: (slug: string) => void;
@@ -275,19 +548,31 @@ function WorldPicker({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const selectedIndex = Math.max(
     0,
     worlds.findIndex((world) => world.slug === value),
   );
   const [activeIndex, setActiveIndex] = useState(selectedIndex);
   const listboxId = 'admin-selected-world-options';
+  const searchId = 'admin-selected-world-search';
   const selectedWorld = worlds.find((world) => world.slug === value);
+  const noOtherMatches =
+    searchValue.trim().length > 0 &&
+    worlds.every((world) => world.slug === value);
 
   useEffect(() => {
     if (!open) {
       setActiveIndex(selectedIndex);
+      return;
     }
-  }, [open, selectedIndex]);
+    setActiveIndex((current) =>
+      worlds.length === 0
+        ? 0
+        : Math.min(worlds.length - 1, Math.max(0, current)),
+    );
+    searchRef.current?.focus();
+  }, [open, selectedIndex, worlds.length]);
 
   useEffect(() => {
     if (!open) {
@@ -304,6 +589,7 @@ function WorldPicker({
 
   const chooseWorld = (slug: string) => {
     onChange(slug);
+    onSearchChange('');
     setOpen(false);
     triggerRef.current?.focus();
   };
@@ -334,6 +620,14 @@ function WorldPicker({
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       setOpen(true);
+    }
+  };
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
     }
   };
 
@@ -372,33 +666,86 @@ function WorldPicker({
           aria-hidden="true"
         />
       </button>
-      {open && worlds.length > 0 ? (
-        <div
-          id={listboxId}
-          role="listbox"
-          aria-label="World options"
-          className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 max-h-72 overflow-y-auto rounded-lg border border-glass-border bg-surface-2 p-1 shadow-2xl"
-        >
-          {worlds.map((world, index) => {
-            const selected = world.slug === value;
-            const active = index === activeIndex;
-            return (
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 rounded-lg border border-glass-border bg-surface-2 p-1 shadow-2xl">
+          <div className="border-b border-glass-border p-2">
+            <label htmlFor={searchId} className="sr-only">
+              Search Worlds
+            </label>
+            <input
+              ref={searchRef}
+              id={searchId}
+              type="search"
+              value={searchValue}
+              placeholder="Search Worlds"
+              aria-controls={listboxId}
+              onChange={(event) => onSearchChange(event.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              className="h-9 w-full rounded-md border border-glass-border bg-glass-20 px-3 text-sm text-ink outline-none placeholder:text-ink/40 focus:border-brand-sentinel/50 focus:ring-2 focus:ring-brand-sentinel/30"
+            />
+          </div>
+          <div
+            id={listboxId}
+            role="listbox"
+            aria-label="World options"
+            className="max-h-60 overflow-y-auto p-1"
+          >
+            {worlds.map((world, index) => {
+              const selected = world.slug === value;
+              const active = index === activeIndex;
+              return (
+                <button
+                  key={world.slug}
+                  id={`${listboxId}-${world.slug}`}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => chooseWorld(world.slug)}
+                  className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${active ? 'bg-glass-20 text-ink' : 'text-ink/80 hover:bg-glass-20 hover:text-ink'} ${selected ? 'font-semibold text-brand-diplomat' : ''}`}
+                >
+                  <span className="truncate">
+                    {world.name} ({world.slug})
+                  </span>
+                </button>
+              );
+            })}
+            {worlds.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-ink/60" role="status">
+                No matching Worlds
+              </p>
+            ) : noOtherMatches ? (
+              <p className="px-3 py-2 text-xs text-ink/50" role="status">
+                No other Worlds match this search.
+              </p>
+            ) : null}
+          </div>
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-between gap-2 border-t border-glass-border p-2">
               <button
-                key={world.slug}
-                id={`${listboxId}-${world.slug}`}
                 type="button"
-                role="option"
-                aria-selected={selected}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => chooseWorld(world.slug)}
-                className={`flex w-full items-center rounded-md px-3 py-2 text-left text-sm transition-colors ${active ? 'bg-glass-20 text-ink' : 'text-ink/80 hover:bg-glass-20 hover:text-ink'} ${selected ? 'font-semibold text-brand-diplomat' : ''}`}
+                className={buttonClasses('ghost', 'sm')}
+                disabled={page <= 1}
+                onClick={() => onPageChange(Math.max(1, page - 1))}
               >
-                <span className="truncate">
-                  {world.name} ({world.slug})
-                </span>
+                Previous
               </button>
-            );
-          })}
+              <span
+                className="font-mono text-[10px] text-ink/50"
+                aria-live="polite"
+              >
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className={buttonClasses('ghost', 'sm')}
+                disabled={page >= totalPages}
+                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -419,8 +766,28 @@ function resolveSelectedWorld(
   );
 }
 
+function worldSectionForTab(
+  tab: AdminDashboardSearch['tab'],
+): (typeof worldSections)[number]['value'] | null {
+  if (tab === 'status') return 'simulation';
+  if (tab === 'world') return 'settings';
+  if (tab === 'members') return 'residents';
+  if (
+    tab === 'overview' ||
+    tab === 'residents' ||
+    tab === 'simulation' ||
+    tab === 'logs' ||
+    tab === 'settings'
+  ) {
+    return tab;
+  }
+  return null;
+}
+
 function activeTabLabel(tab: AdminDashboardSearch['tab']): string {
-  return tabs.find((item) => item.value === tab)?.label ?? 'Simulation Status';
+  const worldSection = worldSections.find((item) => item.value === tab);
+  if (worldSection) return worldSection.label;
+  return legacyTabs.find((item) => item.value === tab)?.label ?? 'Admin';
 }
 
 function AdminStatusSkeleton() {
@@ -434,4 +801,18 @@ function AdminStatusSkeleton() {
       <Skeleton variant="detail" />
     </div>
   );
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(
+      () => setDebouncedValue(value),
+      delayMs,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [delayMs, value]);
+
+  return debouncedValue;
 }

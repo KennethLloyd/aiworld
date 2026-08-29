@@ -2,7 +2,6 @@ import { Link } from '@tanstack/react-router';
 import { Eye, LayoutDashboard, LogIn, LogOut, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { adminDashboardDefaults } from '@/features/admin/admin-search';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
 
 export interface AppHeaderProps {
@@ -72,8 +71,10 @@ export function AppHeader({
             <>
               {isAdmin ? (
                 <Link
-                  to="/admin"
-                  search={adminDashboardDefaults}
+                  to="/admin/worlds"
+                  search={{ page: 1, limit: 20 }}
+                  aria-label="Open admin control center"
+                  title="Open admin control center"
                   className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
                 >
                   <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
@@ -83,6 +84,8 @@ export function AppHeader({
               <button
                 type="button"
                 onClick={onSignOut}
+                aria-label="Sign out"
+                title="Sign out"
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm text-ink/65 transition-colors hover:bg-glass-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />

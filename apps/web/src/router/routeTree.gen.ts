@@ -14,6 +14,7 @@ import { Route as R403RouteImport } from './../routes/403'
 import { Route as R404RouteImport } from './../routes/404'
 import { Route as AdminRouteRouteImport } from './../routes/admin/route'
 import { Route as AdminIndexRouteImport } from './../routes/admin/index'
+import { Route as AdminCharactersRouteImport } from './../routes/admin/characters'
 import { Route as AdminWorldsRouteImport } from './../routes/admin/worlds'
 import { Route as AuthSignInRouteImport } from './../routes/auth/sign-in'
 import { Route as WorldsIndexRouteImport } from './../routes/worlds/index'
@@ -48,6 +49,11 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminCharactersRoute = AdminCharactersRouteImport.update({
+  id: '/characters',
+  path: '/characters',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminWorldsRoute = AdminWorldsRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/admin/characters': typeof AdminCharactersRoute
   '/admin/worlds': typeof AdminWorldsRouteWithChildren
   '/auth/sign-in': typeof AuthSignInRoute
   '/worlds/$slug': typeof WorldsSlugRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/admin/characters': typeof AdminCharactersRoute
   '/admin/worlds': typeof AdminWorldsRouteWithChildren
   '/auth/sign-in': typeof AuthSignInRoute
   '/worlds/$slug': typeof WorldsSlugRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteRouteWithChildren
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/admin/characters': typeof AdminCharactersRoute
   '/admin/worlds': typeof AdminWorldsRouteWithChildren
   '/auth/sign-in': typeof AuthSignInRoute
   '/worlds/$slug': typeof WorldsSlugRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/403'
     | '/404'
+    | '/admin/characters'
     | '/admin/worlds'
     | '/auth/sign-in'
     | '/worlds/$slug'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/'
     | '/403'
     | '/404'
+    | '/admin/characters'
     | '/admin/worlds'
     | '/auth/sign-in'
     | '/worlds/$slug'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/403'
     | '/404'
+    | '/admin/characters'
     | '/admin/worlds'
     | '/auth/sign-in'
     | '/worlds/$slug'
@@ -255,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/characters': {
+      id: '/admin/characters'
+      path: '/characters'
+      fullPath: '/admin/characters'
+      preLoaderRoute: typeof AdminCharactersRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/worlds': {
@@ -345,11 +364,13 @@ const AdminWorldsRouteWithChildren = AdminWorldsRoute._addFileChildren(
 )
 
 interface AdminRouteRouteChildren {
+  AdminCharactersRoute: typeof AdminCharactersRoute
   AdminWorldsRoute: typeof AdminWorldsRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminCharactersRoute: AdminCharactersRoute,
   AdminWorldsRoute: AdminWorldsRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
 }

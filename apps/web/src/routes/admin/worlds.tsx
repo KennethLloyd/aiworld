@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { ApiError } from '@/core/api/api-error';
+import { adminDashboardDefaults } from '@/features/admin/admin-search';
 import { WorldStatusBadge } from '@/features/worlds/components/world-status-badge';
 import {
   useDeleteWorld,
@@ -37,6 +38,7 @@ import { EmptyState } from '@/shared/ui/empty-state';
 import { ErrorState } from '@/shared/ui/error-state';
 import { Input } from '@/shared/ui/input';
 import { Modal } from '@/shared/ui/modal';
+import { Select } from '@/shared/ui/select';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 export type AdminWorldsSearch = z.infer<typeof listWorldsQuerySchema>;
@@ -101,7 +103,12 @@ function AdminWorldsList() {
   const didMount = useRef(false);
 
   const query = useMemo<ListWorldsQuery>(
-    () => ({ search: search.search, page: search.page, limit: search.limit }),
+    () => ({
+      search: search.search,
+      page: search.page,
+      limit: search.limit,
+      isActive: search.isActive,
+    }),
     [search],
   );
   const worldsQuery = useWorlds(query);
@@ -171,11 +178,21 @@ function AdminWorldsList() {
             description: errorMessage(error),
           });
         },
+
         onSettled: () => {
           setTogglingSlug(null);
         },
       },
     );
+  };
+  const handleActivityFilterChange = (value: string) => {
+    void navigate({
+      search: (previous) => ({
+        ...previous,
+        isActive: value === 'all' ? undefined : value === 'active',
+        page: 1,
+      }),
+    });
   };
 
   const closeDeleteDialog = useCallback(() => {
@@ -212,12 +229,11 @@ function AdminWorldsList() {
 
   const columns: readonly DataTableColumn<WorldResponse>[] = [
     {
-      header: 'Name',
+      header: 'World',
       cell: (world) => (
         <Link
-          to="/admin/worlds/$slug"
-          params={{ slug: world.slug }}
-          search={adminWorldsDefaults}
+          to="/admin"
+          search={{ world: world.slug, tab: 'overview' }}
           className="font-medium text-brand-sentinel transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
         >
           {world.name}
@@ -248,15 +264,31 @@ function AdminWorldsList() {
       ),
     },
     {
-      header: 'Created',
+      header: 'Residents',
       cell: (world) => (
-        <span className="text-ink/70">{formatDate(world.createdAt)}</span>
+        <span className="text-ink/70">
+          {world.residentCount.toLocaleString()} active
+        </span>
+      ),
+    },
+    {
+      header: 'Last activity',
+      cell: (world) => (
+        <span className="text-ink/70">{formatDate(world.updatedAt)}</span>
       ),
     },
     {
       header: 'Actions',
       cell: (world) => (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/admin"
+            search={{ world: world.slug, tab: 'overview' }}
+            aria-label={`Open ${world.name}`}
+            className={buttonClasses('primary', 'sm')}
+          >
+            Open
+          </Link>
           <Link
             to="/admin/worlds/$slug"
             params={{ slug: world.slug }}
@@ -280,39 +312,83 @@ function AdminWorldsList() {
       ),
     },
   ];
-
   return (
     <div className="flex flex-col gap-6">
+      <nav
+        aria-label="Global admin navigation"
+        className="flex flex-wrap items-center gap-2 text-sm"
+      >
+        <Link
+          to="/admin/worlds"
+          search={adminWorldsDefaults}
+          aria-current="page"
+          className="rounded-md bg-brand-diplomat/10 px-3 py-2 font-semibold text-brand-diplomat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+        >
+          Worlds
+        </Link>
+        <Link
+          to="/admin"
+          search={{ ...adminDashboardDefaults, tab: 'characters' }}
+          className="rounded-md px-3 py-2 text-ink/70 hover:bg-glass-20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-sentinel/60"
+        >
+          Characters
+        </Link>
+      </nav>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-brand-diplomat/80">
+            Global resources
+          </p>
           <h2 className="font-display text-2xl font-bold tracking-tight">
             Worlds
           </h2>
-          <p className="text-sm leading-relaxed text-ink/70">
-            Create, edit and manage the worlds in the directory.
+          <p className="max-w-2xl text-sm leading-relaxed text-ink/70">
+            Scan lifecycle coverage, resident capacity, and recent directory
+            activity before entering a World workspace.
           </p>
         </div>
         <Link
           to="/admin/worlds/new"
           search={adminWorldsDefaults}
+          aria-label="New World"
+          title="Create World"
           className={buttonClasses('primary', 'md')}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          New World
+          Create World
         </Link>
       </div>
 
-      <div className="relative">
-        <Input
-          label="Search worlds"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Search by name or topic..."
-          className="pr-11"
-        />
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-ink/40"
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_14rem]">
+        <div className="relative">
+          <Input
+            label="Search worlds"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Search by name or topic..."
+            className="pr-11"
+          />
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-3.5 right-3.5 h-4 w-4 text-ink/40"
+          />
+        </div>
+        <Select
+          id="world-directory-status"
+          label="Status"
+          value={
+            search.isActive === undefined
+              ? 'all'
+              : search.isActive
+                ? 'active'
+                : 'inactive'
+          }
+          options={[
+            { value: 'all', label: 'All Worlds' },
+            { value: 'active', label: 'Active only' },
+            { value: 'inactive', label: 'Inactive only' },
+          ]}
+          onChange={(event) => handleActivityFilterChange(event.target.value)}
         />
       </div>
 

@@ -338,6 +338,22 @@ describe('/admin control room', () => {
       screen.getByText('Scheduler worker is unavailable.'),
     ).toBeInTheDocument();
   });
+  it('renders the World overview with lifecycle and health separated', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=overview', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: 'The MBTI House' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Lifecycle: PAUSED')).toBeInTheDocument();
+    expect(screen.getByText('Health: IDLE')).toBeInTheDocument();
+    expect(screen.getByText('Operational pulse')).toBeInTheDocument();
+    expect(screen.getByText('Simulation health')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Run One Action' }),
+    ).not.toBeInTheDocument();
+  });
 
   it('redirects anonymous visitors to sign-in', async () => {
     const client = createQueryClient();
@@ -380,9 +396,81 @@ describe('/admin control room', () => {
     expect(await screen.findByText('8')).toBeInTheDocument();
     expect(screen.getByText('Runtime Health')).toBeInTheDocument();
     expect(screen.getByText('Last Successful Execution')).toBeInTheDocument();
+    expect(screen.getByText('Jitter window')).toBeInTheDocument();
+    expect(screen.getByText('±5m')).toBeInTheDocument();
+    expect(screen.getByText('Post 5')).toBeInTheDocument();
+    expect(screen.getByText('Vote 3')).toBeInTheDocument();
+    expect(screen.getByText('Comment 2')).toBeInTheDocument();
     expect(screen.getByText('Success')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Run One Action' }),
+    ).toBeInTheDocument();
+  });
+
+  it('searches Worlds beyond the initial page without changing selection', async () => {
+    const distantWorld: WorldResponse = {
+      ...world,
+      id: '3a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f16',
+      name: 'The Starship',
+      slug: 'the-starship',
+    };
+    const worldSearches: string[] = [];
+    server.use(
+      http.get('*/api/worlds', ({ request }) => {
+        const searchParams = new URL(request.url).searchParams;
+        const search = searchParams.get('search') ?? '';
+        const page = Number(searchParams.get('page') ?? 1);
+        worldSearches.push(search);
+        const searchable = search !== '';
+        return HttpResponse.json({
+          items: searchable || page === 2 ? [distantWorld] : [world],
+          meta: {
+            page,
+            limit: 20,
+            total: searchable ? 1 : 2,
+            totalPages: searchable ? 1 : 2,
+          },
+        });
+      }),
+    );
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=overview', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', { name: world.name }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole('combobox', { name: 'Selected World' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(
+      await screen.findByRole('option', {
+        name: 'The Starship (the-starship)',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: world.name }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(
+      await screen.findByRole('option', {
+        name: 'The MBTI House (mbti-house)',
+      }),
+    ).toBeInTheDocument();
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Search Worlds' }),
+      'starship',
+    );
+
+    expect(
+      await screen.findByRole('option', {
+        name: 'The Starship (the-starship)',
+      }),
+    ).toBeInTheDocument();
+    expect(worldSearches).toContain('starship');
+    expect(
+      screen.getByRole('heading', { name: world.name }),
     ).toBeInTheDocument();
   });
 
@@ -505,12 +593,12 @@ describe('/admin control room', () => {
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
     renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
 
+    const desktopLogTable = await screen.findByRole('region', {
+      name: 'Simulation log records table',
+    });
     expect(
-      await screen.findByRole('heading', { name: 'Simulation Logs' }),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByRole('button', {
-        name: 'Show details for Mystic Aura',
+      await within(desktopLogTable).findByRole('button', {
+        name: 'Show desktop details for Mystic Aura',
       }),
     ).toBeInTheDocument();
 
@@ -532,13 +620,17 @@ describe('/admin control room', () => {
     });
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Show details for Mystic Aura' }),
+      within(desktopLogTable).getByRole('button', {
+        name: 'Show desktop details for Mystic Aura',
+      }),
     );
     expect(
-      await screen.findByText('Provider timed out after the retry budget.'),
+      await within(desktopLogTable).findByText(
+        'Provider timed out after the retry budget.',
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText('job-42')).toBeInTheDocument();
-    expect(screen.getByText('mock')).toBeInTheDocument();
+    expect(within(desktopLogTable).getByText('job-42')).toBeInTheDocument();
+    expect(within(desktopLogTable).getByText('mock')).toBeInTheDocument();
     expect(
       screen.queryByText(/promptUsed|responseRaw/i),
     ).not.toBeInTheDocument();
@@ -549,9 +641,13 @@ describe('/admin control room', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => expect(logQueryRequests.at(-1)?.get('page')).toBe('2'));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Show details for Mystic Aura' }),
+      within(desktopLogTable).getByRole('button', {
+        name: 'Show desktop details for Mystic Aura',
+      }),
     );
-    expect(await screen.findByText('job-43')).toBeInTheDocument();
+    expect(
+      await within(desktopLogTable).findByText('job-43'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('job-42')).not.toBeInTheDocument();
   });
 
@@ -574,6 +670,25 @@ describe('/admin control room', () => {
       screen.getByRole('option', { name: 'One Action' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Custom' })).toBeInTheDocument();
+  });
+  it('keeps log filters and pagination in the admin URL', async () => {
+    const user = userEvent.setup();
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes('/admin/?tab=logs', {
+      queryClient: client,
+    });
+
+    await screen.findByRole('heading', { name: 'Simulation Logs' });
+    await user.selectOptions(screen.getByLabelText('Status'), 'FAILED');
+
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        tab: 'logs',
+        logStatus: 'FAILED',
+      }),
+    );
+    expect(logQueryRequests.at(-1)?.get('status')).toBe('FAILED');
   });
 
   it('renders an empty log state for a filter with no matches', async () => {
@@ -679,13 +794,13 @@ describe('/admin control room', () => {
     expect(currentWorld.name).toBe('The Updated House');
   });
 
-  it('opens the selected World Members tab with separate status controls', async () => {
+  it('opens the selected World Residents tab with separate status controls', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
     renderAuthRoutes('/admin/?tab=members', { queryClient: client });
 
     expect(
-      await screen.findByRole('heading', { name: 'World Members' }),
+      await screen.findByRole('heading', { name: 'Residents' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Members' })).toHaveAttribute(
       'aria-selected',
@@ -844,6 +959,23 @@ describe('/admin control room', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens the global Character registry from its first-class route', async () => {
+    const client = createQueryClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    const { router } = renderAuthRoutes('/admin/characters', {
+      queryClient: client,
+    });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Global Character Registry',
+      }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/admin/characters');
+    expect(
+      screen.getByText(/editing a Character never changes World membership/i),
+    ).toBeInTheDocument();
+  });
   it('renders an explicit not-found state for an unavailable World slug', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
