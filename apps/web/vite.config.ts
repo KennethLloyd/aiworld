@@ -13,6 +13,7 @@ const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, repositoryRoot, ['API_', 'WEB_']);
   const { apiOrigin, webPort } = resolveAppPorts(env);
+  const apiProxyTarget = env.API_PROXY_TARGET?.trim() || apiOrigin;
 
   return {
     envDir: repositoryRoot,
@@ -55,7 +56,7 @@ export default defineConfig(({ mode }) => {
       port: webPort,
       strictPort: true,
       proxy: {
-        '/api': { target: apiOrigin, changeOrigin: true },
+        '/api': { target: apiProxyTarget, changeOrigin: true },
       },
     },
   };

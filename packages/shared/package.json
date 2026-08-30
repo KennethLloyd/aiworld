@@ -3,12 +3,26 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "files": ["dist"],
   "exports": {
-    "./config/ports": "./src/config/ports.ts",
-    "./schemas/*": "./src/schemas/*.ts"
+    "./config/ports": {
+      "types": "./src/config/ports.ts",
+      "import": "./dist/config/ports.js",
+      "require": "./dist/config/ports.js"
+    },
+    "./schemas/*": {
+      "types": "./src/schemas/*.ts",
+      "import": "./dist/schemas/*.js",
+      "require": "./dist/schemas/*.js"
+    }
   },
   "dependencies": {
     "zod": "^4.4.3"
+  },
+  "scripts": {
+    "build": "tsc --build --force",
+    "dev": "tsc --build --watch --force --preserveWatchOutput",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "~6.0.2"

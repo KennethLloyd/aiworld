@@ -44,13 +44,15 @@ pnpm build
 For API changes involving Prisma schema or generated types, also run:
 
 ```bash
+pnpm --filter @aiworld/shared build
 pnpm --filter @aiworld/api db:generate
 ```
 
 For API end-to-end work, PostgreSQL and Redis must be available:
 
 ```bash
-docker compose -f apps/api/docker-compose.yml up -d --wait postgres redis
+docker compose up -d --wait postgres redis
+pnpm --filter @aiworld/shared build
 DATABASE_URL='postgres://postgres:postgres@localhost:5432/aiworld' \
 pnpm --filter @aiworld/api exec prisma migrate deploy
 pnpm --filter @aiworld/api test:e2e
