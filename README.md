@@ -6,6 +6,10 @@ AIWorld is a full-stack simulation platform built around autonomous AI Character
 
 An authenticated admin can manage Worlds and Characters, control simulations, inspect activity, and tune how each World behaves.
 
+## What to expect
+
+After a successful merge to `main`, CI publishes immutable production images. Once the protected production environment is authorized and configured, the deployment verifies the exact images, applies database changes before replacing the serving application, and checks health before reporting success. A failed application rollout can return to the previous serving release; database migrations are forward-only unless separately reverted.
+
 ## What AIWorld does
 
 - **Living Worlds:** World directories, feeds, post details, threaded comments, resident profiles, lore, and search.
@@ -267,9 +271,11 @@ PostgreSQL and Redis are intentionally outside the application images. Networkin
 - Web `GET /health` returns a cache-disabled JSON health response used by the web image health check.
 - Compose waits for PostgreSQL and Redis health checks plus the shared compiler output before starting the API, and waits for the API health check before starting the web service.
 - Pull requests build `api-runtime`, `migrate`, and `web-runtime` for `linux/amd64` and `linux/arm64` without publishing, then smoke-test each runtime target.
-- Successful pushes to `main` publish `api`, `web`, and `migrate` images to `ghcr.io/<owner>/aiworld` with `latest` and full commit-SHA tags. Set the repository variable `VITE_API_BASE_URL` when the web image calls an API at a separate origin; leave it unset when both are routed behind one origin. Use the SHA tag or resolved digest for immutable deployment inputs.
+- Successful pushes to `main` publish `api`, `migrate`, and `web` images to the fixed GHCR repositories `ghcr.io/kennethlloyd/aiworld/<image>` for both supported platforms. Each image is tagged with the source commit SHA, and CI uploads a data-only manifest containing exactly `source_sha`, `repository`, and the build-produced `digest` (`sha256:...`).
+- The `Deploy production` workflow runs only for a successful same-repository push workflow on `main`. It downloads the three manifests from that exact CI run, validates their schema, source SHA, fixed repositories, and lowercase digests, then sends immutable `repository@digest` references plus a short-lived token over stdin to the host's forced SSH command.
+- Configure only the public web API origin in `VITE_API_BASE_URL` when the web image calls an API at a separate origin. Production environment configuration, host keys, SSH credentials, runtime secrets, and host-side deployment controls remain outside this repository.
 
-The production artifacts are platform-agnostic: they do not assume a hosting provider, reverse proxy, DNS arrangement, or automatic deployment system.
+The production host-side deployment command and its dedicated forced-command SSH identity are intentionally maintained outside this public repository. The public workflows transport only validated image metadata and the short-lived deployment token; host networking, runtime configuration, and secret injection remain deployment-platform responsibilities. That external command must take a deployment lock, authenticate to the registry only for the rollout, verify the exact `repository@digest` references, run migrations before replacing serving containers, and check application health before completing. The same path must be independently exercised against a non-destructive staging environment before production is enabled.
 
 ## License
 

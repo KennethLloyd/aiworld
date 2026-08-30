@@ -1,0 +1,235 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+# The workflow-run token is used only to read the exact triggering run's
+# artifacts and the private GHCR packages needed by the host-side command.
+permissions:
+  actions: read
+  packages: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production images
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    permissions:
+      actions: read
+      packages: read
+
+    steps:
+      - name: Download API image manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: production-image-manifest-api
+          path: ${{ runner.temp }}/production-manifests/api
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download migration image manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: production-image-manifest-migrate
+          path: ${{ runner.temp }}/production-manifests/migrate
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download web image manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: production-image-manifest-web
+          path: ${{ runner.temp }}/production-manifests/web
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Validate manifests and invoke forced deployment command
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_API_REPOSITORY: ghcr.io/kennethlloyd/aiworld/api
+          EXPECTED_MIGRATE_REPOSITORY: ghcr.io/kennethlloyd/aiworld/migrate
+          EXPECTED_WEB_REPOSITORY: ghcr.io/kennethlloyd/aiworld/web
+          REGISTRY_TOKEN: ${{ github.token }}
+          PRODUCTION_SSH_HOST: ${{ vars.PRODUCTION_SSH_HOST }}
+          PRODUCTION_SSH_USER: ${{ vars.PRODUCTION_SSH_USER }}
+          PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          PRODUCTION_SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          : "${EXPECTED_SOURCE_SHA:?EXPECTED_SOURCE_SHA is required}"
+          : "${REGISTRY_TOKEN:?REGISTRY_TOKEN is required}"
+          : "${PRODUCTION_SSH_HOST:?PRODUCTION_SSH_HOST is required}"
+          : "${PRODUCTION_SSH_USER:?PRODUCTION_SSH_USER is required}"
+          : "${PRODUCTION_SSH_PRIVATE_KEY:?PRODUCTION_SSH_PRIVATE_KEY is required}"
+          : "${PRODUCTION_SSH_KNOWN_HOSTS:?PRODUCTION_SSH_KNOWN_HOSTS is required}"
+
+          if [[ ! "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' 'The triggering head SHA is not a lowercase 40-character commit SHA.' >&2
+            exit 1
+          fi
+          if [[ ! "$PRODUCTION_SSH_USER" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            printf '%s\n' 'PRODUCTION_SSH_USER contains unsupported characters.' >&2
+            exit 1
+          fi
+          if [[ ! "$PRODUCTION_SSH_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$PRODUCTION_SSH_HOST" == *..* ]]; then
+            printf '%s\n' 'PRODUCTION_SSH_HOST must be a DNS name or IPv4 address.' >&2
+            exit 1
+          fi
+
+          manifest_root="${RUNNER_TEMP}/production-manifests"
+          [[ -d "$manifest_root" && ! -L "$manifest_root" ]] || {
+            printf '%s\n' 'The triggering run did not provide a manifest directory.' >&2
+            exit 1
+          }
+
+          mapfile -t -d '' root_entries < <(
+            find "$manifest_root" -mindepth 1 -maxdepth 1 -print0
+          )
+          if (( ${#root_entries[@]} != 3 )); then
+            printf '%s\n' 'The triggering run did not provide exactly three manifest artifacts.' >&2
+            exit 1
+          fi
+
+          for entry in "${root_entries[@]}"; do
+            [[ -d "$entry" && ! -L "$entry" ]] || {
+              printf '%s\n' 'A downloaded manifest artifact is not a directory.' >&2
+              exit 1
+            }
+            image="${entry##*/}"
+            case "$image" in
+              api|migrate|web) ;;
+              *)
+                printf '%s\n' 'The triggering run provided an unexpected manifest artifact.' >&2
+                exit 1
+                ;;
+            esac
+
+            mapfile -t -d '' files < <(
+              find "$entry" -mindepth 1 -maxdepth 1 -print0
+            )
+            if (( ${#files[@]} != 1 )) || [[ "${files[0]}" != "$entry/$image.json" ]] || [[ ! -f "${files[0]}" ]] || [[ -L "${files[0]}" ]]; then
+              printf '%s\n' 'A manifest artifact must contain exactly one expected JSON file.' >&2
+              exit 1
+            fi
+          done
+
+          validate_manifest() {
+            local image="$1"
+            local expected_repository="$2"
+            local manifest="$3"
+
+            EXPECTED_SOURCE_SHA="$EXPECTED_SOURCE_SHA" \
+            EXPECTED_REPOSITORY="$expected_repository" \
+            python3 - "$manifest" "$image" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+
+          def reject_duplicate_keys(pairs):
+              value = {}
+              for key, item in pairs:
+                  if key in value:
+                      raise ValueError("duplicate JSON object key")
+                  value[key] = item
+              return value
+
+
+          manifest_path, image = sys.argv[1:]
+          try:
+              with open(manifest_path, encoding="utf-8") as stream:
+                  manifest = json.load(stream, object_pairs_hook=reject_duplicate_keys)
+          except (OSError, ValueError, json.JSONDecodeError) as error:
+              print(f"The {image} image manifest is not one valid JSON value: {error}", file=sys.stderr)
+              raise SystemExit(1)
+
+          if type(manifest) is not dict:
+              print(f"The {image} image manifest must be a JSON object.", file=sys.stderr)
+              raise SystemExit(1)
+          if set(manifest) != {"source_sha", "repository", "digest"}:
+              print(f"The {image} image manifest has an unexpected schema.", file=sys.stderr)
+              raise SystemExit(1)
+          if type(manifest["source_sha"]) is not str or not re.fullmatch(r"[0-9a-f]{40}", manifest["source_sha"]):
+              print(f"The {image} image manifest has an invalid source SHA.", file=sys.stderr)
+              raise SystemExit(1)
+          if manifest["source_sha"] != os.environ["EXPECTED_SOURCE_SHA"]:
+              print(f"The {image} image manifest is for a different source SHA.", file=sys.stderr)
+              raise SystemExit(1)
+          if type(manifest["repository"]) is not str or manifest["repository"] != os.environ["EXPECTED_REPOSITORY"]:
+              print(f"The {image} image manifest has an unexpected repository.", file=sys.stderr)
+              raise SystemExit(1)
+          if type(manifest["digest"]) is not str or not re.fullmatch(r"sha256:[0-9a-f]{64}", manifest["digest"]):
+              print(f"The {image} image manifest has an invalid immutable digest.", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+          }
+
+          api_manifest="$manifest_root/api/api.json"
+          migrate_manifest="$manifest_root/migrate/migrate.json"
+          web_manifest="$manifest_root/web/web.json"
+          validate_manifest api "$EXPECTED_API_REPOSITORY" "$api_manifest"
+          validate_manifest migrate "$EXPECTED_MIGRATE_REPOSITORY" "$migrate_manifest"
+          validate_manifest web "$EXPECTED_WEB_REPOSITORY" "$web_manifest"
+
+          api_reference="$(jq -er '.repository + "@" + .digest' "$api_manifest")"
+          migrate_reference="$(jq -er '.repository + "@" + .digest' "$migrate_manifest")"
+          web_reference="$(jq -er '.repository + "@" + .digest' "$web_manifest")"
+
+          key_file="$(mktemp "${RUNNER_TEMP}/production-ssh-key.XXXXXX")"
+          known_hosts_file="$(mktemp "${RUNNER_TEMP}/production-ssh-known-hosts.XXXXXX")"
+          trap 'rm -f -- "$key_file" "$known_hosts_file"' EXIT
+          chmod 600 "$key_file" "$known_hosts_file"
+          printf '%s\n' "$PRODUCTION_SSH_PRIVATE_KEY" > "$key_file"
+          printf '%s\n' "$PRODUCTION_SSH_KNOWN_HOSTS" > "$known_hosts_file"
+
+          # No remote command is supplied: the key's server-side forced command
+          # receives only this validated metadata and short-lived registry token.
+          jq -cn \
+            --arg source_sha "$EXPECTED_SOURCE_SHA" \
+            --arg api "$api_reference" \
+            --arg migrate "$migrate_reference" \
+            --arg web "$web_reference" \
+            --arg registry_token "$REGISTRY_TOKEN" \
+            '{source_sha: $source_sha, images: {api: $api, migrate: $migrate, web: $web}, registry_token: $registry_token}' \
+            | ssh -T \
+                -F /dev/null \
+                -o BatchMode=yes \
+                -o StrictHostKeyChecking=yes \
+                -o UserKnownHostsFile="$known_hosts_file" \
+                -o GlobalKnownHostsFile=/dev/null \
+                -o IdentitiesOnly=yes \
+                -o IdentityAgent=none \
+                -o ForwardAgent=no \
+                -o ForwardX11=no \
+                -o ClearAllForwardings=yes \
+                -o PermitLocalCommand=no \
+                -o PermitRemoteOpen=none \
+                -o PasswordAuthentication=no \
+                -o KbdInteractiveAuthentication=no \
+                -o GSSAPIAuthentication=no \
+                -o ControlMaster=no \
+                -o RequestTTY=no \
+                -o ConnectTimeout=10 \
+                -i "$key_file" \
+                "$PRODUCTION_SSH_USER@$PRODUCTION_SSH_HOST"
