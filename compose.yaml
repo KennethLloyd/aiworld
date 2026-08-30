@@ -69,8 +69,8 @@ services:
       - .env
     environment:
       NODE_ENV: development
-      DATABASE_URL: ${DOCKER_DATABASE_URL}
-      REDIS_URL: ${DOCKER_REDIS_URL}
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgres://postgres:postgres@postgres:5432/aiworld}
+      REDIS_URL: ${DOCKER_REDIS_URL:-redis://redis:6379}
     command:
       - sh
       - -c
