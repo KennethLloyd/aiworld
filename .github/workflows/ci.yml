@@ -36,6 +36,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared package
+        run: pnpm --filter @aiworld/shared build
       - name: Generate Prisma client
         run: pnpm --filter @aiworld/api db:generate
 
@@ -44,6 +46,9 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Test
         run: pnpm test
@@ -105,6 +110,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build shared package
+        run: pnpm --filter @aiworld/shared build
       - name: Generate Prisma client
         run: pnpm --filter @aiworld/api db:generate
 
@@ -113,3 +120,187 @@ jobs:
 
       - name: Run API end-to-end tests
         run: pnpm --filter @aiworld/api test:e2e
+
+  docker:
+    name: Production container validation
+    if: github.event_name == 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: aiworld
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aiworld"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/aiworld
+      REDIS_URL: redis://localhost:6379
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - api-runtime
+          - migrate
+          - web-runtime
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.target }} multi-architecture image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          target: ${{ matrix.target }}
+
+      - name: Load ${{ matrix.target }} image for runtime smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64
+          tags: aiworld-${{ matrix.target }}:ci
+          target: ${{ matrix.target }}
+
+      - name: Run migration image smoke test
+        if: matrix.target == 'migrate'
+        run: >-
+          docker run --rm --network host
+          --env DATABASE_URL="${DATABASE_URL}"
+          aiworld-migrate:ci
+
+      - name: Run API image smoke test
+        if: matrix.target == 'api-runtime'
+        run: |
+          set -eu
+          docker run --rm --network host \
+            --env DATABASE_URL="${DATABASE_URL}" \
+            aiworld-api-runtime:ci pnpm exec prisma migrate deploy
+          docker run --detach --rm --network host --name aiworld-api-ci \
+            --env NODE_ENV=production \
+            --env API_PORT=3000 \
+            --env DATABASE_URL="${DATABASE_URL}" \
+            --env REDIS_URL="${REDIS_URL}" \
+            --env BETTER_AUTH_SECRET=ci-production-smoke-secret \
+            --env FRONTEND_ORIGIN=http://localhost:5173 \
+            aiworld-api-runtime:ci
+          trap 'docker rm --force aiworld-api-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3000/api/health
+          for attempt in $(seq 1 30); do
+            if [ "$(docker inspect --format '{{.State.Health.Status}}' aiworld-api-ci)" = healthy ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' aiworld-api-ci)" = healthy
+
+      - name: Run web image smoke test
+        if: matrix.target == 'web-runtime'
+        run: |
+          set -eu
+          docker run --detach --rm --name aiworld-web-ci --publish 18080:8080 aiworld-web-runtime:ci
+          trap 'docker rm --force aiworld-web-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:18080/health
+          for attempt in $(seq 1 30); do
+            if [ "$(docker inspect --format '{{.State.Health.Status}}' aiworld-web-ci)" = healthy ]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' aiworld-web-ci)" = healthy
+
+  publish:
+    name: Publish production images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - quality
+      - e2e
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: api-runtime
+            image: api
+          - target: migrate
+            image: migrate
+          - target: web-runtime
+            image: web
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - name: Publish ${{ matrix.image }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          target: ${{ matrix.target }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

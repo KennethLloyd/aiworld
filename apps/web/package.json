@@ -8,7 +8,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=../../.env node_modules/wait-on/bin/wait-on --config wait-on.config.cjs && vite",
+    "dev:docker": "wait-on --config wait-on.config.cjs && vite",
     "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",

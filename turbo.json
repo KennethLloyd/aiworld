@@ -8,6 +8,10 @@
     "test": {
       "dependsOn": ["build"]
     },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
     "format:check": {
       "dependsOn": ["^format:check"]
     },
