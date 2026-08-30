@@ -22,28 +22,42 @@ AIWorld remains a pnpm/Turborepo monorepo:
 - **Shared:** Typed Zod transport contracts consumed by both applications.
 - **Containers:** Development Compose runs separate `shared`, `api`, `web`, `postgres`, and `redis` services. Production builds produce separate API and web application images; PostgreSQL and Redis remain independent runtime services.
 
-Turborepo continues to coordinate workspace builds and development tasks. Docker supplies the reproducible runtime environment around those tasks rather than replacing the monorepo architecture.
+The two orchestration layers have deliberately separate responsibilities:
+
+- **Turborepo** coordinates dependency-aware monorepo tasks such as builds,
+  checks, and the optional host-local development workflow.
+- **Docker Compose** coordinates the Docker development runtime: PostgreSQL,
+  Redis, the shared-package watcher, the API watcher, the web watcher, service
+  readiness, migrations, seeding, ports, and mounted source volumes.
+
+Compose invokes the existing package-level watcher and database scripts directly;
+it does not run Turbo's `dev` task inside the Docker runtime. That is intentional:
+Turbo has no responsibility for container networking or infrastructure readiness,
+while Compose needs to express those runtime dependencies. The production
+Dockerfile still uses the root Turbo build task, and repository-wide checks remain
+Turbo tasks, so the two layers do not maintain competing definitions of the same
+work.
 
 ## Development
 
 ### Prerequisites
 
 - Docker Engine with Docker Compose v2
-- pnpm 10
-- Node.js 22+ (needed for local repository commands; the application runs in containers)
 
 ### Clone, configure, and start
 
 From the repository root:
 
 ```bash
-pnpm install --frozen-lockfile
 cp .env.example .env
 # Edit .env only if you need different ports or LLM settings.
-pnpm dev
+docker compose up --build
 ```
 
-`pnpm dev` is the normal development entry point. It builds the development image and starts the complete stack:
+`docker compose up --build` is the normal Docker-first development entry point.
+The development image installs the workspace with
+`pnpm install --frozen-lockfile`, so a host-side `pnpm install` and host Node.js
+are not required for this workflow. It starts the complete stack:
 
 - `shared` TypeScript compiler watcher
 - `web` at `http://localhost:5173`
@@ -71,12 +85,13 @@ The API uses the `/api` prefix. The server remains the authorization boundary; c
 
 ### Create a local admin
 
-After the stack is running, seed an admin account from the repository root:
+After the stack is running, seed an admin account through the API container:
 
 ```bash
-ADMIN_EMAIL=admin@aiworld.local \
-ADMIN_PASSWORD='change-this-local-password' \
-pnpm --filter @aiworld/api db:seed:admin
+docker compose exec \
+  -e ADMIN_EMAIL=admin@aiworld.local \
+  -e ADMIN_PASSWORD='change-this-local-password' \
+  api pnpm --filter @aiworld/api db:seed:admin
 ```
 
 Keep database URLs, auth secrets, provider credentials, cookies, authentication state, and screenshots containing secrets out of commits.
@@ -110,7 +125,21 @@ docker compose run --rm api sh -c \
 docker compose down --volumes
 ```
 
-The last command deletes local development data. Use `pnpm dev:local` only when you intentionally want to run the Turborepo watchers directly on the host and provide PostgreSQL/Redis yourself.
+The last command deletes local development data. The root `pnpm dev` script is
+an optional convenience alias for `docker compose up --build`; it is not needed
+for the Docker-first workflow.
+
+### Optional host-local development
+
+Use this only when you intentionally want Turbo to run the workspace watchers on
+the host. This path requires Node.js 22+, pnpm 10, a host dependency install, and
+PostgreSQL/Redis supplied separately:
+
+```bash
+pnpm install --frozen-lockfile
+docker compose up -d postgres redis
+pnpm dev:local
+```
 
 ### LLM provider configuration
 
@@ -133,7 +162,8 @@ Provider credentials are never needed by the web app and must not be committed.
 
 ## Repository checks
 
-The same Turborepo tasks run on the host and in CI:
+These dependency-aware Turborepo tasks run on the host and in CI. They are not
+part of Compose's service startup sequence:
 
 ```bash
 pnpm format:check
@@ -143,9 +173,13 @@ pnpm test
 pnpm build
 ```
 
-For API end-to-end tests, start the Compose dependencies, build the shared package, generate the client, apply migrations, and run:
+For API end-to-end tests on the host, start the Compose dependencies, install
+host dependencies, build the shared package, generate the client, apply
+migrations, and run:
 
 ```bash
+pnpm install --frozen-lockfile
+docker compose up -d postgres redis
 pnpm --filter @aiworld/shared build
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate:deploy
@@ -163,7 +197,11 @@ The root `Dockerfile` contains separate targets for the runtime responsibilities
 | `migrate` | One-shot Prisma migration process. It never runs as part of API startup. |
 | `development` | Full pnpm workspace used by the development Compose services. |
 
-The builder installs the pnpm workspace, generates Prisma, and runs the existing root `pnpm build` task. The API runtime is pruned with `pnpm deploy --prod`; the web runtime contains only static assets and its unprivileged web server. No database, Redis data, runtime secrets, or `.env` files are copied into an image.
+The builder installs the pnpm workspace with the frozen lockfile, generates
+Prisma, and runs the existing root `pnpm build` task. The API runtime is pruned
+with `pnpm deploy --prod`; the web runtime contains only static assets and its
+unprivileged web server. No database, Redis data, runtime secrets, or `.env`
+files are copied into an image.
 
 ### Build the images
 
@@ -235,7 +273,9 @@ The [Aero Diary containerization change](https://github.com/KennethLloyd/aero-di
 
 - AIWorld keeps API and web production responsibilities in separate images because NestJS and static Vite assets have different runtimes.
 - PostgreSQL and Redis remain independent services instead of being replaced by a file-backed database or bundled into an application image.
-- Development Compose runs both application services with mounted source and preserves Turbo/watch-mode behavior, rather than treating the production image as the development environment.
+- Development Compose runs the application package watchers with mounted source
+  and leaves dependency-aware repository tasks to Turbo, rather than treating
+  the production image as the development environment.
 - The migration image carries Prisma's PostgreSQL migrations and runs as an explicit job; normal API startup remains predictable.
 
 ## License
