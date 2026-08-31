@@ -205,8 +205,33 @@ jobs:
           docker run --rm --network host \
             --env DATABASE_URL="${DATABASE_URL}" \
             aiworld-api-runtime:ci pnpm exec prisma migrate deploy
+          guard_status=0
+          if guard_logs="$(timeout 30s docker run --rm --network host \
+            --env NODE_ENV=production \
+            aiworld-api-runtime:ci 2>&1)"; then
+            guard_status=0
+          else
+            guard_status=$?
+          fi
+          if [ "${guard_status}" -eq 0 ]; then
+            printf '%s\n' "${guard_logs}"
+            echo "Expected the production provider guard to reject the unconfigured image." >&2
+            exit 1
+          fi
+          case "${guard_logs}" in
+            *"ProviderConfigurationError: Invalid LLM provider configuration: LLM_PROVIDER resolves to mock in production"*) ;;
+            *)
+              printf '%s\n' "${guard_logs}"
+              echo "Production provider guard log did not contain the expected error." >&2
+              exit 1
+              ;;
+          esac
           docker run --detach --rm --network host --name aiworld-api-ci \
             --env NODE_ENV=production \
+            --env LLM_PROVIDER=openai-compatible \
+            --env LLM_BASE_URL=http://127.0.0.1:9/v1 \
+            --env LLM_API_KEY=ci-smoke-key \
+            --env LLM_MODEL=ci-smoke-model \
             --env API_PORT=3000 \
             --env DATABASE_URL="${DATABASE_URL}" \
             --env REDIS_URL="${REDIS_URL}" \
