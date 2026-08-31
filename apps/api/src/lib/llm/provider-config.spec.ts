@@ -4,7 +4,10 @@ import {
   loadProviderConfig,
   toSafeProviderConfig,
 } from './provider-config.js';
-import { ProviderCapabilityError } from './provider-error.js';
+import {
+  ProviderCapabilityError,
+  ProviderConfigurationError,
+} from './provider-error.js';
 
 describe('loadProviderConfig', () => {
   it('defaults to a network-free mock configuration', () => {
@@ -23,6 +26,47 @@ describe('loadProviderConfig', () => {
         structuredOutput: 'text-json-fallback',
         usageMetadata: 'optional',
       },
+    });
+  });
+
+  it('rejects an explicit mock provider in production', () => {
+    const load = () =>
+      loadProviderConfig({
+        NODE_ENV: 'production',
+        LLM_PROVIDER: 'mock',
+      });
+
+    expect(load).toThrow(ProviderConfigurationError);
+    expect(load).toThrow('LLM_PROVIDER resolves to mock in production');
+  });
+
+  it('rejects a defaulted mock provider in production', () => {
+    const load = () => loadProviderConfig({ NODE_ENV: 'production' });
+
+    expect(load).toThrow(ProviderConfigurationError);
+    expect(load).toThrow('LLM_PROVIDER resolves to mock in production');
+  });
+
+  it('allows a fully configured OpenAI-compatible provider in production', () => {
+    const config = loadProviderConfig({
+      NODE_ENV: 'production',
+      LLM_PROVIDER: 'openai-compatible',
+      LLM_BASE_URL: 'https://example.com/v1',
+      LLM_API_KEY: 'fixture-api-key',
+      LLM_MODEL: 'test-model',
+    });
+
+    expect(config).toMatchObject({
+      providerId: 'openai-compatible',
+      baseUrl: 'https://example.com/v1',
+      model: 'test-model',
+    });
+  });
+
+  it('allows the default mock provider outside production', () => {
+    expect(loadProviderConfig({ NODE_ENV: 'test' })).toMatchObject({
+      providerId: 'mock',
+      model: 'mock',
     });
   });
 

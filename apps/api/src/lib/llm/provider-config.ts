@@ -132,7 +132,11 @@ export function loadProviderConfig(
   if (!parsed.success) {
     throw new ProviderConfigurationError('Invalid LLM provider configuration');
   }
-
+  if (env.NODE_ENV === 'production' && parsed.data.providerId === 'mock') {
+    throw new ProviderConfigurationError(
+      'Invalid LLM provider configuration: LLM_PROVIDER resolves to mock in production; set LLM_PROVIDER to a configured provider.',
+    );
+  }
   const missing = getMissingProductionValues(
     parsed.data.providerId,
     parsed.data,
