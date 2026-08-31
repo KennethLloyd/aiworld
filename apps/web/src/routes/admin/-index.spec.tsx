@@ -21,6 +21,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from 'vitest';
 
 import { createQueryClient } from '@/providers/query-client';
@@ -280,6 +281,21 @@ function retryDisabledClient(): QueryClient {
   return new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+}
+function setDocumentScrollY(value: number) {
+  Object.defineProperty(window, 'scrollY', {
+    configurable: true,
+    value,
+    writable: true,
+  });
+}
+
+function mockDocumentScroll() {
+  const scrollTo = vi.spyOn(window, 'scrollTo');
+  scrollTo.mockImplementation(((options?: ScrollToOptions) => {
+    setDocumentScrollY(options?.top ?? 0);
+  }) as typeof window.scrollTo);
+  return scrollTo;
 }
 
 describe('/admin control room', () => {
@@ -657,6 +673,149 @@ describe('/admin control room', () => {
       await within(desktopLogTable).findByText('job-43'),
     ).toBeInTheDocument();
     expect(screen.queryByText('job-42')).not.toBeInTheDocument();
+  });
+
+  it('preserves document scroll when toggling a mobile log card', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json({
+          items: [simulationLog],
+          meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        }),
+      ),
+    );
+    const scrollTo = mockDocumentScroll();
+
+    try {
+      const client = createQueryClient();
+      client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+      const { router } = renderAuthRoutes('/admin/?tab=logs', {
+        queryClient: client,
+      });
+
+      const mobileLogList = await screen.findByRole('region', {
+        name: 'Simulation log records',
+      });
+      const toggle = await within(mobileLogList).findByRole('button', {
+        name: 'Show details for Mystic Aura',
+      });
+      setDocumentScrollY(640);
+      scrollTo.mockClear();
+
+      await userEvent.click(toggle);
+
+      await waitFor(() =>
+        expect(router.state.location.search).toMatchObject({
+          tab: 'logs',
+          log: simulationLog.id,
+        }),
+      );
+      expect(
+        await within(mobileLogList).findByText(
+          'Provider timed out after the retry budget.',
+        ),
+      ).toBeInTheDocument();
+      expect(window.scrollY).toBe(640);
+      expect(scrollTo).not.toHaveBeenCalled();
+
+      scrollTo.mockClear();
+      await userEvent.click(
+        within(mobileLogList).getByRole('button', {
+          name: 'Hide details for Mystic Aura',
+        }),
+      );
+      await waitFor(() =>
+        expect(router.state.location.search.tab).toBe('logs'),
+      );
+      expect(router.state.location.search.log).toBeUndefined();
+      expect(window.scrollY).toBe(640);
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      scrollTo.mockRestore();
+      setDocumentScrollY(0);
+    }
+  });
+
+  it('resets document scroll for intentional tab navigation', async () => {
+    const scrollTo = mockDocumentScroll();
+
+    try {
+      const client = createQueryClient();
+      client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+      const { router } = renderAuthRoutes('/admin/', {
+        queryClient: client,
+      });
+
+      await screen.findByRole('tab', { name: 'Simulation Status' });
+      setDocumentScrollY(640);
+      scrollTo.mockClear();
+
+      await userEvent.click(screen.getByRole('tab', { name: 'LLM Logs' }));
+
+      await waitFor(() =>
+        expect(router.state.location.search).toMatchObject({
+          tab: 'logs',
+        }),
+      );
+      expect(scrollTo).toHaveBeenCalledWith(
+        expect.objectContaining({ top: 0 }),
+      );
+      expect(window.scrollY).toBe(0);
+    } finally {
+      scrollTo.mockRestore();
+      setDocumentScrollY(0);
+    }
+  });
+
+  it('preserves document scroll when opening a recent activity log', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
+        HttpResponse.json({
+          items: [simulationLog],
+          meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        }),
+      ),
+    );
+    const scrollTo = mockDocumentScroll();
+
+    try {
+      const client = createQueryClient();
+      client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+      const { router } = renderAuthRoutes('/admin/?tab=overview', {
+        queryClient: client,
+      });
+
+      const recentActivity = await screen.findByRole('region', {
+        name: 'Simulation log records',
+      });
+      const toggle = await within(recentActivity).findByRole('button', {
+        name: 'Show details for Mystic Aura',
+      });
+      setDocumentScrollY(640);
+      scrollTo.mockClear();
+
+      await userEvent.click(toggle);
+
+      await waitFor(() =>
+        expect(router.state.location.search).toMatchObject({
+          tab: 'logs',
+          log: simulationLog.id,
+        }),
+      );
+      expect(
+        await screen.findByRole('heading', { name: 'Simulation Logs' }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findAllByText(
+          'Provider timed out after the retry budget.',
+        ),
+      ).not.toHaveLength(0);
+      expect(window.scrollY).toBe(640);
+      expect(scrollTo).not.toHaveBeenCalled();
+    } finally {
+      scrollTo.mockRestore();
+      setDocumentScrollY(0);
+    }
   });
 
   it('renders all log status and execution-source options', async () => {
