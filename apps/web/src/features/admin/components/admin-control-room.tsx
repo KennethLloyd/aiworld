@@ -198,6 +198,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
   const handleOpenLog = useCallback(
     (logId: string) => {
       void navigate({
+        resetScroll: false,
         search: (previous) => ({
           ...previous,
           tab: 'logs',
@@ -215,6 +216,7 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
   const handleSelectedLogChange = useCallback(
     (logId: string | undefined) => {
       void navigate({
+        resetScroll: false,
         search: (previous) => ({
           ...previous,
           log: logId,
