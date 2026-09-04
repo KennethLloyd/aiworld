@@ -23,6 +23,10 @@ export abstract class PostRepository {
     worldId: string,
     postId: string,
   ): Promise<PostWithAuthorRecord | null>;
+  abstract findRecentByWorld(
+    worldId: string,
+    limit: number,
+  ): Promise<PostWithAuthorRecord[]>;
   abstract findByAuthorMembership(
     worldId: string,
     authorMemberId: string,

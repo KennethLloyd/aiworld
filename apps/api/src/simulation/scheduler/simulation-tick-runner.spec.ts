@@ -310,6 +310,7 @@ describe('SimulationTickRunner', () => {
             },
             memberId: 'member-1',
           }),
+          findRecentPosts: jest.fn().mockResolvedValue([]),
         };
         const { runner, executor, contentWriter, logService } = createRunner({
           provider: processProvider,

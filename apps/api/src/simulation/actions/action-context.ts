@@ -12,7 +12,9 @@ export type ResolvedActor = {
   memberId: string;
 };
 
-export type PostActionContext = ResolvedActor;
+export type PostActionContext = ResolvedActor & {
+  recentPosts: PostWithAuthorRecord[];
+};
 
 export type VoteActionContext = ResolvedActor & {
   post: PostWithAuthorRecord;

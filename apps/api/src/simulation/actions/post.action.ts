@@ -4,6 +4,7 @@ import { PostActionContext } from '@/simulation/actions/action-context';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import {
   characterSection,
+  recentActivitySection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
 import { SimulationAction } from '@/simulation/actions/simulation-action';
@@ -40,16 +41,23 @@ export class PostAction extends SimulationAction<
   protected async fetchContext(
     command: PostSimulationCommand,
   ): Promise<PostActionContext> {
-    return this.contextProvider.resolveActor(
+    const actor = await this.contextProvider.resolveActor(
       command.worldSlug,
       command.characterId,
     );
+
+    return {
+      ...actor,
+      recentPosts: await this.contextProvider.findRecentPosts(actor.world.id),
+    };
   }
 
   protected buildPrompt(
     context: PostActionContext,
     _command: PostSimulationCommand,
   ): LlmProviderPrompt {
+    const recentActivity = recentActivitySection(context.recentPosts);
+
     return composeActionPrompt({
       action: 'POST',
       instructions: POST_ACTION_INSTRUCTIONS,
@@ -57,6 +65,7 @@ export class PostAction extends SimulationAction<
       contextSections: [
         worldSection(context.world),
         characterSection(context.character),
+        ...(recentActivity ? [recentActivity] : []),
       ],
     });
   }
