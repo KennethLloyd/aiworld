@@ -164,6 +164,20 @@ export class PrismaPostRepository extends PostRepository {
     return post ? this.mapToWithAuthorRecord(post) : null;
   }
 
+  async findRecentByWorld(
+    worldId: string,
+    limit: number,
+  ): Promise<PostWithAuthorRecord[]> {
+    const posts = await this.prisma.post.findMany({
+      where: { worldId },
+      select: postWithAuthorSelect,
+      orderBy: newOrderBy,
+      take: limit,
+    });
+
+    return posts.map((post) => this.mapToWithAuthorRecord(post));
+  }
+
   async findByAuthorMembership(
     worldId: string,
     authorMemberId: string,

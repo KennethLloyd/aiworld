@@ -172,6 +172,16 @@ describe('bounded long-run mock simulation', () => {
         worldId === world.id
           ? (posts.find((post) => post.id === postId) ?? null)
           : null,
+      findRecentByWorld: async (worldId: string, limit: number) =>
+        worldId === world.id
+          ? [...posts]
+              .sort(
+                (a, b) =>
+                  b.createdAt.getTime() - a.createdAt.getTime() ||
+                  a.id.localeCompare(b.id),
+              )
+              .slice(0, limit)
+          : [],
       create: async (input: {
         worldId: string;
         authorMemberId: string;
@@ -356,7 +366,9 @@ describe('bounded long-run mock simulation', () => {
     expect(
       characterRecords.every((character) => {
         const characterPrompts = prompts.filter((prompt) =>
-          prompt.user.includes(`@${character.handle} (${character.name})`),
+          prompt.user.includes(
+            `## Character\nIdentity: @${character.handle} (${character.name})`,
+          ),
         );
         return (
           characterPrompts.length === 3 &&

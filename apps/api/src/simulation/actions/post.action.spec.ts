@@ -1,6 +1,7 @@
 import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
+import { PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { PostRepository } from '@/posts/repositories/post-repository.interface';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
@@ -47,6 +48,7 @@ function mockConfig() {
 function createAction(overrides: {
   character?: typeof character | null;
   member?: { id: string } | null;
+  recentPosts?: PostWithAuthorRecord[];
   provider?: MockLlmProvider | StubLlmProvider;
 }) {
   const worldRepository = {
@@ -66,7 +68,9 @@ function createAction(overrides: {
         overrides.member === undefined ? { id: 'member-1' } : overrides.member,
       ),
   } as unknown as WorldMemberRepository;
-  const postRepository = {} as unknown as PostRepository;
+  const postRepository = {
+    findRecentByWorld: jest.fn().mockResolvedValue(overrides.recentPosts ?? []),
+  } as unknown as PostRepository;
   const commentRepository = {} as unknown as CommentRepository;
 
   const contextProvider = new SimulationContextProvider(
@@ -141,6 +145,48 @@ describe('PostAction', () => {
     expect(prompt.user).toContain('The MBTI House');
     expect(prompt.user).toContain('@standard_procedure (Standard_Procedure)');
     expect(prompt.user).toContain('Personality debates');
+    expect(prompt.user).not.toContain('Recent Activity');
+  });
+
+  it('includes recent persisted posts in one POST provider request', async () => {
+    const provider = new StubLlmProvider(mockConfig(), {
+      title: 'T',
+      content: 'C',
+      reasoning: 'R',
+    });
+    const action = createAction({
+      provider,
+      recentPosts: [
+        {
+          id: 'post-recent',
+          title: 'Station renovation delayed again',
+          content: 'We are apparently looking at another three weeks.',
+          voteScore: 0,
+          createdAt: new Date('2026-01-02T03:04:05.000Z'),
+          updatedAt: new Date('2026-01-02T03:04:05.000Z'),
+          author: {
+            id: 'member-other',
+            handle: 'theomercer',
+            name: 'Theo Mercer',
+            avatarUrl: null,
+          },
+        },
+      ],
+    });
+
+    await action.execute(command);
+
+    expect(provider.requests).toHaveLength(1);
+    expect(provider.lastPrompt().user).toContain('## Recent Activity');
+    expect(provider.lastPrompt().user).toContain(
+      'Post by @theomercer (Theo Mercer)',
+    );
+    expect(provider.lastPrompt().user).toContain(
+      'Title: Station renovation delayed again',
+    );
+    expect(provider.lastPrompt().user).toContain(
+      'Content: We are apparently looking at another three weeks.',
+    );
   });
 
   it('never selects an inactive character', async () => {

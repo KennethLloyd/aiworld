@@ -98,6 +98,7 @@ function createProvider(
     findById: jest
       .fn()
       .mockResolvedValue(overrides.post === undefined ? post : overrides.post),
+    findRecentByWorld: jest.fn().mockResolvedValue([]),
     findByAuthorMembership: jest.fn(),
     searchByText: jest.fn(),
     create: jest.fn(),
@@ -209,6 +210,21 @@ describe('SimulationContextProvider', () => {
         code: 'POST_NOT_FOUND',
         retryable: false,
       });
+    });
+  });
+
+  describe('findRecentPosts', () => {
+    it('delegates a bounded recent-post read for the World', async () => {
+      const { provider, postRepository } = createProvider();
+      postRepository.findRecentByWorld.mockResolvedValue([post]);
+
+      await expect(provider.findRecentPosts('world-1')).resolves.toEqual([
+        post,
+      ]);
+      expect(postRepository.findRecentByWorld).toHaveBeenCalledWith(
+        'world-1',
+        5,
+      );
     });
   });
 

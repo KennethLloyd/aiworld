@@ -10,6 +10,8 @@ import { SimulationActionError } from '@/simulation/actions/simulation-action.er
 import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
+const RECENT_POST_LIMIT = 5;
+
 @Injectable()
 export class SimulationContextProvider {
   constructor(
@@ -73,6 +75,10 @@ export class SimulationContextProvider {
       );
     }
     return post;
+  }
+
+  async findRecentPosts(worldId: string): Promise<PostWithAuthorRecord[]> {
+    return this.postRepository.findRecentByWorld(worldId, RECENT_POST_LIMIT);
   }
 
   async findThread(postId: string): Promise<FlatCommentRecord[]> {
