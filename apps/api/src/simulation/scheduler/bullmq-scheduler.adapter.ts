@@ -49,8 +49,8 @@ function safeSchedulerError(error: unknown, fallback: string): Error {
  * concurrency 1, and the next tick is scheduled only after the current one
  * completes (completion-to-start cadence — never a fixed interval, never
  * `setInterval`). Transient failures retry with exponential backoff up to
- * `maxAttempts`; permanent failures and lifecycle rejections never retry.
- * Jobs that finally fail are dead-lettered to a separate queue. The adapter
+ * `maxAttempts`; permanent Action failures and lifecycle rejections complete
+ * without retrying, while scheduler faults are dead-lettered. The adapter
  * never calls an LLM provider — it only enqueues and processes commands. */
 @Injectable()
 export class BullMqSchedulerAdapter
@@ -131,10 +131,10 @@ export class BullMqSchedulerAdapter
   }
 
   /** Worker processor: runs the tick and decides the job's fate. A transient
-   * failure throws a plain error so BullMQ backs off and retries the same job
-   * (same id); a permanent failure or a lifecycle rejection fails the job
-   * immediately. Success and rejection schedule the next tick
-   * (completion-to-start). */
+   * Action failure throws a plain error while attempts remain so BullMQ backs
+   * off and retries the same command; a permanent or exhausted Action failure
+   * schedules a fresh tick. Scheduler faults retain the DLQ path. Success and
+   * rejection also schedule the next tick (completion-to-start). */
   async process(job: Job<SimulationCommand>): Promise<void> {
     let command: SimulationCommand;
     try {
@@ -181,7 +181,7 @@ export class BullMqSchedulerAdapter
       if (worldId !== undefined) {
         await this.markTickAttemptCompleted(worldId);
       }
-      if (result.failure.retryable) {
+      if (result.failure.retryable && !this.hasExhaustedAttempts(job)) {
         if (worldId !== undefined) {
           await this.markRetry(worldId);
         }
@@ -191,12 +191,19 @@ export class BullMqSchedulerAdapter
           ),
         );
       }
+
+      try {
+        await this.scheduleNextTick(result.log.worldId);
+      } catch (error) {
+        if (worldId !== undefined) {
+          await this.markTickSettled(worldId);
+        }
+        throw error;
+      }
       if (worldId !== undefined) {
         await this.markTickSettled(worldId);
       }
-      throw new UnrecoverableError(
-        redactDiagnostics(`${result.failure.code}: ${result.failure.message}`),
-      );
+      return;
     }
 
     try {
@@ -236,6 +243,11 @@ export class BullMqSchedulerAdapter
         ),
       );
     }
+  }
+
+  private hasExhaustedAttempts(job: Job): boolean {
+    const attempts = job.opts?.attempts ?? this.schedulerConfig.maxAttempts;
+    return (job.attemptsMade ?? 0) + 1 >= attempts;
   }
 
   private async enqueueTick(worldId: string): Promise<void> {

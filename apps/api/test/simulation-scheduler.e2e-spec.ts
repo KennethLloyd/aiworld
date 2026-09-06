@@ -9,7 +9,7 @@ import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 
-import { canonicalWorld } from '../prisma/seed-data';
+import { canonicalWorld, seedUuid } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
 
 const databaseUrl =
@@ -29,6 +29,75 @@ async function waitFor(
   }
   const details = diagnostics ? `: ${await diagnostics()}` : '';
   throw new Error(`Timed out waiting for condition${details}`);
+}
+
+const emptyWorldFixture = {
+  worldId: seedUuid('world:scheduler-empty-world'),
+  worldSlug: 'scheduler-empty-world',
+  characterId: seedUuid('character:scheduler-empty-world'),
+  memberId: seedUuid('member:scheduler-empty-world'),
+};
+
+async function deleteEmptyWorldFixture(prisma: PrismaClient): Promise<void> {
+  await prisma.vote.deleteMany({
+    where: {
+      OR: [
+        { post: { worldId: emptyWorldFixture.worldId } },
+        { comment: { post: { worldId: emptyWorldFixture.worldId } } },
+      ],
+    },
+  });
+  await prisma.world.deleteMany({
+    where: { id: emptyWorldFixture.worldId },
+  });
+  await prisma.character.deleteMany({
+    where: { id: emptyWorldFixture.characterId },
+  });
+}
+
+async function createEmptyWorldFixture(prisma: PrismaClient): Promise<void> {
+  await deleteEmptyWorldFixture(prisma);
+  await prisma.world.create({
+    data: {
+      id: emptyWorldFixture.worldId,
+      name: 'Scheduler Empty World',
+      slug: emptyWorldFixture.worldSlug,
+      description: { about: 'A scheduler cadence regression fixture.' },
+      rules: [],
+      topicScope: 'Scheduler tests',
+      isActive: true,
+    },
+  });
+  await prisma.character.create({
+    data: {
+      id: emptyWorldFixture.characterId,
+      handle: 'scheduler_empty_world',
+      name: 'Scheduler Empty World Resident',
+      biography: 'A resident used by the scheduler cadence regression test.',
+      traits: [],
+      systemPrompt: 'You are a scheduler regression-test resident.',
+      isActive: true,
+    },
+  });
+  await prisma.worldMember.create({
+    data: {
+      id: emptyWorldFixture.memberId,
+      worldId: emptyWorldFixture.worldId,
+      characterId: emptyWorldFixture.characterId,
+      role: 'AI',
+      isActive: true,
+    },
+  });
+  await prisma.worldSimulationConfig.create({
+    data: {
+      worldId: emptyWorldFixture.worldId,
+      state: 'RUNNING',
+      intervalMs: 200,
+      jitterMs: 0,
+      speedMultiplier: 1,
+      actionWeights: { POST: 0, VOTE: 1, COMMENT: 0 },
+    },
+  });
 }
 
 describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
@@ -153,6 +222,67 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       expect((await scheduledLogsSinceTestStart()).length).toBe(afterStop);
     } finally {
       await pauseWorld();
+    }
+  });
+
+  it('keeps an empty World cadence alive by forcing POST when its weight is zero', async () => {
+    await createEmptyWorldFixture(prisma);
+
+    try {
+      await scheduler.start(emptyWorldFixture.worldId);
+
+      await waitFor(
+        async () =>
+          (await prisma.simulationLog.count({
+            where: {
+              worldId: emptyWorldFixture.worldId,
+              executionSource: 'SCHEDULED',
+            },
+          })) >= 2,
+        30000,
+        async () =>
+          JSON.stringify(
+            await prisma.simulationLog.findMany({
+              where: {
+                worldId: emptyWorldFixture.worldId,
+                executionSource: 'SCHEDULED',
+              },
+              orderBy: { executedAt: 'asc' },
+              select: { action: true, status: true, errorMessage: true },
+            }),
+          ),
+      );
+
+      const logs = await prisma.simulationLog.findMany({
+        where: {
+          worldId: emptyWorldFixture.worldId,
+          executionSource: 'SCHEDULED',
+        },
+        orderBy: { executedAt: 'asc' },
+      });
+      expect(logs.length).toBeGreaterThanOrEqual(2);
+      expect(logs[0]).toMatchObject({ action: 'POST', status: 'SUCCESS' });
+      expect(logs[1]?.status).toBe('SUCCESS');
+      expect(
+        await prisma.post.count({
+          where: { worldId: emptyWorldFixture.worldId },
+        }),
+      ).toBeGreaterThanOrEqual(1);
+
+      await waitFor(
+        async () =>
+          (await scheduler.getObservability(emptyWorldFixture.worldId)).pending,
+        5000,
+      );
+      await expect(
+        scheduler.getObservability(emptyWorldFixture.worldId),
+      ).resolves.toMatchObject({
+        pending: true,
+        deadLetterCount: 0,
+      });
+    } finally {
+      await scheduler.stop(emptyWorldFixture.worldId).catch(() => undefined);
+      await deleteEmptyWorldFixture(prisma);
     }
   });
 

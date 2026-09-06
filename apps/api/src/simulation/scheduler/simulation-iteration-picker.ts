@@ -49,6 +49,18 @@ export class SimulationIterationPicker {
     return 'COMMENT';
   }
 
+  async pickAutomaticAction(
+    worldId: string,
+    actionWeights: ActionWeights,
+    random: () => number = () => this.randomSource.next(),
+  ): Promise<SimulationActionType> {
+    const postIds = await this.castingRepository.findRecentPostIds(worldId, 1);
+    if (postIds.length === 0) {
+      return 'POST';
+    }
+    return this.pickAction(actionWeights, random);
+  }
+
   async pickCharacter(
     worldId: string,
     random: () => number = () => this.randomSource.next(),
