@@ -1,3 +1,4 @@
+import type { SimulationBlockedReason } from '@aiworld/shared/schemas/simulation-health.schema';
 import { Injectable } from '@nestjs/common';
 
 import { Prisma, SimulationRuntimeState } from '@/generated/prisma/client';
@@ -46,6 +47,9 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
     if (input.recentRetryCount !== undefined) {
       updateData.recentRetryCount = input.recentRetryCount;
     }
+    if (input.blockedReason !== undefined) {
+      updateData.blockedReason = input.blockedReason;
+    }
     if (input.lastRetryAt !== undefined) {
       updateData.lastRetryAt = input.lastRetryAt;
     }
@@ -81,6 +85,7 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
         retrying: input.retrying ?? false,
         recentRetryCount: input.recentRetryCount ?? 0,
         lastRetryAt: input.lastRetryAt ?? null,
+        blockedReason: input.blockedReason ?? null,
         deadLetterCount: input.deadLetterCount ?? 0,
         lastDeadLetterAt: input.lastDeadLetterAt ?? null,
         lastDeadLetterReason: input.lastDeadLetterReason ?? null,
@@ -142,6 +147,7 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
       retrying: row.retrying,
       recentRetryCount: row.recentRetryCount,
       lastRetryAt: row.lastRetryAt,
+      blockedReason: row.blockedReason as SimulationBlockedReason | null,
       deadLetterCount: row.deadLetterCount,
       lastDeadLetterAt: row.lastDeadLetterAt,
       lastDeadLetterReason: row.lastDeadLetterReason,

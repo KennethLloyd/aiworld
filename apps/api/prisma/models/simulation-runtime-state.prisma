@@ -9,6 +9,7 @@ model SimulationRuntimeState {
   retrying                Boolean   @default(false)
   recentRetryCount        Int       @default(0)
   lastRetryAt             DateTime?
+  blockedReason           String?
   deadLetterCount         Int       @default(0)
   lastDeadLetterAt        DateTime?
   lastDeadLetterReason    String?   @db.Text

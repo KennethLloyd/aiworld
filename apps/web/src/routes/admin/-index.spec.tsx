@@ -110,6 +110,7 @@ const health: SimulationHealthResponse = {
     lastTickCompletedAt: null,
     retrying: false,
     recentRetryCount: 0,
+    blockedReason: null,
     deadLetterCount: 0,
     lastDeadLetterAt: null,
     lastDeadLetterReason: null,

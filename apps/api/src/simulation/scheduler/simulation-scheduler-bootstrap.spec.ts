@@ -4,6 +4,10 @@ import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 describe('SimulationSchedulerBootstrap', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('resumes only RUNNING configurations whose Worlds are active', async () => {
     const configRepository = {
       findAllByState: jest
@@ -19,7 +23,7 @@ describe('SimulationSchedulerBootstrap', () => {
       ),
     } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
-      start: jest.fn().mockResolvedValue(undefined),
+      ensureScheduled: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<SimulationScheduler>;
     const bootstrap = new SimulationSchedulerBootstrap(
       configRepository,
@@ -31,8 +35,34 @@ describe('SimulationSchedulerBootstrap', () => {
 
     expect(worldRepository.findById).toHaveBeenCalledWith('active-world');
     expect(worldRepository.findById).toHaveBeenCalledWith('inactive-world');
-    expect(scheduler.start).toHaveBeenCalledTimes(1);
-    expect(scheduler.start).toHaveBeenCalledWith('active-world');
+    expect(scheduler.ensureScheduled).toHaveBeenCalledTimes(1);
+    expect(scheduler.ensureScheduled).toHaveBeenCalledWith('active-world');
+  });
+
+  it('reconciles RUNNING active Worlds again every 60 seconds', async () => {
+    jest.useFakeTimers();
+    const configRepository = {
+      findAllByState: jest.fn().mockResolvedValue([{ worldId: 'world-1' }]),
+    } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
+    const worldRepository = {
+      findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
+    } as unknown as jest.Mocked<WorldRepository>;
+    const scheduler = {
+      ensureScheduled: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<SimulationScheduler>;
+    const bootstrap = new SimulationSchedulerBootstrap(
+      configRepository,
+      scheduler,
+      worldRepository,
+    );
+
+    await bootstrap.onModuleInit();
+    scheduler.ensureScheduled.mockClear();
+
+    await jest.advanceTimersByTimeAsync(60_000);
+
+    expect(scheduler.ensureScheduled).toHaveBeenCalledWith('world-1');
+    await bootstrap.onModuleDestroy();
   });
 
   it('records a resume failure without aborting boot', async () => {
@@ -43,7 +73,9 @@ describe('SimulationSchedulerBootstrap', () => {
       findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
     } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
-      start: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+      ensureScheduled: jest
+        .fn()
+        .mockRejectedValue(new Error('Redis unavailable')),
       recordBootResumeFailure: jest.fn(),
     } as unknown as jest.Mocked<SimulationScheduler>;
     const bootstrap = new SimulationSchedulerBootstrap(
@@ -67,7 +99,9 @@ describe('SimulationSchedulerBootstrap', () => {
       findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
     } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
-      start: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+      ensureScheduled: jest
+        .fn()
+        .mockRejectedValue(new Error('Redis unavailable')),
       recordBootResumeFailure: jest
         .fn()
         .mockRejectedValue(new Error('Database unavailable')),

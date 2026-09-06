@@ -175,6 +175,7 @@ describe('SimulationAdminResponseMapper', () => {
         lastTickCompletedAt: new Date('2026-08-13T00:20:07.000Z'),
         retrying: true,
         recentRetryCount: 2,
+        blockedReason: null,
         deadLetterCount: 1,
         lastDeadLetterAt: new Date('2026-08-13T00:21:00.000Z'),
         lastDeadLetterReason: 'TIMEOUT',
