@@ -83,6 +83,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const picker = {
     pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
+    pickAutomaticAction: jest.fn().mockResolvedValue('POST'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
   const castingRepository = {
@@ -295,7 +296,7 @@ describe('InProcessSchedulerAdapter', () => {
       nextTickAt: null,
     });
   });
-  it('records a final scheduled failure in runtime health', async () => {
+  it('continues cadence without dead-lettering a permanent Action failure', async () => {
     const { adapter, tickRunner } = createAdapter();
     tickRunner.runScheduledTick.mockResolvedValue({
       status: 'failed',
@@ -311,8 +312,8 @@ describe('InProcessSchedulerAdapter', () => {
     await jest.advanceTimersByTimeAsync(1800000);
 
     await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
-      deadLetterCount: 1,
-      lastDeadLetterReason: 'CHARACTER_INACTIVE: inactive',
+      deadLetterCount: 0,
+      pending: true,
     });
   });
 
@@ -348,6 +349,23 @@ describe('InProcessSchedulerAdapter', () => {
     // attempts 1 and 2 retry (backoff 1s and 2s), attempt 3 succeeds; the
     // next tick is then scheduled for the following interval.
     expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(3);
+  });
+
+  it('continues cadence without dead-lettering an exhausted transient Action failure', async () => {
+    const { adapter, tickRunner } = createAdapter({ maxAttempts: 2 });
+    tickRunner.runScheduledTick.mockResolvedValue({
+      status: 'failed',
+      failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
+      log: logRecord({ status: 'FAILED' }),
+    });
+
+    await adapter.start('world-1');
+    await jest.advanceTimersByTimeAsync(3600000);
+    expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(2);
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      deadLetterCount: 0,
+      pending: true,
+    });
   });
 
   it('does not retry a permanent failure and continues the cadence', async () => {
@@ -417,6 +435,25 @@ describe('InProcessSchedulerAdapter', () => {
         worldSlug: 'mbti-house',
         characterId: 'character-2',
         actionType: 'VOTE',
+        executionSource: 'custom',
+      }),
+    );
+  });
+
+  it('uses viable automatic selection for a Custom Action without an override', async () => {
+    const { adapter, picker, tickRunner } = createAdapter();
+    tickRunner.runManualIteration.mockResolvedValue(successResult);
+    picker.pickAutomaticAction.mockResolvedValue('POST');
+
+    await adapter.runCustomAction({ worldSlug: 'mbti-house' });
+
+    expect(picker.pickAutomaticAction).toHaveBeenCalledWith(
+      'world-1',
+      configRecord().actionWeights,
+    );
+    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'POST',
         executionSource: 'custom',
       }),
     );

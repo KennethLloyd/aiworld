@@ -243,7 +243,10 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
       }
       throw error;
     }
-    const actionType = this.picker.pickAction(config.actionWeights);
+    const actionType = await this.picker.pickAutomaticAction(
+      worldId,
+      config.actionWeights,
+    );
 
     const command = simulationCommandSchema.parse({
       worldSlug: world.slug,
@@ -325,7 +328,8 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
       input.characterId ??
       (await this.picker.pickCharacter(world.id)).characterId;
     const actionType =
-      input.actionType ?? this.picker.pickAction(config.actionWeights);
+      input.actionType ??
+      (await this.picker.pickAutomaticAction(world.id, config.actionWeights));
 
     return simulationCommandSchema.parse({
       worldSlug: world.slug,

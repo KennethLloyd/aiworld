@@ -147,6 +147,7 @@ function createRunner(
   const picker = {
     pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
+    pickAutomaticAction: jest.fn().mockResolvedValue('POST'),
     pickTargetPost: jest.fn().mockResolvedValue('post-1'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
@@ -476,40 +477,37 @@ describe('SimulationTickRunner', () => {
       });
     });
 
-    it('returns a non-retryable failure when no post exists to act on', async () => {
-      const { runner, picker, executor } = createRunner();
-      picker.pickTargetPost.mockResolvedValue(null);
+    it.each(['VOTE', 'COMMENT'] as const)(
+      'returns a non-retryable failure for forced %s when no post exists',
+      async (actionType) => {
+        const { runner, picker, executor } = createRunner();
+        picker.pickTargetPost.mockResolvedValue(null);
 
-      const result = await runner.runScheduledTick(
-        scheduledCommand({ actionType: 'VOTE' }),
-      );
+        const result = await runner.runScheduledTick(
+          scheduledCommand({ actionType }),
+        );
 
-      expect(executor.execute).not.toHaveBeenCalled();
-      expect(result).toMatchObject({
-        status: 'failed',
-        failure: { code: 'NO_ACTIVE_TARGET', retryable: false },
-      });
-    });
+        expect(executor.execute).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+          status: 'failed',
+          failure: { code: 'NO_ACTIVE_TARGET', retryable: false },
+        });
+      },
+    );
 
-    it('writes a FAILED log for a permanent error before the executor path', async () => {
+    it('leaves a missing configuration as a scheduler fault', async () => {
       const { runner, lifecycleService, logService } = createRunner();
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
         new SimulationConfigNotFoundError('world-1'),
       );
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-5');
-
-      expect(logService.writeFailure).toHaveBeenCalledWith(
-        expect.objectContaining({
-          jobId: 'job-5',
-          worldId: 'world-1',
-          failure: expect.objectContaining({ retryable: false }),
-        }),
-      );
-      expect(result).toMatchObject({ status: 'failed' });
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-5'),
+      ).rejects.toBeInstanceOf(SimulationConfigNotFoundError);
+      expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
-    it('logs configuration failures with process-global metadata', async () => {
+    it('leaves malformed configuration as a scheduler fault', async () => {
       const { runner, lifecycleService, logService } = createRunner();
       const malformed = new SimulationConfigMalformedError(
         'world-1',
@@ -517,44 +515,26 @@ describe('SimulationTickRunner', () => {
       );
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(malformed);
 
-      const result = await runner.runScheduledTick(
-        scheduledCommand(),
-        'job-10',
-      );
-
-      expect(logService.writeFailure).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: 'mock',
-          model: 'fixture-model',
-          jobId: 'job-10',
-        }),
-      );
-      expect(result).toMatchObject({ status: 'failed' });
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-10'),
+      ).rejects.toBeInstanceOf(SimulationConfigMalformedError);
+      expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
-    it('preserves process-global metadata when configuration lookup fails', async () => {
+    it('leaves a configuration lookup error as a scheduler fault', async () => {
       const { runner, lifecycleService, logService } = createRunner();
       const lookupFailure = new Error('configuration lookup failed');
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
         lookupFailure,
       );
 
-      const result = await runner.runScheduledTick(
-        scheduledCommand(),
-        'job-11',
-      );
-
-      expect(logService.writeFailure).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: 'mock',
-          model: 'fixture-model',
-          jobId: 'job-11',
-        }),
-      );
-      expect(result).toMatchObject({ status: 'failed' });
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-11'),
+      ).rejects.toBe(lookupFailure);
+      expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
-    it('logs a transient write-path error as a retryable failed result', async () => {
+    it('leaves a raw write-path error as a scheduler fault', async () => {
       const { runner, executor, contentWriter, logService } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
       contentWriter.persist.mockRejectedValue({
@@ -563,18 +543,28 @@ describe('SimulationTickRunner', () => {
         message: "Can't reach database",
       });
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-6');
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-6'),
+      ).rejects.toMatchObject({ code: 'P1001' });
+      expect(logService.writeFailure).not.toHaveBeenCalled();
+    });
 
-      expect(logService.writeFailure).toHaveBeenCalledWith(
-        expect.objectContaining({
-          jobId: 'job-6',
-          failure: expect.objectContaining({ retryable: true }),
-        }),
-      );
-      expect(result).toMatchObject({
+    it('leaves a failed-Iteration logging error as a scheduler fault', async () => {
+      const { runner, executor, logService } = createRunner();
+      const loggingFailure = new Error('logging database unavailable');
+      executor.execute.mockResolvedValue({
         status: 'failed',
-        failure: { retryable: true },
+        failure: {
+          code: 'CHARACTER_INACTIVE',
+          message: 'Character is inactive',
+          retryable: false,
+        },
       });
+      logService.writeFailure.mockRejectedValue(loggingFailure);
+
+      await expect(
+        runner.runScheduledTick(scheduledCommand(), 'job-log-failure'),
+      ).rejects.toBe(loggingFailure);
     });
 
     it('throws when the World itself is unresolvable (DLQ records it)', async () => {

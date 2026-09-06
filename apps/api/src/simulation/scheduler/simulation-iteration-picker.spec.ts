@@ -48,6 +48,33 @@ describe('SimulationIterationPicker', () => {
     });
   });
 
+  describe('pickAutomaticAction', () => {
+    it('selects POST when the World has no target posts, even at zero weight', async () => {
+      const { picker, castingRepository } = createPicker();
+
+      await expect(
+        picker.pickAutomaticAction(
+          'world-1',
+          { POST: 0, VOTE: 0.5, COMMENT: 0.5 },
+          () => 0.99,
+        ),
+      ).resolves.toBe('POST');
+      expect(castingRepository.findRecentPostIds).toHaveBeenCalledWith(
+        'world-1',
+        1,
+      );
+    });
+
+    it('preserves configured weights when target posts exist', async () => {
+      const { picker, castingRepository } = createPicker();
+      castingRepository.findRecentPostIds.mockResolvedValue(['post-1']);
+
+      await expect(
+        picker.pickAutomaticAction('world-1', weights, () => 0.69),
+      ).resolves.toBe('VOTE');
+    });
+  });
+
   describe('pickCharacter', () => {
     it('prefers a resident who has never acted', async () => {
       const { picker, castingRepository } = createPicker([

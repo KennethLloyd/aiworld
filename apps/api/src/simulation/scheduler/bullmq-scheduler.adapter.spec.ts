@@ -75,6 +75,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const picker = {
     pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
+    pickAutomaticAction: jest.fn().mockResolvedValue('POST'),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
   const castingRepository = {
@@ -402,8 +403,8 @@ describe('BullMqSchedulerAdapter', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
-    it('throws UnrecoverableError on a permanent failure (no retry)', async () => {
-      const { adapter, tickRunner } = createAdapter();
+    it('resolves a permanent Action failure and schedules a fresh tick', async () => {
+      const { adapter, tickRunner, queue, dlq } = createAdapter();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: {
@@ -413,6 +414,43 @@ describe('BullMqSchedulerAdapter', () => {
         },
         log: logRecord({ status: 'FAILED' }),
       });
+
+      await expect(
+        adapter.process(fakeJob() as never),
+      ).resolves.toBeUndefined();
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(dlq.add).not.toHaveBeenCalled();
+    });
+
+    it('resolves an exhausted transient Action failure and schedules a fresh tick', async () => {
+      const { adapter, tickRunner, queue, dlq } = createAdapter();
+      tickRunner.runScheduledTick.mockResolvedValue({
+        status: 'failed',
+        failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
+        log: logRecord({ status: 'FAILED' }),
+      });
+
+      await expect(
+        adapter.process(
+          fakeJob({ attemptsMade: 2, opts: { attempts: 3 } }) as never,
+        ),
+      ).resolves.toBeUndefined();
+      expect(queue.add).toHaveBeenCalledTimes(1);
+      expect(dlq.add).not.toHaveBeenCalled();
+    });
+
+    it('keeps a fresh-tick scheduling error on the scheduler fault path', async () => {
+      const { adapter, tickRunner, queue } = createAdapter();
+      tickRunner.runScheduledTick.mockResolvedValue({
+        status: 'failed',
+        failure: {
+          code: 'CHARACTER_INACTIVE',
+          message: 'inactive',
+          retryable: false,
+        },
+        log: logRecord({ status: 'FAILED' }),
+      });
+      queue.add.mockRejectedValue(new Error('Redis unavailable'));
 
       await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
         UnrecoverableError,

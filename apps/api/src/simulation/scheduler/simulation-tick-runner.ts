@@ -54,10 +54,10 @@ type ProviderMetadata = {
  * rejection. The runner enforces World activity and the lifecycle gates
  * (scheduled work only while RUNNING, manual work rejected in HALTED), resolves
  * VOTE/COMMENT target posts, and funnels every outcome through the action
- * executor → content writer → log service pipeline. Thrown errors are turned
- * into logged failures here — transient ones stay retryable so the adapter's
- * policy applies — and the runner never talks to a queue or an LLM provider
- * directly. */
+ * executor → content writer → log service pipeline. Action-domain errors are
+ * turned into logged failures here; scheduler faults such as raw persistence
+ * or logging errors remain thrown so the adapter's retry/DLQ policy applies.
+ * The runner never talks to a queue or an LLM provider directly. */
 @Injectable()
 export class SimulationTickRunner {
   constructor(
@@ -100,7 +100,10 @@ export class SimulationTickRunner {
         });
         return { status: 'rejected', reason: error.message, log };
       }
-      return this.failScheduled(command, world.id, jobId, error);
+      if (error instanceof SimulationActionError) {
+        return this.failScheduled(command, world.id, jobId, error);
+      }
+      throw error;
     }
   }
 
@@ -237,10 +240,10 @@ export class SimulationTickRunner {
     return this.lifecycleService.assertManualWorkAllowed(worldId);
   }
 
-  /** Converts a thrown error into a logged failed result so every attempt
-   * lands in SimulationLog. Transient errors (LLM timeouts, 5xx, rate limits,
-   * database connection blips) keep `retryable: true` so the adapter applies
-   * its backoff policy; permanent errors never retry. */
+  /** Converts a thrown Action-domain error into a logged failed result.
+   * Transient Action errors (LLM timeouts, 5xx, rate limits) keep
+   * `retryable: true` so the adapter applies its backoff policy; raw scheduler
+   * faults are allowed to remain thrown for the adapter's fault policy. */
   private async failScheduled(
     command: ScheduledCommand,
     worldId: string,
