@@ -17,6 +17,9 @@ export const simulationProviderHealthStatuses = [
   'UNKNOWN',
 ] as const;
 
+export const simulationBlockedReasons = ['NO_ACTIVE_RESIDENTS'] as const;
+export type SimulationBlockedReason = (typeof simulationBlockedReasons)[number];
+
 const timestampSchema = z.iso.datetime().nullable();
 
 export const simulationHealthResponseSchema = z.object({
@@ -36,6 +39,7 @@ export const simulationHealthResponseSchema = z.object({
     lastTickCompletedAt: timestampSchema,
     retrying: z.boolean(),
     recentRetryCount: z.int().min(0),
+    blockedReason: z.enum(simulationBlockedReasons).nullable(),
     deadLetterCount: z.int().min(0),
     lastDeadLetterAt: timestampSchema,
     lastDeadLetterReason: z.string().nullable(),

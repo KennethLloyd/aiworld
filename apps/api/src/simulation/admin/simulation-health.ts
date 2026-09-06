@@ -132,6 +132,13 @@ export function deriveSimulationHealth(
       providerStatus,
     };
   }
+  if (scheduler.blockedReason === 'NO_ACTIVE_RESIDENTS') {
+    return {
+      status: 'DEGRADED',
+      reason: 'No active AI Residents are available.',
+      providerStatus,
+    };
+  }
   if (scheduler.retrying || scheduler.recentRetryCount > 0) {
     return {
       status: 'DEGRADED',
@@ -190,7 +197,12 @@ export function deriveSimulationHealth(
     };
   }
 
-  if (scheduler.deadLetterCount > 0) {
+  const deadLetterIsUnrecovered =
+    scheduler.deadLetterCount > 0 &&
+    (scheduler.lastDeadLetterAt === null ||
+      lastSuccessAt === null ||
+      lastSuccessAt <= scheduler.lastDeadLetterAt);
+  if (deadLetterIsUnrecovered) {
     return {
       status: 'DEGRADED',
       reason: `${scheduler.deadLetterCount} scheduler job${scheduler.deadLetterCount === 1 ? '' : 's'} failed permanently.`,

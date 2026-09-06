@@ -11,6 +11,7 @@ import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random
 import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
+import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
@@ -49,6 +50,8 @@ function fakeJob(overrides: Record<string, unknown> = {}) {
   return {
     id: 'job-1',
     name: 'tick_world-1',
+    timestamp: Date.now(),
+    delay: 1800000,
     data: {
       worldSlug: 'mbti-house',
       characterId: 'character-1',
@@ -70,6 +73,10 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const worldRepository = {
     findById: jest.fn().mockResolvedValue(world),
     findBySlug: jest.fn().mockResolvedValue(world),
+    withActiveSimulationLock: jest.fn(async (_worldId, operation) => ({
+      status: 'executed' as const,
+      value: await operation(),
+    })),
   } as unknown as jest.Mocked<WorldRepository>;
 
   const picker = {
@@ -79,6 +86,13 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
   const castingRepository = {
+    findActiveActors: jest.fn().mockResolvedValue([
+      {
+        memberId: 'member-1',
+        characterId: 'character-1',
+        lastActivityAt: null,
+      },
+    ]),
     findActiveActor: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<SimulationCastingRepository>;
 
@@ -124,6 +138,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
+    blockedReason: null,
     deadLetterCount: 0,
     lastDeadLetterAt: null,
     lastDeadLetterReason: null,
@@ -185,6 +200,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     connection,
     dlq,
     worker,
+    runtimeStateRepository,
   };
 }
 
@@ -229,7 +245,7 @@ const successResult = {
 };
 
 describe('BullMqSchedulerAdapter', () => {
-  it('start removes the pending tick and enqueues a delayed self-rescheduling job', async () => {
+  it('start retains an existing Tick instead of creating a duplicate', async () => {
     const { adapter, queue } = createAdapter();
     const stale = fakeJob({ id: 'stale' });
     const otherWorld = fakeJob({ name: 'tick:other-world', id: 'other' });
@@ -237,25 +253,70 @@ describe('BullMqSchedulerAdapter', () => {
 
     await adapter.start('world-1');
 
-    expect(queue.getJobs).toHaveBeenCalledWith(['delayed', 'waiting']);
-    expect(stale.remove).toHaveBeenCalled();
+    expect(queue.getJobs).toHaveBeenCalledWith(['active']);
+    expect(queue.getJobs).toHaveBeenCalledWith([
+      'waiting',
+      'delayed',
+      'prioritized',
+    ]);
+    expect(stale.remove).not.toHaveBeenCalled();
     expect(otherWorld.remove).not.toHaveBeenCalled();
 
-    expect(queue.add).toHaveBeenCalledTimes(1);
-    const [name, command, options] = queue.add.mock.calls[0];
-    expect(name).toBe('tick_world-1');
-    expect(command).toMatchObject({
-      worldSlug: 'mbti-house',
-      characterId: 'character-1',
-      actionType: 'POST',
-      executionSource: 'scheduled',
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
+  it('ensureScheduled does not create a second pending Tick', async () => {
+    const { adapter, queue, worldRepository } = createAdapter();
+    const existing = fakeJob({ id: 'existing-tick' });
+    queue.getJobs.mockImplementation(async (types: string[]) =>
+      types.includes('delayed') ? [existing] : [],
+    );
+
+    await adapter.ensureScheduled('world-1');
+
+    expect(worldRepository.withActiveSimulationLock).toHaveBeenCalledWith(
+      'world-1',
+      expect.any(Function),
+    );
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(existing.remove).not.toHaveBeenCalled();
+  });
+
+  it('records a blocked reason when no active AI Resident can act', async () => {
+    const { adapter, picker, queue } = createAdapter();
+    picker.pickCharacter.mockRejectedValue(
+      new SimulationIterationPickError(
+        'NO_ACTIVE_CHARACTERS',
+        'World "world-1" has no active AI characters to act',
+      ),
+    );
+
+    await adapter.ensureScheduled('world-1');
+
+    expect(queue.add).not.toHaveBeenCalled();
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      pending: false,
+      workExpected: false,
+      blockedReason: 'NO_ACTIVE_RESIDENTS',
     });
-    expect(options).toMatchObject({
-      delay: 1800000,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: true,
-      removeOnFail: false,
+  });
+
+  it('removes a pending Tick when all active AI Residents become unavailable', async () => {
+    const { adapter, castingRepository, queue } = createAdapter();
+    const existing = fakeJob({ id: 'existing-tick' });
+    queue.getJobs.mockImplementation(async (types: string[]) =>
+      types.includes('delayed') ? [existing] : [],
+    );
+    castingRepository.findActiveActors.mockResolvedValue([]);
+
+    await adapter.ensureScheduled('world-1');
+
+    expect(existing.remove).toHaveBeenCalledTimes(1);
+    expect(queue.add).not.toHaveBeenCalled();
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      pending: false,
+      workExpected: false,
+      blockedReason: 'NO_ACTIVE_RESIDENTS',
     });
   });
   it('exposes pending scheduler progress and persisted dead-letter signals', async () => {

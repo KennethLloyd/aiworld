@@ -18,8 +18,10 @@ export type SimulationSchedulerObservabilityRecord =
  * single manual iteration. Lifecycle rules are enforced by the state machine,
  * never by an adapter, and every operation funnels through the tick runner. */
 export abstract class SimulationScheduler {
+  /** Ensure a RUNNING World has at most one pending or active scheduled Tick. */
+  abstract ensureScheduled(worldId: string): Promise<void>;
   /** Begin scheduled ticks for a World (resumes a persisted RUNNING state on
-   * boot; replaces any previously pending tick). No-op when already active. */
+   * boot). No-op when a pending or active tick already exists. */
   abstract start(worldId: string): Promise<void>;
   /** Remove the single pending scheduled tick for a World. An in-flight tick
    * completes; the executor gate rejects any transition race window. */

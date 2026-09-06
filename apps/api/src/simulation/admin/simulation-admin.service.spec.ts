@@ -282,6 +282,7 @@ describe('SimulationAdminService', () => {
         lastTickCompletedAt: new Date(),
         retrying: false,
         recentRetryCount: 0,
+        blockedReason: null,
         deadLetterCount: 0,
         lastDeadLetterAt: null,
         lastDeadLetterReason: null,

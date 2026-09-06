@@ -87,6 +87,13 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
   const castingRepository = {
+    findActiveActors: jest.fn().mockResolvedValue([
+      {
+        memberId: 'member-1',
+        characterId: 'character-1',
+        lastActivityAt: null,
+      },
+    ]),
     findActiveActor: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<SimulationCastingRepository>;
 
@@ -116,6 +123,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
+    blockedReason: null,
     deadLetterCount: 0,
     lastDeadLetterAt: null,
     lastDeadLetterReason: null,
@@ -294,6 +302,23 @@ describe('InProcessSchedulerAdapter', () => {
       pending: false,
       workExpected: false,
       nextTickAt: null,
+      blockedReason: 'NO_ACTIVE_RESIDENTS',
+    });
+  });
+  it('clears a pending Tick when all active AI Residents become unavailable', async () => {
+    const { adapter, castingRepository, tickRunner } = createAdapter();
+
+    await adapter.start('world-1');
+    castingRepository.findActiveActors.mockResolvedValue([]);
+
+    await adapter.ensureScheduled('world-1');
+    await jest.advanceTimersByTimeAsync(3600000);
+
+    expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
+    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+      pending: false,
+      workExpected: false,
+      blockedReason: 'NO_ACTIVE_RESIDENTS',
     });
   });
   it('continues cadence without dead-lettering a permanent Action failure', async () => {

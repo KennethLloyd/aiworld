@@ -1,12 +1,16 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Job, Queue } from 'bullmq';
+import { Redis as IORedis } from 'ioredis';
 import { App } from 'supertest/types';
 
 import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
+import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
+import { SIMULATION_TICKS_QUEUE } from '@/simulation/scheduler/bullmq-scheduler.adapter';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 
 import { canonicalWorld, seedUuid } from '../prisma/seed-data';
@@ -14,6 +18,7 @@ import { seedWorld } from '../prisma/seed-world';
 
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://postgres:***@localhost:5432/aiworld';
+const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 async function waitFor(
   predicate: () => Promise<boolean>,
@@ -100,6 +105,100 @@ async function createEmptyWorldFixture(prisma: PrismaClient): Promise<void> {
   });
 }
 
+function reconciliationFixture(key: string) {
+  return {
+    worldId: seedUuid(`world:scheduler-reconciliation:${key}`),
+    worldSlug: `scheduler-reconciliation-${key}`,
+    characterId: seedUuid(`character:scheduler-reconciliation:${key}`),
+    memberId: seedUuid(`member:scheduler-reconciliation:${key}`),
+  };
+}
+
+async function deleteReconciliationFixture(
+  prisma: PrismaClient,
+  fixture: ReturnType<typeof reconciliationFixture>,
+): Promise<void> {
+  await prisma.vote.deleteMany({
+    where: {
+      OR: [
+        { post: { worldId: fixture.worldId } },
+        { comment: { post: { worldId: fixture.worldId } } },
+      ],
+    },
+  });
+  await prisma.world.deleteMany({ where: { id: fixture.worldId } });
+  await prisma.character.deleteMany({ where: { id: fixture.characterId } });
+}
+
+async function createReconciliationFixture(
+  prisma: PrismaClient,
+  key: string,
+  memberActive = true,
+): Promise<ReturnType<typeof reconciliationFixture>> {
+  const fixture = reconciliationFixture(key);
+  await deleteReconciliationFixture(prisma, fixture);
+  await prisma.world.create({
+    data: {
+      id: fixture.worldId,
+      name: `Scheduler Reconciliation ${key}`,
+      slug: fixture.worldSlug,
+      description: { about: 'A scheduler reconciliation fixture.' },
+      rules: [],
+      topicScope: 'Scheduler tests',
+      isActive: true,
+    },
+  });
+  await prisma.character.create({
+    data: {
+      id: fixture.characterId,
+      handle: `scheduler_reconciliation_${key.replaceAll('-', '_')}`,
+      name: `Scheduler Reconciliation ${key}`,
+      biography: 'A resident used by scheduler reconciliation tests.',
+      traits: [],
+      systemPrompt: 'You are a scheduler reconciliation test resident.',
+      isActive: true,
+    },
+  });
+  await prisma.worldMember.create({
+    data: {
+      id: fixture.memberId,
+      worldId: fixture.worldId,
+      characterId: fixture.characterId,
+      role: 'AI',
+      isActive: memberActive,
+    },
+  });
+  await prisma.worldSimulationConfig.create({
+    data: {
+      worldId: fixture.worldId,
+      state: 'RUNNING',
+      intervalMs: 1_800_000,
+      jitterMs: 0,
+      speedMultiplier: 1,
+      actionWeights: { POST: 1, VOTE: 0, COMMENT: 0 },
+    },
+  });
+  return fixture;
+}
+
+async function ticksForWorld(queue: Queue, worldId: string): Promise<Job[]> {
+  const jobs = await queue.getJobs([
+    'active',
+    'waiting',
+    'delayed',
+    'prioritized',
+  ]);
+  return jobs.filter((job) => job.name === `tick_${worldId}`);
+}
+
+async function removeTicksForWorld(
+  queue: Queue,
+  worldId: string,
+): Promise<void> {
+  const jobs = await ticksForWorld(queue, worldId);
+  await Promise.all(jobs.map((job) => job.remove().catch(() => undefined)));
+}
+
 describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
   jest.setTimeout(60000);
 
@@ -109,6 +208,8 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
   });
   let worldId: string;
   let scheduler: SimulationScheduler;
+  let queue: Queue;
+  let queueConnection: IORedis;
   let testStart: Date;
 
   beforeAll(async () => {
@@ -126,6 +227,10 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
     scheduler = app.get(SimulationScheduler);
+    queueConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+    queue = new Queue(SIMULATION_TICKS_QUEUE, {
+      connection: queueConnection,
+    });
 
     const world = await prisma.world.findUniqueOrThrow({
       where: { slug: canonicalWorld.slug },
@@ -135,8 +240,10 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
 
   afterAll(async () => {
     await scheduler.stop(worldId).catch(() => undefined);
-    await app.get(PrismaService).$disconnect();
     await app.close();
+    await queue.close();
+    await queueConnection.quit();
+    await app.get(PrismaService).$disconnect();
     await prisma.$disconnect();
   });
 
@@ -283,6 +390,184 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     } finally {
       await scheduler.stop(emptyWorldFixture.worldId).catch(() => undefined);
       await deleteEmptyWorldFixture(prisma);
+    }
+  });
+
+  it('repairs stranded ticks, isolates Worlds, and remains idempotent across API processes', async () => {
+    const first = await createReconciliationFixture(prisma, 'first');
+    const second = await createReconciliationFixture(prisma, 'second');
+    let secondApp: INestApplication | undefined;
+
+    try {
+      await removeTicksForWorld(queue, first.worldId);
+      await removeTicksForWorld(queue, second.worldId);
+
+      const secondModule = await Test.createTestingModule({
+        imports: [AppModule],
+      }).compile();
+      secondApp = secondModule.createNestApplication();
+      await secondApp.init();
+      const secondScheduler = secondApp.get(SimulationScheduler);
+
+      await Promise.all([
+        scheduler.ensureScheduled(first.worldId),
+        secondScheduler.ensureScheduled(first.worldId),
+        scheduler.ensureScheduled(second.worldId),
+      ]);
+
+      await waitFor(
+        async () =>
+          (await ticksForWorld(queue, first.worldId)).length === 1 &&
+          (await ticksForWorld(queue, second.worldId)).length === 1,
+        5000,
+      );
+
+      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(1);
+      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+
+      await removeTicksForWorld(queue, first.worldId);
+      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(0);
+      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+
+      await scheduler.ensureScheduled(first.worldId);
+
+      await waitFor(
+        async () => (await ticksForWorld(queue, first.worldId)).length === 1,
+        5000,
+      );
+      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(1);
+      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+    } finally {
+      await removeTicksForWorld(queue, first.worldId);
+      await removeTicksForWorld(queue, second.worldId);
+      await deleteReconciliationFixture(prisma, first);
+      await deleteReconciliationFixture(prisma, second);
+      await secondApp?.close();
+    }
+  });
+
+  it('blocks a RUNNING World without active AI Residents and recovers on reconciliation', async () => {
+    const fixture = await createReconciliationFixture(
+      prisma,
+      'no-residents',
+      false,
+    );
+
+    try {
+      await scheduler.ensureScheduled(fixture.worldId);
+
+      await expect(
+        scheduler.getObservability(fixture.worldId),
+      ).resolves.toMatchObject({
+        pending: false,
+        workExpected: false,
+        blockedReason: 'NO_ACTIVE_RESIDENTS',
+      });
+      await expect(
+        prisma.worldSimulationConfig.findUniqueOrThrow({
+          where: { worldId: fixture.worldId },
+        }),
+      ).resolves.toMatchObject({ state: 'RUNNING' });
+      expect(await ticksForWorld(queue, fixture.worldId)).toHaveLength(0);
+      await expect(
+        app.get(SimulationAdminService).getHealth(fixture.worldSlug),
+      ).resolves.toMatchObject({
+        health: { status: 'DEGRADED' },
+        scheduler: { blockedReason: 'NO_ACTIVE_RESIDENTS' },
+      });
+
+      await prisma.worldMember.update({
+        where: { id: fixture.memberId },
+        data: { isActive: true },
+      });
+      await scheduler.ensureScheduled(fixture.worldId);
+
+      await waitFor(
+        async () => (await ticksForWorld(queue, fixture.worldId)).length === 1,
+        5000,
+      );
+      await expect(
+        scheduler.getObservability(fixture.worldId),
+      ).resolves.toMatchObject({
+        pending: true,
+        workExpected: true,
+        blockedReason: null,
+      });
+      await expect(
+        app.get(SimulationAdminService).getHealth(fixture.worldSlug),
+      ).resolves.toMatchObject({
+        health: { status: 'HEALTHY' },
+        scheduler: { blockedReason: null },
+      });
+    } finally {
+      await removeTicksForWorld(queue, fixture.worldId);
+      await deleteReconciliationFixture(prisma, fixture);
+    }
+  });
+
+  it('recovers scheduler health after a later scheduled success without clearing dead-letter history', async () => {
+    const fixture = await createReconciliationFixture(
+      prisma,
+      'health-recovery',
+    );
+
+    try {
+      await scheduler.ensureScheduled(fixture.worldId);
+      const deadLetterAt = new Date(Date.now() - 60_000);
+      await prisma.simulationRuntimeState.update({
+        where: { worldId: fixture.worldId },
+        data: {
+          deadLetterCount: 1,
+          lastDeadLetterAt: deadLetterAt,
+          lastDeadLetterReason: 'Redis unavailable',
+        },
+      });
+      await prisma.simulationLog.create({
+        data: {
+          worldId: fixture.worldId,
+          characterId: fixture.characterId,
+          action: 'POST',
+          provider: 'mock',
+          model: 'fixture-model',
+          executionSource: 'SCHEDULED',
+          status: 'SUCCESS',
+          providerFailure: false,
+        },
+      });
+
+      const health = await app
+        .get(SimulationAdminService)
+        .getHealth(fixture.worldSlug);
+
+      expect(health.scheduler.deadLetterCount).toBe(1);
+      expect(health.health).toEqual({ status: 'HEALTHY', reason: null });
+    } finally {
+      await removeTicksForWorld(queue, fixture.worldId);
+      await deleteReconciliationFixture(prisma, fixture);
+    }
+  });
+
+  it('repairs a RUNNING World during startup reconciliation', async () => {
+    const fixture = await createReconciliationFixture(prisma, 'startup');
+    let secondApp: INestApplication | undefined;
+
+    try {
+      await removeTicksForWorld(queue, fixture.worldId);
+      const secondModule = await Test.createTestingModule({
+        imports: [AppModule],
+      }).compile();
+      secondApp = secondModule.createNestApplication();
+      await secondApp.init();
+
+      await waitFor(
+        async () => (await ticksForWorld(queue, fixture.worldId)).length === 1,
+        5000,
+      );
+      expect(await ticksForWorld(queue, fixture.worldId)).toHaveLength(1);
+    } finally {
+      await removeTicksForWorld(queue, fixture.worldId);
+      await deleteReconciliationFixture(prisma, fixture);
+      await secondApp?.close();
     }
   });
 

@@ -29,6 +29,10 @@ export class InProcessSchedulerAdapter
 {
   /** One pending delayed tick handle per World; replaced on every schedule. */
   private readonly scheduledTicks = new Map<string, NodeJS.Timeout>();
+  /** Worlds whose current Tick is being processed. Reconciliation must not
+   * add work while one of these Ticks is still active. */
+  private readonly activeTicks = new Set<string>();
+  private readonly ensureInFlight = new Map<string, Promise<void>>();
 
   constructor(
     lifecycleService: SimulationLifecycleService,
@@ -52,7 +56,27 @@ export class InProcessSchedulerAdapter
   }
 
   async start(worldId: string): Promise<void> {
-    await this.scheduleNextTick(worldId);
+    await this.ensureScheduled(worldId);
+  }
+
+  async ensureScheduled(worldId: string): Promise<void> {
+    if (this.activeTicks.has(worldId)) {
+      return;
+    }
+
+    const inFlight = this.ensureInFlight.get(worldId);
+    if (inFlight !== undefined) {
+      await inFlight;
+      return;
+    }
+
+    const reconciliation = this.scheduleNextTick(worldId).finally(() => {
+      if (this.ensureInFlight.get(worldId) === reconciliation) {
+        this.ensureInFlight.delete(worldId);
+      }
+    });
+    this.ensureInFlight.set(worldId, reconciliation);
+    await reconciliation;
     await this.markSchedulerStartSucceeded(worldId);
   }
 
@@ -76,25 +100,45 @@ export class InProcessSchedulerAdapter
       clearTimeout(handle);
     }
     this.scheduledTicks.clear();
+    this.ensureInFlight.clear();
   }
 
-  private async scheduleNextTick(worldId: string): Promise<void> {
-    const existing = this.scheduledTicks.get(worldId);
-    if (existing) {
-      clearTimeout(existing);
-      this.scheduledTicks.delete(worldId);
+  private async scheduleNextTick(
+    worldId: string,
+    allowActive = false,
+  ): Promise<void> {
+    if (!allowActive && this.activeTicks.has(worldId)) {
+      return;
     }
-    await this.markStopped(worldId);
 
+    const existing = this.scheduledTicks.get(worldId);
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
+      this.clearScheduledTick(worldId, existing);
+      await this.markStopped(worldId);
       return;
     }
 
     const world = await this.worldRepository.findById(worldId);
     if (!world?.isActive) {
+      this.clearScheduledTick(worldId, existing);
+      await this.markStopped(worldId);
       return;
     }
+
+    const actors = await this.castingRepository.findActiveActors(worldId);
+    if (actors.length === 0) {
+      this.clearScheduledTick(worldId, existing);
+      await this.markBlockedByNoActiveResidents(worldId);
+      return;
+    }
+
+    if (!allowActive && existing !== undefined) {
+      return;
+    }
+
+    this.clearScheduledTick(worldId, existing);
+    await this.markStopped(worldId);
 
     const delay = deriveScheduledDelayMs({
       intervalMs: config.intervalMs,
@@ -114,8 +158,19 @@ export class InProcessSchedulerAdapter
     await this.markScheduled(worldId, new Date(Date.now() + delay));
   }
 
+  private clearScheduledTick(
+    worldId: string,
+    handle: NodeJS.Timeout | undefined,
+  ): void {
+    if (handle !== undefined) {
+      clearTimeout(handle);
+      this.scheduledTicks.delete(worldId);
+    }
+  }
+
   private async handleTick(worldId: string): Promise<void> {
     this.scheduledTicks.delete(worldId);
+    this.activeTicks.add(worldId);
     await this.markTickStarted(worldId);
 
     try {
@@ -123,6 +178,10 @@ export class InProcessSchedulerAdapter
       if (!composed) {
         await this.markStopped(worldId);
         return; // not RUNNING anymore, or the World cannot act — cadence stops
+      }
+      if ('blockedReason' in composed) {
+        await this.markBlockedByNoActiveResidents(worldId);
+        return;
       }
 
       let result: ScheduledTickRunResult;
@@ -146,10 +205,11 @@ export class InProcessSchedulerAdapter
       // a permanent failure or an exhausted transient retry sequence. A World
       // that left RUNNING mid-tick (PAUSED, HALTED, or a stop during flight) is
       // not restarted.
-      await this.scheduleNextTick(worldId);
+      await this.scheduleNextTick(worldId, true);
     } finally {
       await this.markTickAttemptCompleted(worldId);
       await this.markTickSettled(worldId);
+      this.activeTicks.delete(worldId);
     }
   }
 

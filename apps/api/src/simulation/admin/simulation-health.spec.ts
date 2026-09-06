@@ -39,6 +39,7 @@ const progressingScheduler: SimulationSchedulerObservabilityRecord = {
   lastTickCompletedAt: new Date('2026-08-13T00:20:20.000Z'),
   retrying: false,
   recentRetryCount: 0,
+  blockedReason: null,
   deadLetterCount: 0,
   lastDeadLetterAt: null,
   lastDeadLetterReason: null,
@@ -234,5 +235,28 @@ describe('deriveSimulationHealth', () => {
         },
       ),
     ).toMatchObject({ status: 'DEGRADED' });
+  });
+
+  it('reports a RUNNING World blocked while it has no active AI Residents', () => {
+    expect(
+      derive({}, { blockedReason: 'NO_ACTIVE_RESIDENTS', workExpected: false }),
+    ).toEqual({
+      status: 'DEGRADED',
+      reason: 'No active AI Residents are available.',
+      providerStatus: 'HEALTHY',
+    });
+  });
+
+  it('recovers health after a scheduled success follows a dead letter', () => {
+    expect(
+      derive(
+        {},
+        {
+          deadLetterCount: 1,
+          lastDeadLetterAt: new Date('2026-08-13T00:25:00.000Z'),
+        },
+        { lastSuccessAt: new Date('2026-08-13T00:29:00.000Z') },
+      ),
+    ).toEqual({ status: 'HEALTHY', reason: null, providerStatus: 'HEALTHY' });
   });
 });
