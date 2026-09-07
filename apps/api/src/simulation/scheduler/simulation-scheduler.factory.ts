@@ -17,10 +17,7 @@ import type { SchedulerConfig } from '@/simulation/scheduler/simulation-schedule
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
-/** Builds the SimulationScheduler for the configured adapter. The `bullmq`
- * adapter is the default runtime path: it wires the IORedis connection, the
- * tick queue, the dead-letter queue, and the concurrency-1 worker. The
- * `in-process` adapter is the test/offline override and needs no Redis. */
+/** Builds the configured scheduler adapter. */
 export function createSimulationScheduler(
   config: SchedulerConfig,
   lifecycleService: SimulationLifecycleService,

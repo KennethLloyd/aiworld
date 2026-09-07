@@ -12,9 +12,7 @@ export class SimulationIterationPickError extends Error {
   }
 }
 
-/** A custom action named a Character that is not an active AI member of the
- * target World. A client input error: the request must be rejected before any
- * Iteration is composed, never silently logged as a failed run. */
+/** Custom actor is not an active AI member of the target World. */
 export class SimulationCharacterNotActiveError extends Error {
   constructor(characterId: string, worldSlug: string) {
     super(
@@ -24,8 +22,7 @@ export class SimulationCharacterNotActiveError extends Error {
   }
 }
 
-/** Prisma error codes that mean "the database was unreachable or too slow",
- * not "your data was wrong" — the transient class of the retry contract. */
+/** Prisma codes treated as transient database failures. */
 const transientDatabaseErrorCodes = new Set([
   'P1001', // cannot reach the database server
   'P1008', // operations timed out
@@ -45,12 +42,7 @@ function errorNameOf(error: unknown): string {
     : '';
 }
 
-/** Transient errors back off and retry; permanent errors never retry. The
- * provider and action error classes already carry their own `retryable` flag
- * (LLM timeout/5xx/rate-limit retry; validation and unknown world/character do
- * not). Raw infrastructure errors — for example a database connection blip on
- * the write path — are classified here so they get the same backoff instead of
- * being dead-lettered on the first hiccup. */
+/** Classifies errors for scheduler retry or dead-letter handling. */
 export function isTransientSchedulerError(error: unknown): boolean {
   if (
     error instanceof ProviderError ||

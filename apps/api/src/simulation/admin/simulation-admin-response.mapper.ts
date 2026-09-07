@@ -15,9 +15,7 @@ import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 
-/** Maps domain records onto the shared transport shapes. The run result keeps
- * only the status and the logged outcome — never the raw decision object or
- * provider payload — and log rows never expose promptUsed/responseRaw. */
+/** Maps domain records to public admin shapes without provider payloads. */
 @Injectable()
 export class SimulationAdminResponseMapper {
   mapConfig(config: WorldSimulationConfigRecord): SimulationConfigResponse {

@@ -44,23 +44,14 @@ function safeSchedulerError(error: unknown, fallback: string): Error {
   return safeError;
 }
 
-/** The runtime scheduler adapter. Each World has at most one pending delayed
- * tick: jobs are named `tick_<worldId>` with unique ids, the worker runs at
- * concurrency 1, and the next tick is scheduled only after the current one
- * completes (completion-to-start cadence — never a fixed interval, never
- * `setInterval`). Transient failures retry with exponential backoff up to
- * `maxAttempts`; permanent Action failures and lifecycle rejections complete
- * without retrying, while scheduler faults are dead-lettered. The adapter
- * never calls an LLM provider — it only enqueues and processes commands. */
+/** BullMQ scheduler adapter for cadence, retries, and DLQ handling. */
 @Injectable()
 export class BullMqSchedulerAdapter
   extends SimulationSchedulerBase
   implements OnModuleDestroy
 {
   private worker: Worker | null = null;
-  /** The single pending delayed job per World, tracked so `stop` removes it by
-   * id instead of scanning the whole queue. Reconciliation still scans the
-   * queue because a previous process may have left no in-memory record. */
+  /** Tracks delayed jobs for O(1) cancellation; reconciliation scans the queue. */
   private readonly pendingTickJobIds = new Map<string, string>();
 
   constructor(
@@ -87,8 +78,7 @@ export class BullMqSchedulerAdapter
     );
   }
 
-  /** Wires the worker after construction so the processor can reference the
-   * adapter (the module factory builds the Worker against this instance). */
+  /** Attaches the worker used by the processor callback. */
   attachWorker(worker: Worker): void {
     this.worker = worker;
     worker.on('failed', (job, error) => {
@@ -136,11 +126,7 @@ export class BullMqSchedulerAdapter
     return runtime;
   }
 
-  /** Worker processor: runs the tick and decides the job's fate. A transient
-   * Action failure throws a plain error while attempts remain so BullMQ backs
-   * off and retries the same command; a permanent or exhausted Action failure
-   * schedules a fresh tick. Scheduler faults retain the DLQ path. Success and
-   * rejection also schedule the next tick (completion-to-start). */
+  /** Processes a tick and applies retry, cadence, and DLQ policy. */
   async process(job: Job<SimulationCommand>): Promise<void> {
     let command: SimulationCommand;
     try {
@@ -153,8 +139,7 @@ export class BullMqSchedulerAdapter
     try {
       worldId = (await this.worldRepository.findBySlug(command.worldSlug))?.id;
     } catch {
-      // The runner remains the source of truth for processing errors. A lookup
-      // failure here must not prevent it from applying its existing policy.
+      // Let the runner classify processing errors even if lookup fails.
     }
     if (worldId !== undefined) {
       await this.markTickStarted(worldId);
@@ -172,9 +157,7 @@ export class BullMqSchedulerAdapter
           await this.markTickSettled(worldId);
         }
       }
-      // The runner only throws when logging the attempt itself failed (for
-      // example the database is down); retry transient errors, dead-letter
-      // permanent ones.
+      // Retry transient scheduler faults; dead-letter permanent faults.
       if (isTransientSchedulerError(error)) {
         throw safeSchedulerError(error, 'Simulation tick failed');
       }
@@ -249,9 +232,7 @@ export class BullMqSchedulerAdapter
       }
       await this.markSchedulerStartSucceeded(worldId);
     } catch (error) {
-      // A completed tick must never be retried — retrying re-runs the identical
-      // command and duplicates content. A scheduling failure dead-letters
-      // instead; the World's cadence resumes on the next start or boot.
+      // Completed ticks are not retried; scheduling faults go to the DLQ.
       throw new UnrecoverableError(
         redactDiagnostics(
           error instanceof Error
@@ -367,11 +348,8 @@ export class BullMqSchedulerAdapter
     return { active: matches(active), pending: matches(pending) };
   }
 
-  /** Removes the single pending delayed tick for a World by its tracked id —
-   * O(1) per World, no queue scan on the hot path. Never pauses the queue —
-   * there is no burst on resume, only a fresh delayed job. A tick the worker
-   * already locked for processing cannot be removed; it is left to complete
-   * in-flight, and the runner gate rejects that race window. */
+  /** Removes a tracked pending tick without pausing the queue.
+   * In-flight ticks complete and are gated by the runner. */
   private async removeTrackedTick(worldId: string): Promise<void> {
     const jobId = this.pendingTickJobIds.get(worldId);
     if (jobId === undefined) {

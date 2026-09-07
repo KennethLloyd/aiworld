@@ -16,12 +16,7 @@ import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-sched
 import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
-/** The test/offline adapter: scheduled ticks run on chained `setTimeout`
- * handles with the same completion-to-start cadence as the BullMQ adapter
- * (the next delay is measured from the previous tick's completion, so ticks
- * never overlap). Retries follow the same exponential policy as BullMQ:
- * transient failures retry up to `maxAttempts`, permanent failures do not
- * retry. No Redis required. */
+/** In-process scheduler for tests and offline use with BullMQ-compatible cadence. */
 @Injectable()
 export class InProcessSchedulerAdapter
   extends SimulationSchedulerBase
@@ -29,8 +24,7 @@ export class InProcessSchedulerAdapter
 {
   /** One pending delayed tick handle per World; replaced on every schedule. */
   private readonly scheduledTicks = new Map<string, NodeJS.Timeout>();
-  /** Worlds whose current Tick is being processed. Reconciliation must not
-   * add work while one of these Ticks is still active. */
+  /** Worlds with an active Tick, excluded from reconciliation. */
   private readonly activeTicks = new Set<string>();
   private readonly ensureInFlight = new Map<string, Promise<void>>();
 
@@ -149,8 +143,7 @@ export class InProcessSchedulerAdapter
 
     const handle = setTimeout(() => {
       void this.handleTick(worldId).catch(() => {
-        // A transient failure while composing (e.g. a database blip) must not
-        // stop the World's cadence; the completion-to-start path reschedules.
+        // Keep cadence alive after transient composition failures.
         void this.scheduleNextTick(worldId);
       });
     }, delay);
@@ -177,7 +170,7 @@ export class InProcessSchedulerAdapter
       const composed = await this.composeScheduledIteration(worldId);
       if (!composed) {
         await this.markStopped(worldId);
-        return; // not RUNNING anymore, or the World cannot act — cadence stops
+        return; // Cadence stops when the World cannot act.
       }
       if ('blockedReason' in composed) {
         await this.markBlockedByNoActiveResidents(worldId);
@@ -200,11 +193,7 @@ export class InProcessSchedulerAdapter
         }
         break;
       }
-      // Action outcomes are completed Iteration results, not scheduler faults,
-      // so completion-to-start scheduling keeps the cadence alive after either
-      // a permanent failure or an exhausted transient retry sequence. A World
-      // that left RUNNING mid-tick (PAUSED, HALTED, or a stop during flight) is
-      // not restarted.
+      // Action outcomes keep cadence alive; stopped Worlds are not restarted.
       await this.scheduleNextTick(worldId, true);
     } finally {
       await this.markTickAttemptCompleted(worldId);

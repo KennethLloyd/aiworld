@@ -41,12 +41,7 @@ export type RunCustomActionInput = Omit<
   'worldSlug'
 > & { slug: string };
 
-/** Orchestrates the admin simulation controls. Controllers stay thin: every
- * operation here either reads/mutates persisted configuration or delegates a
- * manual Iteration through the scheduler — the admin API never calls an LLM
- * provider directly. Lifecycle gates (inactive Worlds and HALTED configs
- * reject work) are enforced by the state machine inside the lifecycle service
- * and SimulationRunner. */
+/** Orchestrates admin simulation controls through persisted state and scheduler. */
 @Injectable()
 export class SimulationAdminService {
   constructor(

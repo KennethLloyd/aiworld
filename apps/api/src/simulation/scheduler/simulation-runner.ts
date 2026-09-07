@@ -58,10 +58,7 @@ type ProviderMetadata = {
   model: string;
 };
 
-/** Owns the complete Iteration path for scheduled Ticks and manual admin work.
- * It selects the manual actor/action when needed, calls the concrete POST,
- * VOTE, or COMMENT module, writes content, and records telemetry. Scheduler
- * adapters only provide cadence, retries, and queue/DLQ behavior. */
+/** Executes scheduled and manual Iterations through concrete Actions. */
 @Injectable()
 export class SimulationRunner {
   constructor(
@@ -86,8 +83,7 @@ export class SimulationRunner {
     try {
       return await this.executeIteration({ world, iteration, jobId });
     } catch (error) {
-      // A Tick whose World vanished cannot be logged against that World, so the
-      // scheduler must dead-letter it instead of retrying the same payload.
+      // A missing World cannot be logged, so dead-letter the Tick.
       if (
         error instanceof SimulationActionError &&
         error.code === 'WORLD_NOT_FOUND'

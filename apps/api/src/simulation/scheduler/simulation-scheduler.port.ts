@@ -13,10 +13,7 @@ export type SimulationSchedulerObservabilityRecord =
     available: boolean;
   };
 
-/** The seam that drives simulation ticks. `start`/`stop` control scheduled
- * work for a World; `runOneAction` and `runCustomAction` compose and await a
- * single manual iteration. Lifecycle rules are enforced by the state machine,
- * never by an adapter, and every operation funnels through the SimulationRunner. */
+/** Scheduler port for scheduled and manual simulation work. */
 export abstract class SimulationScheduler {
   /** Ensure a RUNNING World has at most one pending or active scheduled Tick. */
   abstract ensureScheduled(worldId: string): Promise<void>;

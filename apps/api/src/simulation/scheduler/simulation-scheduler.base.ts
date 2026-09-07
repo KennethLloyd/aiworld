@@ -46,9 +46,7 @@ function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
   };
 }
 
-/** Shared behavior for both scheduler adapters: scheduled iteration composition,
- * runtime observability, and manual port delegation. Cadence, retries, and
- * transport stay in each adapter; the SimulationRunner owns Iteration work. */
+/** Shared iteration composition and observability for scheduler adapters. */
 export abstract class SimulationSchedulerBase extends SimulationScheduler {
   protected constructor(
     protected readonly lifecycleService: SimulationLifecycleService,
@@ -216,12 +214,7 @@ export abstract class SimulationSchedulerBase extends SimulationScheduler {
     return this.runner.runCustomAction(input);
   }
 
-  /** Composes the next scheduled tick for an active World with its pacing
-   * config, or returns null when the World is inactive, not RUNNING, or deleted.
-   * A World with no active characters returns a blocked result. In all of
-   * these cases cadence stops and is resumed by the next reconciliation.
-   * Permanent composition conditions never throw: a throw here would be a job
-   * retry and a duplicate run of the identical Iteration. */
+  /** Composes the next scheduled Iteration or a no-active-residents block. */
   protected async composeScheduledIteration(worldId: string): Promise<
     | {
         iteration: SimulationIteration;
