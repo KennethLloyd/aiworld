@@ -3,9 +3,7 @@ import { FlatCommentRecord } from '@/comments/domain/comment-record';
 import { PostWithAuthorRecord } from '@/posts/domain/post-record';
 import { WorldRecord } from '@/world/domain/world-record';
 
-/** The actor behind an action: an active Character inside an active World
- * membership (ADR-0002). `memberId` is the WorldMember row actions persist
- * against. */
+/** Active WorldMember and Character used by an Action. */
 export type ResolvedActor = {
   world: WorldRecord;
   character: CharacterRecord;
@@ -25,8 +23,3 @@ export type CommentActionContext = ResolvedActor & {
   post: PostWithAuthorRecord;
   thread: FlatCommentRecord[];
 };
-
-export type SimulationActionContext =
-  | PostActionContext
-  | VoteActionContext
-  | CommentActionContext;

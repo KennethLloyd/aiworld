@@ -97,8 +97,7 @@ function createAction(overrides: {
   return new PostAction(contextProvider, provider);
 }
 
-const command = {
-  action: 'POST' as const,
+const input = {
   worldSlug: 'mbti-house',
   characterId: 'character-1',
 };
@@ -107,7 +106,7 @@ describe('PostAction', () => {
   it('produces an actionable PostDecision from mock output', async () => {
     const action = createAction({});
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'success',
@@ -135,7 +134,7 @@ describe('PostAction', () => {
     });
     const action = createAction({ provider });
 
-    await action.execute(command);
+    await action.execute(input);
 
     const prompt = provider.lastPrompt();
     expect(prompt.system).toContain('POST');
@@ -174,7 +173,7 @@ describe('PostAction', () => {
       ],
     });
 
-    await action.execute(command);
+    await action.execute(input);
 
     expect(provider.requests).toHaveLength(1);
     expect(provider.lastPrompt().user).toContain('## Recent Activity');
@@ -192,7 +191,7 @@ describe('PostAction', () => {
   it('never selects an inactive character', async () => {
     const action = createAction({ character: null });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toEqual({
       status: 'failed',
@@ -207,7 +206,7 @@ describe('PostAction', () => {
   it('fails when the character has no active WorldMember membership', async () => {
     const action = createAction({ member: null });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'failed',
@@ -221,7 +220,7 @@ describe('PostAction', () => {
     ]);
     const action = createAction({ provider });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'failed',
@@ -241,7 +240,7 @@ describe('PostAction', () => {
     });
     const action = createAction({ provider });
 
-    await expect(action.execute(command)).resolves.toMatchObject({
+    await expect(action.execute(input)).resolves.toMatchObject({
       status: 'failed',
       failure: { code: 'UNSAFE_OUTPUT', retryable: false },
     });

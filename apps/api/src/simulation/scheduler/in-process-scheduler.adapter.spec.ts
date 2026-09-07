@@ -1,17 +1,16 @@
 import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-scheduler.adapter';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -99,8 +98,9 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
 
   const tickRunner = {
     runScheduledTick: jest.fn(),
-    runManualIteration: jest.fn(),
-  } as unknown as jest.Mocked<SimulationTickRunner>;
+    runOneAction: jest.fn(),
+    runCustomAction: jest.fn(),
+  } as unknown as jest.Mocked<SimulationRunner>;
 
   const randomSource = {
     next: jest.fn().mockReturnValue(0.5),
@@ -428,102 +428,27 @@ describe('InProcessSchedulerAdapter', () => {
     expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
   });
 
-  it('composes runOneAction into a scheduled-style command and runs it manually', async () => {
+  it('delegates Run One Action to the shared SimulationRunner', async () => {
     const { adapter, tickRunner } = createAdapter();
-    tickRunner.runManualIteration.mockResolvedValue(successResult);
+    tickRunner.runOneAction.mockResolvedValue(successResult);
 
     const result = await adapter.runOneAction('mbti-house');
 
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'one-action',
-      }),
-    );
+    expect(tickRunner.runOneAction).toHaveBeenCalledWith('mbti-house');
     expect(result).toMatchObject({ status: 'success' });
   });
 
-  it('composes runCustomAction with character and action overrides', async () => {
+  it('delegates Custom Action to the shared SimulationRunner', async () => {
     const { adapter, tickRunner } = createAdapter();
-    tickRunner.runManualIteration.mockResolvedValue(successResult);
+    tickRunner.runCustomAction.mockResolvedValue(successResult);
 
-    await adapter.runCustomAction({
+    const input = {
       worldSlug: 'mbti-house',
       characterId: 'character-2',
       actionType: 'VOTE',
-    });
+    } as const;
+    await adapter.runCustomAction(input);
 
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        worldSlug: 'mbti-house',
-        characterId: 'character-2',
-        actionType: 'VOTE',
-        executionSource: 'custom',
-      }),
-    );
-  });
-
-  it('uses viable automatic selection for a Custom Action without an override', async () => {
-    const { adapter, picker, tickRunner } = createAdapter();
-    tickRunner.runManualIteration.mockResolvedValue(successResult);
-    picker.pickAutomaticAction.mockResolvedValue('POST');
-
-    await adapter.runCustomAction({ worldSlug: 'mbti-house' });
-
-    expect(picker.pickAutomaticAction).toHaveBeenCalledWith(
-      'world-1',
-      configRecord().actionWeights,
-    );
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actionType: 'POST',
-        executionSource: 'custom',
-      }),
-    );
-  });
-
-  it('rejects a custom action naming a character outside the world before composing', async () => {
-    const { adapter, castingRepository, tickRunner } = createAdapter();
-    castingRepository.findActiveActor.mockResolvedValue(false);
-
-    await expect(
-      adapter.runCustomAction({
-        worldSlug: 'mbti-house',
-        characterId: 'foreign-character',
-        actionType: 'POST',
-      }),
-    ).rejects.toThrow('not an active member of World');
-
-    expect(castingRepository.findActiveActor).toHaveBeenCalledWith(
-      'world-1',
-      'foreign-character',
-    );
-    expect(tickRunner.runManualIteration).not.toHaveBeenCalled();
-  });
-
-  it('rejects manual work at the service gate before composing when HALTED', async () => {
-    const { adapter, lifecycleService, picker } = createAdapter();
-    lifecycleService.assertManualWorkAllowed.mockRejectedValue(
-      new SimulationWorkRejectedError('MANUAL', 'HALTED'),
-    );
-
-    await expect(adapter.runOneAction('mbti-house')).rejects.toThrow(
-      'rejected in state HALTED',
-    );
-    expect(picker.pickCharacter).not.toHaveBeenCalled();
-  });
-
-  it('rejects manual work at the service gate when the World is inactive', async () => {
-    const { adapter, lifecycleService, picker } = createAdapter();
-    lifecycleService.assertManualWorkAllowed.mockRejectedValue(
-      new SimulationWorkRejectedError('MANUAL', 'PAUSED', 'INACTIVE'),
-    );
-
-    await expect(adapter.runOneAction('mbti-house')).rejects.toThrow(
-      'World is inactive',
-    );
-    expect(picker.pickCharacter).not.toHaveBeenCalled();
+    expect(tickRunner.runCustomAction).toHaveBeenCalledWith(input);
   });
 });

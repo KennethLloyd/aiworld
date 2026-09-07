@@ -21,7 +21,7 @@ import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation
 import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { InvalidSimulationStateTransitionError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 
 const configRecord: WorldSimulationConfigRecord = {
   id: '00000000-0000-4000-8000-000000000010',

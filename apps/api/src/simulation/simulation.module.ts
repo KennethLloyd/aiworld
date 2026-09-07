@@ -9,7 +9,6 @@ import {
 import { PostsModule } from '@/posts/posts.module';
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
-import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
@@ -30,6 +29,7 @@ import { PrismaSimulationRuntimeStateRepository } from '@/simulation/scheduler/p
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
 import {
@@ -39,7 +39,6 @@ import {
 } from '@/simulation/scheduler/simulation-scheduler-config';
 import { createSimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.factory';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { VotesModule } from '@/votes/votes.module';
 import { WorldMembersModule } from '@/world-members/world-members.module';
@@ -101,7 +100,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
         SimulationIterationPicker,
         SimulationCastingRepository,
         SimulationRandomSource,
-        SimulationTickRunner,
+        SimulationRunner,
         SimulationRuntimeStateRepository,
       ],
       useFactory: (
@@ -111,7 +110,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
         picker: SimulationIterationPicker,
         castingRepository: SimulationCastingRepository,
         randomSource: SimulationRandomSource,
-        tickRunner: SimulationTickRunner,
+        runner: SimulationRunner,
         runtimeStateRepository: SimulationRuntimeStateRepository,
       ) =>
         createSimulationScheduler(
@@ -121,7 +120,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
           picker,
           castingRepository,
           randomSource,
-          tickRunner,
+          runner,
           runtimeStateRepository,
         ),
     },
@@ -129,24 +128,22 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     PostAction,
     VoteAction,
     CommentAction,
-    SimulationActionExecutor,
     SimulationLifecycleService,
     SimulationLogService,
     SimulationContentWriter,
     SimulationRandomSource,
     SimulationIterationPicker,
-    SimulationTickRunner,
+    SimulationRunner,
     SimulationSchedulerBootstrap,
     SimulationAdminService,
     SimulationAdminResponseMapper,
   ],
   exports: [
     LlmProvider,
-    SimulationActionExecutor,
     SimulationLifecycleService,
     WorldSimulationConfigRepository,
     SimulationScheduler,
-    SimulationTickRunner,
+    SimulationRunner,
   ],
 })
 export class SimulationModule {}

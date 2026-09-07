@@ -146,8 +146,7 @@ function createAction(
   return new CommentAction(contextProvider, provider);
 }
 
-const command = {
-  action: 'COMMENT' as const,
+const input = {
   worldSlug: 'mbti-house',
   characterId: 'character-1',
   postId: 'post-1',
@@ -157,7 +156,7 @@ describe('CommentAction', () => {
   it('produces a CommentDecision from mock output', async () => {
     const action = createAction({});
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'success',
@@ -182,7 +181,7 @@ describe('CommentAction', () => {
     });
     const action = createAction({ provider });
 
-    await action.execute(command);
+    await action.execute(input);
 
     const prompt = provider.lastPrompt();
     expect(prompt.system).toContain('COMMENT');
@@ -203,7 +202,7 @@ describe('CommentAction', () => {
     const action = createAction({ provider });
 
     const result = await action.execute({
-      ...command,
+      ...input,
       parentCommentId: 'comment-1',
     });
 
@@ -237,7 +236,7 @@ describe('CommentAction', () => {
     });
     const action = createAction({ provider, thread: deepThread });
 
-    await action.execute({ ...command, parentCommentId: 'deep-0' });
+    await action.execute({ ...input, parentCommentId: 'deep-0' });
 
     expect(provider.lastPrompt().user).toContain('@h0: Comment 0.');
   });

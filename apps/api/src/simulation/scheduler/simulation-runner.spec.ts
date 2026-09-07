@@ -1,11 +1,11 @@
 import { loadProviderConfig } from '@/lib/llm/provider-config';
+import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
-import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
-import { SimulationCommand } from '@/simulation/actions/simulation-command';
 import {
   PostDecision,
   SimulationActionOutcome,
 } from '@/simulation/actions/simulation-decision';
+import { VoteAction } from '@/simulation/actions/vote.action';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import {
   SimulationConfigMalformedError,
@@ -17,8 +17,9 @@ import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record'
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
+import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
@@ -105,10 +106,7 @@ function createRunner(
     providerConfig?: { providerId: string; model: string };
     simulationConfig?: WorldSimulationConfigRecord;
     provider?: LlmProvider;
-    execute?: (
-      command: SimulationCommand,
-      provider?: LlmProvider,
-    ) => Promise<SimulationActionOutcome>;
+    execute?: (input: unknown) => Promise<SimulationActionOutcome>;
   } = {},
 ) {
   const worldRepository = {
@@ -120,6 +118,7 @@ function createRunner(
   } as unknown as jest.Mocked<WorldRepository>;
   const lifecycleConfig = overrides.simulationConfig ?? config;
   const lifecycleService = {
+    getByWorldId: jest.fn().mockResolvedValue(lifecycleConfig),
     assertScheduledWorkAllowed: jest.fn(),
     assertManualWorkAllowed: jest.fn(),
   } as unknown as jest.Mocked<
@@ -155,9 +154,16 @@ function createRunner(
   if (overrides.execute !== undefined) {
     execute.mockImplementation(overrides.execute);
   }
-  const executor = {
-    execute,
-  } as unknown as jest.Mocked<SimulationActionExecutor>;
+  const castingRepository = {
+    findActiveActor: jest.fn().mockResolvedValue({
+      memberId: 'member-1',
+      characterId: 'character-1',
+      lastActivityAt: null,
+    }),
+  } as unknown as jest.Mocked<SimulationCastingRepository>;
+  const postAction = { execute } as unknown as jest.Mocked<PostAction>;
+  const voteAction = { execute } as unknown as jest.Mocked<VoteAction>;
+  const commentAction = { execute } as unknown as jest.Mocked<CommentAction>;
 
   const contentWriter = {
     persist: jest.fn().mockResolvedValue({ id: 'post-9' }),
@@ -180,11 +186,14 @@ function createRunner(
       },
     } as unknown as LlmProvider);
 
-  const runner = new SimulationTickRunner(
+  const runner = new SimulationRunner(
     worldRepository,
     lifecycleService as never,
     picker,
-    executor,
+    castingRepository,
+    postAction,
+    voteAction,
+    commentAction,
     contentWriter,
     logService,
     provider,
@@ -195,7 +204,11 @@ function createRunner(
     worldRepository,
     lifecycleService,
     picker,
-    executor,
+    executor: { execute },
+    postAction,
+    voteAction,
+    commentAction,
+    castingRepository,
     contentWriter,
     logService,
   };
@@ -212,7 +225,7 @@ const successOutcome = {
   },
 };
 
-describe('SimulationTickRunner', () => {
+describe('SimulationRunner', () => {
   describe('runScheduledTick', () => {
     it('gates scheduled work, uses the process-global provider, persists, and logs', async () => {
       const { runner, lifecycleService, executor, contentWriter, logService } =
@@ -225,7 +238,6 @@ describe('SimulationTickRunner', () => {
         'world-1',
       );
       expect(executor.execute).toHaveBeenCalledWith({
-        action: 'POST',
         worldSlug: 'mbti-house',
         characterId: 'character-1',
       });
@@ -316,11 +328,10 @@ describe('SimulationTickRunner', () => {
         const { runner, executor, contentWriter, logService } = createRunner({
           provider: processProvider,
           simulationConfig: legacyWorldConfig,
-          execute: async (command, providerOverride) =>
-            new PostAction(
-              contextProvider as never,
-              providerOverride ?? processProvider,
-            ).execute(command as never),
+          execute: async (input) =>
+            new PostAction(contextProvider as never, processProvider).execute(
+              input as never,
+            ),
         });
 
         const result = await runner.runScheduledTick(
@@ -330,7 +341,6 @@ describe('SimulationTickRunner', () => {
 
         expect(result).toMatchObject({ status: 'success' });
         expect(executor.execute).toHaveBeenCalledWith({
-          action: 'POST',
           worldSlug: 'mbti-house',
           characterId: 'character-1',
         });
@@ -384,7 +394,7 @@ describe('SimulationTickRunner', () => {
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
-    it('targets a picked post for a VOTE command', async () => {
+    it('targets a picked post for a VOTE Iteration', async () => {
       const { runner, picker, executor } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
       picker.pickTargetPost.mockResolvedValue('post-3');
@@ -393,7 +403,6 @@ describe('SimulationTickRunner', () => {
 
       expect(picker.pickTargetPost).toHaveBeenCalledWith('world-1');
       expect(executor.execute).toHaveBeenCalledWith({
-        action: 'VOTE',
         worldSlug: 'mbti-house',
         characterId: 'character-1',
         postId: 'post-3',
@@ -578,7 +587,7 @@ describe('SimulationTickRunner', () => {
   });
 
   describe('runManualIteration', () => {
-    it('uses the composed command and gates manual work', async () => {
+    it('uses the composed Iteration and gates manual work', async () => {
       const { runner, lifecycleService, executor, logService } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
@@ -595,7 +604,6 @@ describe('SimulationTickRunner', () => {
       );
       expect(executor.execute).toHaveBeenCalledWith(
         expect.objectContaining({
-          action: 'COMMENT',
           characterId: 'character-2',
         }),
       );
@@ -637,6 +645,40 @@ describe('SimulationTickRunner', () => {
         status: 'failed',
         failure: { code: 'CHARACTER_INACTIVE' },
       });
+    });
+  });
+
+  describe('manual action composition', () => {
+    it('selects and runs one automatic Iteration through the same runner', async () => {
+      const { runner, picker, executor } = createRunner();
+      executor.execute.mockResolvedValue(successOutcome);
+
+      const result = await runner.runOneAction('mbti-house');
+
+      expect(picker.pickCharacter).toHaveBeenCalledWith('world-1');
+      expect(picker.pickAutomaticAction).toHaveBeenCalledWith(
+        'world-1',
+        config.actionWeights,
+      );
+      expect(executor.execute).toHaveBeenCalledWith({
+        worldSlug: 'mbti-house',
+        characterId: 'character-1',
+      });
+      expect(result).toMatchObject({ status: 'success' });
+    });
+
+    it('validates an explicit Custom Action actor before execution', async () => {
+      const { runner, castingRepository, executor } = createRunner();
+      castingRepository.findActiveActor.mockResolvedValue(false);
+
+      await expect(
+        runner.runCustomAction({
+          worldSlug: 'mbti-house',
+          characterId: 'foreign-character',
+          actionType: 'POST',
+        }),
+      ).rejects.toThrow('not an active member of World');
+      expect(executor.execute).not.toHaveBeenCalled();
     });
   });
 });

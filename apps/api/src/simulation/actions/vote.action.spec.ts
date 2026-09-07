@@ -127,8 +127,7 @@ function createAction(
   };
 }
 
-const command = {
-  action: 'VOTE' as const,
+const input = {
   worldSlug: 'mbti-house',
   characterId: 'character-1',
   postId: 'post-1',
@@ -142,7 +141,7 @@ describe('VoteAction', () => {
         output: { decision, reasoning: 'Because.' },
       });
 
-      const result = await action.execute(command);
+      const result = await action.execute(input);
 
       expect(result).toMatchObject({
         status: 'success',
@@ -166,7 +165,7 @@ describe('VoteAction', () => {
     });
     const { action } = createAction({ provider });
 
-    await action.execute(command);
+    await action.execute(input);
 
     const prompt = provider.lastPrompt();
     expect(prompt.system).toContain('VOTE');
@@ -192,7 +191,7 @@ describe('VoteAction', () => {
         output: { decision, reasoning: 'Changed my mind.' },
       });
 
-      const result = await action.execute(command);
+      const result = await action.execute(input);
 
       expect(voteRepository.findByMemberAndPost).toHaveBeenCalledWith(
         'member-1',
@@ -208,7 +207,7 @@ describe('VoteAction', () => {
   it('fails when the target post is missing in the World', async () => {
     const { action } = createAction({ post: null });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'failed',
@@ -221,7 +220,7 @@ describe('VoteAction', () => {
       output: { decision: 'bogus', reasoning: 'R' },
     });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'failed',
@@ -262,7 +261,7 @@ describe('VoteAction', () => {
     );
     const { action } = createAction({ provider });
 
-    const result = await action.execute(command);
+    const result = await action.execute(input);
 
     expect(result).toMatchObject({
       status: 'success',

@@ -7,82 +7,70 @@ import {
   recentActivitySection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
-import { SimulationAction } from '@/simulation/actions/simulation-action';
-import { PostSimulationCommand } from '@/simulation/actions/simulation-command';
+import { toActionFailure } from '@/simulation/actions/simulation-action.error';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
-import { PostDecision } from '@/simulation/actions/simulation-decision';
 import {
-  postOutputSchema,
-  PostOutput,
-} from '@/simulation/actions/simulation-output.schema';
-import {
-  LlmProvider,
-  LlmProviderPrompt,
-} from '@/simulation/providers/llm-provider.port';
+  PostDecision,
+  SimulationActionResult,
+} from '@/simulation/actions/simulation-decision';
+import { assertSafeSimulationOutput } from '@/simulation/actions/simulation-output-safety';
+import { postOutputSchema } from '@/simulation/actions/simulation-output.schema';
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 export const POST_ACTION_INSTRUCTIONS =
   'Start a new conversation only when this actor has a plausible reason to open the forum: an observation, question, discovery, bit of gossip, request for help, celebration, mundane detail, unpopular opinion, callback, or reaction to something in the current World. Use a specific hook grounded in the supplied World context rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another actor.';
 
 @Injectable()
-export class PostAction extends SimulationAction<
-  PostSimulationCommand,
-  PostActionContext,
-  PostOutput,
-  PostDecision
-> {
+export class PostAction {
   constructor(
-    contextProvider: SimulationContextProvider,
-    provider: LlmProvider,
-  ) {
-    super(contextProvider, provider);
-  }
+    private readonly contextProvider: SimulationContextProvider,
+    private readonly provider: LlmProvider,
+  ) {}
 
-  protected readonly outputSchema = postOutputSchema;
-
-  protected async fetchContext(
-    command: PostSimulationCommand,
-  ): Promise<PostActionContext> {
-    const actor = await this.contextProvider.resolveActor(
-      command.worldSlug,
-      command.characterId,
-    );
-
-    return {
-      ...actor,
-      recentPosts: await this.contextProvider.findRecentPosts(actor.world.id),
-    };
-  }
-
-  protected buildPrompt(
-    context: PostActionContext,
-    _command: PostSimulationCommand,
-  ): LlmProviderPrompt {
-    const recentActivity = recentActivitySection(context.recentPosts);
-
-    return composeActionPrompt({
-      action: 'POST',
-      instructions: POST_ACTION_INSTRUCTIONS,
-      outputFormat: '{"title": string, "content": string, "reasoning": string}',
-      contextSections: [
-        worldSection(context.world),
-        characterSection(context.character),
-        ...(recentActivity ? [recentActivity] : []),
-      ],
-    });
-  }
-
-  protected toDecision(
-    context: PostActionContext,
-    output: PostOutput,
-    _command: PostSimulationCommand,
-  ): PostDecision {
-    return {
-      action: 'POST',
-      worldId: context.world.id,
-      memberId: context.memberId,
-      characterId: context.character.id,
-      title: output.title,
-      content: output.content,
-      reasoning: output.reasoning,
-    };
+  async execute(input: {
+    worldSlug: string;
+    characterId: string;
+  }): Promise<SimulationActionResult<PostDecision>> {
+    try {
+      const actor = await this.contextProvider.resolveActor(
+        input.worldSlug,
+        input.characterId,
+      );
+      const context: PostActionContext = {
+        ...actor,
+        recentPosts: await this.contextProvider.findRecentPosts(actor.world.id),
+      };
+      const recentActivity = recentActivitySection(context.recentPosts);
+      const prompt = composeActionPrompt({
+        action: 'POST',
+        instructions: POST_ACTION_INSTRUCTIONS,
+        outputFormat:
+          '{"title": string, "content": string, "reasoning": string}',
+        contextSections: [
+          worldSection(context.world),
+          characterSection(context.character),
+          ...(recentActivity ? [recentActivity] : []),
+        ],
+      });
+      const { output, telemetry } = await this.provider.generateStructured({
+        prompt,
+        schema: postOutputSchema,
+      });
+      assertSafeSimulationOutput('POST', output);
+      return {
+        status: 'success',
+        decision: {
+          action: 'POST',
+          worldId: context.world.id,
+          memberId: context.memberId,
+          characterId: context.character.id,
+          title: output.title,
+          content: output.content,
+          reasoning: output.reasoning,
+        },
+        telemetry,
+      };
+    } catch (error) {
+      return { status: 'failed', failure: toActionFailure(error) };
+    }
   }
 }

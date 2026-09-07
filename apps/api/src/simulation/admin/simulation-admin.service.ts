@@ -20,11 +20,11 @@ import {
   SimulationLogFilters,
   SimulationLogRepository,
 } from '@/simulation/logging/simulation-log-repository.interface';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import {
   RunCustomActionInput as SchedulerRunCustomActionInput,
   SimulationScheduler,
 } from '@/simulation/scheduler/simulation-scheduler.port';
-import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -41,12 +41,7 @@ export type RunCustomActionInput = Omit<
   'worldSlug'
 > & { slug: string };
 
-/** Orchestrates the admin simulation controls. Controllers stay thin: every
- * operation here either reads/mutates persisted configuration or enqueues a
- * manual command through the scheduler — the admin API never calls an LLM
- * provider directly. Lifecycle gates (inactive Worlds and HALTED configs
- * reject work) are enforced by the state machine inside the lifecycle service
- * and tick runner. */
+/** Orchestrates admin simulation controls through persisted state and scheduler. */
 @Injectable()
 export class SimulationAdminService {
   constructor(
