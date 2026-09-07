@@ -11,10 +11,10 @@ import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-sch
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 /** Builds the SimulationScheduler for the configured adapter. The `bullmq`
@@ -28,7 +28,7 @@ export function createSimulationScheduler(
   picker: SimulationIterationPicker,
   castingRepository: SimulationCastingRepository,
   randomSource: SimulationRandomSource,
-  tickRunner: SimulationTickRunner,
+  runner: SimulationRunner,
   runtimeStateRepository: SimulationRuntimeStateRepository,
 ): SimulationScheduler {
   if (config.adapterId === 'in-process') {
@@ -37,7 +37,7 @@ export function createSimulationScheduler(
       worldRepository,
       picker,
       castingRepository,
-      tickRunner,
+      runner,
       randomSource,
       config,
       runtimeStateRepository,
@@ -56,7 +56,7 @@ export function createSimulationScheduler(
     picker,
     castingRepository,
     randomSource,
-    tickRunner,
+    runner,
     runtimeStateRepository,
     queue,
     dlq,

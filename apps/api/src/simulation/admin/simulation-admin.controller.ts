@@ -37,7 +37,7 @@ import { mapSimulationAdminError } from '@/simulation/admin/simulation-admin.err
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 
 /** ADMIN-only simulation controls. Every mutation either changes persisted
- * configuration or enqueues a manual command through the scheduler port —
+ * configuration or enqueues a manual Iteration through the scheduler port —
  * nothing here calls an LLM provider directly. Lifecycle gates (inactive
  * Worlds, HALTED manual work, and invalid transitions) surface as HTTP 409s
  * via the error mapper. */

@@ -14,7 +14,6 @@ import {
   characterSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
-import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { defaultSimulationCostConfig } from '@/simulation/cost/simulation-cost';
@@ -103,7 +102,7 @@ describe('bounded long-run mock simulation', () => {
     expect(totalTokens).toBeLessThan(100_000);
   });
 
-  it('runs every resident through the executor, writer, and log pipeline', async () => {
+  it('runs every resident through the action, writer, and log pipeline', async () => {
     const date = new Date('2026-01-01');
     const characterRecords: CharacterRecord[] = characters.map(
       (character, index) => ({
@@ -282,11 +281,13 @@ describe('bounded long-run mock simulation', () => {
         return baseProvider.generateStructured(request);
       }
     })();
-    const executor = new SimulationActionExecutor(
-      new PostAction(contextProvider, provider),
-      new VoteAction(contextProvider, provider, voteRepository),
-      new CommentAction(contextProvider, provider),
+    const postAction = new PostAction(contextProvider, provider);
+    const voteAction = new VoteAction(
+      contextProvider,
+      provider,
+      voteRepository,
     );
+    const commentAction = new CommentAction(contextProvider, provider);
     const writer = new SimulationContentWriter(
       postRepository,
       commentRepository,
@@ -326,16 +327,23 @@ describe('bounded long-run mock simulation', () => {
     for (let index = 0; index < characterRecords.length; index += 1) {
       const character = characterRecords[index]!;
       for (const action of ['POST', 'VOTE', 'COMMENT'] as const) {
-        const command =
+        const outcome =
           action === 'POST'
-            ? { action, worldSlug: world.slug, characterId: character.id }
-            : {
-                action,
+            ? await postAction.execute({
                 worldSlug: world.slug,
                 characterId: character.id,
-                postId: 'seed-post',
-              };
-        const outcome = await executor.execute(command);
+              })
+            : action === 'VOTE'
+              ? await voteAction.execute({
+                  worldSlug: world.slug,
+                  characterId: character.id,
+                  postId: 'seed-post',
+                })
+              : await commentAction.execute({
+                  worldSlug: world.slug,
+                  characterId: character.id,
+                  postId: 'seed-post',
+                });
         expect(outcome.status).toBe('success');
         if (outcome.status !== 'success') continue;
         await writer.persist(outcome.decision);

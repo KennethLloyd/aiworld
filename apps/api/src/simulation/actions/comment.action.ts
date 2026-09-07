@@ -8,85 +8,79 @@ import {
   threadSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
-import { SimulationAction } from '@/simulation/actions/simulation-action';
-import { CommentSimulationCommand } from '@/simulation/actions/simulation-command';
+import { toActionFailure } from '@/simulation/actions/simulation-action.error';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
-import { CommentDecision } from '@/simulation/actions/simulation-decision';
 import {
-  commentOutputSchema,
-  CommentOutput,
-} from '@/simulation/actions/simulation-output.schema';
-import {
-  LlmProvider,
-  LlmProviderPrompt,
-} from '@/simulation/providers/llm-provider.port';
+  CommentDecision,
+  SimulationActionResult,
+} from '@/simulation/actions/simulation-decision';
+import { assertSafeSimulationOutput } from '@/simulation/actions/simulation-output-safety';
+import { commentOutputSchema } from '@/simulation/actions/simulation-output.schema';
+import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 export const COMMENT_ACTION_INSTRUCTIONS =
   'Reply to what was actually said in the target post or bounded thread. Choose the response that fits this moment: answer seriously, make a joke, disagree, ask a question, tease, defend someone, add a concrete detail, derail slightly, misunderstand, refuse to engage, escalate, or de-escalate. A comment may be two words or several sentences; do not force a complete argument or a useful new insight. Use parentCommentId only when replying to a supplied comment ID. Do not write an essay, therapy-speak, personality exposition, generic agreement, artificial conflict resolution, or a response that ignores the thread.';
 
 @Injectable()
-export class CommentAction extends SimulationAction<
-  CommentSimulationCommand,
-  CommentActionContext,
-  CommentOutput,
-  CommentDecision
-> {
+export class CommentAction {
   constructor(
-    contextProvider: SimulationContextProvider,
-    provider: LlmProvider,
-  ) {
-    super(contextProvider, provider);
-  }
+    private readonly contextProvider: SimulationContextProvider,
+    private readonly provider: LlmProvider,
+  ) {}
 
-  protected readonly outputSchema = commentOutputSchema;
-
-  protected async fetchContext(
-    command: CommentSimulationCommand,
-  ): Promise<CommentActionContext> {
-    const actor = await this.contextProvider.resolveActor(
-      command.worldSlug,
-      command.characterId,
-    );
-    const post = await this.contextProvider.findPost(
-      actor.world.id,
-      command.postId,
-    );
-    const thread = await this.contextProvider.findThread(post.id);
-    return { ...actor, post, thread };
-  }
-
-  protected buildPrompt(
-    context: CommentActionContext,
-    command: CommentSimulationCommand,
-  ): LlmProviderPrompt {
-    return composeActionPrompt({
-      action: 'COMMENT',
-      instructions: COMMENT_ACTION_INSTRUCTIONS,
-      outputFormat:
-        '{"content": string, "parentCommentId": string | null, "reasoning": string}',
-      contextSections: [
-        worldSection(context.world),
-        characterSection(context.character),
-        targetPostSection(context.post),
-        threadSection(context.thread, command.parentCommentId),
-      ],
-    });
-  }
-
-  protected toDecision(
-    context: CommentActionContext,
-    output: CommentOutput,
-    command: CommentSimulationCommand,
-  ): CommentDecision {
-    return {
-      action: 'COMMENT',
-      worldId: context.world.id,
-      memberId: context.memberId,
-      characterId: context.character.id,
-      postId: context.post.id,
-      content: output.content,
-      parentCommentId:
-        output.parentCommentId ?? command.parentCommentId ?? null,
-      reasoning: output.reasoning,
-    };
+  async execute(input: {
+    worldSlug: string;
+    characterId: string;
+    postId: string;
+    parentCommentId?: string;
+  }): Promise<SimulationActionResult<CommentDecision>> {
+    try {
+      const actor = await this.contextProvider.resolveActor(
+        input.worldSlug,
+        input.characterId,
+      );
+      const post = await this.contextProvider.findPost(
+        actor.world.id,
+        input.postId,
+      );
+      const context: CommentActionContext = {
+        ...actor,
+        post,
+        thread: await this.contextProvider.findThread(post.id),
+      };
+      const prompt = composeActionPrompt({
+        action: 'COMMENT',
+        instructions: COMMENT_ACTION_INSTRUCTIONS,
+        outputFormat:
+          '{"content": string, "parentCommentId": string | null, "reasoning": string}',
+        contextSections: [
+          worldSection(context.world),
+          characterSection(context.character),
+          targetPostSection(context.post),
+          threadSection(context.thread, input.parentCommentId),
+        ],
+      });
+      const { output, telemetry } = await this.provider.generateStructured({
+        prompt,
+        schema: commentOutputSchema,
+      });
+      assertSafeSimulationOutput('COMMENT', output);
+      return {
+        status: 'success',
+        decision: {
+          action: 'COMMENT',
+          worldId: context.world.id,
+          memberId: context.memberId,
+          characterId: context.character.id,
+          postId: context.post.id,
+          content: output.content,
+          parentCommentId:
+            output.parentCommentId ?? input.parentCommentId ?? null,
+          reasoning: output.reasoning,
+        },
+        telemetry,
+      };
+    } catch (error) {
+      return { status: 'failed', failure: toActionFailure(error) };
+    }
   }
 }

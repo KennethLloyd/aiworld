@@ -6,12 +6,14 @@ import { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { SimulationActionExecutor } from '@/simulation/actions/simulation-action-executor';
+import { CommentAction } from '@/simulation/actions/comment.action';
+import { PostAction } from '@/simulation/actions/post.action';
 import { ActionFailure } from '@/simulation/actions/simulation-action.error';
 import {
   SimulationActionOutcome,
   SimulationDecision,
 } from '@/simulation/actions/simulation-decision';
+import { VoteAction } from '@/simulation/actions/vote.action';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
@@ -55,7 +57,9 @@ async function runFullCycle(
     executionSource: SimulationExecutionSource;
   },
 ): Promise<FullCycleStep[]> {
-  const executor = app.get(SimulationActionExecutor);
+  const postAction = app.get(PostAction);
+  const voteAction = app.get(VoteAction);
+  const commentAction = app.get(CommentAction);
   const writer = app.get(SimulationContentWriter);
   const logService = app.get(SimulationLogService);
   const provider = app.get(LlmProvider);
@@ -110,8 +114,7 @@ async function runFullCycle(
 
   const steps: FullCycleStep[] = [];
 
-  const postOutcome = await executor.execute({
-    action: 'POST',
+  const postOutcome = await postAction.execute({
     worldSlug: input.worldSlug,
     characterId: input.characterId,
   });
@@ -122,16 +125,14 @@ async function runFullCycle(
   }
 
   const postId = postStep.targetId;
-  const voteOutcome = await executor.execute({
-    action: 'VOTE',
+  const voteOutcome = await voteAction.execute({
     worldSlug: input.worldSlug,
     characterId: input.characterId,
     postId,
   });
   steps.push(await runStep(voteOutcome, 'VOTE', postId));
 
-  const commentOutcome = await executor.execute({
-    action: 'COMMENT',
+  const commentOutcome = await commentAction.execute({
     worldSlug: input.worldSlug,
     characterId: input.characterId,
     postId,

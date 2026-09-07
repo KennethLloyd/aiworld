@@ -1,6 +1,6 @@
 import { SimulationActionType } from '@/simulation/actions/simulation-action-type';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
-import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 
 export type RunCustomActionInput = {
   worldSlug: string;
@@ -16,7 +16,7 @@ export type SimulationSchedulerObservabilityRecord =
 /** The seam that drives simulation ticks. `start`/`stop` control scheduled
  * work for a World; `runOneAction` and `runCustomAction` compose and await a
  * single manual iteration. Lifecycle rules are enforced by the state machine,
- * never by an adapter, and every operation funnels through the tick runner. */
+ * never by an adapter, and every operation funnels through the SimulationRunner. */
 export abstract class SimulationScheduler {
   /** Ensure a RUNNING World has at most one pending or active scheduled Tick. */
   abstract ensureScheduled(worldId: string): Promise<void>;
@@ -24,7 +24,7 @@ export abstract class SimulationScheduler {
    * boot). No-op when a pending or active tick already exists. */
   abstract start(worldId: string): Promise<void>;
   /** Remove the single pending scheduled tick for a World. An in-flight tick
-   * completes; the executor gate rejects any transition race window. */
+   * completes; the runner gate rejects any transition race window. */
   abstract stop(worldId: string): Promise<void>;
   /** Run the scheduler's task once by hand: identical random pick and roll,
    * no overrides, awaits the result. */

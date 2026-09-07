@@ -8,11 +8,11 @@ import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -98,8 +98,9 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
 
   const tickRunner = {
     runScheduledTick: jest.fn(),
-    runManualIteration: jest.fn(),
-  } as unknown as jest.Mocked<SimulationTickRunner>;
+    runOneAction: jest.fn(),
+    runCustomAction: jest.fn(),
+  } as unknown as jest.Mocked<SimulationRunner>;
 
   const randomSource = {
     next: jest.fn().mockReturnValue(0.5),
@@ -589,58 +590,26 @@ describe('BullMqSchedulerAdapter', () => {
     expect(dlq.add).not.toHaveBeenCalled();
   });
 
-  it('composes runOneAction into a scheduled-style command and runs it manually', async () => {
+  it('delegates Run One Action to the shared SimulationRunner', async () => {
     const { adapter, tickRunner } = createAdapter();
-    tickRunner.runManualIteration.mockResolvedValue(successResult);
+    tickRunner.runOneAction.mockResolvedValue(successResult);
 
     await adapter.runOneAction('mbti-house');
 
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        worldSlug: 'mbti-house',
-        characterId: 'character-1',
-        actionType: 'POST',
-        executionSource: 'one-action',
-      }),
-    );
+    expect(tickRunner.runOneAction).toHaveBeenCalledWith('mbti-house');
   });
 
-  it('composes runCustomAction with character and action overrides', async () => {
+  it('delegates Custom Action to the shared SimulationRunner', async () => {
     const { adapter, tickRunner } = createAdapter();
-    tickRunner.runManualIteration.mockResolvedValue(successResult);
+    tickRunner.runCustomAction.mockResolvedValue(successResult);
 
-    await adapter.runCustomAction({
+    const input = {
       worldSlug: 'mbti-house',
       characterId: 'character-2',
       actionType: 'VOTE',
-    });
+    } as const;
+    await adapter.runCustomAction(input);
 
-    expect(tickRunner.runManualIteration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        worldSlug: 'mbti-house',
-        characterId: 'character-2',
-        actionType: 'VOTE',
-        executionSource: 'custom',
-      }),
-    );
-  });
-
-  it('rejects a custom action naming a character outside the world before composing', async () => {
-    const { adapter, castingRepository, tickRunner } = createAdapter();
-    castingRepository.findActiveActor.mockResolvedValue(false);
-
-    await expect(
-      adapter.runCustomAction({
-        worldSlug: 'mbti-house',
-        characterId: 'foreign-character',
-        actionType: 'POST',
-      }),
-    ).rejects.toThrow('not an active member of World');
-
-    expect(castingRepository.findActiveActor).toHaveBeenCalledWith(
-      'world-1',
-      'foreign-character',
-    );
-    expect(tickRunner.runManualIteration).not.toHaveBeenCalled();
+    expect(tickRunner.runCustomAction).toHaveBeenCalledWith(input);
   });
 });

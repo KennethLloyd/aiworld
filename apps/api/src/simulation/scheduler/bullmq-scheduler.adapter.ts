@@ -14,6 +14,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SCHEDULER_CONFIG,
@@ -22,7 +23,6 @@ import {
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
 import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
 import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
-import { SimulationTickRunner } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 export const SIMULATION_TICKS_QUEUE = 'simulation-ticks';
@@ -71,7 +71,7 @@ export class BullMqSchedulerAdapter
     picker: SimulationIterationPicker,
     castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
-    tickRunner: SimulationTickRunner,
+    runner: SimulationRunner,
     runtimeStateRepository: SimulationRuntimeStateRepository,
     private readonly queue: Queue,
     private readonly dlq: Queue,
@@ -82,7 +82,7 @@ export class BullMqSchedulerAdapter
       worldRepository,
       picker,
       castingRepository,
-      tickRunner,
+      runner,
       runtimeStateRepository,
     );
   }
@@ -160,9 +160,9 @@ export class BullMqSchedulerAdapter
       await this.markTickStarted(worldId);
     }
 
-    let result: Awaited<ReturnType<SimulationTickRunner['runScheduledTick']>>;
+    let result: Awaited<ReturnType<SimulationRunner['runScheduledTick']>>;
     try {
-      result = await this.tickRunner.runScheduledTick(command, job.id);
+      result = await this.runner.runScheduledTick(command, job.id);
     } catch (error) {
       if (worldId !== undefined) {
         await this.markTickAttemptCompleted(worldId);
@@ -313,7 +313,7 @@ export class BullMqSchedulerAdapter
     }
 
     await this.markStopped(worldId);
-    const composed = await this.composeScheduledCommand(worldId);
+    const composed = await this.composeScheduledIteration(worldId);
     if (!composed) {
       return;
     }
@@ -330,7 +330,7 @@ export class BullMqSchedulerAdapter
     });
 
     const jobId = tickJobId(worldId);
-    await this.queue.add(tickJobName(worldId), composed.command, {
+    await this.queue.add(tickJobName(worldId), composed.iteration, {
       jobId,
       delay,
       attempts: this.schedulerConfig.maxAttempts,
@@ -371,7 +371,7 @@ export class BullMqSchedulerAdapter
    * O(1) per World, no queue scan on the hot path. Never pauses the queue —
    * there is no burst on resume, only a fresh delayed job. A tick the worker
    * already locked for processing cannot be removed; it is left to complete
-   * in-flight, and the executor gate rejects that race window. */
+   * in-flight, and the runner gate rejects that race window. */
   private async removeTrackedTick(worldId: string): Promise<void> {
     const jobId = this.pendingTickJobIds.get(worldId);
     if (jobId === undefined) {

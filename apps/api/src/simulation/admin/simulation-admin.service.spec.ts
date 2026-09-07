@@ -9,8 +9,8 @@ import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
-import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 

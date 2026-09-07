@@ -12,7 +12,7 @@ import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-adm
 import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { IterationRunResult } from '@/simulation/scheduler/simulation-tick-runner';
+import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 
 const configRecord: WorldSimulationConfigRecord = {
   id: '00000000-0000-4000-8000-000000000010',

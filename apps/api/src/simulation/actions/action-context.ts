@@ -25,8 +25,3 @@ export type CommentActionContext = ResolvedActor & {
   post: PostWithAuthorRecord;
   thread: FlatCommentRecord[];
 };
-
-export type SimulationActionContext =
-  | PostActionContext
-  | VoteActionContext
-  | CommentActionContext;

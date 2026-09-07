@@ -14,7 +14,7 @@ export class SimulationIterationPickError extends Error {
 
 /** A custom action named a Character that is not an active AI member of the
  * target World. A client input error: the request must be rejected before any
- * command is composed, never silently logged as a failed run. */
+ * Iteration is composed, never silently logged as a failed run. */
 export class SimulationCharacterNotActiveError extends Error {
   constructor(characterId: string, worldSlug: string) {
     super(

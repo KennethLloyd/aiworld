@@ -5,15 +5,15 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import {
+  ScheduledTickRunResult,
+  SimulationRunner,
+} from '@/simulation/scheduler/simulation-runner';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import type { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SCHEDULER_CONFIG } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
 import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
-import {
-  ScheduledTickRunResult,
-  SimulationTickRunner,
-} from '@/simulation/scheduler/simulation-tick-runner';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 /** The test/offline adapter: scheduled ticks run on chained `setTimeout`
@@ -39,7 +39,7 @@ export class InProcessSchedulerAdapter
     worldRepository: WorldRepository,
     picker: SimulationIterationPicker,
     castingRepository: SimulationCastingRepository,
-    tickRunner: SimulationTickRunner,
+    runner: SimulationRunner,
     private readonly randomSource: SimulationRandomSource,
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
@@ -50,7 +50,7 @@ export class InProcessSchedulerAdapter
       worldRepository,
       picker,
       castingRepository,
-      tickRunner,
+      runner,
       runtimeStateRepository,
     );
   }
@@ -174,7 +174,7 @@ export class InProcessSchedulerAdapter
     await this.markTickStarted(worldId);
 
     try {
-      const composed = await this.composeScheduledCommand(worldId);
+      const composed = await this.composeScheduledIteration(worldId);
       if (!composed) {
         await this.markStopped(worldId);
         return; // not RUNNING anymore, or the World cannot act — cadence stops
@@ -187,7 +187,7 @@ export class InProcessSchedulerAdapter
       let result: ScheduledTickRunResult;
       let attempt = 1;
       for (;;) {
-        result = await this.tickRunner.runScheduledTick(composed.command);
+        result = await this.runner.runScheduledTick(composed.iteration);
         if (
           result.status === 'failed' &&
           result.failure.retryable &&
