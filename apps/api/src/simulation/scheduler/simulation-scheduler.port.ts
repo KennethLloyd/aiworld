@@ -17,11 +17,9 @@ export type SimulationSchedulerObservabilityRecord =
 export abstract class SimulationScheduler {
   /** Ensure a RUNNING World has at most one pending or active scheduled Tick. */
   abstract ensureScheduled(worldId: string): Promise<void>;
-  /** Begin scheduled ticks for a World (resumes a persisted RUNNING state on
-   * boot). No-op when a pending or active tick already exists. */
+  /** Reconcile scheduled ticks for a persisted RUNNING World. */
   abstract start(worldId: string): Promise<void>;
-  /** Remove the single pending scheduled tick for a World. An in-flight tick
-   * completes; the runner gate rejects any transition race window. */
+  /** Remove pending scheduled work; an in-flight tick may finish. */
   abstract stop(worldId: string): Promise<void>;
   /** Run the scheduler's task once by hand: identical random pick and roll,
    * no overrides, awaits the result. */

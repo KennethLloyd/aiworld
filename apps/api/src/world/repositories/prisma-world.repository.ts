@@ -4,14 +4,13 @@ import {
   ListWorldsQuery,
   UpdateWorld,
 } from '@aiworld/shared/schemas/world.schema';
-import { Inject, Injectable } from '@nestjs/common';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 
 import { Prisma, World } from '@/generated/prisma/client';
 import type { SimulationConfigDefaults } from '@/lib/config/simulation-config-defaults';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { WorldRecord } from '@/world/domain/world-record';
 import {
-  ActiveSimulationLockResult,
   WORLD_SIMULATION_CONFIG_DEFAULTS,
   WorldRepository,
 } from '@/world/repositories/world-repository.interface';
@@ -25,9 +24,6 @@ const residentMemberWhere: Prisma.WorldMemberWhereInput = {
 const residentCountInclude = {
   _count: { select: { members: { where: residentMemberWhere } } },
 } as const;
-
-const simulationWorldLock = (worldId: string) =>
-  Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${worldId}, 0))`;
 
 function isStringRecord(
   value: Prisma.JsonValue | null,
@@ -118,9 +114,7 @@ export class PrismaWorldRepository extends WorldRepository {
       include: residentCountInclude,
     });
 
-    // The active check is applied to the fetched record instead of the Prisma
-    // query so ADMIN and public callers share one read while only ADMIN can
-    // observe inactive Worlds.
+    // Filter the shared read so only ADMIN can observe inactive Worlds.
     if (!item || (isActive !== undefined && item.isActive !== isActive)) {
       return null;
     }
@@ -134,28 +128,6 @@ export class PrismaWorldRepository extends WorldRepository {
     });
 
     return item ? this.mapToWorldRecord(item) : null;
-  }
-
-  async withActiveSimulationLock<T>(
-    worldId: string,
-    operation: () => Promise<T>,
-  ): Promise<ActiveSimulationLockResult<T>> {
-    return this.prisma.$transaction(async (transaction) => {
-      await transaction.$executeRaw(simulationWorldLock(worldId));
-      const world = await transaction.world.findUnique({
-        where: { id: worldId },
-        select: { isActive: true },
-      });
-
-      if (!world) {
-        return { status: 'missing' };
-      }
-      if (!world.isActive) {
-        return { status: 'inactive' };
-      }
-
-      return { status: 'executed', value: await operation() };
-    });
   }
 
   async create(data: CreateWorld): Promise<WorldRecord> {
@@ -199,8 +171,6 @@ export class PrismaWorldRepository extends WorldRepository {
     };
 
     if (data.isActive === false) {
-      // Deactivation pauses only RUNNING simulation configs atomically with the
-      // visibility change; reactivation leaves the persisted lifecycle paused.
       const item = await this.prisma.$transaction(async (transaction) => {
         const current = await transaction.world.findUnique({
           where: { slug },
@@ -209,14 +179,19 @@ export class PrismaWorldRepository extends WorldRepository {
           return null;
         }
 
-        await transaction.$executeRaw(simulationWorldLock(current.id));
+        const config = await transaction.worldSimulationConfig.findUnique({
+          where: { worldId: current.id },
+          select: { state: true },
+        });
+        if (config?.state === 'RUNNING') {
+          throw new ConflictException(
+            'Cannot deactivate a World while its simulation is RUNNING',
+          );
+        }
+
         const updatedWorld = await transaction.world.update({
           where: { id: current.id },
           data: updateData,
-        });
-        await transaction.worldSimulationConfig.updateMany({
-          where: { worldId: current.id, state: 'RUNNING' },
-          data: { state: 'PAUSED' },
         });
         return updatedWorld;
       });

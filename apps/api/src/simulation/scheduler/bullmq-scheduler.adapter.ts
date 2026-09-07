@@ -51,8 +51,6 @@ export class BullMqSchedulerAdapter
   implements OnModuleDestroy
 {
   private worker: Worker | null = null;
-  /** Tracks delayed jobs for O(1) cancellation; reconciliation scans the queue. */
-  private readonly pendingTickJobIds = new Map<string, string>();
 
   constructor(
     @Inject(SCHEDULER_CONFIG)
@@ -97,21 +95,12 @@ export class BullMqSchedulerAdapter
   }
 
   async ensureScheduled(worldId: string): Promise<void> {
-    const result = await this.worldRepository.withActiveSimulationLock(
-      worldId,
-      () => this.ensureScheduledWhileLocked(worldId),
-    );
-
-    if (result.status !== 'executed') {
-      await this.markStopped(worldId);
-      return;
-    }
-
+    await this.ensureScheduledForDesiredState(worldId);
     await this.markSchedulerStartSucceeded(worldId);
   }
 
   async stop(worldId: string): Promise<void> {
-    await this.removeTrackedTick(worldId);
+    await this.removePendingTick(worldId);
     await this.markStopped(worldId);
   }
 
@@ -182,7 +171,7 @@ export class BullMqSchedulerAdapter
       }
 
       try {
-        await this.scheduleNextTick(result.log.worldId, job.id);
+        await this.scheduleNextTick(result.log.worldId);
       } catch (error) {
         if (worldId !== undefined) {
           await this.markTickSettled(worldId);
@@ -196,7 +185,7 @@ export class BullMqSchedulerAdapter
     }
 
     try {
-      await this.scheduleNextTick(result.log.worldId, job.id);
+      await this.scheduleNextTick(result.log.worldId);
     } catch (error) {
       if (worldId !== undefined) {
         await this.markTickAttemptCompleted(worldId);
@@ -217,19 +206,9 @@ export class BullMqSchedulerAdapter
     await this.connection.quit();
   }
 
-  private async scheduleNextTick(
-    worldId: string,
-    completedJobId: string | undefined,
-  ): Promise<void> {
+  private async scheduleNextTick(worldId: string): Promise<void> {
     try {
-      const result = await this.worldRepository.withActiveSimulationLock(
-        worldId,
-        () => this.ensureScheduledWhileLocked(worldId, completedJobId),
-      );
-      if (result.status !== 'executed') {
-        await this.markStopped(worldId);
-        return;
-      }
+      await this.scheduleTick(worldId);
       await this.markSchedulerStartSucceeded(worldId);
     } catch (error) {
       // Completed ticks are not retried; scheduling faults go to the DLQ.
@@ -248,52 +227,65 @@ export class BullMqSchedulerAdapter
     return (job.attemptsMade ?? 0) + 1 >= attempts;
   }
 
-  private async ensureScheduledWhileLocked(
-    worldId: string,
-    ignoredJobId?: string,
-  ): Promise<void> {
-    const existing = await this.findExistingTicks(worldId, ignoredJobId);
-
+  private async ensureScheduledForDesiredState(worldId: string): Promise<void> {
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
-      await this.removePendingTicks(existing.pending);
-      this.pendingTickJobIds.delete(worldId);
+      await this.removePendingTick(worldId);
+      await this.markStopped(worldId);
+      return;
+    }
+
+    const world = await this.worldRepository.findById(worldId);
+    if (!world?.isActive) {
+      await this.removePendingTick(worldId);
       await this.markStopped(worldId);
       return;
     }
 
     const actors = await this.castingRepository.findActiveActors(worldId);
     if (actors.length === 0) {
-      await this.removePendingTicks(existing.pending);
-      this.pendingTickJobIds.delete(worldId);
+      await this.removePendingTick(worldId);
       await this.markBlockedByNoActiveResidents(worldId);
       return;
     }
 
-    const retained = existing.active[0] ?? existing.pending[0];
-
-    const duplicatePending = retained
-      ? existing.pending.filter((job) => job.id !== retained.id)
-      : [];
-    await Promise.all(duplicatePending.map((job) => job.remove()));
-
-    if (retained !== undefined) {
-      if (existing.active.length === 0 && retained.id !== undefined) {
-        this.pendingTickJobIds.set(worldId, retained.id);
-      } else {
-        this.pendingTickJobIds.delete(worldId);
-      }
+    const existing = await this.getCurrentTick(worldId);
+    if (existing !== null) {
       await this.markExistingTick(worldId, {
-        pending: existing.active.length === 0,
+        pending: existing.state !== 'active',
         nextTickAt:
-          existing.active.length === 0
-            ? new Date(retained.timestamp + retained.delay)
-            : null,
+          existing.state === 'active'
+            ? null
+            : new Date(existing.job.timestamp + existing.job.delay),
       });
       return;
     }
 
-    await this.markStopped(worldId);
+    await this.scheduleTick(worldId);
+  }
+
+  private async scheduleTick(worldId: string): Promise<void> {
+    const config = await this.lifecycleService.getByWorldId(worldId);
+    if (!config || config.state !== 'RUNNING') {
+      await this.removePendingTick(worldId);
+      await this.markStopped(worldId);
+      return;
+    }
+
+    const world = await this.worldRepository.findById(worldId);
+    if (!world?.isActive) {
+      await this.removePendingTick(worldId);
+      await this.markStopped(worldId);
+      return;
+    }
+
+    const actors = await this.castingRepository.findActiveActors(worldId);
+    if (actors.length === 0) {
+      await this.removePendingTick(worldId);
+      await this.markBlockedByNoActiveResidents(worldId);
+      return;
+    }
+
     const composed = await this.composeScheduledIteration(worldId);
     if (!composed) {
       return;
@@ -310,10 +302,10 @@ export class BullMqSchedulerAdapter
       random: () => this.randomSource.next(),
     });
 
-    const jobId = tickJobId(worldId);
-    await this.queue.add(tickJobName(worldId), composed.iteration, {
-      jobId,
+    const job = await this.queue.add(tickJobName(worldId), composed.iteration, {
+      jobId: tickJobId(worldId),
       delay,
+      deduplication: { id: worldId, keepLastIfActive: true },
       attempts: this.schedulerConfig.maxAttempts,
       backoff: {
         type: 'exponential',
@@ -322,41 +314,36 @@ export class BullMqSchedulerAdapter
       removeOnComplete: true,
       removeOnFail: false,
     });
-    this.pendingTickJobIds.set(worldId, jobId);
-    await this.markScheduled(worldId, new Date(Date.now() + delay));
+    await this.markScheduled(worldId, new Date(job.timestamp + job.delay));
   }
 
-  private async removePendingTicks(jobs: Job[]): Promise<void> {
-    await Promise.all(jobs.map((job) => job.remove()));
+  private async getCurrentTick(worldId: string): Promise<{
+    job: Job<SimulationCommand>;
+    state: string;
+  } | null> {
+    const jobId = await this.queue.getDeduplicationJobId(worldId);
+    if (jobId === null) {
+      return null;
+    }
+
+    const job = await this.queue.getJob(jobId);
+    if (job === undefined) {
+      await this.queue.removeDeduplicationKey(worldId);
+      return null;
+    }
+
+    return { job, state: await job.getState() };
   }
 
-  private async findExistingTicks(
-    worldId: string,
-    ignoredJobId?: string,
-  ): Promise<{
-    active: Job<SimulationCommand>[];
-    pending: Job<SimulationCommand>[];
-  }> {
-    const [active, pending] = await Promise.all([
-      this.queue.getJobs(['active']),
-      this.queue.getJobs(['waiting', 'delayed', 'prioritized']),
-    ]);
-    const matches = (jobs: Job<SimulationCommand>[]) =>
-      jobs.filter(
-        (job) => job.name === tickJobName(worldId) && job.id !== ignoredJobId,
-      );
-    return { active: matches(active), pending: matches(pending) };
-  }
-
-  /** Removes a tracked pending tick without pausing the queue.
-   * In-flight ticks complete and are gated by the runner. */
-  private async removeTrackedTick(worldId: string): Promise<void> {
-    const jobId = this.pendingTickJobIds.get(worldId);
-    if (jobId === undefined) {
+  private async removePendingTick(worldId: string): Promise<void> {
+    const current = await this.getCurrentTick(worldId);
+    if (current === null) {
       return;
     }
-    await this.queue.remove(jobId).catch(() => undefined);
-    this.pendingTickJobIds.delete(worldId);
+
+    if (current.state !== 'active') {
+      await current.job.remove().catch(() => undefined);
+    }
   }
 
   private async handleFinalFailure(job: Job, error: Error): Promise<void> {

@@ -245,6 +245,36 @@ describe('Worlds API (e2e)', () => {
       });
   });
 
+  it('rejects deactivation while the simulation is RUNNING', async () => {
+    prismaStub.worldSimulationConfig.findUnique.mockResolvedValue({
+      state: 'RUNNING',
+    });
+    prismaStub.world.update.mockClear();
+
+    await request(app.getHttpServer())
+      .patch('/api/worlds/mbti')
+      .send({ isActive: false })
+      .expect(409);
+
+    expect(prismaStub.world.update).not.toHaveBeenCalled();
+  });
+
+  it('deactivates a World when its simulation is PAUSED', async () => {
+    prismaStub.worldSimulationConfig.findUnique.mockResolvedValue({
+      state: 'PAUSED',
+    });
+    const deactivatedWorld = { ...mbtiWorldRecord, isActive: false };
+    prismaStub.world.update.mockResolvedValue(deactivatedWorld);
+
+    await request(app.getHttpServer())
+      .patch('/api/worlds/mbti')
+      .send({ isActive: false })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.isActive).toBe(false);
+      });
+  });
+
   it('DELETE /api/worlds/mbti returns 204', () => {
     return request(app.getHttpServer()).delete('/api/worlds/mbti').expect(204);
   });

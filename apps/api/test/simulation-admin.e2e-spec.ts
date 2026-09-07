@@ -60,7 +60,6 @@ describe('Simulation admin API (e2e)', () => {
   beforeAll(
     withEnv(
       {
-        SCHEDULER_ADAPTER: 'bullmq',
         REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
         LLM_PROVIDER: 'mock',
         LLM_MODEL: 'fixture-model',

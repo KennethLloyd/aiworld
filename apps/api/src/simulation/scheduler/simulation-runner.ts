@@ -146,8 +146,6 @@ export class SimulationRunner {
   }): Promise<IterationRunResult> {
     const { world, iteration, jobId } = input;
     await this.assertWorkAllowed(world.id, iteration.executionSource);
-    const workKind =
-      iteration.executionSource === 'scheduled' ? 'SCHEDULED' : 'MANUAL';
     const logContext: LogContext = {
       worldId: world.id,
       characterId: iteration.characterId,
@@ -165,7 +163,6 @@ export class SimulationRunner {
             worldSlug: iteration.worldSlug,
             characterId: iteration.characterId,
           }),
-        workKind,
       });
     }
 
@@ -203,7 +200,6 @@ export class SimulationRunner {
       logContext,
       worldSlug: iteration.worldSlug,
       runAction,
-      workKind,
     });
   }
 
@@ -211,9 +207,8 @@ export class SimulationRunner {
     logContext: LogContext;
     worldSlug: string;
     runAction: () => Promise<SimulationActionOutcome>;
-    workKind: 'MANUAL' | 'SCHEDULED';
   }): Promise<IterationRunResult> {
-    const allowedConfig = await this.assertWorkAllowed(
+    await this.assertWorkAllowed(
       input.logContext.worldId,
       input.logContext.executionSource,
     );
@@ -228,29 +223,7 @@ export class SimulationRunner {
     }
 
     const decision = outcome.decision;
-    const persisted = await this.worldRepository.withActiveSimulationLock(
-      input.logContext.worldId,
-      async () => {
-        await this.assertWorkAllowed(
-          input.logContext.worldId,
-          input.logContext.executionSource,
-        );
-        await this.contentWriter.persist(decision);
-      },
-    );
-    if (persisted.status === 'inactive') {
-      throw new SimulationWorkRejectedError(
-        input.workKind,
-        allowedConfig.state,
-        'INACTIVE',
-      );
-    }
-    if (persisted.status === 'missing') {
-      throw new SimulationActionError(
-        'WORLD_NOT_FOUND',
-        `World "${input.worldSlug}" was not found`,
-      );
-    }
+    await this.contentWriter.persist(decision);
     const log = await this.logService.writeSuccess(
       decision,
       outcome.telemetry,

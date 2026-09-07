@@ -7,7 +7,6 @@ import {
   SIMULATION_TICKS_DLQ,
   SIMULATION_TICKS_QUEUE,
 } from '@/simulation/scheduler/bullmq-scheduler.adapter';
-import { InProcessSchedulerAdapter } from '@/simulation/scheduler/in-process-scheduler.adapter';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
@@ -28,19 +27,6 @@ export function createSimulationScheduler(
   runner: SimulationRunner,
   runtimeStateRepository: SimulationRuntimeStateRepository,
 ): SimulationScheduler {
-  if (config.adapterId === 'in-process') {
-    return new InProcessSchedulerAdapter(
-      lifecycleService,
-      worldRepository,
-      picker,
-      castingRepository,
-      runner,
-      randomSource,
-      config,
-      runtimeStateRepository,
-    );
-  }
-
   const connection = new IORedis(config.redisUrl, {
     maxRetriesPerRequest: null,
   });

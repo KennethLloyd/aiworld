@@ -59,6 +59,7 @@ function fakeJob(overrides: Record<string, unknown> = {}) {
       executionSource: 'scheduled',
       issuedAt: '2026-08-13T00:00:00.000Z',
     },
+    getState: jest.fn().mockResolvedValue('delayed'),
     remove: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -73,10 +74,6 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   const worldRepository = {
     findById: jest.fn().mockResolvedValue(world),
     findBySlug: jest.fn().mockResolvedValue(world),
-    withActiveSimulationLock: jest.fn(async (_worldId, operation) => ({
-      status: 'executed' as const,
-      value: await operation(),
-    })),
   } as unknown as jest.Mocked<WorldRepository>;
 
   const picker = {
@@ -107,7 +104,6 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   } as unknown as jest.Mocked<SimulationRandomSource>;
 
   const schedulerConfig: SchedulerConfig = {
-    adapterId: 'bullmq',
     redisUrl: 'redis://localhost:6379',
     maxAttempts: 3,
     retryBaseDelayMs: 1000,
@@ -115,9 +111,10 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
   };
 
   const queue = {
-    add: jest.fn().mockResolvedValue(undefined),
-    getJobs: jest.fn().mockResolvedValue([]),
-    remove: jest.fn().mockResolvedValue(undefined),
+    add: jest.fn().mockResolvedValue(fakeJob()),
+    getDeduplicationJobId: jest.fn().mockResolvedValue(null),
+    getJob: jest.fn().mockResolvedValue(undefined),
+    removeDeduplicationKey: jest.fn().mockResolvedValue(undefined),
     close: jest.fn().mockResolvedValue(undefined),
   };
   const dlq = {
@@ -249,19 +246,14 @@ describe('BullMqSchedulerAdapter', () => {
   it('start retains an existing Tick instead of creating a duplicate', async () => {
     const { adapter, queue } = createAdapter();
     const stale = fakeJob({ id: 'stale' });
-    const otherWorld = fakeJob({ name: 'tick:other-world', id: 'other' });
-    queue.getJobs.mockResolvedValue([stale, otherWorld]);
+    queue.getDeduplicationJobId.mockResolvedValue('stale');
+    queue.getJob.mockResolvedValue(stale);
 
     await adapter.start('world-1');
 
-    expect(queue.getJobs).toHaveBeenCalledWith(['active']);
-    expect(queue.getJobs).toHaveBeenCalledWith([
-      'waiting',
-      'delayed',
-      'prioritized',
-    ]);
+    expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
+    expect(queue.getJob).toHaveBeenCalledWith('stale');
     expect(stale.remove).not.toHaveBeenCalled();
-    expect(otherWorld.remove).not.toHaveBeenCalled();
 
     expect(queue.add).not.toHaveBeenCalled();
   });
@@ -269,16 +261,12 @@ describe('BullMqSchedulerAdapter', () => {
   it('ensureScheduled does not create a second pending Tick', async () => {
     const { adapter, queue, worldRepository } = createAdapter();
     const existing = fakeJob({ id: 'existing-tick' });
-    queue.getJobs.mockImplementation(async (types: string[]) =>
-      types.includes('delayed') ? [existing] : [],
-    );
+    queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
+    queue.getJob.mockResolvedValue(existing);
 
     await adapter.ensureScheduled('world-1');
 
-    expect(worldRepository.withActiveSimulationLock).toHaveBeenCalledWith(
-      'world-1',
-      expect.any(Function),
-    );
+    expect(worldRepository.findById).toHaveBeenCalledWith('world-1');
     expect(queue.add).not.toHaveBeenCalled();
     expect(existing.remove).not.toHaveBeenCalled();
   });
@@ -305,9 +293,8 @@ describe('BullMqSchedulerAdapter', () => {
   it('removes a pending Tick when all active AI Residents become unavailable', async () => {
     const { adapter, castingRepository, queue } = createAdapter();
     const existing = fakeJob({ id: 'existing-tick' });
-    queue.getJobs.mockImplementation(async (types: string[]) =>
-      types.includes('delayed') ? [existing] : [],
-    );
+    queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
+    queue.getJob.mockResolvedValue(existing);
     castingRepository.findActiveActors.mockResolvedValue([]);
 
     await adapter.ensureScheduled('world-1');
@@ -392,17 +379,19 @@ describe('BullMqSchedulerAdapter', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('stop removes the tracked pending tick without scanning the queue', async () => {
+  it('stop removes the pending native-deduplicated tick', async () => {
     const { adapter, queue } = createAdapter();
 
     await adapter.start('world-1');
     expect(queue.add).toHaveBeenCalledTimes(1);
-    queue.getJobs.mockClear();
-
+    const pending = fakeJob({ id: 'job-1' });
+    queue.getDeduplicationJobId.mockResolvedValue('job-1');
+    queue.getJob.mockResolvedValue(pending);
     await adapter.stop('world-1');
 
-    expect(queue.remove).toHaveBeenCalledWith(expect.any(String));
-    expect(queue.getJobs).not.toHaveBeenCalled();
+    expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
+    expect(queue.getJob).toHaveBeenCalledWith('job-1');
+    expect(pending.remove).toHaveBeenCalledTimes(1);
   });
 
   it('stop is a no-op when nothing is pending for the world', async () => {
@@ -410,7 +399,7 @@ describe('BullMqSchedulerAdapter', () => {
 
     await adapter.stop('world-1');
 
-    expect(queue.remove).not.toHaveBeenCalled();
+    expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
   });
 
   describe('process', () => {
@@ -434,6 +423,27 @@ describe('BullMqSchedulerAdapter', () => {
       );
       expect(queue.add).toHaveBeenCalledTimes(1);
       expect(queue.add.mock.calls[0][0]).toBe('tick_world-1');
+      expect(queue.add.mock.calls[0][2]).toEqual(
+        expect.objectContaining({
+          deduplication: { id: 'world-1', keepLastIfActive: true },
+        }),
+      );
+    });
+
+    it('keeps native deduplication active while an existing tick is running', async () => {
+      const { adapter, tickRunner, queue } = createAdapter();
+      tickRunner.runScheduledTick.mockResolvedValue(successResult);
+      queue.add.mockResolvedValue(fakeJob({ id: 'active-job' }));
+
+      await adapter.process(fakeJob({ id: 'active-job' }) as never);
+
+      expect(queue.add).toHaveBeenCalledWith(
+        'tick_world-1',
+        expect.any(Object),
+        expect.objectContaining({
+          deduplication: { id: 'world-1', keepLastIfActive: true },
+        }),
+      );
     });
 
     it('treats a lifecycle rejection as a completed job and reschedules', async () => {

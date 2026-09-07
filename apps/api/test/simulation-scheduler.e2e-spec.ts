@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Job, Queue } from 'bullmq';
+import { Job, Queue, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 import { App } from 'supertest/types';
 
@@ -213,7 +213,6 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
   let testStart: Date;
 
   beforeAll(async () => {
-    process.env.SCHEDULER_ADAPTER = 'bullmq';
     process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
     process.env.LLM_PROVIDER = 'mock';
     process.env.LLM_MODEL = 'fixture-model';
@@ -282,8 +281,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     try {
       await scheduler.start(worldId);
 
-      // Completion-to-start cadence: multiple ticks fire back to back, and at
-      // least one of them is a POST so content is actually persisted.
+      // Multiple ticks should fire and persist at least one POST.
       await waitFor(
         async () => {
           const logs = await scheduledLogsSinceTestStart();
@@ -320,8 +318,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       });
       expect(posts.length).toBeGreaterThan(0);
 
-      // Lifecycle pause drives stop() and leaves RUNNING, so in-flight ticks
-      // are rejected by the gate and no further ticks fire.
+      // Pausing removes future work while admitted work may finish.
       await app.get(SimulationLifecycleService).pause(worldId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const afterStop = (await scheduledLogsSinceTestStart()).length;
@@ -443,6 +440,61 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       await deleteReconciliationFixture(prisma, first);
       await deleteReconciliationFixture(prisma, second);
       await secondApp?.close();
+    }
+  });
+
+  it('keeps only the latest delayed successor while a Tick is active', async () => {
+    const queueName = `${SIMULATION_TICKS_QUEUE}-deduplication-test`;
+    const testQueue = new Queue(queueName, { connection: queueConnection });
+    const workerConnection = new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+    });
+    let releaseActiveJob!: () => void;
+    const activeJobFinished = new Promise<void>((resolve) => {
+      releaseActiveJob = resolve;
+    });
+    const worker = new Worker(queueName, async () => activeJobFinished, {
+      connection: workerConnection,
+    });
+    const deduplicationId = `deduplication-test-${Date.now()}`;
+
+    try {
+      const first = await testQueue.add(
+        'tick',
+        { sequence: 1 },
+        {
+          deduplication: { id: deduplicationId, keepLastIfActive: true },
+        },
+      );
+      await waitFor(async () => (await first.getState()) === 'active', 5000);
+
+      const deduplicated = await testQueue.add(
+        'tick',
+        { sequence: 2 },
+        {
+          delay: 60_000,
+          deduplication: { id: deduplicationId, keepLastIfActive: true },
+        },
+      );
+      expect(deduplicated.id).toBe(first.id);
+
+      releaseActiveJob();
+      await waitFor(async () => {
+        const successorId =
+          await testQueue.getDeduplicationJobId(deduplicationId);
+        return successorId !== null && successorId !== first.id;
+      }, 5000);
+
+      const successorId =
+        await testQueue.getDeduplicationJobId(deduplicationId);
+      const successor = await testQueue.getJob(successorId!);
+      expect(successor?.data).toEqual({ sequence: 2 });
+    } finally {
+      releaseActiveJob();
+      await worker.close();
+      await testQueue.obliterate({ force: true });
+      await testQueue.close();
+      await workerConnection.quit();
     }
   });
 
@@ -581,9 +633,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       where: { id: result.log.id },
     });
     expect(log.executionSource).toBe('ONE_ACTION');
-    // A manual iteration picks a random resident and action, so the log is
-    // SUCCESS for a persisted action or SKIPPED when the resident already
-    // voted on the picked target — both are completed runs.
+    // Random manual picks may persist or skip an already-voted target.
     expect(['SUCCESS', 'SKIPPED']).toContain(log.status);
     expect(log.jobId).toBeNull();
   });

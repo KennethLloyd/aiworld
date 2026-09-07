@@ -38,10 +38,10 @@ describe('simulation lifecycle rules', () => {
       expect(canTransition(from, to)).toBe(true);
     });
 
-    it('rejects self-transitions', () => {
-      expect(canTransition('RUNNING', 'RUNNING')).toBe(false);
-      expect(canTransition('PAUSED', 'PAUSED')).toBe(false);
-      expect(canTransition('HALTED', 'HALTED')).toBe(false);
+    it('accepts self-transitions for idempotent lifecycle operations', () => {
+      expect(canTransition('RUNNING', 'RUNNING')).toBe(true);
+      expect(canTransition('PAUSED', 'PAUSED')).toBe(true);
+      expect(canTransition('HALTED', 'HALTED')).toBe(true);
     });
 
     it('allows only an explicit restart from HALTED', () => {
@@ -61,9 +61,7 @@ describe('simulation lifecycle rules', () => {
       expect(() => transitionSimulationState('HALTED', 'PAUSED')).toThrow(
         InvalidSimulationStateTransitionError,
       );
-      expect(() => transitionSimulationState('RUNNING', 'RUNNING')).toThrow(
-        InvalidSimulationStateTransitionError,
-      );
+      expect(transitionSimulationState('RUNNING', 'RUNNING')).toBe('RUNNING');
     });
   });
 });

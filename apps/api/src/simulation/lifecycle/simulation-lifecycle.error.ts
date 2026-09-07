@@ -16,20 +16,6 @@ export class InvalidSimulationStateTransitionError extends Error {
 
 /** A transition read the persisted state, validated it, and then the state
  * changed before the update landed. The caller must re-read and re-decide. */
-export class SimulationStateConcurrentChangeError extends Error {
-  constructor(
-    worldId: string,
-    from: SimulationState,
-    persisted: SimulationState,
-  ) {
-    super(
-      `Simulation state for world ${worldId} changed concurrently: ` +
-        `expected ${from} but persisted state is ${persisted}`,
-    );
-    this.name = 'SimulationStateConcurrentChangeError';
-  }
-}
-
 export type SimulationWorkKind = 'MANUAL' | 'SCHEDULED' | 'LIFECYCLE';
 export type SimulationWorkRejectionReason = 'STATE' | 'INACTIVE';
 
