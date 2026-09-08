@@ -39,11 +39,11 @@ export class SimulationAdminResponseMapper {
         available: health.scheduler.available,
         pending: health.scheduler.pending,
         workExpected: health.scheduler.workExpected,
-        nextTickAt: health.scheduler.nextTickAt?.toISOString() ?? null,
-        lastTickStartedAt:
-          health.scheduler.lastTickStartedAt?.toISOString() ?? null,
-        lastTickCompletedAt:
-          health.scheduler.lastTickCompletedAt?.toISOString() ?? null,
+        nextTurnAt: health.scheduler.nextTurnAt?.toISOString() ?? null,
+        lastTurnStartedAt:
+          health.scheduler.lastTurnStartedAt?.toISOString() ?? null,
+        lastTurnCompletedAt:
+          health.scheduler.lastTurnCompletedAt?.toISOString() ?? null,
         retrying: health.scheduler.retrying,
         recentRetryCount: health.scheduler.recentRetryCount,
         blockedReason: health.scheduler.blockedReason,

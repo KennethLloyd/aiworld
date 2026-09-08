@@ -1,8 +1,8 @@
+import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 import {
   simulationActionTypes,
   type SimulationActionType,
-} from '@aiworld/shared/schemas/simulation-command.schema';
-import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
 import type { SimulationLogResponse } from '@aiworld/shared/schemas/simulation-log.schema';
 import type { SimulationRunResultResponse } from '@aiworld/shared/schemas/simulation-run.schema';
 import type {
@@ -583,8 +583,8 @@ function TelemetryPanel({
             <TelemetryRow label="Active Residents">
               <span>{residentsCount}</span>
             </TelemetryRow>
-            <TelemetryRow label="Next Tick">
-              <span>{formatDate(health?.scheduler.nextTickAt)}</span>
+            <TelemetryRow label="Next Turn">
+              <span>{formatDate(health?.scheduler.nextTurnAt)}</span>
             </TelemetryRow>
             <TelemetryRow label="Last Successful Execution">
               <span>{formatDate(health?.execution.lastSuccessAt)}</span>

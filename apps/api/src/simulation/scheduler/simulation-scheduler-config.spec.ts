@@ -4,26 +4,12 @@ import {
 } from '@/simulation/scheduler/simulation-scheduler-config';
 
 describe('loadSchedulerConfig', () => {
-  it('defaults to the bullmq adapter', () => {
-    expect(loadSchedulerConfig({}).adapterId).toBe('bullmq');
-  });
-
-  it('selects the in-process adapter for tests and offline use', () => {
-    expect(
-      loadSchedulerConfig({ SCHEDULER_ADAPTER: 'in-process' }).adapterId,
-    ).toBe('in-process');
-  });
-
-  it('treats an empty adapter value as absent', () => {
-    expect(loadSchedulerConfig({ SCHEDULER_ADAPTER: '' }).adapterId).toBe(
-      'bullmq',
-    );
-  });
-
-  it('fails fast on an unknown adapter value', () => {
-    expect(() => loadSchedulerConfig({ SCHEDULER_ADAPTER: 'kafka' })).toThrow(
-      SchedulerConfigurationError,
-    );
+  it('loads the BullMQ scheduler defaults', () => {
+    expect(loadSchedulerConfig({})).toMatchObject({
+      redisUrl: 'redis://localhost:6379',
+      maxAttempts: 3,
+      retryBaseDelayMs: 1000,
+    });
   });
 
   it('reads the redis url and retry tuning', () => {

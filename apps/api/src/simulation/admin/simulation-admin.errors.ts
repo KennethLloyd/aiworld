@@ -9,7 +9,6 @@ import {
   InvalidSimulationStateTransitionError,
   SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
-  SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import {
@@ -38,7 +37,6 @@ export function mapSimulationAdminError(error: unknown): never {
 
   if (
     error instanceof InvalidSimulationStateTransitionError ||
-    error instanceof SimulationStateConcurrentChangeError ||
     error instanceof SimulationWorkRejectedError ||
     error instanceof SimulationIterationPickError
   ) {

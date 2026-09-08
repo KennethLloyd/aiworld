@@ -2,7 +2,7 @@ import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulatio
 
 import type { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler';
 
 export type SimulationHealthStatus =
   SimulationHealthResponse['health']['status'];
@@ -147,33 +147,33 @@ export function deriveSimulationHealth(
     };
   }
 
-  const tickInFlight =
-    scheduler.lastTickStartedAt !== null &&
-    (scheduler.lastTickCompletedAt === null ||
-      scheduler.lastTickStartedAt > scheduler.lastTickCompletedAt);
+  const turnInFlight =
+    scheduler.lastTurnStartedAt !== null &&
+    (scheduler.lastTurnCompletedAt === null ||
+      scheduler.lastTurnStartedAt > scheduler.lastTurnCompletedAt);
 
-  const tickStallThresholdMs = healthFreshnessWindowMs;
+  const turnStallThresholdMs = healthFreshnessWindowMs;
   if (
-    tickInFlight &&
-    scheduler.lastTickStartedAt !== null &&
-    now.getTime() - scheduler.lastTickStartedAt.getTime() > tickStallThresholdMs
+    turnInFlight &&
+    scheduler.lastTurnStartedAt !== null &&
+    now.getTime() - scheduler.lastTurnStartedAt.getTime() > turnStallThresholdMs
   ) {
     return {
       status: 'UNHEALTHY',
       reason:
-        'A scheduled tick has not completed within the expected interval.',
+        'A scheduled turn has not completed within the expected interval.',
       providerStatus,
     };
   }
 
-  if (scheduler.pending && scheduler.nextTickAt !== null) {
+  if (scheduler.pending && scheduler.nextTurnAt !== null) {
     if (
-      scheduler.nextTickAt.getTime() + SIMULATION_HEALTH_RECENCY_WINDOW_MS <=
+      scheduler.nextTurnAt.getTime() + SIMULATION_HEALTH_RECENCY_WINDOW_MS <=
       now.getTime()
     ) {
       return {
         status: 'UNHEALTHY',
-        reason: 'The next scheduled tick is overdue.',
+        reason: 'The next scheduled turn is overdue.',
         providerStatus,
       };
     }
@@ -183,16 +183,16 @@ export function deriveSimulationHealth(
       reason: 'No active scheduled work is expected right now.',
       providerStatus,
     };
-  } else if (!tickInFlight && scheduler.lastTickCompletedAt === null) {
+  } else if (!turnInFlight && scheduler.lastTurnCompletedAt === null) {
     return {
       status: 'UNHEALTHY',
-      reason: 'Expected scheduled work has no pending tick.',
+      reason: 'Expected scheduled work has no pending turn.',
       providerStatus,
     };
-  } else if (!tickInFlight) {
+  } else if (!turnInFlight) {
     return {
       status: 'DEGRADED',
-      reason: 'Scheduler has stopped progressing and has no pending tick.',
+      reason: 'Scheduler has stopped progressing and has no pending turn.',
       providerStatus,
     };
   }

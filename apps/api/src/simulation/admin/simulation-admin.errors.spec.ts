@@ -10,7 +10,6 @@ import {
   InvalidSimulationStateTransitionError,
   SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
-  SimulationStateConcurrentChangeError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationCharacterNotActiveError } from '@/simulation/scheduler/simulation-scheduler.error';
@@ -39,15 +38,10 @@ describe('mapSimulationAdminError', () => {
     ).toThrow('Simulation configuration for world world-1 is malformed');
   });
 
-  it('maps invalid transitions and concurrent changes to 409', () => {
+  it('maps invalid transitions to 409', () => {
     expect(() =>
       mapSimulationAdminError(
         new InvalidSimulationStateTransitionError('HALTED', 'RUNNING'),
-      ),
-    ).toThrow(ConflictException);
-    expect(() =>
-      mapSimulationAdminError(
-        new SimulationStateConcurrentChangeError('world-1', 'PAUSED', 'HALTED'),
       ),
     ).toThrow(ConflictException);
   });

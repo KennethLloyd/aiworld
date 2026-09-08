@@ -74,7 +74,7 @@ export class SimulationLogService {
     });
   }
 
-  /** A lifecycle-gated tick that was refused (for example a scheduled tick
+  /** A lifecycle-gated turn that was refused (for example a scheduled turn
    * landing after the world left RUNNING). Rejection is not a failure — the
    * error is never retried — so it gets its own status. */
   async writeRejected(input: {

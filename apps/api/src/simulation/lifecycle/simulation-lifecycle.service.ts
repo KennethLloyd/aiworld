@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
@@ -12,28 +12,13 @@ import {
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
-/** Enforces the RUNNING/PAUSED/HALTED lifecycle against persisted
- * WorldSimulationConfig state. State is always read from the repository,
- * never from process memory, and transitions are persisted before success is
- * reported. Transitions drive the scheduler port: entering RUNNING starts
- * scheduled ticks, leaving it stops them. */
+
 @Injectable()
 export class SimulationLifecycleService {
-  private readonly logger = new Logger(SimulationLifecycleService.name);
-
   constructor(
     @Inject(WorldSimulationConfigRepository)
     private readonly configRepository: WorldSimulationConfigRepository,
-    // Deliberate cycle, not an accident: the lifecycle drives the scheduler
-    // (start on RUNNING, stop on PAUSED/HALTED) while the scheduler consults
-    // the lifecycle for gates (assertScheduledWorkAllowed /
-    // assertManualWorkAllowed) and per-world config. Both directions are
-    // runtime-necessary, so forwardRef is the standard Nest mechanism for this
-    // genuine bidirectional DI graph.
-    @Inject(forwardRef(() => SimulationScheduler))
-    private readonly scheduler: SimulationScheduler,
     @Inject(WorldRepository)
     private readonly worldRepository: WorldRepository,
   ) {}
@@ -61,50 +46,18 @@ export class SimulationLifecycleService {
     const config = await this.requireConfig(worldId);
     const next = transitionSimulationState(config.state, target);
 
-    let updated: WorldSimulationConfigRecord;
     if (target === 'RUNNING') {
-      const lockedUpdate = await this.worldRepository.withActiveSimulationLock(
-        worldId,
-        () =>
-          this.configRepository.transitionState(worldId, config.state, next),
-      );
-
-      if (lockedUpdate.status === 'inactive') {
-        throw new SimulationWorkRejectedError(
-          'LIFECYCLE',
-          config.state,
-          'INACTIVE',
-        );
-      }
-      if (lockedUpdate.status === 'missing') {
-        throw new SimulationConfigNotFoundError(worldId);
-      }
-      updated = lockedUpdate.value;
-    } else {
-      updated = await this.configRepository.transitionState(
-        worldId,
-        config.state,
-        next,
-      );
+      await this.assertWorldActive(worldId, config.state, 'LIFECYCLE');
     }
 
-    try {
-      await this.driveScheduler(worldId, next);
-    } catch (error) {
-      // The state was persisted before the scheduler was driven. If the drive
-      // fails (for example the queue is unreachable), restore the previous
-      // state so the database never claims RUNNING while no tick is scheduled
-      // (stuck-RUNNING). A concurrent change during the restore is best-effort.
-      await this.restoreState(worldId, next, config.state);
-      throw error;
+    if (config.state === target) {
+      return config;
     }
 
-    return updated;
+    return this.configRepository.setState(worldId, next);
   }
 
-  /** Manual work (Run One Action, Custom Action) requires an active World and
-   * a RUNNING or PAUSED config; HALTED rejects it. Returns the persisted config
-   * that passed both checks so callers act against the same persisted state. */
+  /** Manual work requires an active World and a RUNNING or PAUSED config. */
   async assertManualWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {
@@ -118,9 +71,7 @@ export class SimulationLifecycleService {
     return config;
   }
 
-  /** Persist a new speed multiplier after confirming the world has a config.
-   * Pacing is read at scheduling time, so the pending tick keeps its cadence
-   * and the new multiplier applies to the next scheduled delay. */
+  /** Persist a speed multiplier for the next scheduled delay. */
   async updateSpeed(
     worldId: string,
     speedMultiplier: number,
@@ -131,8 +82,7 @@ export class SimulationLifecycleService {
       speedMultiplier,
     );
   }
-  /** Scheduled ticks require an active World and RUNNING config; PAUSED and
-   * HALTED stop scheduled work. */
+  /** Scheduled turns require an active World and a RUNNING config. */
   async assertScheduledWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {
@@ -158,35 +108,6 @@ export class SimulationLifecycleService {
 
     if (!world.isActive) {
       throw new SimulationWorkRejectedError(kind, state, 'INACTIVE');
-    }
-  }
-
-  private async driveScheduler(
-    worldId: string,
-    state: SimulationState,
-  ): Promise<void> {
-    if (state === 'RUNNING') {
-      await this.scheduler.start(worldId);
-    } else {
-      await this.scheduler.stop(worldId);
-    }
-  }
-
-  private async restoreState(
-    worldId: string,
-    from: SimulationState,
-    to: SimulationState,
-  ): Promise<void> {
-    try {
-      await this.configRepository.transitionState(worldId, from, to);
-    } catch (error) {
-      this.logger.warn(
-        JSON.stringify({
-          event: 'simulation_state_restore_failed',
-          worldId,
-          errorName: error instanceof Error ? error.name : 'UnknownError',
-        }),
-      );
     }
   }
 

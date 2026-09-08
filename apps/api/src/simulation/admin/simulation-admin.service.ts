@@ -24,7 +24,7 @@ import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import {
   RunCustomActionInput as SchedulerRunCustomActionInput,
   SimulationScheduler,
-} from '@/simulation/scheduler/simulation-scheduler.port';
+} from '@/simulation/scheduler/simulation-scheduler';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
@@ -114,7 +114,7 @@ export class SimulationAdminService {
             ...observedScheduler,
             pending: false,
             workExpected: false,
-            nextTickAt: null,
+            nextTurnAt: null,
           };
     const telemetry = storedTelemetry ?? emptySimulationTelemetry(world.id);
     const decision = deriveSimulationHealth({

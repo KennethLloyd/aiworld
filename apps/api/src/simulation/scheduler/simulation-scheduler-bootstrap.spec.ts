@@ -1,14 +1,13 @@
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 describe('SimulationSchedulerBootstrap', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('resumes only RUNNING configurations whose Worlds are active', async () => {
+  it('reconciles every persisted RUNNING configuration', async () => {
     const configRepository = {
       findAllByState: jest
         .fn()
@@ -17,26 +16,25 @@ describe('SimulationSchedulerBootstrap', () => {
           { worldId: 'inactive-world' },
         ]),
     } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
-    const worldRepository = {
-      findById: jest.fn((worldId: string) =>
-        Promise.resolve({ id: worldId, isActive: worldId === 'active-world' }),
-      ),
-    } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
       ensureScheduled: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<SimulationScheduler>;
     const bootstrap = new SimulationSchedulerBootstrap(
       configRepository,
       scheduler,
-      worldRepository,
     );
 
     await bootstrap.onModuleInit();
 
-    expect(worldRepository.findById).toHaveBeenCalledWith('active-world');
-    expect(worldRepository.findById).toHaveBeenCalledWith('inactive-world');
-    expect(scheduler.ensureScheduled).toHaveBeenCalledTimes(1);
-    expect(scheduler.ensureScheduled).toHaveBeenCalledWith('active-world');
+    expect(scheduler.ensureScheduled).toHaveBeenCalledTimes(2);
+    expect(scheduler.ensureScheduled).toHaveBeenNthCalledWith(
+      1,
+      'active-world',
+    );
+    expect(scheduler.ensureScheduled).toHaveBeenNthCalledWith(
+      2,
+      'inactive-world',
+    );
   });
 
   it('reconciles RUNNING active Worlds again every 60 seconds', async () => {
@@ -44,16 +42,12 @@ describe('SimulationSchedulerBootstrap', () => {
     const configRepository = {
       findAllByState: jest.fn().mockResolvedValue([{ worldId: 'world-1' }]),
     } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
-    const worldRepository = {
-      findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
-    } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
       ensureScheduled: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<SimulationScheduler>;
     const bootstrap = new SimulationSchedulerBootstrap(
       configRepository,
       scheduler,
-      worldRepository,
     );
 
     await bootstrap.onModuleInit();
@@ -69,9 +63,6 @@ describe('SimulationSchedulerBootstrap', () => {
     const configRepository = {
       findAllByState: jest.fn().mockResolvedValue([{ worldId: 'world-1' }]),
     } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
-    const worldRepository = {
-      findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
-    } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
       ensureScheduled: jest
         .fn()
@@ -81,7 +72,6 @@ describe('SimulationSchedulerBootstrap', () => {
     const bootstrap = new SimulationSchedulerBootstrap(
       configRepository,
       scheduler,
-      worldRepository,
     );
 
     await expect(bootstrap.onModuleInit()).resolves.toBeUndefined();
@@ -95,9 +85,6 @@ describe('SimulationSchedulerBootstrap', () => {
     const configRepository = {
       findAllByState: jest.fn().mockResolvedValue([{ worldId: 'world-1' }]),
     } as unknown as jest.Mocked<WorldSimulationConfigRepository>;
-    const worldRepository = {
-      findById: jest.fn().mockResolvedValue({ id: 'world-1', isActive: true }),
-    } as unknown as jest.Mocked<WorldRepository>;
     const scheduler = {
       ensureScheduled: jest
         .fn()
@@ -109,7 +96,6 @@ describe('SimulationSchedulerBootstrap', () => {
     const bootstrap = new SimulationSchedulerBootstrap(
       configRepository,
       scheduler,
-      worldRepository,
     );
 
     await expect(bootstrap.onModuleInit()).resolves.toBeUndefined();

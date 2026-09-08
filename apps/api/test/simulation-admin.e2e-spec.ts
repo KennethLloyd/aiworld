@@ -16,7 +16,7 @@ import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 
 import { canonicalWorld } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
@@ -60,7 +60,6 @@ describe('Simulation admin API (e2e)', () => {
   beforeAll(
     withEnv(
       {
-        SCHEDULER_ADAPTER: 'bullmq',
         REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
         LLM_PROVIDER: 'mock',
         LLM_MODEL: 'fixture-model',

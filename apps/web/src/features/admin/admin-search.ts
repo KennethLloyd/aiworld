@@ -1,7 +1,7 @@
 import {
   simulationActionTypes,
   simulationExecutionSources,
-} from '@aiworld/shared/schemas/simulation-command.schema';
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
 import { simulationLogStatuses } from '@aiworld/shared/schemas/simulation-log.schema';
 import { z } from 'zod';
 

@@ -244,6 +244,17 @@ docker run --rm \
 
 The migration image receives `DATABASE_URL` at runtime. It does not contain credentials and the API image does not perform migrations during startup. The same image can be run by a deployment platform as a one-shot job.
 
+### Rename scheduling queues during deployment
+
+Before deploying a release that renames the scheduling queues:
+
+1. Pause or halt all Worlds.
+2. Stop the old API workers.
+3. Inspect the old BullMQ queues `simulation-ticks` and `simulation-ticks-dlq`. If artifacts remain, use the deployment environment's authenticated BullMQ admin procedure to remove exactly those two queues with force enabled. Do not use Redis `FLUSHDB` or `FLUSHALL`, and do not remove the new `simulation-turns` queues.
+4. Deploy the database migration and the new application version.
+
+Run this cleanup only after confirming that no old worker can enqueue or process work. The cleanup is a deployment note only; it is not executed by this repository's migration or application startup.
+
 ### Run application images
 
 Provide runtime configuration and secrets through the container platform:

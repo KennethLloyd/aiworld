@@ -17,15 +17,19 @@ import { PrismaModule } from './lib/database/prisma.module';
 import { LlmProvider } from './simulation/providers/llm-provider.port';
 import { MockLlmProvider } from './simulation/providers/mock/mock-llm.provider';
 import { RetryingLlmProvider } from './simulation/providers/retry/retrying-llm.provider';
+import {
+  SIMULATION_DLQ,
+  SIMULATION_QUEUE,
+  SIMULATION_REDIS,
+  SimulationScheduler,
+} from './simulation/scheduler/simulation-scheduler';
 
 describe('AppModule', () => {
   let module: TestingModule;
   const configuredProvider = process.env.LLM_PROVIDER;
-  const configuredSchedulerAdapter = process.env.SCHEDULER_ADAPTER;
 
   beforeAll(() => {
     process.env.LLM_PROVIDER = 'mock';
-    process.env.SCHEDULER_ADAPTER = 'in-process';
   });
 
   afterAll(() => {
@@ -33,11 +37,6 @@ describe('AppModule', () => {
       delete process.env.LLM_PROVIDER;
     } else {
       process.env.LLM_PROVIDER = configuredProvider;
-    }
-    if (configuredSchedulerAdapter === undefined) {
-      delete process.env.SCHEDULER_ADAPTER;
-    } else {
-      process.env.SCHEDULER_ADAPTER = configuredSchedulerAdapter;
     }
   });
 
@@ -49,6 +48,14 @@ describe('AppModule', () => {
     module = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideProvider(SimulationScheduler)
+      .useValue({})
+      .overrideProvider(SIMULATION_REDIS)
+      .useValue({})
+      .overrideProvider(SIMULATION_QUEUE)
+      .useValue({})
+      .overrideProvider(SIMULATION_DLQ)
+      .useValue({})
       .overrideProvider(PrismaModule)
       .useValue({})
       .compile();

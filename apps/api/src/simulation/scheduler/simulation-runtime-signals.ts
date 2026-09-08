@@ -3,9 +3,9 @@ import type { SimulationBlockedReason } from '@aiworld/shared/schemas/simulation
 export type SimulationRuntimeSignals = {
   pending: boolean;
   workExpected: boolean;
-  nextTickAt: Date | null;
-  lastTickStartedAt: Date | null;
-  lastTickCompletedAt: Date | null;
+  nextTurnAt: Date | null;
+  lastTurnStartedAt: Date | null;
+  lastTurnCompletedAt: Date | null;
   retrying: boolean;
   recentRetryCount: number;
   blockedReason: SimulationBlockedReason | null;

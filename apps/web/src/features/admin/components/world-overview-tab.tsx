@@ -211,8 +211,8 @@ export function WorldOverviewTab({
             <HealthItem label="Last successful action">
               <span>{formatDate(health.execution.lastSuccessAt)}</span>
             </HealthItem>
-            <HealthItem label="Next scheduled tick">
-              <span>{formatDate(health.scheduler.nextTickAt)}</span>
+            <HealthItem label="Next scheduled turn">
+              <span>{formatDate(health.scheduler.nextTurnAt)}</span>
             </HealthItem>
             <HealthItem label="Provider">
               <Badge tone={healthTone(health.provider.status)} dot>

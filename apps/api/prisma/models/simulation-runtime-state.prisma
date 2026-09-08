@@ -3,9 +3,9 @@ model SimulationRuntimeState {
   worldId                 String    @unique
   pending                 Boolean   @default(false)
   workExpected            Boolean   @default(false)
-  nextTickAt              DateTime?
-  lastTickStartedAt       DateTime?
-  lastTickCompletedAt     DateTime?
+  nextTurnAt              DateTime?
+  lastTurnStartedAt       DateTime?
+  lastTurnCompletedAt     DateTime?
   retrying                Boolean   @default(false)
   recentRetryCount        Int       @default(0)
   lastRetryAt             DateTime?

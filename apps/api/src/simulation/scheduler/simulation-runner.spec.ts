@@ -1,3 +1,8 @@
+import type {
+  ScheduledTurn,
+  SimulationIteration,
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
+
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
@@ -59,13 +64,15 @@ const postDecision: PostDecision = {
   reasoning: 'Reasoning.',
 };
 
-function scheduledCommand(
-  overrides: Partial<{
-    characterId: string;
-    actionType: 'POST' | 'VOTE' | 'COMMENT';
-    executionSource: 'scheduled' | 'one-action' | 'custom';
-  }> = {},
-) {
+function scheduledTurn(
+  overrides?: Partial<Pick<ScheduledTurn, 'characterId' | 'actionType'>>,
+): ScheduledTurn;
+function scheduledTurn(
+  overrides: Partial<SimulationIteration>,
+): SimulationIteration;
+function scheduledTurn(
+  overrides: Partial<SimulationIteration> = {},
+): SimulationIteration {
   return {
     worldSlug: 'mbti-house',
     characterId: 'character-1',
@@ -111,10 +118,6 @@ function createRunner(
 ) {
   const worldRepository = {
     findBySlug: jest.fn().mockResolvedValue(world),
-    withActiveSimulationLock: jest.fn(async (_worldId, operation) => ({
-      status: 'executed' as const,
-      value: await operation(),
-    })),
   } as unknown as jest.Mocked<WorldRepository>;
   const lifecycleConfig = overrides.simulationConfig ?? config;
   const lifecycleService = {
@@ -226,13 +229,13 @@ const successOutcome = {
 };
 
 describe('SimulationRunner', () => {
-  describe('runScheduledTick', () => {
+  describe('runScheduledTurn', () => {
     it('gates scheduled work, uses the process-global provider, persists, and logs', async () => {
       const { runner, lifecycleService, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-1');
+      const result = await runner.runScheduledTurn(scheduledTurn(), 'job-1');
 
       expect(lifecycleService.assertScheduledWorkAllowed).toHaveBeenCalledWith(
         'world-1',
@@ -268,7 +271,7 @@ describe('SimulationRunner', () => {
           },
         });
 
-        await runner.runScheduledTick(scheduledCommand(), 'job-global');
+        await runner.runScheduledTurn(scheduledTurn(), 'job-global');
 
         expect(logService.writeFailure).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -334,8 +337,8 @@ describe('SimulationRunner', () => {
             ),
         });
 
-        const result = await runner.runScheduledTick(
-          scheduledCommand(),
+        const result = await runner.runScheduledTurn(
+          scheduledTurn(),
           `job-${model}`,
         );
 
@@ -354,37 +357,32 @@ describe('SimulationRunner', () => {
       },
     );
 
-    it('rejects before persistence when the World deactivates mid-iteration', async () => {
+    it('allows admitted work to finish when the World deactivates mid-iteration', async () => {
       const { runner, worldRepository, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      worldRepository.withActiveSimulationLock.mockResolvedValue({
-        status: 'inactive',
-      });
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-8');
+      const result = await runner.runScheduledTurn(scheduledTurn(), 'job-8');
 
-      expect(contentWriter.persist).not.toHaveBeenCalled();
-      expect(logService.writeRejected).toHaveBeenCalledWith(
-        expect.objectContaining({
-          reason:
-            'Simulation scheduled work is rejected because World is inactive',
-          jobId: 'job-8',
-        }),
+      expect(worldRepository.findBySlug).toHaveBeenCalledWith('mbti-house');
+      expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
+      expect(logService.writeSuccess).toHaveBeenCalledWith(
+        postDecision,
+        expect.anything(),
+        'scheduled',
+        'job-8',
       );
-      expect(result).toMatchObject({ status: 'rejected' });
+      expect(result).toMatchObject({ status: 'success' });
     });
 
     it('lets deleted Worlds dead-letter without writing a cascaded log', async () => {
       const { runner, worldRepository, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      worldRepository.withActiveSimulationLock.mockResolvedValue({
-        status: 'missing',
-      });
+      worldRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-9'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-9'),
       ).rejects.toMatchObject({
         code: 'WORLD_NOT_FOUND',
       });
@@ -399,7 +397,7 @@ describe('SimulationRunner', () => {
       executor.execute.mockResolvedValue(successOutcome);
       picker.pickTargetPost.mockResolvedValue('post-3');
 
-      await runner.runScheduledTick(scheduledCommand({ actionType: 'VOTE' }));
+      await runner.runScheduledTurn(scheduledTurn({ actionType: 'VOTE' }));
 
       expect(picker.pickTargetPost).toHaveBeenCalledWith('world-1');
       expect(executor.execute).toHaveBeenCalledWith({
@@ -412,7 +410,7 @@ describe('SimulationRunner', () => {
     it('logs a lifecycle rejection as REJECTED and never retries', async () => {
       const { runner, logService } = createRunner({ gateState: 'halted' });
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-4');
+      const result = await runner.runScheduledTurn(scheduledTurn(), 'job-4');
 
       expect(logService.writeRejected).toHaveBeenCalledWith({
         worldId: 'world-1',
@@ -442,7 +440,7 @@ describe('SimulationRunner', () => {
         },
       });
 
-      const result = await runner.runScheduledTick(scheduledCommand(), 'job-2');
+      const result = await runner.runScheduledTurn(scheduledTurn(), 'job-2');
 
       expect(contentWriter.persist).not.toHaveBeenCalled();
       expect(logService.writeFailure).toHaveBeenCalledWith(
@@ -465,8 +463,8 @@ describe('SimulationRunner', () => {
         },
       });
 
-      const result = await runner.runScheduledTick(
-        scheduledCommand(),
+      const result = await runner.runScheduledTurn(
+        scheduledTurn(),
         'job-unsafe',
       );
 
@@ -492,8 +490,8 @@ describe('SimulationRunner', () => {
         const { runner, picker, executor } = createRunner();
         picker.pickTargetPost.mockResolvedValue(null);
 
-        const result = await runner.runScheduledTick(
-          scheduledCommand({ actionType }),
+        const result = await runner.runScheduledTurn(
+          scheduledTurn({ actionType }),
         );
 
         expect(executor.execute).not.toHaveBeenCalled();
@@ -511,7 +509,7 @@ describe('SimulationRunner', () => {
       );
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-5'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-5'),
       ).rejects.toBeInstanceOf(SimulationConfigNotFoundError);
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
@@ -525,7 +523,7 @@ describe('SimulationRunner', () => {
       lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(malformed);
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-10'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-10'),
       ).rejects.toBeInstanceOf(SimulationConfigMalformedError);
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
@@ -538,7 +536,7 @@ describe('SimulationRunner', () => {
       );
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-11'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-11'),
       ).rejects.toBe(lookupFailure);
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
@@ -553,7 +551,7 @@ describe('SimulationRunner', () => {
       });
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-6'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-6'),
       ).rejects.toMatchObject({ code: 'P1001' });
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
@@ -572,7 +570,7 @@ describe('SimulationRunner', () => {
       logService.writeFailure.mockRejectedValue(loggingFailure);
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-log-failure'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-log-failure'),
       ).rejects.toBe(loggingFailure);
     });
 
@@ -581,7 +579,7 @@ describe('SimulationRunner', () => {
       worldRepository.findBySlug.mockResolvedValue(null);
 
       await expect(
-        runner.runScheduledTick(scheduledCommand(), 'job-7'),
+        runner.runScheduledTurn(scheduledTurn(), 'job-7'),
       ).rejects.toThrow('World "mbti-house" was not found');
     });
   });
@@ -592,7 +590,7 @@ describe('SimulationRunner', () => {
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runManualIteration(
-        scheduledCommand({
+        scheduledTurn({
           characterId: 'character-2',
           actionType: 'COMMENT',
           executionSource: 'custom',
@@ -620,9 +618,7 @@ describe('SimulationRunner', () => {
       const { runner } = createRunner({ gateState: 'halted' });
 
       await expect(
-        runner.runManualIteration(
-          scheduledCommand({ executionSource: 'custom' }),
-        ),
+        runner.runManualIteration(scheduledTurn({ executionSource: 'custom' })),
       ).rejects.toBeInstanceOf(SimulationWorkRejectedError);
     });
 
@@ -638,7 +634,7 @@ describe('SimulationRunner', () => {
       });
 
       const result = await runner.runManualIteration(
-        scheduledCommand({ executionSource: 'custom' }),
+        scheduledTurn({ executionSource: 'custom' }),
       );
 
       expect(result).toMatchObject({

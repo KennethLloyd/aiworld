@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Job, Queue } from 'bullmq';
+import { Job, Queue, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 import { App } from 'supertest/types';
 
@@ -10,8 +10,10 @@ import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SIMULATION_TICKS_QUEUE } from '@/simulation/scheduler/bullmq-scheduler.adapter';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import {
+  SIMULATION_TURNS_QUEUE,
+  SimulationScheduler,
+} from '@/simulation/scheduler/simulation-scheduler';
 
 import { canonicalWorld, seedUuid } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
@@ -181,25 +183,25 @@ async function createReconciliationFixture(
   return fixture;
 }
 
-async function ticksForWorld(queue: Queue, worldId: string): Promise<Job[]> {
+async function turnsForWorld(queue: Queue, worldId: string): Promise<Job[]> {
   const jobs = await queue.getJobs([
     'active',
     'waiting',
     'delayed',
     'prioritized',
   ]);
-  return jobs.filter((job) => job.name === `tick_${worldId}`);
+  return jobs.filter((job) => job.name === `turn_${worldId}`);
 }
 
-async function removeTicksForWorld(
+async function removeTurnsForWorld(
   queue: Queue,
   worldId: string,
 ): Promise<void> {
-  const jobs = await ticksForWorld(queue, worldId);
+  const jobs = await turnsForWorld(queue, worldId);
   await Promise.all(jobs.map((job) => job.remove().catch(() => undefined)));
 }
 
-describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
+describe('Simulation scheduler (BullMQ, e2e)', () => {
   jest.setTimeout(60000);
 
   let app: INestApplication<App>;
@@ -213,7 +215,6 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
   let testStart: Date;
 
   beforeAll(async () => {
-    process.env.SCHEDULER_ADAPTER = 'bullmq';
     process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
     process.env.LLM_PROVIDER = 'mock';
     process.env.LLM_MODEL = 'fixture-model';
@@ -228,7 +229,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     await app.init();
     scheduler = app.get(SimulationScheduler);
     queueConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-    queue = new Queue(SIMULATION_TICKS_QUEUE, {
+    queue = new Queue(SIMULATION_TURNS_QUEUE, {
       connection: queueConnection,
     });
 
@@ -265,7 +266,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     });
   };
 
-  it('starts scheduled ticks that fire, persist content, and self-reschedule; stop halts them', async () => {
+  it('starts scheduled turns that fire, persist content, and self-reschedule; stop halts them', async () => {
     testStart = new Date();
 
     await prisma.worldSimulationConfig.update({
@@ -282,8 +283,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     try {
       await scheduler.start(worldId);
 
-      // Completion-to-start cadence: multiple ticks fire back to back, and at
-      // least one of them is a POST so content is actually persisted.
+      // Multiple turns should fire and persist at least one POST.
       await waitFor(
         async () => {
           const logs = await scheduledLogsSinceTestStart();
@@ -320,8 +320,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       });
       expect(posts.length).toBeGreaterThan(0);
 
-      // Lifecycle pause drives stop() and leaves RUNNING, so in-flight ticks
-      // are rejected by the gate and no further ticks fire.
+      // Pausing removes future work while admitted work may finish.
       await app.get(SimulationLifecycleService).pause(worldId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const afterStop = (await scheduledLogsSinceTestStart()).length;
@@ -393,14 +392,14 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     }
   });
 
-  it('repairs stranded ticks, isolates Worlds, and remains idempotent across API processes', async () => {
+  it('repairs stranded turns, isolates Worlds, and remains idempotent across API processes', async () => {
     const first = await createReconciliationFixture(prisma, 'first');
     const second = await createReconciliationFixture(prisma, 'second');
     let secondApp: INestApplication | undefined;
 
     try {
-      await removeTicksForWorld(queue, first.worldId);
-      await removeTicksForWorld(queue, second.worldId);
+      await removeTurnsForWorld(queue, first.worldId);
+      await removeTurnsForWorld(queue, second.worldId);
 
       const secondModule = await Test.createTestingModule({
         imports: [AppModule],
@@ -417,32 +416,87 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
 
       await waitFor(
         async () =>
-          (await ticksForWorld(queue, first.worldId)).length === 1 &&
-          (await ticksForWorld(queue, second.worldId)).length === 1,
+          (await turnsForWorld(queue, first.worldId)).length === 1 &&
+          (await turnsForWorld(queue, second.worldId)).length === 1,
         5000,
       );
 
-      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(1);
-      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+      expect(await turnsForWorld(queue, first.worldId)).toHaveLength(1);
+      expect(await turnsForWorld(queue, second.worldId)).toHaveLength(1);
 
-      await removeTicksForWorld(queue, first.worldId);
-      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(0);
-      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+      await removeTurnsForWorld(queue, first.worldId);
+      expect(await turnsForWorld(queue, first.worldId)).toHaveLength(0);
+      expect(await turnsForWorld(queue, second.worldId)).toHaveLength(1);
 
       await scheduler.ensureScheduled(first.worldId);
 
       await waitFor(
-        async () => (await ticksForWorld(queue, first.worldId)).length === 1,
+        async () => (await turnsForWorld(queue, first.worldId)).length === 1,
         5000,
       );
-      expect(await ticksForWorld(queue, first.worldId)).toHaveLength(1);
-      expect(await ticksForWorld(queue, second.worldId)).toHaveLength(1);
+      expect(await turnsForWorld(queue, first.worldId)).toHaveLength(1);
+      expect(await turnsForWorld(queue, second.worldId)).toHaveLength(1);
     } finally {
-      await removeTicksForWorld(queue, first.worldId);
-      await removeTicksForWorld(queue, second.worldId);
+      await removeTurnsForWorld(queue, first.worldId);
+      await removeTurnsForWorld(queue, second.worldId);
       await deleteReconciliationFixture(prisma, first);
       await deleteReconciliationFixture(prisma, second);
       await secondApp?.close();
+    }
+  });
+
+  it('keeps only the latest delayed successor while a Turn is active', async () => {
+    const queueName = `${SIMULATION_TURNS_QUEUE}-deduplication-test`;
+    const testQueue = new Queue(queueName, { connection: queueConnection });
+    const workerConnection = new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+    });
+    let releaseActiveJob!: () => void;
+    const activeJobFinished = new Promise<void>((resolve) => {
+      releaseActiveJob = resolve;
+    });
+    const worker = new Worker(queueName, async () => activeJobFinished, {
+      connection: workerConnection,
+    });
+    const deduplicationId = `deduplication-test-${Date.now()}`;
+
+    try {
+      const first = await testQueue.add(
+        'turn',
+        { sequence: 1 },
+        {
+          deduplication: { id: deduplicationId, keepLastIfActive: true },
+        },
+      );
+      await waitFor(async () => (await first.getState()) === 'active', 5000);
+
+      const deduplicated = await testQueue.add(
+        'turn',
+        { sequence: 2 },
+        {
+          delay: 60_000,
+          deduplication: { id: deduplicationId, keepLastIfActive: true },
+        },
+      );
+      expect(deduplicated.id).toBe(first.id);
+
+      releaseActiveJob();
+      await waitFor(async () => {
+        const successorId =
+          await testQueue.getDeduplicationJobId(deduplicationId);
+        return successorId !== null && successorId !== first.id;
+      }, 5000);
+
+      const successorId =
+        await testQueue.getDeduplicationJobId(deduplicationId);
+      const successor = await testQueue.getJob(successorId!);
+      expect(successor?.data).toEqual({ sequence: 2 });
+    } finally {
+      releaseActiveJob();
+      await worker.close();
+      await testQueue.obliterate({ force: true });
+      await testQueue.close();
+      await workerConnection.quit();
     }
   });
 
@@ -468,7 +522,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
           where: { worldId: fixture.worldId },
         }),
       ).resolves.toMatchObject({ state: 'RUNNING' });
-      expect(await ticksForWorld(queue, fixture.worldId)).toHaveLength(0);
+      expect(await turnsForWorld(queue, fixture.worldId)).toHaveLength(0);
       await expect(
         app.get(SimulationAdminService).getHealth(fixture.worldSlug),
       ).resolves.toMatchObject({
@@ -483,7 +537,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       await scheduler.ensureScheduled(fixture.worldId);
 
       await waitFor(
-        async () => (await ticksForWorld(queue, fixture.worldId)).length === 1,
+        async () => (await turnsForWorld(queue, fixture.worldId)).length === 1,
         5000,
       );
       await expect(
@@ -500,7 +554,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
         scheduler: { blockedReason: null },
       });
     } finally {
-      await removeTicksForWorld(queue, fixture.worldId);
+      await removeTurnsForWorld(queue, fixture.worldId);
       await deleteReconciliationFixture(prisma, fixture);
     }
   });
@@ -542,7 +596,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       expect(health.scheduler.deadLetterCount).toBe(1);
       expect(health.health).toEqual({ status: 'HEALTHY', reason: null });
     } finally {
-      await removeTicksForWorld(queue, fixture.worldId);
+      await removeTurnsForWorld(queue, fixture.worldId);
       await deleteReconciliationFixture(prisma, fixture);
     }
   });
@@ -552,7 +606,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
     let secondApp: INestApplication | undefined;
 
     try {
-      await removeTicksForWorld(queue, fixture.worldId);
+      await removeTurnsForWorld(queue, fixture.worldId);
       const secondModule = await Test.createTestingModule({
         imports: [AppModule],
       }).compile();
@@ -560,12 +614,12 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       await secondApp.init();
 
       await waitFor(
-        async () => (await ticksForWorld(queue, fixture.worldId)).length === 1,
+        async () => (await turnsForWorld(queue, fixture.worldId)).length === 1,
         5000,
       );
-      expect(await ticksForWorld(queue, fixture.worldId)).toHaveLength(1);
+      expect(await turnsForWorld(queue, fixture.worldId)).toHaveLength(1);
     } finally {
-      await removeTicksForWorld(queue, fixture.worldId);
+      await removeTurnsForWorld(queue, fixture.worldId);
       await deleteReconciliationFixture(prisma, fixture);
       await secondApp?.close();
     }
@@ -581,9 +635,7 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
       where: { id: result.log.id },
     });
     expect(log.executionSource).toBe('ONE_ACTION');
-    // A manual iteration picks a random resident and action, so the log is
-    // SUCCESS for a persisted action or SKIPPED when the resident already
-    // voted on the picked target — both are completed runs.
+    // Random manual picks may persist or skip an already-voted target.
     expect(['SUCCESS', 'SKIPPED']).toContain(log.status);
     expect(log.jobId).toBeNull();
   });
@@ -606,11 +658,11 @@ describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
 
   afterEach(async () => {
     await scheduler.stop(worldId).catch(() => undefined);
-    // Let an in-flight tick finish before cleaning so nothing leaks across
+    // Let an in-flight turn finish before cleaning so nothing leaks across
     // tests.
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Ticks target seeded posts too, so comments and votes created during the
+    // Turns target seeded posts too, so comments and votes created during the
     // test window must be removed from both new and seeded content.
     const postIds = (
       await prisma.post.findMany({

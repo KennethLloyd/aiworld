@@ -10,7 +10,6 @@ import {
 import {
   SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
-  SimulationStateConcurrentChangeError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
 
@@ -103,43 +102,26 @@ export class PrismaWorldSimulationConfigRepository extends WorldSimulationConfig
     return configs;
   }
 
-  async transitionState(
+  async setState(
     worldId: string,
-    from: SimulationState,
-    to: SimulationState,
+    state: SimulationState,
   ): Promise<WorldSimulationConfigRecord> {
-    const result = await this.prisma.worldSimulationConfig.updateMany({
-      where: { worldId, state: from },
-      data: { state: to },
-    });
-
-    if (result.count === 0) {
-      const persisted = await this.prisma.worldSimulationConfig.findUnique({
+    try {
+      const row = await this.prisma.worldSimulationConfig.update({
         where: { worldId },
+        data: { state },
       });
 
-      if (!persisted) {
+      return this.mapToRecord(row);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new SimulationConfigNotFoundError(worldId);
       }
-
-      throw new SimulationStateConcurrentChangeError(
-        worldId,
-        from,
-        persisted.state as SimulationState,
-      );
+      throw error;
     }
-
-    const row = await this.prisma.worldSimulationConfig.findUnique({
-      where: { worldId },
-    });
-
-    if (!row) {
-      throw new SimulationConfigNotFoundError(worldId);
-    }
-
-    // Report the state this operation persisted; a transition landing between
-    // the conditional update and the read-back must not leak into the result.
-    return this.mapToRecord({ ...row, state: to });
   }
 
   async updateSpeedMultiplier(
