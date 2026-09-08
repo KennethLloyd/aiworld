@@ -23,14 +23,14 @@ afterEach(() => {
 });
 
 describe('web API readiness configuration', () => {
-  it('waits on the Docker API hostname and configured port', () => {
-    process.env.API_HOST = 'api';
+  it('waits on a configured API host and port', () => {
+    process.env.API_HOST = 'localhost';
     process.env.API_PORT = '4300';
     delete require.cache[configPath];
 
     const config = require(configPath) as { resources: string[] };
 
-    expect(config.resources).toEqual(['http-get://api:4300/api/docs']);
+    expect(config.resources).toEqual(['http-get://localhost:4300/api/docs']);
   });
 
   it('defaults to the host-local API endpoint', () => {

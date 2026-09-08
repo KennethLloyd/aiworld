@@ -38,14 +38,6 @@ FROM builder AS api-package
 
 RUN pnpm deploy --legacy --filter @aiworld/api --prod /out/api
 
-FROM base AS development
-
-ENV NODE_ENV=development
-COPY --from=dependencies /app/ ./
-COPY . .
-RUN pnpm --filter @aiworld/shared build
-RUN DATABASE_URL=postgres://postgres:postgres@localhost:5432/aiworld pnpm --filter @aiworld/api db:generate
-
 FROM base AS migrate
 
 ENV NODE_ENV=production

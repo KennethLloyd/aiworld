@@ -8,7 +8,7 @@ An authenticated admin can manage Worlds and Characters, control simulations, in
 
 ## What to expect
 
-After a successful merge to `main`, CI publishes immutable production images. Once the protected production environment is authorized and configured, the deployment verifies the exact images, applies database changes before replacing the serving application, and checks health before reporting success. A failed application rollout can return to the previous serving release; database migrations are forward-only unless separately reverted.
+Production CI builds and validates immutable API, migration, and web images. Deployment is environment-specific and is kept separate from the normal local development workflow.
 
 ## What AIWorld does
 
@@ -24,57 +24,48 @@ AIWorld is a pnpm/Turborepo monorepo:
 - **API:** NestJS, Prisma, PostgreSQL, and Redis-backed BullMQ scheduling.
 - **Web:** React and Vite.
 - **Shared:** Typed Zod transport contracts consumed by both applications.
-- **Containers:** Development Compose runs separate `shared`, `api`, `web`, `postgres`, and `redis` services. Production builds produce separate API and web application images; PostgreSQL and Redis remain independent runtime services.
+- **Runtime dependencies:** PostgreSQL and Redis are available through the small local Compose file. Production builds produce separate API, migration, and web images; PostgreSQL and Redis remain independent runtime services.
 
-The two orchestration layers have deliberately separate responsibilities:
+Turborepo is the application workspace orchestrator:
 
-- **Turborepo** coordinates dependency-aware monorepo tasks such as builds,
-  checks, and the optional host-local development workflow.
-- **Docker Compose** coordinates the Docker development runtime: PostgreSQL,
-  Redis, the shared-package watcher, the API watcher, the web watcher, service
-  readiness, migrations, seeding, ports, and mounted source volumes.
-
-Compose invokes the existing package-level watcher and database scripts directly;
-it does not run Turbo's `dev` task inside the Docker runtime. That is intentional:
-Turbo has no responsibility for container networking or infrastructure readiness,
-while Compose needs to express those runtime dependencies. The production
-Dockerfile still uses the root Turbo build task, and repository-wide checks remain
-Turbo tasks, so the two layers do not maintain competing definitions of the same
-work.
+- `pnpm dev` builds the shared package once, then runs `turbo run dev`.
+- Turbo starts the shared package, API, and web watchers as workspace processes.
+- The API prepares Prisma, applies tracked migrations, and seeds The MBTI House
+  when it is absent before starting NestJS.
+- Docker Compose only supplies PostgreSQL and Redis for local development.
 
 ## Development
 
 ### Prerequisites
 
-- Docker Engine with Docker Compose v2
+- Node.js 22+
+- pnpm 10
+- Docker Engine with Docker Compose v2 for PostgreSQL and Redis
 
 ### Clone, configure, and start
 
 From the repository root:
 
 ```bash
+pnpm install --frozen-lockfile
 cp .env.example .env
-# Edit .env only if you need different ports or LLM settings.
-docker compose up --build
+# Edit .env for local ports, credentials, or LLM settings when needed.
+docker compose up -d --wait postgres redis
+pnpm dev
 ```
 
-`docker compose up --build` is the normal Docker-first development entry point.
-The development image installs the workspace with
-`pnpm install --frozen-lockfile`, so a host-side `pnpm install` and host Node.js
-are not required for this workflow. It starts the complete stack:
+`pnpm dev` is the normal application development entry point. Turborepo
+orchestrates the shared package, API, and web development tasks directly on the
+host, so source changes use the normal TypeScript, NestJS, and Vite watch
+feedback without application containers.
 
-- `shared` TypeScript compiler watcher
-- `web` at `http://localhost:5173`
-- `api` at `http://localhost:3000`
-- PostgreSQL with persistent volume `pgdata`
-- Redis for the BullMQ Scheduler
-
-The shared package compiler runs before the API generates Prisma and remains in watch mode for source changes. The API waits for healthy PostgreSQL, Redis, and shared build outputs, applies tracked Prisma migrations, seeds The MBTI House only when it is absent, and then starts the NestJS watcher. The web service waits for the API before starting Vite. Source directories are mounted into the application containers, so shared, API, and web changes retain their normal watch-mode feedback.
-
-The initial seed creates The MBTI House, 16 AI residents, starter posts/comments/votes, and a paused simulation configuration. Restarting the stack leaves existing development data untouched. To reset the starter data, run:
+The initial seed creates The MBTI House, 16 AI residents, starter
+posts/comments/votes, and a paused simulation configuration. Restarting the
+application leaves existing development data untouched. To seed it explicitly,
+run:
 
 ```bash
-docker compose exec api pnpm --filter @aiworld/api db:seed
+pnpm --filter @aiworld/api db:seed
 ```
 
 ### Local URLs
@@ -89,17 +80,18 @@ docker compose exec api pnpm --filter @aiworld/api db:seed
 
 The API uses the `/api` prefix. The server remains the authorization boundary; client-side route guards only improve navigation and user feedback.
 
-`API_PORT` and `WEB_PORT` in the root `.env` control the host-facing application ports. `DATABASE_URL` and `REDIS_URL` are for host-side commands; `DOCKER_DATABASE_URL` and `DOCKER_REDIS_URL` in the example provide service-name URLs to Compose. Browser-facing origins remain based on localhost.
+`API_PORT` and `WEB_PORT` in the root `.env` control the application ports.
+`DATABASE_URL` and `REDIS_URL` point at the local PostgreSQL and Redis services.
+Browser-facing origins remain based on localhost.
 
 ### Create a local admin
 
-After the stack is running, seed an admin account through the API container:
+After the application is running, seed an admin account from the repository root:
 
 ```bash
-docker compose exec \
-  -e ADMIN_EMAIL=admin@aiworld.local \
-  -e ADMIN_PASSWORD='change-this-local-password' \
-  api pnpm --filter @aiworld/api db:seed:admin
+ADMIN_EMAIL=admin@aiworld.local \
+ADMIN_PASSWORD='change-this-local-password' \
+pnpm --filter @aiworld/api db:seed:admin
 ```
 
 Keep database URLs, auth secrets, provider credentials, cookies, authentication state, and screenshots containing secrets out of commits.
@@ -109,45 +101,24 @@ Keep database URLs, auth secrets, provider credentials, cookies, authentication 
 Run these from the repository root:
 
 ```bash
-# Stop the foreground stack with Ctrl-C, or stop detached services:
+# Stop the local infrastructure:
 docker compose down
 
-# Follow one service or the complete stack:
-docker compose logs -f api
-docker compose logs -f web
-
-# Rebuild after dependency or Dockerfile changes and reset only workspace
-# dependency volumes (the default Compose project name is `aiworld`):
-docker compose down
-docker volume rm aiworld_app_node_modules aiworld_api_node_modules \
-  aiworld_web_node_modules aiworld_shared_node_modules
-docker compose up --build
+# Follow PostgreSQL or Redis logs:
+docker compose logs -f postgres
+docker compose logs -f redis
 
 # Apply migrations and seed again after a database change:
-docker compose run --rm api sh -c \
-  'pnpm --filter @aiworld/api db:generate && \
-   pnpm --filter @aiworld/api db:migrate:deploy && \
-   pnpm --filter @aiworld/api db:seed'
+pnpm --filter @aiworld/api db:generate
+pnpm --filter @aiworld/api db:migrate:deploy
+pnpm --filter @aiworld/api db:seed
 
 # Remove containers and the local PostgreSQL volume for a clean reset:
 docker compose down --volumes
 ```
 
-The last command deletes local development data. The root `pnpm dev` script is
-an optional convenience alias for `docker compose up --build`; it is not needed
-for the Docker-first workflow.
-
-### Optional host-local development
-
-Use this only when you intentionally want Turbo to run the workspace watchers on
-the host. This path requires Node.js 22+, pnpm 10, a host dependency install, and
-PostgreSQL/Redis supplied separately:
-
-```bash
-pnpm install --frozen-lockfile
-docker compose up -d postgres redis
-pnpm dev:local
-```
+The last command deletes local development data. Start the infrastructure again
+with `docker compose up -d --wait postgres redis` before running `pnpm dev`.
 
 ### LLM provider configuration
 
@@ -187,7 +158,7 @@ migrations, and run:
 
 ```bash
 pnpm install --frozen-lockfile
-docker compose up -d postgres redis
+docker compose up -d --wait postgres redis
 pnpm --filter @aiworld/shared build
 pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate:deploy
@@ -202,8 +173,7 @@ The root `Dockerfile` contains separate targets for the runtime responsibilities
 | --- | --- |
 | `api-runtime` | Non-root NestJS process running the compiled API artifact. |
 | `web-runtime` | Non-root Nginx process serving the built Vite assets and `/health`. |
-| `migrate` | One-shot Prisma migration process. It never runs as part of API startup. |
-| `development` | Full pnpm workspace used by the development Compose services. |
+| `migrate` | One-shot Prisma migration process. |
 
 The builder installs the pnpm workspace with the frozen lockfile, generates
 Prisma, and runs the existing root `pnpm build` task. The API runtime is pruned
@@ -244,20 +214,10 @@ docker run --rm \
 
 The migration image receives `DATABASE_URL` at runtime. It does not contain credentials and the API image does not perform migrations during startup. The same image can be run by a deployment platform as a one-shot job.
 
-### Rename scheduling queues during deployment
-
-Before deploying a release that renames the scheduling queues:
-
-1. Pause or halt all Worlds.
-2. Stop the old API workers.
-3. Inspect the old BullMQ queues `simulation-ticks` and `simulation-ticks-dlq`. If artifacts remain, use the deployment environment's authenticated BullMQ admin procedure to remove exactly those two queues with force enabled. Do not use Redis `FLUSHDB` or `FLUSHALL`, and do not remove the new `simulation-turns` queues.
-4. Deploy the database migration and the new application version.
-
-Run this cleanup only after confirming that no old worker can enqueue or process work. The cleanup is a deployment note only; it is not executed by this repository's migration or application startup.
-
 ### Run application images
 
-Provide runtime configuration and secrets through the container platform:
+Provide runtime configuration, secrets, networking, and persistent services
+through the deployment platform:
 
 ```bash
 docker run --rm \
@@ -280,13 +240,15 @@ PostgreSQL and Redis are intentionally outside the application images. Networkin
 
 - API `GET /api/health` returns the anonymous liveness contract used by the API image health check.
 - Web `GET /health` returns a cache-disabled JSON health response used by the web image health check.
-- Compose waits for PostgreSQL and Redis health checks plus the shared compiler output before starting the API, and waits for the API health check before starting the web service.
-- Pull requests build `api-runtime`, `migrate`, and `web-runtime` for `linux/amd64` and `linux/arm64` without publishing, then smoke-test each runtime target.
-- Successful pushes to `main` publish `api`, `migrate`, and `web` images to the fixed GHCR repositories `ghcr.io/kennethlloyd/aiworld/<image>` for both supported platforms. Each image is tagged with the source commit SHA, and CI uploads a data-only manifest containing exactly `source_sha`, `repository`, and the build-produced `digest` (`sha256:...`).
-- The `Deploy production` workflow runs only for a successful same-repository push workflow on `main`. It downloads the three manifests from that exact CI run, validates their schema, source SHA, fixed repositories, and lowercase digests, then sends immutable `repository@digest` references plus a short-lived token over stdin to the host's forced SSH command.
-- Configure only the public web API origin in `VITE_API_BASE_URL` when the web image calls an API at a separate origin. Production environment configuration, host keys, SSH credentials, runtime secrets, and host-side deployment controls remain outside this repository.
-
-The production host-side deployment command and its dedicated forced-command SSH identity are intentionally maintained outside this public repository. The public workflows transport only validated image metadata and the short-lived deployment token; host networking, runtime configuration, and secret injection remain deployment-platform responsibilities. That external command must take a deployment lock, authenticate to the registry only for the rollout, verify the exact `repository@digest` references, run migrations before replacing serving containers, and check application health before completing. The same path must be independently exercised against a non-destructive staging environment before production is enabled.
+- Pull requests build `api-runtime`, `migrate`, and `web-runtime` for the
+  supported platforms without publishing, then smoke-test each runtime target.
+- The deployment workflow consumes the exact images produced by the successful
+  production CI run. The deployment platform applies migrations before replacing
+  the serving application and checks health before completing.
+- Configure only the public web API origin in `VITE_API_BASE_URL` when the web
+  image calls an API at a separate origin. Production environment
+  configuration, runtime secrets, and deployment controls remain outside this
+  repository.
 
 ## License
 

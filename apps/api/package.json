@@ -15,7 +15,7 @@
     "build": "nest build",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "dev": "nest start --watch",
+    "dev": "prisma generate && prisma migrate deploy && tsx prisma/seed-world-if-empty.ts && nest start --watch",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
