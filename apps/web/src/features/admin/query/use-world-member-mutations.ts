@@ -4,9 +4,12 @@ import type {
 } from '@aiworld/shared/schemas/world-member.schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import {
+  createWorldMember,
+  updateWorldMember,
+} from '@/features/admin/api/world-member-api';
 import { characterKeys } from '@/features/characters/query/character-keys';
 import { worldKeys } from '@/features/worlds/query/world-keys';
-import { useGateways } from '@/providers/gateways-provider';
 
 import { worldMemberKeys } from './world-member-keys';
 
@@ -26,10 +29,9 @@ async function invalidateMembershipReads(
 }
 
 export function useAssignWorldMember() {
-  const { worldMemberGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateWorldMember) => worldMemberGateway.create(input),
+    mutationFn: (input: CreateWorldMember) => createWorldMember(input),
     onSuccess: async (_member, input) => {
       await invalidateMembershipReads(queryClient, input.worldSlug);
     },
@@ -46,11 +48,10 @@ export interface UpdateWorldMemberVariables {
 }
 
 export function useUpdateWorldMember() {
-  const { worldMemberGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ memberId, input }: UpdateWorldMemberVariables) =>
-      worldMemberGateway.update(memberId, input),
+      updateWorldMember(memberId, input),
     onSuccess: async (_member, { worldSlug }) => {
       await invalidateMembershipReads(queryClient, worldSlug);
     },

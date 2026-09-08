@@ -5,7 +5,7 @@ import {
   POLLING_OPTIONS,
   PUBLIC_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import { listCharacters } from '@/features/characters/api/character-api';
 
 import { characterKeys } from './character-keys';
 
@@ -16,12 +16,11 @@ const publicCharactersQuery = (worldSlug: string): ListCharactersQuery => ({
 });
 
 export function useCharacters(worldSlug: string) {
-  const { characterGateway } = useGateways();
   const query = publicCharactersQuery(worldSlug);
 
   return useQuery({
     queryKey: characterKeys.list(query),
-    queryFn: () => characterGateway.list(query),
+    queryFn: () => listCharacters(query),
     enabled: worldSlug.length > 0,
     refetchInterval: PUBLIC_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,

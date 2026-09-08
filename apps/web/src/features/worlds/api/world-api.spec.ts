@@ -10,12 +10,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
 import { ApiError } from '@/core/api/api-error';
-import { HttpClient } from '@/core/api/http-client';
 
-import { HttpWorldGateway } from './http-world-gateway';
-
-const http = new HttpClient('');
-const gateway = new HttpWorldGateway(http);
+import {
+  createWorld,
+  deleteWorld,
+  getWorldBySlug,
+  listWorlds,
+  updateWorld,
+} from './world-api';
 
 const world: WorldResponse = {
   id: '6a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f10',
@@ -44,7 +46,7 @@ function expectApiError(error: unknown): ApiError {
   return error as ApiError;
 }
 
-describe('HttpWorldGateway', () => {
+describe('world API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -66,7 +68,7 @@ describe('HttpWorldGateway', () => {
   it('parses a valid list response and serializes the query params', async () => {
     const fetchMock = mockFetch(200, listResponse);
 
-    const result = await gateway.list({ search: 'mbti', page: 2, limit: 10 });
+    const result = await listWorlds({ search: 'mbti', page: 2, limit: 10 });
 
     expect(result).toEqual(listResponse);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -78,7 +80,7 @@ describe('HttpWorldGateway', () => {
   it('omits the search param and defaults page/limit when absent', async () => {
     const fetchMock = mockFetch(200, listResponse);
 
-    await gateway.list({ search: undefined, page: 1, limit: 20 });
+    await listWorlds({ search: undefined, page: 1, limit: 20 });
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/worlds?page=1&limit=20',
@@ -89,7 +91,7 @@ describe('HttpWorldGateway', () => {
   it('serializes the public active-only filter when requested by the client', async () => {
     const fetchMock = mockFetch(200, listResponse);
 
-    await gateway.list({ page: 1, limit: 20, isActive: true });
+    await listWorlds({ page: 1, limit: 20, isActive: true });
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/worlds?page=1&limit=20&isActive=true',
@@ -100,7 +102,7 @@ describe('HttpWorldGateway', () => {
   it('rejects a malformed list payload before anything can be cached', async () => {
     mockFetch(200, { items: 'not-an-array', meta: { page: 1 } });
 
-    await expect(gateway.list({ page: 1, limit: 20 })).rejects.toBeInstanceOf(
+    await expect(listWorlds({ page: 1, limit: 20 })).rejects.toBeInstanceOf(
       ZodError,
     );
   });
@@ -108,7 +110,7 @@ describe('HttpWorldGateway', () => {
   it('rejects a list payload missing the pagination meta contract', async () => {
     mockFetch(200, { items: [world], meta: { page: 1, limit: 20 } });
 
-    await expect(gateway.list({ page: 1, limit: 20 })).rejects.toBeInstanceOf(
+    await expect(listWorlds({ page: 1, limit: 20 })).rejects.toBeInstanceOf(
       ZodError,
     );
   });
@@ -116,7 +118,7 @@ describe('HttpWorldGateway', () => {
   it('parses a valid detail response and hits the plural slug endpoint', async () => {
     const fetchMock = mockFetch(200, world);
 
-    const result = await gateway.getBySlug('mbti');
+    const result = await getWorldBySlug('mbti');
 
     expect(result).toEqual(world);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -133,7 +135,7 @@ describe('HttpWorldGateway', () => {
     });
 
     const error = expectApiError(
-      await gateway.getBySlug('missing').catch((caught: unknown) => caught),
+      await getWorldBySlug('missing').catch((caught: unknown) => caught),
     );
 
     expect(error.status).toBe(404);
@@ -142,7 +144,7 @@ describe('HttpWorldGateway', () => {
   it('rejects a malformed detail payload', async () => {
     mockFetch(200, { name: 'Missing required fields' });
 
-    await expect(gateway.getBySlug('mbti')).rejects.toBeInstanceOf(ZodError);
+    await expect(getWorldBySlug('mbti')).rejects.toBeInstanceOf(ZodError);
   });
 
   it('creates through the collection endpoint and parses the response', async () => {
@@ -156,7 +158,7 @@ describe('HttpWorldGateway', () => {
       isActive: true,
     };
 
-    const result = await gateway.create(input);
+    const result = await createWorld(input);
 
     expect(result).toEqual(world);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -169,7 +171,7 @@ describe('HttpWorldGateway', () => {
     mockFetch(201, { id: 'not-a-uuid' });
 
     await expect(
-      gateway.create({
+      createWorld({
         name: 'MBTI',
         slug: 'mbti',
         description: null,
@@ -183,7 +185,7 @@ describe('HttpWorldGateway', () => {
     const fetchMock = mockFetch(200, world);
     const input: UpdateWorld = { name: 'MBTI 2' };
 
-    const result = await gateway.update('mbti', input);
+    const result = await updateWorld('mbti', input);
 
     expect(result).toEqual(world);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -195,7 +197,7 @@ describe('HttpWorldGateway', () => {
   it('deletes through the slug endpoint and resolves void', async () => {
     const fetchMock = mockFetch(204);
 
-    await expect(gateway.delete('mbti')).resolves.toBeUndefined();
+    await expect(deleteWorld('mbti')).resolves.toBeUndefined();
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/worlds/mbti',

@@ -11,7 +11,7 @@ import { Globe } from 'lucide-react';
 import { ApiError } from '@/core/api/api-error';
 import { PostDetail } from '@/features/posts/components/post-detail';
 import { usePost } from '@/features/posts/query/use-post';
-import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 import {
   WorldLayout,
   type WorldSection,

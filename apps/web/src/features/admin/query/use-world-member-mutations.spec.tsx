@@ -3,13 +3,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { WorldMemberGateway } from '@/features/admin/api/world-member-gateway';
+import { createWorldMember } from '@/features/admin/api/world-member-api';
 import { characterKeys } from '@/features/characters/query/character-keys';
 import { worldKeys } from '@/features/worlds/query/world-keys';
-import { gateways, GatewaysProvider } from '@/providers/gateways-provider';
 
 import { useAssignWorldMember } from './use-world-member-mutations';
 import { worldMemberKeys } from './world-member-keys';
+
+vi.mock('@/features/admin/api/world-member-api', () => ({
+  createWorldMember: vi.fn<typeof createWorldMember>(),
+}));
 
 const input = {
   worldSlug: 'mbti-house',
@@ -34,23 +37,9 @@ describe('world member mutations', () => {
       defaultOptions: { queries: { retry: false } },
     });
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
-    const create = vi
-      .fn<WorldMemberGateway['create']>()
-      .mockResolvedValue(member);
+    vi.mocked(createWorldMember).mockResolvedValue(member);
     const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <GatewaysProvider
-          value={{
-            ...gateways,
-            worldMemberGateway: {
-              ...gateways.worldMemberGateway,
-              create,
-            },
-          }}
-        >
-          {children}
-        </GatewaysProvider>
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 
     const { result } = renderHook(() => useAssignWorldMember(), { wrapper });

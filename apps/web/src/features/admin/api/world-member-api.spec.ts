@@ -2,9 +2,11 @@ import type { WorldMemberResponse } from '@aiworld/shared/schemas/world-member-r
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
-import { HttpClient } from '@/core/api/http-client';
-
-import { HttpWorldMemberGateway } from './http-world-member-gateway';
+import {
+  createWorldMember,
+  listWorldMembers,
+  updateWorldMember,
+} from './world-member-api';
 
 const member: WorldMemberResponse = {
   id: '6a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f10',
@@ -17,10 +19,7 @@ const member: WorldMemberResponse = {
   joinedAt: '2026-07-15T10:00:00.000Z',
 };
 
-const http = new HttpClient('');
-const gateway = new HttpWorldMemberGateway(http);
-
-describe('HttpWorldMemberGateway', () => {
+describe('WorldMember API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -43,7 +42,7 @@ describe('HttpWorldMemberGateway', () => {
     });
 
     await expect(
-      gateway.list({
+      listWorldMembers({
         worldSlug: 'mbti-house',
         role: 'AI',
         page: 2,
@@ -63,12 +62,12 @@ describe('HttpWorldMemberGateway', () => {
   it('serializes assignment and membership activity changes', async () => {
     const fetchMock = mockFetch(member);
 
-    await gateway.create({
+    await createWorldMember({
       worldSlug: 'mbti-house',
       characterId: member.characterId!,
       isActive: true,
     });
-    await gateway.update(member.id, { isActive: false });
+    await updateWorldMember(member.id, { isActive: false });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -92,11 +91,16 @@ describe('HttpWorldMemberGateway', () => {
     );
   });
 
-  it('rejects malformed membership responses at the gateway boundary', async () => {
+  it('rejects malformed membership responses at the API boundary', async () => {
     mockFetch({ items: [], meta: { page: 1, limit: 20, total: 0 } });
 
     await expect(
-      gateway.list({ worldSlug: 'mbti-house', role: 'AI', page: 1, limit: 20 }),
+      listWorldMembers({
+        worldSlug: 'mbti-house',
+        role: 'AI',
+        page: 1,
+        limit: 20,
+      }),
     ).rejects.toBeInstanceOf(ZodError);
   });
 });

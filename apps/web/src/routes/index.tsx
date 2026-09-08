@@ -1,6 +1,6 @@
 import { Navigate, createFileRoute } from '@tanstack/react-router';
 
-import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 
 // "/" has a single canonical destination: the public world list.
 export const Route = createFileRoute('/')({

@@ -9,14 +9,13 @@ import {
   POLLING_OPTIONS,
   PUBLIC_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import { listPosts } from '@/features/posts/api/post-api';
 
 import { postKeys } from './post-keys';
 
 const FEED_PAGE_SIZE = 5;
 
 export function usePosts(slug: string, sort: PostSort = 'hot') {
-  const { postGateway } = useGateways();
   const queryKey = postKeys.list(slug, sort);
   const query = useInfiniteQuery({
     queryKey,
@@ -26,7 +25,7 @@ export function usePosts(slug: string, sort: PostSort = 'hot') {
         limit: FEED_PAGE_SIZE,
         cursor: pageParam,
       };
-      return postGateway.list(slug, postParams, signal);
+      return listPosts(slug, postParams, signal);
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,

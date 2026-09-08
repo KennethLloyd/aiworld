@@ -10,7 +10,6 @@ import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { authClient } from '@/core/auth/auth-client';
-import { gateways, GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 import { Route as AdminCharactersRoute } from '@/routes/admin/characters';
 import { Route as AdminIndexRoute } from '@/routes/admin/index';
@@ -37,9 +36,8 @@ export interface RenderAuthRoutesOptions {
  * for anonymous or an AuthSession fixture for a signed-in user) before
  * rendering - a fresh cache entry is reused and no network fires.
  *
- * The real GatewaysProvider + HttpWorldGateway are used end to end; worlds
- * API tests intercept the network with MSW. The Toaster host is mounted
- * because admin routes call useToast().
+ * API tests intercept feature API requests with MSW. The Toaster host is
+ * mounted because admin routes call useToast().
  */
 export function renderAuthRoutes(
   initialPath: string,
@@ -114,7 +112,6 @@ export function renderAuthRoutes(
     history: createMemoryHistory({ initialEntries: [initialPath] }),
     context: {
       queryClient: client,
-      gateways,
       authClient,
     },
   });
@@ -122,9 +119,7 @@ export function renderAuthRoutes(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={client}>
-        <GatewaysProvider>
-          <Toaster>{children}</Toaster>
-        </GatewaysProvider>
+        <Toaster>{children}</Toaster>
       </QueryClientProvider>
     );
   }

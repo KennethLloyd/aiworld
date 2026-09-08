@@ -2,7 +2,6 @@ import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authApi, authClient, type AuthSession } from '@/core/auth/auth-client';
-import { gateways } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 import { makeSession } from '@/test/fixtures/auth-session';
 
@@ -27,7 +26,7 @@ function makeContext(
   redirect?: string,
 ): GuestOnlyContext {
   return {
-    context: { queryClient, gateways, authClient },
+    context: { queryClient, authClient },
     search: { redirect },
   };
 }

@@ -6,7 +6,7 @@ import {
 
 import { useSignOut } from '@/features/auth/query/use-session';
 import { DiscussionSearch } from '@/features/search/components/discussion-search';
-import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 import { WorldDirectorySearch } from '@/features/worlds/components/world-directory-search';
 import { useAuth } from '@/providers/auth-provider';
 import { AuthSessionBoundary } from '@/providers/auth-session-boundary';

@@ -11,7 +11,6 @@ import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { WorldDirectorySearch } from '@/features/worlds/components/world-directory-search';
-import { GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 import { Route as IndexRoute } from '@/routes/index';
 import { Route as WorldsIndexRoute } from '@/routes/worlds';
@@ -30,8 +29,8 @@ export interface RenderPublicRoutesOptions {
 /**
  * Renders the public routes through a memory-history router so Link/Navigate
  * and route hooks (useSearch/useParams/validateSearch) behave like production.
- * The real GatewaysProvider + HttpWorldGateway are used end to end; tests
- * intercept the network with MSW.
+ * Tests exercise the real feature API functions and intercept the network with
+ * MSW.
  *
  * File routes carry no id/path until update() wires them (exactly what the
  * generated routeTree does); this harness mirrors that wiring against a plain
@@ -100,9 +99,7 @@ export function renderPublicRoutes(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={options.queryClient ?? createQueryClient()}>
-        <GatewaysProvider>
-          <Toaster>{children}</Toaster>
-        </GatewaysProvider>
+        <Toaster>{children}</Toaster>
       </QueryClientProvider>
     );
   }

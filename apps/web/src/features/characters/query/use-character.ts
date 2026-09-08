@@ -4,16 +4,14 @@ import {
   POLLING_OPTIONS,
   PUBLIC_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import { getCharacterById } from '@/features/characters/api/character-api';
 
 import { characterKeys } from './character-keys';
 
 export function useCharacter(characterId: string) {
-  const { characterGateway } = useGateways();
-
   return useQuery({
     queryKey: characterKeys.detail(characterId),
-    queryFn: () => characterGateway.getById(characterId),
+    queryFn: () => getCharacterById(characterId),
     enabled: characterId.length > 0,
     refetchInterval: PUBLIC_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,

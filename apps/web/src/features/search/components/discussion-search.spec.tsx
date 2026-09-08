@@ -11,19 +11,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CharacterGateway } from '@/features/characters/api/character-gateway';
-import type { PostGateway } from '@/features/posts/api/post-gateway';
-import type { WorldGateway } from '@/features/worlds/api/world-gateway';
-import {
-  GatewaysProvider,
-  type AppGateways,
-} from '@/providers/gateways-provider';
-import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
-import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
-import { unusedWorldMemberGateway } from '@/test/fixtures/unused-world-member-gateway';
-
-import type { SearchGateway } from '../api/search-gateway';
+import { searchWorld } from '../api/search-api';
 import { DiscussionSearch } from './discussion-search';
+
+vi.mock('../api/search-api', () => ({
+  searchWorld: vi.fn<typeof searchWorld>(),
+}));
 
 const postId = '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11';
 const response: SearchResponse = {
@@ -68,8 +61,8 @@ const response: SearchResponse = {
 };
 
 describe('DiscussionSearch', () => {
-  it('validates short input without calling the search gateway', async () => {
-    const search = vi.fn<SearchGateway['search']>().mockResolvedValue(response);
+  it('validates short input without calling the search API', async () => {
+    const search = vi.fn<typeof searchWorld>().mockResolvedValue(response);
 
     await renderSearch(search);
 
@@ -85,7 +78,7 @@ describe('DiscussionSearch', () => {
   });
 
   it('shows post and comment matches that both open the parent post', async () => {
-    const search = vi.fn<SearchGateway['search']>().mockResolvedValue(response);
+    const search = vi.fn<typeof searchWorld>().mockResolvedValue(response);
 
     await renderSearch(search);
 
@@ -120,7 +113,7 @@ describe('DiscussionSearch', () => {
   });
 
   it('shows the empty state for a valid query with no matches', async () => {
-    const search = vi.fn<SearchGateway['search']>().mockResolvedValue({
+    const search = vi.fn<typeof searchWorld>().mockResolvedValue({
       ...response,
       items: [],
       meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
@@ -139,7 +132,7 @@ describe('DiscussionSearch', () => {
   });
 });
 
-async function renderSearch(search: SearchGateway['search']) {
+async function renderSearch(search: typeof searchWorld) {
   const rootRoute = createRootRoute();
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
@@ -151,60 +144,11 @@ async function renderSearch(search: SearchGateway['search']) {
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
   await router.load();
-  const gateways: AppGateways = {
-    adminGateway: unusedAdminGateway,
-    worldMemberGateway: unusedWorldMemberGateway,
-    worldGateway: unusedWorldGateway,
-    postGateway: unusedPostGateway,
-    characterGateway: unusedCharacterGateway,
-    adminCharacterGateway: unusedAdminCharacterGateway,
-    searchGateway: { search },
-  };
+  vi.mocked(searchWorld).mockImplementation(search);
 
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <GatewaysProvider value={gateways}>
-        <RouterProvider router={router} />
-      </GatewaysProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
-
-const unusedWorldGateway: WorldGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getBySlug: async () => {
-    throw new Error('unused test adapter');
-  },
-  create: async () => {
-    throw new Error('unused test adapter');
-  },
-  update: async () => {
-    throw new Error('unused test adapter');
-  },
-  delete: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedPostGateway: PostGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getById: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedCharacterGateway: CharacterGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getById: async () => {
-    throw new Error('unused test adapter');
-  },
-  getActivity: async () => {
-    throw new Error('unused test adapter');
-  },
-};

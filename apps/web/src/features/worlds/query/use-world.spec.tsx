@@ -6,7 +6,6 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ApiError } from '@/core/api/api-error';
-import { GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 
 import { useWorld } from './use-world';
@@ -51,7 +50,7 @@ describe('useWorld', () => {
   function wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={createQueryClient()}>
-        <GatewaysProvider>{children}</GatewaysProvider>
+        {children}
       </QueryClientProvider>
     );
   }
@@ -79,9 +78,7 @@ describe('useWorld', () => {
     const client = createQueryClient();
     function clientWrapper({ children }: { children: React.ReactNode }) {
       return (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       );
     }
 
@@ -126,9 +123,7 @@ describe('useWorld', () => {
     const client = createQueryClient();
     function clientWrapper({ children }: { children: React.ReactNode }) {
       return (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       );
     }
 

@@ -1,6 +1,8 @@
+import { env } from '@/core/config/env';
+
 import { parseErrorEnvelope } from './api-error';
 
-/** Sends credentialed requests; gateway adapters validate responses. */
+/** Sends credentialed requests for feature API functions. */
 export class HttpClient {
   constructor(private readonly baseUrl: string) {}
 
@@ -50,6 +52,8 @@ export class HttpClient {
     return (await readJson(response)) as T;
   }
 }
+
+export const apiClient = new HttpClient(env.apiBaseUrl);
 
 async function readJson(response: Response): Promise<unknown> {
   try {

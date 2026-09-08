@@ -2,9 +2,8 @@ import type { AdminCharacterResponse } from '@aiworld/shared/schemas/character-r
 import type { ListCharactersQuery } from '@aiworld/shared/schemas/character.schema';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
-import { useGateways } from '@/providers/gateways-provider';
+import { listAdminCharacters } from '@/features/characters/api/character-api';
 
-import type { AdminCharacterGateway } from '../api/character-gateway';
 import { characterKeys } from './character-keys';
 
 const adminCharactersQuery: ListCharactersQuery = {
@@ -17,10 +16,9 @@ export function useAdminCharacters(
   query: ListCharactersQuery = adminCharactersQuery,
   options: { enabled?: boolean } = {},
 ) {
-  const { adminCharacterGateway } = useGateways();
   return useQuery({
     queryKey: characterKeys.adminList(query),
-    queryFn: () => adminCharacterGateway.listAdmin(query),
+    queryFn: () => listAdminCharacters(query),
     placeholderData: keepPreviousData,
     enabled: options.enabled ?? true,
   });
@@ -30,24 +28,22 @@ export function useAdminCharacters(
 export function useAdminCharacterDirectory(
   options: { enabled?: boolean; search?: string } = {},
 ) {
-  const { adminCharacterGateway } = useGateways();
   const search = options.search?.trim() || undefined;
   return useQuery({
     queryKey: characterKeys.adminDirectory({ search }),
-    queryFn: () => listAllAdminCharacters(adminCharacterGateway, { search }),
+    queryFn: () => listAllAdminCharacters({ search }),
     enabled: options.enabled ?? true,
   });
 }
 
 export async function listAllAdminCharacters(
-  gateway: Pick<AdminCharacterGateway, 'listAdmin'>,
   query: Pick<ListCharactersQuery, 'search'> = {},
 ): Promise<AdminCharacterResponse[]> {
   const characters: AdminCharacterResponse[] = [];
   let page = 1;
 
   while (true) {
-    const response = await gateway.listAdmin({
+    const response = await listAdminCharacters({
       page,
       limit: 100,
       search: query.search,

@@ -10,9 +10,14 @@ import type {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
-import { HttpClient } from '@/core/api/http-client';
-
-import { HttpCharacterGateway } from './http-character-gateway';
+import {
+  createCharacter,
+  getCharacterActivity,
+  getCharacterById,
+  listAdminCharacters,
+  listCharacters,
+  updateCharacter,
+} from './character-api';
 
 const character: CharacterResponse = {
   id: '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12',
@@ -75,10 +80,7 @@ const activity: CharacterActivityResponse = {
   nextCursor: 'next-page',
 };
 
-const http = new HttpClient('');
-const gateway = new HttpCharacterGateway(http);
-
-describe('HttpCharacterGateway', () => {
+describe('character API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -96,7 +98,7 @@ describe('HttpCharacterGateway', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      gateway.list({ worldSlug: 'mbti house', page: 1, limit: 100 }),
+      listCharacters({ worldSlug: 'mbti house', page: 1, limit: 100 }),
     ).resolves.toEqual({
       items: [character],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
@@ -119,9 +121,9 @@ describe('HttpCharacterGateway', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(gateway.getById(character.id)).resolves.toEqual(character);
+    await expect(getCharacterById(character.id)).resolves.toEqual(character);
     await expect(
-      gateway.getActivity(character.id, {
+      getCharacterActivity(character.id, {
         worldSlug: 'mbti house',
         limit: 20,
         cursor: 'next page',
@@ -140,7 +142,7 @@ describe('HttpCharacterGateway', () => {
     );
   });
 
-  it('rejects malformed public activity payloads at the gateway boundary', async () => {
+  it('rejects malformed public activity payloads at the API boundary', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof fetch>(
@@ -152,7 +154,7 @@ describe('HttpCharacterGateway', () => {
     );
 
     await expect(
-      gateway.getActivity(character.id, { worldSlug: 'mbti', limit: 20 }),
+      getCharacterActivity(character.id, { worldSlug: 'mbti', limit: 20 }),
     ).rejects.toBeInstanceOf(ZodError);
   });
 
@@ -169,7 +171,7 @@ describe('HttpCharacterGateway', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      gateway.listAdmin({ page: 1, limit: 100, isActive: false }),
+      listAdminCharacters({ page: 1, limit: 100, isActive: false }),
     ).resolves.toEqual({
       items: [adminCharacter],
       meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
@@ -208,8 +210,8 @@ describe('HttpCharacterGateway', () => {
       systemPrompt: 'You are even more thoughtful.',
     };
 
-    await expect(gateway.create(createInput)).resolves.toEqual(adminCharacter);
-    await expect(gateway.update(character.id, updateInput)).resolves.toEqual(
+    await expect(createCharacter(createInput)).resolves.toEqual(adminCharacter);
+    await expect(updateCharacter(character.id, updateInput)).resolves.toEqual(
       adminCharacter,
     );
 

@@ -2,7 +2,6 @@ import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authApi, authClient, type AuthSession } from '@/core/auth/auth-client';
-import { gateways } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 import { makeSession } from '@/test/fixtures/auth-session';
 
@@ -20,7 +19,7 @@ vi.mock('@/core/auth/auth-client', () => ({
 
 function makeContext(href: string, queryClient: QueryClient): GuardContext {
   return {
-    context: { queryClient, gateways, authClient },
+    context: { queryClient, authClient },
     location: { href },
   };
 }

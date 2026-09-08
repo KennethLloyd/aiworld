@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './app';
 import { AuthProvider } from './providers/auth-provider';
-import { GatewaysProvider } from './providers/gateways-provider';
 import { queryClient } from './providers/query-client';
 
 import './styles/globals.css';
@@ -18,11 +17,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <GatewaysProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </GatewaysProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
 );
