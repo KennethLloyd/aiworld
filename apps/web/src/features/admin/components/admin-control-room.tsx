@@ -21,6 +21,10 @@ import {
 } from 'react';
 
 import {
+  adminErrorMessage,
+  isNotFoundError,
+} from '@/features/admin/admin-errors';
+import {
   adminDashboardDefaults,
   type AdminDashboardSearch,
 } from '@/features/admin/admin-search';
@@ -453,6 +457,19 @@ export function AdminControlRoom({ search }: { search: AdminDashboardSearch }) {
                       Create a World
                     </Link>
                   }
+                />
+              ) : missingRequestedSlug && requestedWorldQuery.isPending ? (
+                <AdminStatusSkeleton />
+              ) : selectedWorld === undefined &&
+                requestedWorldQuery.isError &&
+                !isNotFoundError(requestedWorldQuery.error) ? (
+                <ErrorState
+                  title="Could not load this world"
+                  message={adminErrorMessage(
+                    requestedWorldQuery.error,
+                    'Something went wrong while loading this world.',
+                  )}
+                  onRetry={() => void requestedWorldQuery.refetch()}
                 />
               ) : selectedWorld === undefined ? (
                 <ErrorState

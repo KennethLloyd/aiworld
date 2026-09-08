@@ -58,7 +58,11 @@ describe('usePost', () => {
     const query = client.getQueryCache().find({
       queryKey: ['posts', 'detail', 'mbti', postId],
     });
-    const queryOptions = query?.options as { refetchInterval?: number };
-    expect(queryOptions.refetchInterval).toBe(30_000);
+    const queryOptions = query?.options as {
+      refetchInterval?: number;
+      refetchIntervalInBackground?: boolean;
+    };
+    expect(queryOptions.refetchInterval).toBe(5 * 60_000);
+    expect(queryOptions.refetchIntervalInBackground).toBe(false);
   });
 });

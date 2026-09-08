@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
   POLLING_OPTIONS,
-  PUBLIC_POLL_INTERVAL_MS,
+  PUBLIC_FEED_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
 import { getPostById } from '@/features/posts/api/post-api';
 
@@ -13,7 +13,7 @@ export function usePost(slug: string, postId: string) {
     queryKey: postKeys.detail(slug, postId),
     queryFn: () => getPostById(slug, postId),
     enabled: slug.length > 0 && postId.length > 0,
-    refetchInterval: PUBLIC_POLL_INTERVAL_MS,
+    refetchInterval: PUBLIC_FEED_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
   });
 }

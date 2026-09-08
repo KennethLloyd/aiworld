@@ -48,7 +48,7 @@ function WorldDetailRoute() {
   const { slug } = Route.useParams();
   const { section, sort } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const worldQuery = useWorld(slug, { polling: true });
+  const worldQuery = useWorld(slug);
   return (
     <WorldDetailScreen
       slug={slug}

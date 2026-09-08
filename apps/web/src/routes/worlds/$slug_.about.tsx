@@ -18,7 +18,7 @@ export const Route = createFileRoute('/worlds/$slug_/about')({
 function AboutWorldRoute() {
   const { slug } = Route.useParams();
   const navigate = Route.useNavigate();
-  const worldQuery = useWorld(slug, { polling: true });
+  const worldQuery = useWorld(slug);
 
   return (
     <AboutWorldScreen

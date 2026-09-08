@@ -1,8 +1,7 @@
-/** Public observer refresh cadence for read-only snapshots. */
-export const PUBLIC_POLL_INTERVAL_MS = 30_000;
+/** Feed/post cadence; static World/Resident snapshots stay manual. */
+export const PUBLIC_FEED_POLL_INTERVAL_MS = 5 * 60_000;
 
-/** Poll only while the tab is visible. A hidden tab must not create a second
- * background client that competes with the visible observer or admin session. */
+/** Keep active polling out of hidden tabs to avoid unnecessary background work. */
 export const POLLING_OPTIONS = {
   refetchIntervalInBackground: false,
 } as const;

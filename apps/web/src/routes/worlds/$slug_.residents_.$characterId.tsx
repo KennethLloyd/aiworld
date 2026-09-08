@@ -27,7 +27,7 @@ function ResidentProfileRoute() {
   const navigate = Route.useNavigate();
   const router = useRouter();
   const canGoBack = useCanGoBack();
-  const worldQuery = useWorld(slug, { polling: true });
+  const worldQuery = useWorld(slug);
   const characterQuery = useCharacter(characterId);
   const activityQuery = useCharacterActivity(slug, characterId);
 

@@ -1,11 +1,8 @@
 import type { ListCharactersQuery } from '@aiworld/shared/schemas/character.schema';
 import { useQuery } from '@tanstack/react-query';
 
-import { POLLING_OPTIONS } from '@/core/query/public-polling';
 import { listCharacters } from '@/features/characters/api/character-api';
 import { characterKeys } from '@/features/characters/query/character-keys';
-
-import { ADMIN_POLL_INTERVAL_MS } from './use-simulation';
 
 function activeResidentsQuery(worldSlug: string): ListCharactersQuery {
   return {
@@ -24,7 +21,5 @@ export function useAdminResidents(worldSlug: string) {
     queryKey: characterKeys.list(query),
     queryFn: () => listCharacters(query),
     enabled: worldSlug.length > 0,
-    refetchInterval: ADMIN_POLL_INTERVAL_MS,
-    ...POLLING_OPTIONS,
   });
 }

@@ -943,6 +943,20 @@ describe('/admin control room', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
+  it('renders a retryable error when the admin World list is unavailable', async () => {
+    server.use(http.get('*/api/worlds', () => HttpResponse.error()));
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/', { queryClient: client });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Could not load admin worlds',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
   it('loads and saves the selected World from the World Config tab', async () => {
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
@@ -1145,6 +1159,14 @@ describe('/admin control room', () => {
     ).toBeInTheDocument();
   });
   it('renders an explicit not-found state for an unavailable World slug', async () => {
+    server.use(
+      http.get('*/api/worlds/missing-world', () =>
+        HttpResponse.json(
+          { statusCode: 404, message: 'Not Found', error: 'NotFoundException' },
+          { status: 404 },
+        ),
+      ),
+    );
     const client = createQueryClient();
     client.setQueryData(['session', 'current'], makeSession('ADMIN'));
     renderAuthRoutes('/admin/?tab=world&world=missing-world', {
@@ -1155,6 +1177,22 @@ describe('/admin control room', () => {
       await screen.findByRole('heading', { name: 'World not found' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Choose another World.')).toBeInTheDocument();
+  });
+
+  it('renders a retryable error when the requested World is unavailable', async () => {
+    server.use(
+      http.get('*/api/worlds/missing-world', () => HttpResponse.error()),
+    );
+    const client = retryDisabledClient();
+    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
+    renderAuthRoutes('/admin/?tab=overview&world=missing-world', {
+      queryClient: client,
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Could not load this world' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('creates an unassigned Character through the existing admin API flow', async () => {

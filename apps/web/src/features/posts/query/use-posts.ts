@@ -7,7 +7,7 @@ import { useCallback } from 'react';
 
 import {
   POLLING_OPTIONS,
-  PUBLIC_POLL_INTERVAL_MS,
+  PUBLIC_FEED_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
 import { listPosts } from '@/features/posts/api/post-api';
 
@@ -30,7 +30,7 @@ export function usePosts(slug: string, sort: PostSort = 'hot') {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: slug.length > 0,
-    refetchInterval: PUBLIC_POLL_INTERVAL_MS,
+    refetchInterval: PUBLIC_FEED_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
   });
   // Refresh from page one while keeping already-loaded pages visible.

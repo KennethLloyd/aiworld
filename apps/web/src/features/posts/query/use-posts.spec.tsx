@@ -100,7 +100,11 @@ describe('usePosts', () => {
     const query = client.getQueryCache().find({
       queryKey: ['posts', 'list', 'mbti', 'hot'],
     });
-    const queryOptions = query?.options as { refetchInterval?: number };
-    expect(queryOptions.refetchInterval).toBe(30_000);
+    const queryOptions = query?.options as {
+      refetchInterval?: number;
+      refetchIntervalInBackground?: boolean;
+    };
+    expect(queryOptions.refetchInterval).toBe(5 * 60_000);
+    expect(queryOptions.refetchIntervalInBackground).toBe(false);
   });
 });
