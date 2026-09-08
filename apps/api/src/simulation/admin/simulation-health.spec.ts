@@ -1,7 +1,7 @@
 import { deriveSimulationHealth } from '@/simulation/admin/simulation-health';
 import type { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler';
 
 const config: WorldSimulationConfigRecord = {
   id: 'config-1',

@@ -1,6 +1,6 @@
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 
 describe('SimulationSchedulerBootstrap', () => {
   afterEach(() => {

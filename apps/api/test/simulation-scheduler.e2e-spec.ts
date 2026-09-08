@@ -10,8 +10,10 @@ import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SIMULATION_TICKS_QUEUE } from '@/simulation/scheduler/bullmq-scheduler.adapter';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import {
+  SIMULATION_TICKS_QUEUE,
+  SimulationScheduler,
+} from '@/simulation/scheduler/simulation-scheduler';
 
 import { canonicalWorld, seedUuid } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';
@@ -199,7 +201,7 @@ async function removeTicksForWorld(
   await Promise.all(jobs.map((job) => job.remove().catch(() => undefined)));
 }
 
-describe('Simulation scheduler (BullMQ adapter, e2e)', () => {
+describe('Simulation scheduler (BullMQ, e2e)', () => {
   jest.setTimeout(60000);
 
   let app: INestApplication<App>;

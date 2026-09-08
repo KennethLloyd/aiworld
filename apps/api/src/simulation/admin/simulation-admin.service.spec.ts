@@ -10,7 +10,7 @@ import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-li
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 import { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 

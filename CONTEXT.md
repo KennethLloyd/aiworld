@@ -68,6 +68,11 @@ _Avoid_: cycle, round
 A scheduled Iteration fired by the Scheduler.
 _Avoid_: cycle, cron
 
+Product-facing explanations may call the next scheduled Tick a “simulation
+turn”. Technically, a Tick carries a ScheduledIteration, and that Iteration
+identifies the Character and Action. Keep Tick, ScheduledIteration/Iteration,
+and Action as the canonical code and domain terms.
+
 **Simulation lifecycle**:
 The RUNNING / PAUSED / HALTED state machine of a World's simulation, persisted
 in WorldSimulationConfig — the single source of truth for lifecycle, speed,
@@ -86,9 +91,7 @@ surface.
 _Avoid_: Viewer, public user
 
 **Scheduler**:
-The seam that drives simulation ticks. A `SimulationScheduler` port exposes
-lifecycle and command operations — `start`, `stop`, `runOneAction`,
-`runCustomAction`; the BullMQ adapter is the default runtime implementation
-(Redis via docker-compose) and the in-process adapter serves tests and
-offline use.
+The concrete BullMQ-backed Nest service that drives simulation ticks through
+Redis. It exposes lifecycle reconciliation and manual command operations —
+`start`, `stop`, `runOneAction`, and `runCustomAction`.
 _Avoid_: Cron, timer (implementation detail)

@@ -16,7 +16,7 @@ import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 
 import { canonicalWorld } from '../prisma/seed-data';
 import { seedWorld } from '../prisma/seed-world';

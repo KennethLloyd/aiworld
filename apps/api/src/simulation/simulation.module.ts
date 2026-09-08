@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import { Redis as IORedis } from 'ioredis';
 
 import { CharactersModule } from '@/characters/characters.module';
 import { CommentsModule } from '@/comments/comments.module';
@@ -31,18 +33,23 @@ import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-ite
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import {
+  SIMULATION_DLQ,
+  SIMULATION_QUEUE,
+  SIMULATION_REDIS,
+  SIMULATION_TICKS_DLQ,
+  SIMULATION_TICKS_QUEUE,
+  SimulationScheduler,
+} from '@/simulation/scheduler/simulation-scheduler';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
 import {
   loadSchedulerConfig,
   SCHEDULER_CONFIG,
   type SchedulerConfig,
 } from '@/simulation/scheduler/simulation-scheduler-config';
-import { createSimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.factory';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { VotesModule } from '@/votes/votes.module';
 import { WorldMembersModule } from '@/world-members/world-members.module';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
 import { WorldModule } from '@/world/world.module';
 
 const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
@@ -92,38 +99,24 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       useClass: PrismaSimulationRuntimeStateRepository,
     },
     {
-      provide: SimulationScheduler,
-      inject: [
-        SCHEDULER_CONFIG,
-        SimulationLifecycleService,
-        WorldRepository,
-        SimulationIterationPicker,
-        SimulationCastingRepository,
-        SimulationRandomSource,
-        SimulationRunner,
-        SimulationRuntimeStateRepository,
-      ],
-      useFactory: (
-        config: SchedulerConfig,
-        lifecycleService: SimulationLifecycleService,
-        worldRepository: WorldRepository,
-        picker: SimulationIterationPicker,
-        castingRepository: SimulationCastingRepository,
-        randomSource: SimulationRandomSource,
-        runner: SimulationRunner,
-        runtimeStateRepository: SimulationRuntimeStateRepository,
-      ) =>
-        createSimulationScheduler(
-          config,
-          lifecycleService,
-          worldRepository,
-          picker,
-          castingRepository,
-          randomSource,
-          runner,
-          runtimeStateRepository,
-        ),
+      provide: SIMULATION_REDIS,
+      inject: [SCHEDULER_CONFIG],
+      useFactory: (config: SchedulerConfig) =>
+        new IORedis(config.redisUrl, { maxRetriesPerRequest: null }),
     },
+    {
+      provide: SIMULATION_QUEUE,
+      inject: [SIMULATION_REDIS],
+      useFactory: (connection: IORedis) =>
+        new Queue(SIMULATION_TICKS_QUEUE, { connection }),
+    },
+    {
+      provide: SIMULATION_DLQ,
+      inject: [SIMULATION_REDIS],
+      useFactory: (connection: IORedis) =>
+        new Queue(SIMULATION_TICKS_DLQ, { connection }),
+    },
+    SimulationScheduler,
     SimulationContextProvider,
     PostAction,
     VoteAction,

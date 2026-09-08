@@ -4,13 +4,13 @@ import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { BullMqSchedulerAdapter } from '@/simulation/scheduler/bullmq-scheduler.adapter';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 import { WorldRecord } from '@/world/domain/world-record';
@@ -65,7 +65,7 @@ function fakeJob(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createAdapter(config: Partial<SchedulerConfig> = {}) {
+function createScheduler(config: Partial<SchedulerConfig> = {}) {
   const lifecycleService = {
     getByWorldId: jest.fn().mockResolvedValue(configRecord()),
     assertManualWorkAllowed: jest.fn().mockResolvedValue(configRecord()),
@@ -167,7 +167,7 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
       }),
   } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
 
-  const adapter = new BullMqSchedulerAdapter(
+  const scheduler = new SimulationScheduler(
     schedulerConfig,
     lifecycleService,
     worldRepository,
@@ -185,10 +185,10 @@ function createAdapter(config: Partial<SchedulerConfig> = {}) {
     isRunning: jest.fn().mockReturnValue(true),
     close: jest.fn().mockResolvedValue(undefined),
   };
-  adapter.attachWorker(worker as never);
+  scheduler.attachWorker(worker as never);
 
   return {
-    adapter,
+    scheduler,
     lifecycleService,
     worldRepository,
     picker,
@@ -242,14 +242,14 @@ const successResult = {
   log: logRecord(),
 };
 
-describe('BullMqSchedulerAdapter', () => {
+describe('SimulationScheduler', () => {
   it('start retains an existing Tick instead of creating a duplicate', async () => {
-    const { adapter, queue } = createAdapter();
+    const { scheduler, queue } = createScheduler();
     const stale = fakeJob({ id: 'stale' });
     queue.getDeduplicationJobId.mockResolvedValue('stale');
     queue.getJob.mockResolvedValue(stale);
 
-    await adapter.start('world-1');
+    await scheduler.start('world-1');
 
     expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
     expect(queue.getJob).toHaveBeenCalledWith('stale');
@@ -259,12 +259,12 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('ensureScheduled does not create a second pending Tick', async () => {
-    const { adapter, queue, worldRepository } = createAdapter();
+    const { scheduler, queue, worldRepository } = createScheduler();
     const existing = fakeJob({ id: 'existing-tick' });
     queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
     queue.getJob.mockResolvedValue(existing);
 
-    await adapter.ensureScheduled('world-1');
+    await scheduler.ensureScheduled('world-1');
 
     expect(worldRepository.findById).toHaveBeenCalledWith('world-1');
     expect(queue.add).not.toHaveBeenCalled();
@@ -272,7 +272,7 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('records a blocked reason when no active AI Resident can act', async () => {
-    const { adapter, picker, queue } = createAdapter();
+    const { scheduler, picker, queue } = createScheduler();
     picker.pickCharacter.mockRejectedValue(
       new SimulationIterationPickError(
         'NO_ACTIVE_CHARACTERS',
@@ -280,10 +280,10 @@ describe('BullMqSchedulerAdapter', () => {
       ),
     );
 
-    await adapter.ensureScheduled('world-1');
+    await scheduler.ensureScheduled('world-1');
 
     expect(queue.add).not.toHaveBeenCalled();
-    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+    await expect(scheduler.getObservability('world-1')).resolves.toMatchObject({
       pending: false,
       workExpected: false,
       blockedReason: 'NO_ACTIVE_RESIDENTS',
@@ -291,27 +291,27 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('removes a pending Tick when all active AI Residents become unavailable', async () => {
-    const { adapter, castingRepository, queue } = createAdapter();
+    const { scheduler, castingRepository, queue } = createScheduler();
     const existing = fakeJob({ id: 'existing-tick' });
     queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
     queue.getJob.mockResolvedValue(existing);
     castingRepository.findActiveActors.mockResolvedValue([]);
 
-    await adapter.ensureScheduled('world-1');
+    await scheduler.ensureScheduled('world-1');
 
     expect(existing.remove).toHaveBeenCalledTimes(1);
     expect(queue.add).not.toHaveBeenCalled();
-    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+    await expect(scheduler.getObservability('world-1')).resolves.toMatchObject({
       pending: false,
       workExpected: false,
       blockedReason: 'NO_ACTIVE_RESIDENTS',
     });
   });
   it('exposes pending scheduler progress and persisted dead-letter signals', async () => {
-    const { adapter, worker, dlq } = createAdapter();
+    const { scheduler, worker, dlq } = createScheduler();
 
-    await adapter.start('world-1');
-    let observability = await adapter.getObservability('world-1');
+    await scheduler.start('world-1');
+    let observability = await scheduler.getObservability('world-1');
 
     expect(observability).toMatchObject({
       available: true,
@@ -331,7 +331,7 @@ describe('BullMqSchedulerAdapter', () => {
       new Error('TIMEOUT'),
     );
 
-    observability = await adapter.getObservability('world-1');
+    observability = await scheduler.getObservability('world-1');
     expect(observability).toMatchObject({
       pending: false,
       workExpected: false,
@@ -347,47 +347,47 @@ describe('BullMqSchedulerAdapter', () => {
     expect(dlq.getJobs).not.toHaveBeenCalled();
   });
   it('reports the scheduler unavailable while Redis is not ready', async () => {
-    const { adapter, connection } = createAdapter();
+    const { scheduler, connection } = createScheduler();
 
     connection.status = 'reconnecting';
 
-    await expect(adapter.getObservability('world-1')).resolves.toMatchObject({
+    await expect(scheduler.getObservability('world-1')).resolves.toMatchObject({
       available: false,
     });
   });
 
   it('start is a no-op for a world that is not RUNNING', async () => {
-    const { adapter, lifecycleService, queue } = createAdapter();
+    const { scheduler, lifecycleService, queue } = createScheduler();
     lifecycleService.getByWorldId.mockResolvedValue(
       configRecord({ state: 'PAUSED' }),
     );
 
-    await adapter.start('world-1');
+    await scheduler.start('world-1');
 
     expect(queue.add).not.toHaveBeenCalled();
   });
 
   it('start is a no-op for an inactive World even when RUNNING is persisted', async () => {
-    const { adapter, worldRepository, queue } = createAdapter();
+    const { scheduler, worldRepository, queue } = createScheduler();
     worldRepository.findById.mockResolvedValue({
       ...world,
       isActive: false,
     });
 
-    await adapter.start('world-1');
+    await scheduler.start('world-1');
 
     expect(queue.add).not.toHaveBeenCalled();
   });
 
   it('stop removes the pending native-deduplicated tick', async () => {
-    const { adapter, queue } = createAdapter();
+    const { scheduler, queue } = createScheduler();
 
-    await adapter.start('world-1');
+    await scheduler.start('world-1');
     expect(queue.add).toHaveBeenCalledTimes(1);
     const pending = fakeJob({ id: 'job-1' });
     queue.getDeduplicationJobId.mockResolvedValue('job-1');
     queue.getJob.mockResolvedValue(pending);
-    await adapter.stop('world-1');
+    await scheduler.stop('world-1');
 
     expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
     expect(queue.getJob).toHaveBeenCalledWith('job-1');
@@ -395,20 +395,20 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('stop is a no-op when nothing is pending for the world', async () => {
-    const { adapter, queue } = createAdapter();
+    const { scheduler, queue } = createScheduler();
 
-    await adapter.stop('world-1');
+    await scheduler.stop('world-1');
 
     expect(queue.getDeduplicationJobId).toHaveBeenCalledWith('world-1');
   });
 
   describe('process', () => {
     it('completes on success and schedules the next tick', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue(successResult);
 
       await expect(
-        adapter.process(fakeJob() as never),
+        scheduler.process(fakeJob() as never),
       ).resolves.toBeUndefined();
 
       expect(tickRunner.runScheduledTick).toHaveBeenCalledWith(
@@ -431,11 +431,11 @@ describe('BullMqSchedulerAdapter', () => {
     });
 
     it('keeps native deduplication active while an existing tick is running', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue(successResult);
       queue.add.mockResolvedValue(fakeJob({ id: 'active-job' }));
 
-      await adapter.process(fakeJob({ id: 'active-job' }) as never);
+      await scheduler.process(fakeJob({ id: 'active-job' }) as never);
 
       expect(queue.add).toHaveBeenCalledWith(
         'tick_world-1',
@@ -447,7 +447,7 @@ describe('BullMqSchedulerAdapter', () => {
     });
 
     it('treats a lifecycle rejection as a completed job and reschedules', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'rejected',
         reason: 'rejected',
@@ -455,28 +455,28 @@ describe('BullMqSchedulerAdapter', () => {
       });
 
       await expect(
-        adapter.process(fakeJob() as never),
+        scheduler.process(fakeJob() as never),
       ).resolves.toBeUndefined();
 
       expect(queue.add).toHaveBeenCalledTimes(1);
     });
 
     it('throws a retryable error on a transient failure so BullMQ retries', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
         log: logRecord({ status: 'FAILED' }),
       });
 
-      await expect(adapter.process(fakeJob() as never)).rejects.toThrow(
+      await expect(scheduler.process(fakeJob() as never)).rejects.toThrow(
         'TIMEOUT: timeout',
       );
       expect(queue.add).not.toHaveBeenCalled();
     });
 
     it('resolves a permanent Action failure and schedules a fresh tick', async () => {
-      const { adapter, tickRunner, queue, dlq } = createAdapter();
+      const { scheduler, tickRunner, queue, dlq } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: {
@@ -488,14 +488,14 @@ describe('BullMqSchedulerAdapter', () => {
       });
 
       await expect(
-        adapter.process(fakeJob() as never),
+        scheduler.process(fakeJob() as never),
       ).resolves.toBeUndefined();
       expect(queue.add).toHaveBeenCalledTimes(1);
       expect(dlq.add).not.toHaveBeenCalled();
     });
 
     it('resolves an exhausted transient Action failure and schedules a fresh tick', async () => {
-      const { adapter, tickRunner, queue, dlq } = createAdapter();
+      const { scheduler, tickRunner, queue, dlq } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
@@ -503,7 +503,7 @@ describe('BullMqSchedulerAdapter', () => {
       });
 
       await expect(
-        adapter.process(
+        scheduler.process(
           fakeJob({ attemptsMade: 2, opts: { attempts: 3 } }) as never,
         ),
       ).resolves.toBeUndefined();
@@ -512,7 +512,7 @@ describe('BullMqSchedulerAdapter', () => {
     });
 
     it('keeps a fresh-tick scheduling error on the scheduler fault path', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue({
         status: 'failed',
         failure: {
@@ -524,45 +524,45 @@ describe('BullMqSchedulerAdapter', () => {
       });
       queue.add.mockRejectedValue(new Error('Redis unavailable'));
 
-      await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
-        UnrecoverableError,
-      );
+      await expect(
+        scheduler.process(fakeJob() as never),
+      ).rejects.toBeInstanceOf(UnrecoverableError);
     });
 
     it('dead-letters malformed commands without running them', async () => {
-      const { adapter, tickRunner } = createAdapter();
+      const { scheduler, tickRunner } = createScheduler();
 
       await expect(
-        adapter.process(fakeJob({ data: { actionType: 'DELETE' } }) as never),
+        scheduler.process(fakeJob({ data: { actionType: 'DELETE' } }) as never),
       ).rejects.toBeInstanceOf(UnrecoverableError);
       expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
     });
 
     it('dead-letters an unresolvable world surfaced by the runner', async () => {
-      const { adapter, tickRunner } = createAdapter();
+      const { scheduler, tickRunner } = createScheduler();
       tickRunner.runScheduledTick.mockRejectedValue(
         new Error('World "mbti-house" was not found'),
       );
 
-      await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
-        UnrecoverableError,
-      );
+      await expect(
+        scheduler.process(fakeJob() as never),
+      ).rejects.toBeInstanceOf(UnrecoverableError);
     });
 
     it('never retries a completed tick whose next-tick scheduling failed', async () => {
-      const { adapter, tickRunner, queue } = createAdapter();
+      const { scheduler, tickRunner, queue } = createScheduler();
       tickRunner.runScheduledTick.mockResolvedValue(successResult);
       queue.add.mockRejectedValue(new Error('Redis unreachable'));
 
-      await expect(adapter.process(fakeJob() as never)).rejects.toBeInstanceOf(
-        UnrecoverableError,
-      );
+      await expect(
+        scheduler.process(fakeJob() as never),
+      ).rejects.toBeInstanceOf(UnrecoverableError);
       expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(1);
     });
   });
 
   it('dead-letters a finally-failed job to the DLQ queue', async () => {
-    const { worker, dlq } = createAdapter();
+    const { worker, dlq } = createScheduler();
     const handler = worker.on.mock.calls.find(
       ([event]) => event === 'failed',
     )?.[1];
@@ -587,7 +587,7 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('does not count an intermediate retry as a dead-lettered job', async () => {
-    const { worker, dlq } = createAdapter();
+    const { worker, dlq } = createScheduler();
     const handler = worker.on.mock.calls.find(
       ([event]) => event === 'failed',
     )?.[1];
@@ -601,16 +601,16 @@ describe('BullMqSchedulerAdapter', () => {
   });
 
   it('delegates Run One Action to the shared SimulationRunner', async () => {
-    const { adapter, tickRunner } = createAdapter();
+    const { scheduler, tickRunner } = createScheduler();
     tickRunner.runOneAction.mockResolvedValue(successResult);
 
-    await adapter.runOneAction('mbti-house');
+    await scheduler.runOneAction('mbti-house');
 
     expect(tickRunner.runOneAction).toHaveBeenCalledWith('mbti-house');
   });
 
   it('delegates Custom Action to the shared SimulationRunner', async () => {
-    const { adapter, tickRunner } = createAdapter();
+    const { scheduler, tickRunner } = createScheduler();
     tickRunner.runCustomAction.mockResolvedValue(successResult);
 
     const input = {
@@ -618,7 +618,7 @@ describe('BullMqSchedulerAdapter', () => {
       characterId: 'character-2',
       actionType: 'VOTE',
     } as const;
-    await adapter.runCustomAction(input);
+    await scheduler.runCustomAction(input);
 
     expect(tickRunner.runCustomAction).toHaveBeenCalledWith(input);
   });

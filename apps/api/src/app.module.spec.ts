@@ -17,7 +17,12 @@ import { PrismaModule } from './lib/database/prisma.module';
 import { LlmProvider } from './simulation/providers/llm-provider.port';
 import { MockLlmProvider } from './simulation/providers/mock/mock-llm.provider';
 import { RetryingLlmProvider } from './simulation/providers/retry/retrying-llm.provider';
-import { SimulationScheduler } from './simulation/scheduler/simulation-scheduler.port';
+import {
+  SIMULATION_DLQ,
+  SIMULATION_QUEUE,
+  SIMULATION_REDIS,
+  SimulationScheduler,
+} from './simulation/scheduler/simulation-scheduler';
 
 describe('AppModule', () => {
   let module: TestingModule;
@@ -44,6 +49,12 @@ describe('AppModule', () => {
       imports: [AppModule],
     })
       .overrideProvider(SimulationScheduler)
+      .useValue({})
+      .overrideProvider(SIMULATION_REDIS)
+      .useValue({})
+      .overrideProvider(SIMULATION_QUEUE)
+      .useValue({})
+      .overrideProvider(SIMULATION_DLQ)
       .useValue({})
       .overrideProvider(PrismaModule)
       .useValue({})

@@ -3,30 +3,77 @@ import { randomUUID } from 'node:crypto';
 import {
   deriveScheduledDelayMs,
   simulationCommandSchema,
-  SimulationCommand,
 } from '@aiworld/shared/schemas/simulation-command.schema';
-import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import type { SimulationCommand } from '@aiworld/shared/schemas/simulation-command.schema';
+import {
+  Inject,
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Job, Queue, UnrecoverableError, Worker } from 'bullmq';
 import { Redis as IORedis } from 'ioredis';
 
 import { redactDiagnostics } from '@/common/diagnostics';
+import type { SimulationActionType } from '@/simulation/actions/simulation-action-type';
+import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
+import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
+import type { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
+import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
+import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
 import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
 import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
 } from '@/simulation/scheduler/simulation-scheduler-config';
-import { SimulationSchedulerBase } from '@/simulation/scheduler/simulation-scheduler.base';
-import { isTransientSchedulerError } from '@/simulation/scheduler/simulation-scheduler.error';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
+import {
+  isTransientSchedulerError,
+  SimulationIterationPickError,
+} from '@/simulation/scheduler/simulation-scheduler.error';
+import type { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
 export const SIMULATION_TICKS_QUEUE = 'simulation-ticks';
 export const SIMULATION_TICKS_DLQ = 'simulation-ticks-dlq';
+export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
+export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
+export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');
+
+function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
+  return {
+    worldId,
+    pending: false,
+    workExpected: false,
+    nextTickAt: null,
+    lastTickStartedAt: null,
+    lastTickCompletedAt: null,
+    retrying: false,
+    recentRetryCount: 0,
+    lastRetryAt: null,
+    blockedReason: null,
+    deadLetterCount: 0,
+    lastDeadLetterAt: null,
+    lastDeadLetterReason: null,
+    bootResumeFailure: null,
+  };
+}
+
+export type RunCustomActionInput = {
+  worldSlug: string;
+  characterId?: string;
+  actionType?: SimulationActionType;
+};
+
+export type SimulationSchedulerObservabilityRecord =
+  SimulationRuntimeSignals & {
+    available: boolean;
+  };
 
 function tickJobName(worldId: string): string {
   return `tick_${worldId}`;
@@ -44,39 +91,37 @@ function safeSchedulerError(error: unknown, fallback: string): Error {
   return safeError;
 }
 
-/** BullMQ scheduler adapter for cadence, retries, and DLQ handling. */
 @Injectable()
-export class BullMqSchedulerAdapter
-  extends SimulationSchedulerBase
-  implements OnModuleDestroy
-{
+export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   private worker: Worker | null = null;
 
   constructor(
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
-    lifecycleService: SimulationLifecycleService,
-    worldRepository: WorldRepository,
-    picker: SimulationIterationPicker,
-    castingRepository: SimulationCastingRepository,
+    private readonly lifecycleService: SimulationLifecycleService,
+    private readonly worldRepository: WorldRepository,
+    private readonly picker: SimulationIterationPicker,
+    private readonly castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
-    runner: SimulationRunner,
-    runtimeStateRepository: SimulationRuntimeStateRepository,
+    private readonly runner: SimulationRunner,
+    private readonly runtimeStateRepository: SimulationRuntimeStateRepository,
+    @Inject(SIMULATION_QUEUE)
     private readonly queue: Queue,
+    @Inject(SIMULATION_DLQ)
     private readonly dlq: Queue,
+    @Inject(SIMULATION_REDIS)
     private readonly connection: IORedis,
-  ) {
-    super(
-      lifecycleService,
-      worldRepository,
-      picker,
-      castingRepository,
-      runner,
-      runtimeStateRepository,
+  ) {}
+
+  onModuleInit(): void {
+    this.attachWorker(
+      new Worker(SIMULATION_TICKS_QUEUE, (job) => this.process(job), {
+        connection: this.connection,
+        concurrency: 1,
+      }),
     );
   }
 
-  /** Attaches the worker used by the processor callback. */
   attachWorker(worker: Worker): void {
     this.worker = worker;
     worker.on('failed', (job, error) => {
@@ -204,6 +249,157 @@ export class BullMqSchedulerAdapter
     await this.queue.close();
     await this.dlq.close();
     await this.connection.quit();
+  }
+
+  async recordBootResumeFailure(
+    worldId: string,
+    error: unknown,
+  ): Promise<void> {
+    await this.runtimeStateRepository.update(worldId, {
+      bootResumeFailure: {
+        occurredAt: new Date(),
+        reason: redactDiagnostics(
+          error instanceof Error ? error.message : 'Scheduler resume failed',
+        ),
+      },
+    });
+  }
+
+  async runOneAction(worldSlug: string): Promise<IterationRunResult> {
+    return this.runner.runOneAction(worldSlug);
+  }
+
+  async runCustomAction(
+    input: RunCustomActionInput,
+  ): Promise<IterationRunResult> {
+    return this.runner.runCustomAction(input);
+  }
+
+  private async markSchedulerStartSucceeded(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, { bootResumeFailure: null });
+  }
+
+  private async markScheduled(
+    worldId: string,
+    nextTickAt: Date,
+  ): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: true,
+      workExpected: true,
+      nextTickAt,
+      blockedReason: null,
+    });
+  }
+
+  private async markExistingTick(
+    worldId: string,
+    input: { pending: boolean; nextTickAt: Date | null },
+  ): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: input.pending,
+      workExpected: true,
+      nextTickAt: input.nextTickAt,
+      blockedReason: null,
+    });
+  }
+
+  private async markBlockedByNoActiveResidents(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+      blockedReason: 'NO_ACTIVE_RESIDENTS',
+    });
+  }
+
+  private async markStopped(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: false,
+      workExpected: false,
+      nextTickAt: null,
+      retrying: false,
+      blockedReason: null,
+    });
+  }
+
+  private async markTickStarted(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      pending: false,
+      nextTickAt: null,
+      lastTickStartedAt: new Date(),
+    });
+  }
+
+  private async markTickAttemptCompleted(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, {
+      lastTickCompletedAt: new Date(),
+    });
+  }
+
+  private async markTickSettled(worldId: string): Promise<void> {
+    await this.persistRuntimeState(worldId, { retrying: false });
+  }
+
+  private async markRetry(worldId: string): Promise<void> {
+    try {
+      await this.runtimeStateRepository.recordRetry(worldId);
+    } catch {
+      return;
+    }
+  }
+
+  private async markDeadLettered(
+    worldId: string,
+    occurredAt: Date,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.recordDeadLetter(
+        worldId,
+        occurredAt,
+        reason,
+      );
+    } catch {
+      return;
+    }
+  }
+
+  private async persistRuntimeState(
+    worldId: string,
+    input: Parameters<SimulationRuntimeStateRepository['update']>[1],
+  ): Promise<void> {
+    try {
+      await this.runtimeStateRepository.update(worldId, input);
+    } catch {
+      return;
+    }
+  }
+
+  private async getRuntimeObservability(
+    worldId: string,
+    available: boolean,
+  ): Promise<SimulationSchedulerObservabilityRecord> {
+    const stored =
+      (await this.runtimeStateRepository.findByWorldId(worldId)) ??
+      emptyRuntimeState(worldId);
+    const retryIsRecent =
+      stored.lastRetryAt !== null &&
+      Date.now() - stored.lastRetryAt.getTime() < RECENT_RETRY_WINDOW_MS;
+    return {
+      available,
+      pending: stored.pending,
+      workExpected: stored.workExpected,
+      nextTickAt: stored.nextTickAt,
+      lastTickStartedAt: stored.lastTickStartedAt,
+      lastTickCompletedAt: stored.lastTickCompletedAt,
+      retrying: stored.retrying,
+      recentRetryCount: retryIsRecent ? stored.recentRetryCount : 0,
+      blockedReason: stored.blockedReason,
+      deadLetterCount: stored.deadLetterCount,
+      lastDeadLetterAt: stored.lastDeadLetterAt,
+      lastDeadLetterReason: stored.lastDeadLetterReason,
+      bootResumeFailure: stored.bootResumeFailure,
+    };
   }
 
   private async scheduleNextTick(worldId: string): Promise<void> {
@@ -380,5 +576,69 @@ export class BullMqSchedulerAdapter
       { removeOnComplete: true },
     );
     return { occurredAt, reason };
+  }
+
+  private async composeScheduledIteration(worldId: string): Promise<
+    | {
+        iteration: SimulationCommand;
+        config: WorldSimulationConfigRecord;
+      }
+    | {
+        config: WorldSimulationConfigRecord;
+        blockedReason: 'NO_ACTIVE_RESIDENTS';
+      }
+    | null
+  > {
+    const config = await this.lifecycleService.getByWorldId(worldId);
+    if (!config || config.state !== 'RUNNING') {
+      return null;
+    }
+
+    let world: WorldRecord;
+    try {
+      world = await this.requireWorld(worldId);
+    } catch (error) {
+      if (error instanceof SimulationActionError) {
+        return null;
+      }
+      throw error;
+    }
+    if (!world.isActive) {
+      return null;
+    }
+
+    let characterId: string;
+    try {
+      characterId = (await this.picker.pickCharacter(worldId)).characterId;
+    } catch (error) {
+      if (error instanceof SimulationIterationPickError) {
+        return { config, blockedReason: 'NO_ACTIVE_RESIDENTS' };
+      }
+      throw error;
+    }
+    const actionType = await this.picker.pickAutomaticAction(
+      worldId,
+      config.actionWeights,
+    );
+
+    const iteration = simulationCommandSchema.parse({
+      worldSlug: world.slug,
+      characterId,
+      actionType,
+      executionSource: 'scheduled',
+      issuedAt: new Date().toISOString(),
+    });
+    return { iteration, config };
+  }
+
+  private async requireWorld(worldId: string): Promise<WorldRecord> {
+    const world = await this.worldRepository.findById(worldId);
+    if (!world) {
+      throw new SimulationActionError(
+        'WORLD_NOT_FOUND',
+        `World "${worldId}" was not found`,
+      );
+    }
+    return world;
   }
 }

@@ -2,7 +2,7 @@ import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulatio
 
 import type { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
 import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler.port';
+import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler';
 
 export type SimulationHealthStatus =
   SimulationHealthResponse['health']['status'];

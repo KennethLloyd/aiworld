@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
-import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler.port';
+import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 
 const RECONCILIATION_INTERVAL_MS = 60_000;
 
