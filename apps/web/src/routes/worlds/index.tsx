@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import {
   publicListWorldsQuerySchema,
   type PublicListWorldsQuery,
-} from '@/features/worlds/api/world-gateway';
+} from '@/features/worlds/api/world-api';
 import { WorldList } from '@/features/worlds/components/world-list';
 import { useWorlds } from '@/features/worlds/query/use-worlds';
 

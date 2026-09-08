@@ -1,10 +1,6 @@
 import type { ListWorldsQuery } from '@aiworld/shared/schemas/world.schema';
 
-/**
- * Central URL construction for the plural /api/worlds contract. Feature code
- * never builds API URLs itself and never calls fetch; it only calls gateway
- * adapters, which build their URLs through these helpers.
- */
+/** Central URL construction for the plural /api/worlds contract. */
 export const endpoints = {
   worlds: {
     /** The plural collection URL (POST create). */

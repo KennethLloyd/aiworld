@@ -7,12 +7,24 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '@/core/api/api-error';
-import type { WorldMemberGateway } from '@/features/admin/api/world-member-gateway';
-import type { AdminCharacterGateway } from '@/features/characters/api/character-gateway';
-import { gateways, GatewaysProvider } from '@/providers/gateways-provider';
+import {
+  createWorldMember,
+  listWorldMembers,
+  updateWorldMember,
+} from '@/features/admin/api/world-member-api';
+import { listAdminCharacters } from '@/features/characters/api/character-api';
 import { Toaster } from '@/shared/feedback/toaster';
 
 import { WorldMembersTab } from './world-members-tab';
+
+vi.mock('@/features/admin/api/world-member-api', () => ({
+  createWorldMember: vi.fn<typeof createWorldMember>(),
+  listWorldMembers: vi.fn<typeof listWorldMembers>(),
+  updateWorldMember: vi.fn<typeof updateWorldMember>(),
+}));
+vi.mock('@/features/characters/api/character-api', () => ({
+  listAdminCharacters: vi.fn<typeof listAdminCharacters>(),
+}));
 
 const world: WorldResponse = {
   id: '6a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f10',
@@ -72,23 +84,21 @@ describe('WorldMembersTab', () => {
   it('joins identities, preserves separate states, assigns candidates, and confirms deactivation', async () => {
     const user = userEvent.setup();
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockResolvedValue(
         paginated([activeMember, inactiveMember, inactiveMembership]),
       );
-    const createMember = vi
-      .fn<WorldMemberGateway['create']>()
-      .mockResolvedValue(
-        makeMember({
-          id: 'ea3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f18',
-          characterId: candidateCharacter.id,
-        }),
-      );
+    const createMember = vi.fn<typeof createWorldMember>().mockResolvedValue(
+      makeMember({
+        id: 'ea3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f18',
+        characterId: candidateCharacter.id,
+      }),
+    );
     const updateMember = vi
-      .fn<WorldMemberGateway['update']>()
+      .fn<typeof updateWorldMember>()
       .mockResolvedValue({ ...activeMember, isActive: true });
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockResolvedValue(
         paginated([
           activeCharacter,
@@ -99,12 +109,10 @@ describe('WorldMembersTab', () => {
       );
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: createMember,
-        update: updateMember,
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
+      createMember,
+      updateMember,
     });
 
     expect((await screen.findAllByText('Mystic Aura')).length).toBeGreaterThan(
@@ -200,11 +208,11 @@ describe('WorldMembersTab', () => {
   it('debounces server-side candidate search and disables inactive candidates', async () => {
     const user = userEvent.setup();
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockResolvedValue(paginated([]));
     const searchRequests: string[] = [];
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockImplementation(async (query) => {
         searchRequests.push(query.search ?? '');
         return paginated([
@@ -218,12 +226,8 @@ describe('WorldMembersTab', () => {
       });
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: vi.fn<WorldMemberGateway['create']>(),
-        update: vi.fn<WorldMemberGateway['update']>(),
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
     });
     await user.click(screen.getByRole('button', { name: 'Add Residents' }));
 
@@ -247,10 +251,10 @@ describe('WorldMembersTab', () => {
   it('loads candidates across the full Character directory before filtering', async () => {
     const user = userEvent.setup();
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockResolvedValue(paginated([]));
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockImplementation(async (query) => {
         if (query.page === 1) {
           return paginatedPage([activeCharacter], 1, 2);
@@ -260,12 +264,8 @@ describe('WorldMembersTab', () => {
       });
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: vi.fn<WorldMemberGateway['create']>(),
-        update: vi.fn<WorldMemberGateway['update']>(),
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
     });
     await user.click(screen.getByRole('button', { name: 'Add Residents' }));
 
@@ -284,7 +284,7 @@ describe('WorldMembersTab', () => {
   it('surfaces duplicate assignment conflicts and refreshes the reads', async () => {
     const user = userEvent.setup();
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockResolvedValue(paginated([]));
     const conflict = new ApiError(
       409,
@@ -292,19 +292,16 @@ describe('WorldMembersTab', () => {
       'Conflict',
     );
     const createMember = vi
-      .fn<WorldMemberGateway['create']>()
+      .fn<typeof createWorldMember>()
       .mockRejectedValue(conflict);
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockResolvedValue(paginated([candidateCharacter]));
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: createMember,
-        update: vi.fn<WorldMemberGateway['update']>(),
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
+      createMember,
     });
     await user.click(screen.getByRole('button', { name: 'Add Residents' }));
 
@@ -332,19 +329,15 @@ describe('WorldMembersTab', () => {
   it('renders forbidden states for the membership and candidate panels independently', async () => {
     const forbidden = new ApiError(403, 'Forbidden', 'Forbidden');
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockResolvedValue(paginated([]));
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockRejectedValue(forbidden);
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: vi.fn<WorldMemberGateway['create']>(),
-        update: vi.fn<WorldMemberGateway['update']>(),
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
     });
     await userEvent.click(
       screen.getByRole('button', { name: 'Add Residents' }),
@@ -361,19 +354,15 @@ describe('WorldMembersTab', () => {
   it('keeps assignment candidates available when membership loading is forbidden', async () => {
     const forbidden = new ApiError(403, 'Forbidden', 'Forbidden');
     const listMembers = vi
-      .fn<WorldMemberGateway['list']>()
+      .fn<typeof listWorldMembers>()
       .mockRejectedValue(forbidden);
     const listCharacters = vi
-      .fn<AdminCharacterGateway['listAdmin']>()
+      .fn<typeof listAdminCharacters>()
       .mockResolvedValue(paginated([candidateCharacter]));
 
     renderMembers({
-      worldMemberGateway: {
-        list: listMembers,
-        create: vi.fn<WorldMemberGateway['create']>(),
-        update: vi.fn<WorldMemberGateway['update']>(),
-      },
-      adminCharacterGateway: makeAdminCharacterGateway(listCharacters),
+      listMembers,
+      listCharacters,
     });
     await userEvent.click(
       screen.getByRole('button', { name: 'Add Residents' }),
@@ -389,42 +378,31 @@ describe('WorldMembersTab', () => {
 });
 
 function renderMembers({
-  worldMemberGateway,
-  adminCharacterGateway,
+  listMembers,
+  listCharacters,
+  createMember = vi.fn<typeof createWorldMember>(),
+  updateMember = vi.fn<typeof updateWorldMember>(),
 }: {
-  worldMemberGateway: WorldMemberGateway;
-  adminCharacterGateway: AdminCharacterGateway;
+  listMembers: typeof listWorldMembers;
+  listCharacters: typeof listAdminCharacters;
+  createMember?: typeof createWorldMember;
+  updateMember?: typeof updateWorldMember;
 }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  vi.mocked(listWorldMembers).mockReset().mockImplementation(listMembers);
+  vi.mocked(listAdminCharacters).mockReset().mockImplementation(listCharacters);
+  vi.mocked(createWorldMember).mockReset().mockImplementation(createMember);
+  vi.mocked(updateWorldMember).mockReset().mockImplementation(updateMember);
 
   return render(
     <QueryClientProvider client={client}>
-      <GatewaysProvider
-        value={{
-          ...gateways,
-          worldMemberGateway,
-          adminCharacterGateway,
-        }}
-      >
-        <Toaster>
-          <WorldMembersTab world={world} />
-        </Toaster>
-      </GatewaysProvider>
+      <Toaster>
+        <WorldMembersTab world={world} />
+      </Toaster>
     </QueryClientProvider>,
   );
-}
-
-function makeAdminCharacterGateway(
-  listAdmin: AdminCharacterGateway['listAdmin'],
-): AdminCharacterGateway {
-  return {
-    listAdmin,
-    getAdminById: vi.fn<AdminCharacterGateway['getAdminById']>(),
-    create: vi.fn<AdminCharacterGateway['create']>(),
-    update: vi.fn<AdminCharacterGateway['update']>(),
-  };
 }
 
 function makeCharacter(

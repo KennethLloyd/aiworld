@@ -4,16 +4,18 @@ import type {
 } from '@aiworld/shared/schemas/character.schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { useGateways } from '@/providers/gateways-provider';
+import {
+  createCharacter,
+  updateCharacter,
+} from '@/features/characters/api/character-api';
 
 import { characterKeys } from './character-keys';
 
 export function useCreateCharacter() {
-  const { adminCharacterGateway } = useGateways();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateCharacter) => adminCharacterGateway.create(input),
+    mutationFn: (input: CreateCharacter) => createCharacter(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: characterKeys.adminLists(),
@@ -28,12 +30,11 @@ export interface UpdateCharacterVariables {
 }
 
 export function useUpdateCharacter() {
-  const { adminCharacterGateway } = useGateways();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ characterId, input }: UpdateCharacterVariables) =>
-      adminCharacterGateway.update(characterId, input),
+      updateCharacter(characterId, input),
     onSuccess: async (_data, { characterId }) => {
       await queryClient.invalidateQueries({
         queryKey: characterKeys.adminLists(),

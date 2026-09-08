@@ -2,8 +2,8 @@ import type { ListCharactersQuery } from '@aiworld/shared/schemas/character.sche
 import { useQuery } from '@tanstack/react-query';
 
 import { POLLING_OPTIONS } from '@/core/query/public-polling';
+import { listCharacters } from '@/features/characters/api/character-api';
 import { characterKeys } from '@/features/characters/query/character-keys';
-import { useGateways } from '@/providers/gateways-provider';
 
 import { ADMIN_POLL_INTERVAL_MS } from './use-simulation';
 
@@ -18,12 +18,11 @@ function activeResidentsQuery(worldSlug: string): ListCharactersQuery {
 
 /** The status tab targets active AI Residents, not unscoped Characters. */
 export function useAdminResidents(worldSlug: string) {
-  const { characterGateway } = useGateways();
   const query = activeResidentsQuery(worldSlug);
 
   return useQuery({
     queryKey: characterKeys.list(query),
-    queryFn: () => characterGateway.list(query),
+    queryFn: () => listCharacters(query),
     enabled: worldSlug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,

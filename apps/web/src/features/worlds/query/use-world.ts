@@ -4,7 +4,7 @@ import {
   POLLING_OPTIONS,
   PUBLIC_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import { getWorldBySlug } from '@/features/worlds/api/world-api';
 
 import { worldKeys } from './world-keys';
 
@@ -13,20 +13,14 @@ export interface UseWorldOptions {
   polling?: boolean;
 }
 
-/**
- * World detail query. The public route opts into polling; admin detail keeps
- * the default manual refresh behavior. `enabled` keeps a disabled query
- * (never fired) while the slug is empty; 404s surface as ApiError(404) which
- * the route maps to the not-found state.
- */
+/** Public detail polling and empty-slug gating preserve route-level behavior. */
 export function useWorld(
   slug: string,
   { polling = false }: UseWorldOptions = {},
 ) {
-  const { worldGateway } = useGateways();
   return useQuery({
     queryKey: worldKeys.detail(slug),
-    queryFn: () => worldGateway.getBySlug(slug),
+    queryFn: () => getWorldBySlug(slug),
     enabled: slug.length > 0,
     ...(polling
       ? {

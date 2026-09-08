@@ -2,9 +2,7 @@ import type { SearchResponse } from '@aiworld/shared/schemas/search-response.sch
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
-import { HttpClient } from '@/core/api/http-client';
-
-import { HttpSearchGateway } from './http-search-gateway';
+import { searchWorld } from './search-api';
 
 const searchResponse: SearchResponse = {
   items: [
@@ -47,9 +45,7 @@ const searchResponse: SearchResponse = {
   meta: { page: 1, limit: 5, total: 2, totalPages: 1 },
 };
 
-const gateway = new HttpSearchGateway(new HttpClient(''));
-
-describe('HttpSearchGateway', () => {
+describe('search API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -64,7 +60,7 @@ describe('HttpSearchGateway', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      gateway.search('mbti house', { q: 'quillfox', page: 1, limit: 5 }),
+      searchWorld('mbti house', { q: 'quillfox', page: 1, limit: 5 }),
     ).resolves.toEqual(searchResponse);
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -73,7 +69,7 @@ describe('HttpSearchGateway', () => {
     );
   });
 
-  it('rejects malformed search responses at the gateway boundary', async () => {
+  it('rejects malformed search responses at the API boundary', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof fetch>(
@@ -94,7 +90,7 @@ describe('HttpSearchGateway', () => {
     );
 
     await expect(
-      gateway.search('mbti', { q: 'quillfox', page: 1, limit: 5 }),
+      searchWorld('mbti', { q: 'quillfox', page: 1, limit: 5 }),
     ).rejects.toBeInstanceOf(ZodError);
   });
 });

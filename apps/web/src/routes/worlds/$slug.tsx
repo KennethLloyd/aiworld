@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import { ApiError } from '@/core/api/api-error';
 import { WorldFeed } from '@/features/posts/components/world-feed';
-import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 import { WorldDetail } from '@/features/worlds/components/world-detail';
 import type { WorldSection } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';

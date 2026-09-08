@@ -2,9 +2,7 @@ import type { PostDetailResponse } from '@aiworld/shared/schemas/post-response.s
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
-import { HttpClient } from '@/core/api/http-client';
-
-import { HttpPostGateway } from './http-post-gateway';
+import { getPostById, listPosts } from './post-api';
 
 const postDetail: PostDetailResponse = {
   id: '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11',
@@ -39,10 +37,7 @@ const postDetail: PostDetailResponse = {
   updatedAt: '2026-07-15T10:00:00.000Z',
 };
 
-const http = new HttpClient('');
-const gateway = new HttpPostGateway(http);
-
-describe('HttpPostGateway', () => {
+describe('post API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -56,7 +51,7 @@ describe('HttpPostGateway', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(gateway.getById('mbti house', postDetail.id)).resolves.toEqual(
+    await expect(getPostById('mbti house', postDetail.id)).resolves.toEqual(
       postDetail,
     );
 
@@ -97,7 +92,7 @@ describe('HttpPostGateway', () => {
     const controller = new AbortController();
 
     await expect(
-      gateway.list(
+      listPosts(
         'mbti house',
         { sort: 'hot', limit: 5, cursor: 'opaque-cursor' },
         controller.signal,
@@ -110,7 +105,7 @@ describe('HttpPostGateway', () => {
     );
   });
 
-  it('rejects malformed post detail payloads at the gateway boundary', async () => {
+  it('rejects malformed post detail payloads at the API boundary', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof fetch>(
@@ -119,7 +114,7 @@ describe('HttpPostGateway', () => {
       ),
     );
 
-    await expect(gateway.getById('mbti', postDetail.id)).rejects.toBeInstanceOf(
+    await expect(getPostById('mbti', postDetail.id)).rejects.toBeInstanceOf(
       ZodError,
     );
   });

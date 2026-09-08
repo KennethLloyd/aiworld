@@ -6,7 +6,6 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ApiError } from '@/core/api/api-error';
-import { GatewaysProvider } from '@/providers/gateways-provider';
 import { createQueryClient } from '@/providers/query-client';
 
 import { useWorlds } from './use-worlds';
@@ -60,12 +59,12 @@ describe('useWorlds', () => {
   function wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={createQueryClient()}>
-        <GatewaysProvider>{children}</GatewaysProvider>
+        {children}
       </QueryClientProvider>
     );
   }
 
-  it('fetches through the gateway, parses with Zod, and exposes the data', async () => {
+  it('fetches through the feature API, parses with Zod, and exposes the data', async () => {
     const { result } = renderHook(
       () => useWorlds({ search: undefined, page: 1, limit: 20 }),
       { wrapper },
@@ -82,9 +81,7 @@ describe('useWorlds', () => {
     const client = createQueryClient();
     function clientWrapper({ children }: { children: React.ReactNode }) {
       return (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       );
     }
 
@@ -128,9 +125,7 @@ describe('useWorlds', () => {
         useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
-          <QueryClientProvider client={client}>
-            <GatewaysProvider>{children}</GatewaysProvider>
-          </QueryClientProvider>
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
         ),
       },
     );
@@ -172,9 +167,7 @@ describe('useWorlds', () => {
         useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
-          <QueryClientProvider client={client}>
-            <GatewaysProvider>{children}</GatewaysProvider>
-          </QueryClientProvider>
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
         ),
       },
     );
@@ -225,7 +218,7 @@ describe('useWorlds', () => {
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
           <QueryClientProvider client={createQueryClientWithRetryDisabled()}>
-            <GatewaysProvider>{children}</GatewaysProvider>
+            {children}
           </QueryClientProvider>
         ),
       },

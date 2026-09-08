@@ -5,9 +5,16 @@ import type { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simula
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
 
-import { HttpClient } from '@/core/api/http-client';
-
-import { HttpAdminGateway } from './http-admin-gateway';
+import {
+  getSimulation,
+  getSimulationHealth,
+  getSimulationTelemetry,
+  listSimulationLogs,
+  runCustomAction,
+  runOneAction,
+  updateSimulationSpeed,
+  updateSimulationState,
+} from './admin-api';
 
 const config: SimulationConfigResponse = {
   id: '6a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f10',
@@ -78,10 +85,7 @@ const runResult: SimulationRunResultResponse = {
   },
 };
 
-const http = new HttpClient('');
-const gateway = new HttpAdminGateway(http);
-
-describe('HttpAdminGateway', () => {
+describe('admin API functions', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -100,7 +104,7 @@ describe('HttpAdminGateway', () => {
   it('parses the simulation config and addresses a slug safely', async () => {
     const fetchMock = mockFetch(config);
 
-    await expect(gateway.getSimulation('mbti house')).resolves.toEqual(config);
+    await expect(getSimulation('mbti house')).resolves.toEqual(config);
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/worlds/mbti%20house/simulation',
@@ -111,8 +115,8 @@ describe('HttpAdminGateway', () => {
   it('serializes lifecycle and speed commands through the shared endpoints', async () => {
     const fetchMock = mockFetch(config);
 
-    await gateway.updateSimulationState('mbti-house', { state: 'RUNNING' });
-    await gateway.updateSimulationSpeed('mbti-house', {
+    await updateSimulationState('mbti-house', { state: 'RUNNING' });
+    await updateSimulationSpeed('mbti-house', {
       speedMultiplier: 2,
     });
 
@@ -137,11 +141,9 @@ describe('HttpAdminGateway', () => {
   it('supports automatic and targeted custom actions plus Run One Action', async () => {
     const fetchMock = mockFetch(runResult);
 
-    await expect(gateway.runOneAction('mbti-house')).resolves.toEqual(
-      runResult,
-    );
-    await gateway.runCustomAction('mbti-house', {});
-    await gateway.runCustomAction('mbti-house', {
+    await expect(runOneAction('mbti-house')).resolves.toEqual(runResult);
+    await runCustomAction('mbti-house', {});
+    await runCustomAction('mbti-house', {
       characterId: '9a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f13',
       actionType: 'COMMENT',
     });
@@ -177,7 +179,7 @@ describe('HttpAdminGateway', () => {
     });
 
     await expect(
-      gateway.listSimulationLogs('mbti-house', { page: 1, limit: 5 }),
+      listSimulationLogs('mbti-house', { page: 1, limit: 5 }),
     ).resolves.toEqual({
       items: [runResult.log],
       meta: { page: 1, limit: 5, total: 1, totalPages: 1 },
@@ -188,7 +190,7 @@ describe('HttpAdminGateway', () => {
     );
 
     const telemetryFetch = mockFetch(telemetry);
-    await expect(gateway.getSimulationTelemetry('mbti-house')).resolves.toEqual(
+    await expect(getSimulationTelemetry('mbti-house')).resolves.toEqual(
       telemetry,
     );
     expect(telemetryFetch).toHaveBeenCalledWith(
@@ -197,20 +199,16 @@ describe('HttpAdminGateway', () => {
     );
 
     const healthFetch = mockFetch(health);
-    await expect(gateway.getSimulationHealth('mbti-house')).resolves.toEqual(
-      health,
-    );
+    await expect(getSimulationHealth('mbti-house')).resolves.toEqual(health);
     expect(healthFetch).toHaveBeenCalledWith(
       '/api/worlds/mbti-house/simulation/health',
       expect.objectContaining({ method: 'GET' }),
     );
   });
 
-  it('rejects malformed simulation responses at the gateway boundary', async () => {
+  it('rejects malformed simulation responses at the API boundary', async () => {
     mockFetch({ state: 'RUNNING' });
 
-    await expect(gateway.getSimulation('mbti-house')).rejects.toBeInstanceOf(
-      ZodError,
-    );
+    await expect(getSimulation('mbti-house')).rejects.toBeInstanceOf(ZodError);
   });
 });

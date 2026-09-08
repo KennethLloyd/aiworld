@@ -3,19 +3,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CharacterGateway } from '@/features/characters/api/character-gateway';
-import type { PostGateway } from '@/features/posts/api/post-gateway';
-import type { SearchGateway } from '@/features/search/api/search-gateway';
-import type { WorldGateway } from '@/features/worlds/api/world-gateway';
-import { GatewaysProvider } from '@/providers/gateways-provider';
-import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
-import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
-import { unusedWorldMemberGateway } from '@/test/fixtures/unused-world-member-gateway';
-
+import { getCharacterActivity } from '../api/character-api';
 import { useCharacterActivity } from './use-character-activity';
 
-const characterId = '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12';
+vi.mock('../api/character-api', () => ({
+  getCharacterActivity: vi.fn<typeof getCharacterActivity>(),
+}));
 
+const getCharacterActivityMock = vi.mocked(getCharacterActivity);
+const characterId = '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12';
 const firstPage: CharacterActivityResponse = {
   items: [
     {
@@ -38,7 +34,6 @@ const firstPage: CharacterActivityResponse = {
   ],
   nextCursor: 'cursor-2',
 };
-
 const secondPage: CharacterActivityResponse = {
   items: [
     {
@@ -57,70 +52,18 @@ const secondPage: CharacterActivityResponse = {
   nextCursor: null,
 };
 
-const unusedWorldGateway: WorldGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getBySlug: async () => {
-    throw new Error('unused test adapter');
-  },
-  create: async () => {
-    throw new Error('unused test adapter');
-  },
-  update: async () => {
-    throw new Error('unused test adapter');
-  },
-  delete: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedPostGateway: PostGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getById: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedSearchGateway: SearchGateway = {
-  search: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
 describe('useCharacterActivity', () => {
-  it('loads the first page and fetches the next cursor page', async () => {
-    const gateway: CharacterGateway = {
-      list: vi.fn<CharacterGateway['list']>(),
-      getById: vi.fn<CharacterGateway['getById']>(),
-      getActivity: vi
-        .fn<CharacterGateway['getActivity']>()
-        .mockResolvedValueOnce(firstPage)
-        .mockResolvedValueOnce(secondPage),
-    };
+  it('loads activity pages through the feature API function', async () => {
+    getCharacterActivityMock
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce(secondPage);
     const client = new QueryClient();
 
     const { result } = renderHook(
       () => useCharacterActivity('mbti', characterId),
       {
         wrapper: ({ children }) => (
-          <QueryClientProvider client={client}>
-            <GatewaysProvider
-              value={{
-                adminGateway: unusedAdminGateway,
-                worldMemberGateway: unusedWorldMemberGateway,
-                worldGateway: unusedWorldGateway,
-                postGateway: unusedPostGateway,
-                characterGateway: gateway,
-                adminCharacterGateway: unusedAdminCharacterGateway,
-                searchGateway: unusedSearchGateway,
-              }}
-            >
-              {children}
-            </GatewaysProvider>
-          </QueryClientProvider>
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
         ),
       },
     );
@@ -133,7 +76,7 @@ describe('useCharacterActivity', () => {
 
     await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
     expect(result.current.data?.pages).toEqual([firstPage, secondPage]);
-    expect(gateway.getActivity).toHaveBeenNthCalledWith(2, characterId, {
+    expect(getCharacterActivityMock).toHaveBeenNthCalledWith(2, characterId, {
       worldSlug: 'mbti',
       limit: 20,
       cursor: 'cursor-2',
@@ -141,36 +84,15 @@ describe('useCharacterActivity', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  it('does not poll every loaded historical activity page', async () => {
-    const gateway: CharacterGateway = {
-      list: vi.fn<CharacterGateway['list']>(),
-      getById: vi.fn<CharacterGateway['getById']>(),
-      getActivity: vi
-        .fn<CharacterGateway['getActivity']>()
-        .mockResolvedValueOnce(firstPage)
-        .mockResolvedValueOnce(secondPage),
-    };
+  it('does not poll the historical activity timeline', async () => {
+    getCharacterActivityMock.mockResolvedValue(firstPage);
     const client = new QueryClient();
 
     const { result } = renderHook(
       () => useCharacterActivity('mbti', characterId),
       {
         wrapper: ({ children }) => (
-          <QueryClientProvider client={client}>
-            <GatewaysProvider
-              value={{
-                adminGateway: unusedAdminGateway,
-                worldMemberGateway: unusedWorldMemberGateway,
-                worldGateway: unusedWorldGateway,
-                postGateway: unusedPostGateway,
-                characterGateway: gateway,
-                adminCharacterGateway: unusedAdminCharacterGateway,
-                searchGateway: unusedSearchGateway,
-              }}
-            >
-              {children}
-            </GatewaysProvider>
-          </QueryClientProvider>
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
         ),
       },
     );

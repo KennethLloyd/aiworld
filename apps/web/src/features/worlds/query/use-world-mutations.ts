@@ -4,20 +4,19 @@ import type {
 } from '@aiworld/shared/schemas/world.schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { useGateways } from '@/providers/gateways-provider';
+import {
+  createWorld,
+  deleteWorld,
+  updateWorld,
+} from '@/features/worlds/api/world-api';
 
 import { worldKeys } from './world-keys';
 
-/**
- * Mutation hooks mirror the plan's invalidation table (Section 6.5): create
- * refreshes every list entry, update refreshes the detail + lists, delete
- * refreshes lists and evicts the stale detail cache entry.
- */
+/** Keeps world mutation invalidation aligned with the query-key hierarchy. */
 export function useCreateWorld() {
-  const { worldGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateWorld) => worldGateway.create(input),
+    mutationFn: (input: CreateWorld) => createWorld(input),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: worldKeys.lists() });
     },
@@ -30,11 +29,10 @@ export interface UpdateWorldVariables {
 }
 
 export function useUpdateWorld() {
-  const { worldGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ slug, input }: UpdateWorldVariables) =>
-      worldGateway.update(slug, input),
+      updateWorld(slug, input),
     onSuccess: async (_data, { slug }) => {
       await queryClient.invalidateQueries({
         queryKey: worldKeys.detail(slug),
@@ -45,10 +43,9 @@ export function useUpdateWorld() {
 }
 
 export function useDeleteWorld() {
-  const { worldGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (slug: string) => worldGateway.delete(slug),
+    mutationFn: (slug: string) => deleteWorld(slug),
     onSuccess: async (_data, slug) => {
       await queryClient.invalidateQueries({ queryKey: worldKeys.lists() });
       queryClient.setQueryData(worldKeys.detail(slug), undefined);

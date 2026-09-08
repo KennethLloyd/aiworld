@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Eye, LayoutDashboard, LogIn, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { publicListWorldsDefaults } from '@/features/worlds/api/world-gateway';
+import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 
 export interface AppHeaderProps {
   isSignedIn: boolean;

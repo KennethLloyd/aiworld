@@ -1,22 +1,16 @@
 import type { ListPostsResponse } from '@aiworld/shared/schemas/post-response.schema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CharacterGateway } from '@/features/characters/api/character-gateway';
-import type { SearchGateway } from '@/features/search/api/search-gateway';
-import type { WorldGateway } from '@/features/worlds/api/world-gateway';
-import {
-  GatewaysProvider,
-  type AppGateways,
-} from '@/providers/gateways-provider';
-import { unusedAdminGateway } from '@/test/fixtures/unused-admin-gateway';
-import { unusedAdminCharacterGateway } from '@/test/fixtures/unused-character-gateways';
-import { unusedWorldMemberGateway } from '@/test/fixtures/unused-world-member-gateway';
-
-import type { PostGateway } from '../api/post-gateway';
+import { listPosts } from '../api/post-api';
 import { usePosts } from './use-posts';
 
+vi.mock('../api/post-api', () => ({
+  listPosts: vi.fn<typeof listPosts>(),
+}));
+
+const listPostsMock = vi.mocked(listPosts);
 const response: ListPostsResponse = {
   items: [
     {
@@ -39,74 +33,42 @@ const response: ListPostsResponse = {
 };
 
 describe('usePosts', () => {
-  it('fetches the latest conversations through the feature gateway', async () => {
-    const gateway: PostGateway = {
-      list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
-      getById: vi.fn<PostGateway['getById']>(),
-    };
-    const gateways: AppGateways = {
-      adminGateway: unusedAdminGateway,
-      worldMemberGateway: unusedWorldMemberGateway,
-      worldGateway: unusedWorldGateway,
-      postGateway: gateway,
-      characterGateway: unusedCharacterGateway,
-      adminCharacterGateway: unusedAdminCharacterGateway,
-      searchGateway: unusedSearchGateway,
-    };
+  beforeEach(() => {
+    listPostsMock.mockReset();
+  });
+
+  it('calls the post API function with the feed query and signal', async () => {
+    listPostsMock.mockResolvedValue(response);
     const client = new QueryClient();
 
     const { result } = renderHook(() => usePosts('mbti', 'new'), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       ),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
     expect(result.current.data?.pages[0]?.items[0]?.title).toBe(
       'A latest conversation',
     );
-    expect(gateway.list).toHaveBeenCalledWith(
+    expect(listPostsMock).toHaveBeenCalledWith(
       'mbti',
-      {
-        sort: 'new',
-        limit: 5,
-        cursor: undefined,
-      },
+      { sort: 'new', limit: 5, cursor: undefined },
       expect.any(AbortSignal),
     );
   });
 
   it('requests the next cursor page once and preserves the page boundary', async () => {
-    const gateway: PostGateway = {
-      list: vi
-        .fn<PostGateway['list']>()
-        .mockImplementation(async (_slug, query) => {
-          if (query.cursor === undefined) {
-            return { ...response, nextCursor: 'cursor-2' };
-          }
-          return { ...response, nextCursor: null };
-        }),
-      getById: vi.fn<PostGateway['getById']>(),
-    };
-    const gateways: AppGateways = {
-      adminGateway: unusedAdminGateway,
-      worldMemberGateway: unusedWorldMemberGateway,
-      worldGateway: unusedWorldGateway,
-      postGateway: gateway,
-      characterGateway: unusedCharacterGateway,
-      adminCharacterGateway: unusedAdminCharacterGateway,
-      searchGateway: unusedSearchGateway,
-    };
+    listPostsMock.mockImplementation(async (_slug, query) =>
+      query.cursor === undefined
+        ? { ...response, nextCursor: 'cursor-2' }
+        : response,
+    );
     const client = new QueryClient();
 
     const { result } = renderHook(() => usePosts('mbti', 'new'), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       ),
     });
 
@@ -115,40 +77,22 @@ describe('usePosts', () => {
       await result.current.fetchNextPage();
     });
 
-    expect(gateway.list).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(result.current.data?.pages).toHaveLength(2));
-    expect(gateway.list).toHaveBeenLastCalledWith(
+    expect(listPostsMock).toHaveBeenCalledTimes(2);
+    expect(listPostsMock).toHaveBeenLastCalledWith(
       'mbti',
-      {
-        sort: 'new',
-        limit: 5,
-        cursor: 'cursor-2',
-      },
+      { sort: 'new', limit: 5, cursor: 'cursor-2' },
       expect.any(AbortSignal),
     );
   });
 
   it('polls the latest conversations for the public observer', async () => {
-    const gateway: PostGateway = {
-      list: vi.fn<PostGateway['list']>().mockResolvedValue(response),
-      getById: vi.fn<PostGateway['getById']>(),
-    };
-    const gateways: AppGateways = {
-      adminGateway: unusedAdminGateway,
-      worldMemberGateway: unusedWorldMemberGateway,
-      worldGateway: unusedWorldGateway,
-      postGateway: gateway,
-      characterGateway: unusedCharacterGateway,
-      adminCharacterGateway: unusedAdminCharacterGateway,
-      searchGateway: unusedSearchGateway,
-    };
+    listPostsMock.mockResolvedValue(response);
     const client = new QueryClient();
 
     const { result } = renderHook(() => usePosts('mbti', 'hot'), {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>
-          <GatewaysProvider value={gateways}>{children}</GatewaysProvider>
-        </QueryClientProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
       ),
     });
 
@@ -156,44 +100,7 @@ describe('usePosts', () => {
     const query = client.getQueryCache().find({
       queryKey: ['posts', 'list', 'mbti', 'hot'],
     });
-
     const queryOptions = query?.options as { refetchInterval?: number };
     expect(queryOptions.refetchInterval).toBe(30_000);
   });
 });
-
-const unusedWorldGateway: WorldGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getBySlug: async () => {
-    throw new Error('unused test adapter');
-  },
-  create: async () => {
-    throw new Error('unused test adapter');
-  },
-  update: async () => {
-    throw new Error('unused test adapter');
-  },
-  delete: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedCharacterGateway: CharacterGateway = {
-  list: async () => {
-    throw new Error('unused test adapter');
-  },
-  getById: async () => {
-    throw new Error('unused test adapter');
-  },
-  getActivity: async () => {
-    throw new Error('unused test adapter');
-  },
-};
-
-const unusedSearchGateway: SearchGateway = {
-  search: async () => {
-    throw new Error('unused test adapter');
-  },
-};

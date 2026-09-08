@@ -12,7 +12,15 @@ import {
 } from '@tanstack/react-query';
 
 import { POLLING_OPTIONS } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import {
+  getSimulation,
+  getSimulationHealth,
+  listSimulationLogs,
+  runCustomAction,
+  runOneAction,
+  updateSimulationSpeed,
+  updateSimulationState,
+} from '@/features/admin/api/admin-api';
 
 import { adminKeys } from './admin-keys';
 
@@ -21,10 +29,9 @@ export const ADMIN_POLL_INTERVAL_MS = 5_000;
 const recentLogsQuery: ListSimulationLogsQuery = { page: 1, limit: 5 };
 
 export function useSimulation(slug: string) {
-  const { adminGateway } = useGateways();
   return useQuery({
     queryKey: adminKeys.simulation(slug),
-    queryFn: () => adminGateway.getSimulation(slug),
+    queryFn: () => getSimulation(slug),
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
@@ -32,10 +39,9 @@ export function useSimulation(slug: string) {
 }
 
 export function useSimulationHealth(slug: string) {
-  const { adminGateway } = useGateways();
   return useQuery({
     queryKey: adminKeys.health(slug),
-    queryFn: () => adminGateway.getSimulationHealth(slug),
+    queryFn: () => getSimulationHealth(slug),
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
     ...POLLING_OPTIONS,
@@ -46,10 +52,9 @@ export function useSimulationLogs(
   slug: string,
   query: ListSimulationLogsQuery = recentLogsQuery,
 ) {
-  const { adminGateway } = useGateways();
   return useQuery({
     queryKey: adminKeys.worldLogs(slug, query),
-    queryFn: () => adminGateway.listSimulationLogs(slug, query),
+    queryFn: () => listSimulationLogs(slug, query),
     placeholderData: keepPreviousData,
     enabled: slug.length > 0,
     refetchInterval: ADMIN_POLL_INTERVAL_MS,
@@ -58,7 +63,6 @@ export function useSimulationLogs(
 }
 
 export function useUpdateSimulationState() {
-  const { adminGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -67,7 +71,7 @@ export function useUpdateSimulationState() {
     }: {
       slug: string;
       input: UpdateSimulationState;
-    }) => adminGateway.updateSimulationState(slug, input),
+    }) => updateSimulationState(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
       await Promise.all([
@@ -83,7 +87,6 @@ export function useUpdateSimulationState() {
 }
 
 export function useUpdateSimulationSpeed() {
-  const { adminGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
@@ -92,7 +95,7 @@ export function useUpdateSimulationSpeed() {
     }: {
       slug: string;
       input: UpdateSimulationSpeed;
-    }) => adminGateway.updateSimulationSpeed(slug, input),
+    }) => updateSimulationSpeed(slug, input),
     onSuccess: async (config, { slug }) => {
       queryClient.setQueryData(adminKeys.simulation(slug), config);
       await Promise.all([
@@ -118,10 +121,9 @@ async function invalidateManualRunQueries(
 }
 
 export function useRunOneAction() {
-  const { adminGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (slug: string) => adminGateway.runOneAction(slug),
+    mutationFn: (slug: string) => runOneAction(slug),
     onSuccess: async (_result, slug) => {
       await invalidateManualRunQueries(queryClient, slug);
     },
@@ -129,11 +131,10 @@ export function useRunOneAction() {
 }
 
 export function useRunCustomAction() {
-  const { adminGateway } = useGateways();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ slug, input }: { slug: string; input: RunCustomAction }) =>
-      adminGateway.runCustomAction(slug, input),
+      runCustomAction(slug, input),
     onSuccess: async (_result, { slug }) => {
       await invalidateManualRunQueries(queryClient, slug);
     },

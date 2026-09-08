@@ -5,7 +5,7 @@ import {
   POLLING_OPTIONS,
   PUBLIC_POLL_INTERVAL_MS,
 } from '@/core/query/public-polling';
-import { useGateways } from '@/providers/gateways-provider';
+import { listWorlds } from '@/features/worlds/api/world-api';
 
 import { worldKeys } from './world-keys';
 
@@ -19,10 +19,9 @@ export function useWorlds(
   query: ListWorldsQuery,
   { polling = false }: UseWorldsOptions = {},
 ) {
-  const { worldGateway } = useGateways();
   return useQuery({
     queryKey: worldKeys.list(query),
-    queryFn: () => worldGateway.list(query),
+    queryFn: () => listWorlds(query),
     placeholderData: keepPreviousData,
     ...(polling
       ? {
