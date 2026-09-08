@@ -114,7 +114,7 @@ export class SimulationAdminService {
             ...observedScheduler,
             pending: false,
             workExpected: false,
-            nextTickAt: null,
+            nextTurnAt: null,
           };
     const telemetry = storedTelemetry ?? emptySimulationTelemetry(world.id);
     const decision = deriveSimulationHealth({

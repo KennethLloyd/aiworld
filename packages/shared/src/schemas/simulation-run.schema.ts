@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { simulationActionTypes } from './simulation-command.schema.ts';
+import { simulationActionTypes } from './simulation-iteration.schema.ts';
 import { simulationLogResponseSchema } from './simulation-log.schema.ts';
 
 // Manual runs share the scheduler result shape.

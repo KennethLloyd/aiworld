@@ -82,7 +82,7 @@ export class SimulationLifecycleService {
       speedMultiplier,
     );
   }
-  /** Scheduled ticks require an active World and a RUNNING config. */
+  /** Scheduled turns require an active World and a RUNNING config. */
   async assertScheduledWorkAllowed(
     worldId: string,
   ): Promise<WorldSimulationConfigRecord> {

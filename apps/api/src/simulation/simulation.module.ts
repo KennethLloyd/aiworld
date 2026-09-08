@@ -37,8 +37,8 @@ import {
   SIMULATION_DLQ,
   SIMULATION_QUEUE,
   SIMULATION_REDIS,
-  SIMULATION_TICKS_DLQ,
-  SIMULATION_TICKS_QUEUE,
+  SIMULATION_TURNS_DLQ,
+  SIMULATION_TURNS_QUEUE,
   SimulationScheduler,
 } from '@/simulation/scheduler/simulation-scheduler';
 import { SimulationSchedulerBootstrap } from '@/simulation/scheduler/simulation-scheduler-bootstrap';
@@ -108,13 +108,13 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       provide: SIMULATION_QUEUE,
       inject: [SIMULATION_REDIS],
       useFactory: (connection: IORedis) =>
-        new Queue(SIMULATION_TICKS_QUEUE, { connection }),
+        new Queue(SIMULATION_TURNS_QUEUE, { connection }),
     },
     {
       provide: SIMULATION_DLQ,
       inject: [SIMULATION_REDIS],
       useFactory: (connection: IORedis) =>
-        new Queue(SIMULATION_TICKS_DLQ, { connection }),
+        new Queue(SIMULATION_TURNS_DLQ, { connection }),
     },
     SimulationScheduler,
     SimulationContextProvider,

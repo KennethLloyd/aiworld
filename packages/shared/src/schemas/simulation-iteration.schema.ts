@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-// Queue adapters share this serializable command shape.
+// Scheduled turns and manual iterations share this serializable shape.
 
 export const simulationActionTypes = ["POST", "VOTE", "COMMENT"] as const;
 
@@ -14,7 +14,7 @@ export type SimulationActionType = (typeof simulationActionTypes)[number];
 export type SimulationExecutionSource =
   (typeof simulationExecutionSources)[number];
 
-export const simulationCommandSchema = z.object({
+export const simulationIterationSchema = z.object({
   worldSlug: z.string().min(1).max(80),
   characterId: z.string().min(1),
   actionType: z.enum(simulationActionTypes),
@@ -22,7 +22,13 @@ export const simulationCommandSchema = z.object({
   issuedAt: z.iso.datetime(),
 });
 
-export type SimulationCommand = z.infer<typeof simulationCommandSchema>;
+export type SimulationIteration = z.infer<typeof simulationIterationSchema>;
+
+export const scheduledTurnSchema = simulationIterationSchema.extend({
+  executionSource: z.literal('scheduled'),
+});
+
+export type ScheduledTurn = z.infer<typeof scheduledTurnSchema>;
 
 // UI presets map to this shared 0.1-100 range.
 export const simulationSpeedMultiplierSchema = z
@@ -34,7 +40,7 @@ export type SimulationSpeedMultiplier = z.infer<
   typeof simulationSpeedMultiplierSchema
 >;
 
-/** Computes the next tick delay with speed-scaled jitter. */
+/** Computes the next turn delay with speed-scaled jitter. */
 export function deriveScheduledDelayMs(input: {
   intervalMs: number;
   jitterMs: number;

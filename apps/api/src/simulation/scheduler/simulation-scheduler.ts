@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import {
   deriveScheduledDelayMs,
-  simulationCommandSchema,
-} from '@aiworld/shared/schemas/simulation-command.schema';
-import type { SimulationCommand } from '@aiworld/shared/schemas/simulation-command.schema';
+  scheduledTurnSchema,
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
+import type { ScheduledTurn } from '@aiworld/shared/schemas/simulation-iteration.schema';
 import {
   Inject,
   Injectable,
@@ -39,8 +39,8 @@ import {
 import type { WorldRecord } from '@/world/domain/world-record';
 import { WorldRepository } from '@/world/repositories/world-repository.interface';
 
-export const SIMULATION_TICKS_QUEUE = 'simulation-ticks';
-export const SIMULATION_TICKS_DLQ = 'simulation-ticks-dlq';
+export const SIMULATION_TURNS_QUEUE = 'simulation-turns';
+export const SIMULATION_TURNS_DLQ = 'simulation-turns-dlq';
 export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
 export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
 export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');
@@ -50,9 +50,9 @@ function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
     worldId,
     pending: false,
     workExpected: false,
-    nextTickAt: null,
-    lastTickStartedAt: null,
-    lastTickCompletedAt: null,
+    nextTurnAt: null,
+    lastTurnStartedAt: null,
+    lastTurnCompletedAt: null,
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
@@ -75,12 +75,12 @@ export type SimulationSchedulerObservabilityRecord =
     available: boolean;
   };
 
-function tickJobName(worldId: string): string {
-  return `tick_${worldId}`;
+function turnJobName(worldId: string): string {
+  return `turn_${worldId}`;
 }
 
-function tickJobId(worldId: string): string {
-  return `${tickJobName(worldId)}_${randomUUID()}`;
+function turnJobId(worldId: string): string {
+  return `${turnJobName(worldId)}_${randomUUID()}`;
 }
 
 function safeSchedulerError(error: unknown, fallback: string): Error {
@@ -115,7 +115,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.attachWorker(
-      new Worker(SIMULATION_TICKS_QUEUE, (job) => this.process(job), {
+      new Worker(SIMULATION_TURNS_QUEUE, (job) => this.process(job), {
         connection: this.connection,
         concurrency: 1,
       }),
@@ -145,7 +145,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   }
 
   async stop(worldId: string): Promise<void> {
-    await this.removePendingTick(worldId);
+    await this.removePendingTurn(worldId);
     await this.markStopped(worldId);
   }
 
@@ -160,49 +160,49 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     return runtime;
   }
 
-  /** Processes a tick and applies retry, cadence, and DLQ policy. */
-  async process(job: Job<SimulationCommand>): Promise<void> {
-    let command: SimulationCommand;
+  /** Processes a turn and applies retry, cadence, and DLQ policy. */
+  async process(job: Job<ScheduledTurn>): Promise<void> {
+    let turn: ScheduledTurn;
     try {
-      command = simulationCommandSchema.parse(job.data);
+      turn = scheduledTurnSchema.parse(job.data);
     } catch {
-      throw new UnrecoverableError('Invalid simulation tick command');
+      throw new UnrecoverableError('Invalid scheduled turn');
     }
 
     let worldId: string | undefined;
     try {
-      worldId = (await this.worldRepository.findBySlug(command.worldSlug))?.id;
+      worldId = (await this.worldRepository.findBySlug(turn.worldSlug))?.id;
     } catch {
       // Let the runner classify processing errors even if lookup fails.
     }
     if (worldId !== undefined) {
-      await this.markTickStarted(worldId);
+      await this.markTurnStarted(worldId);
     }
 
-    let result: Awaited<ReturnType<SimulationRunner['runScheduledTick']>>;
+    let result: Awaited<ReturnType<SimulationRunner['runScheduledTurn']>>;
     try {
-      result = await this.runner.runScheduledTick(command, job.id);
+      result = await this.runner.runScheduledTurn(turn, job.id);
     } catch (error) {
       if (worldId !== undefined) {
-        await this.markTickAttemptCompleted(worldId);
+        await this.markTurnAttemptCompleted(worldId);
         if (isTransientSchedulerError(error)) {
           await this.markRetry(worldId);
         } else {
-          await this.markTickSettled(worldId);
+          await this.markTurnSettled(worldId);
         }
       }
       // Retry transient scheduler faults; dead-letter permanent faults.
       if (isTransientSchedulerError(error)) {
-        throw safeSchedulerError(error, 'Simulation tick failed');
+        throw safeSchedulerError(error, 'Simulation turn failed');
       }
       throw new UnrecoverableError(
-        safeSchedulerError(error, 'Simulation tick failed').message,
+        safeSchedulerError(error, 'Simulation turn failed').message,
       );
     }
 
     if (result.status === 'failed') {
       if (worldId !== undefined) {
-        await this.markTickAttemptCompleted(worldId);
+        await this.markTurnAttemptCompleted(worldId);
       }
       if (result.failure.retryable && !this.hasExhaustedAttempts(job)) {
         if (worldId !== undefined) {
@@ -216,31 +216,31 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       }
 
       try {
-        await this.scheduleNextTick(result.log.worldId);
+        await this.scheduleNextTurn(result.log.worldId);
       } catch (error) {
         if (worldId !== undefined) {
-          await this.markTickSettled(worldId);
+          await this.markTurnSettled(worldId);
         }
         throw error;
       }
       if (worldId !== undefined) {
-        await this.markTickSettled(worldId);
+        await this.markTurnSettled(worldId);
       }
       return;
     }
 
     try {
-      await this.scheduleNextTick(result.log.worldId);
+      await this.scheduleNextTurn(result.log.worldId);
     } catch (error) {
       if (worldId !== undefined) {
-        await this.markTickAttemptCompleted(worldId);
-        await this.markTickSettled(worldId);
+        await this.markTurnAttemptCompleted(worldId);
+        await this.markTurnSettled(worldId);
       }
       throw error;
     }
     if (worldId !== undefined) {
-      await this.markTickAttemptCompleted(worldId);
-      await this.markTickSettled(worldId);
+      await this.markTurnAttemptCompleted(worldId);
+      await this.markTurnSettled(worldId);
     }
   }
 
@@ -281,24 +281,24 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
   private async markScheduled(
     worldId: string,
-    nextTickAt: Date,
+    nextTurnAt: Date,
   ): Promise<void> {
     await this.persistRuntimeState(worldId, {
       pending: true,
       workExpected: true,
-      nextTickAt,
+      nextTurnAt,
       blockedReason: null,
     });
   }
 
-  private async markExistingTick(
+  private async markExistingTurn(
     worldId: string,
-    input: { pending: boolean; nextTickAt: Date | null },
+    input: { pending: boolean; nextTurnAt: Date | null },
   ): Promise<void> {
     await this.persistRuntimeState(worldId, {
       pending: input.pending,
       workExpected: true,
-      nextTickAt: input.nextTickAt,
+      nextTurnAt: input.nextTurnAt,
       blockedReason: null,
     });
   }
@@ -307,7 +307,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     await this.persistRuntimeState(worldId, {
       pending: false,
       workExpected: false,
-      nextTickAt: null,
+      nextTurnAt: null,
       blockedReason: 'NO_ACTIVE_RESIDENTS',
     });
   }
@@ -316,27 +316,27 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     await this.persistRuntimeState(worldId, {
       pending: false,
       workExpected: false,
-      nextTickAt: null,
+      nextTurnAt: null,
       retrying: false,
       blockedReason: null,
     });
   }
 
-  private async markTickStarted(worldId: string): Promise<void> {
+  private async markTurnStarted(worldId: string): Promise<void> {
     await this.persistRuntimeState(worldId, {
       pending: false,
-      nextTickAt: null,
-      lastTickStartedAt: new Date(),
+      nextTurnAt: null,
+      lastTurnStartedAt: new Date(),
     });
   }
 
-  private async markTickAttemptCompleted(worldId: string): Promise<void> {
+  private async markTurnAttemptCompleted(worldId: string): Promise<void> {
     await this.persistRuntimeState(worldId, {
-      lastTickCompletedAt: new Date(),
+      lastTurnCompletedAt: new Date(),
     });
   }
 
-  private async markTickSettled(worldId: string): Promise<void> {
+  private async markTurnSettled(worldId: string): Promise<void> {
     await this.persistRuntimeState(worldId, { retrying: false });
   }
 
@@ -389,9 +389,9 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       available,
       pending: stored.pending,
       workExpected: stored.workExpected,
-      nextTickAt: stored.nextTickAt,
-      lastTickStartedAt: stored.lastTickStartedAt,
-      lastTickCompletedAt: stored.lastTickCompletedAt,
+      nextTurnAt: stored.nextTurnAt,
+      lastTurnStartedAt: stored.lastTurnStartedAt,
+      lastTurnCompletedAt: stored.lastTurnCompletedAt,
       retrying: stored.retrying,
       recentRetryCount: retryIsRecent ? stored.recentRetryCount : 0,
       blockedReason: stored.blockedReason,
@@ -402,17 +402,17 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private async scheduleNextTick(worldId: string): Promise<void> {
+  private async scheduleNextTurn(worldId: string): Promise<void> {
     try {
-      await this.scheduleTick(worldId);
+      await this.scheduleTurn(worldId);
       await this.markSchedulerStartSucceeded(worldId);
     } catch (error) {
-      // Completed ticks are not retried; scheduling faults go to the DLQ.
+      // Completed turns are not retried; scheduling faults go to the DLQ.
       throw new UnrecoverableError(
         redactDiagnostics(
           error instanceof Error
             ? error.message
-            : 'Failed to schedule next tick',
+            : 'Failed to schedule next turn',
         ),
       );
     }
@@ -426,30 +426,30 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   private async ensureScheduledForDesiredState(worldId: string): Promise<void> {
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
     const world = await this.worldRepository.findById(worldId);
     if (!world?.isActive) {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
     const actors = await this.castingRepository.findActiveActors(worldId);
     if (actors.length === 0) {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markBlockedByNoActiveResidents(worldId);
       return;
     }
 
-    const existing = await this.getCurrentTick(worldId);
+    const existing = await this.getCurrentTurn(worldId);
     if (existing !== null) {
-      await this.markExistingTick(worldId, {
+      await this.markExistingTurn(worldId, {
         pending: existing.state !== 'active',
-        nextTickAt:
+        nextTurnAt:
           existing.state === 'active'
             ? null
             : new Date(existing.job.timestamp + existing.job.delay),
@@ -457,32 +457,32 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    await this.scheduleTick(worldId);
+    await this.scheduleTurn(worldId);
   }
 
-  private async scheduleTick(worldId: string): Promise<void> {
+  private async scheduleTurn(worldId: string): Promise<void> {
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config || config.state !== 'RUNNING') {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
     const world = await this.worldRepository.findById(worldId);
     if (!world?.isActive) {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
     const actors = await this.castingRepository.findActiveActors(worldId);
     if (actors.length === 0) {
-      await this.removePendingTick(worldId);
+      await this.removePendingTurn(worldId);
       await this.markBlockedByNoActiveResidents(worldId);
       return;
     }
 
-    const composed = await this.composeScheduledIteration(worldId);
+    const composed = await this.composeScheduledTurn(worldId);
     if (!composed) {
       return;
     }
@@ -498,8 +498,8 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       random: () => this.randomSource.next(),
     });
 
-    const job = await this.queue.add(tickJobName(worldId), composed.iteration, {
-      jobId: tickJobId(worldId),
+    const job = await this.queue.add(turnJobName(worldId), composed.turn, {
+      jobId: turnJobId(worldId),
       delay,
       deduplication: { id: worldId, keepLastIfActive: true },
       attempts: this.schedulerConfig.maxAttempts,
@@ -513,8 +513,8 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     await this.markScheduled(worldId, new Date(job.timestamp + job.delay));
   }
 
-  private async getCurrentTick(worldId: string): Promise<{
-    job: Job<SimulationCommand>;
+  private async getCurrentTurn(worldId: string): Promise<{
+    job: Job<ScheduledTurn>;
     state: string;
   } | null> {
     const jobId = await this.queue.getDeduplicationJobId(worldId);
@@ -531,8 +531,8 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     return { job, state: await job.getState() };
   }
 
-  private async removePendingTick(worldId: string): Promise<void> {
-    const current = await this.getCurrentTick(worldId);
+  private async removePendingTurn(worldId: string): Promise<void> {
+    const current = await this.getCurrentTurn(worldId);
     if (current === null) {
       return;
     }
@@ -543,8 +543,8 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   }
 
   private async handleFinalFailure(job: Job, error: Error): Promise<void> {
-    const worldId = job.name.startsWith('tick_')
-      ? job.name.slice('tick_'.length)
+    const worldId = job.name.startsWith('turn_')
+      ? job.name.slice('turn_'.length)
       : '';
     if (worldId.length > 0) {
       await this.markStopped(worldId);
@@ -568,7 +568,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     await this.dlq.add(
       job.name,
       {
-        command: job.data ?? null,
+        turn: job.data ?? null,
         jobId: job.id,
         reason,
         failedAt: occurredAt.toISOString(),
@@ -578,9 +578,9 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     return { occurredAt, reason };
   }
 
-  private async composeScheduledIteration(worldId: string): Promise<
+  private async composeScheduledTurn(worldId: string): Promise<
     | {
-        iteration: SimulationCommand;
+        turn: ScheduledTurn;
         config: WorldSimulationConfigRecord;
       }
     | {
@@ -621,14 +621,14 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       config.actionWeights,
     );
 
-    const iteration = simulationCommandSchema.parse({
+    const turn = scheduledTurnSchema.parse({
       worldSlug: world.slug,
       characterId,
       actionType,
       executionSource: 'scheduled',
       issuedAt: new Date().toISOString(),
     });
-    return { iteration, config };
+    return { turn, config };
   }
 
   private async requireWorld(worldId: string): Promise<WorldRecord> {

@@ -1,7 +1,8 @@
 import {
-  simulationCommandSchema,
-  SimulationCommand as ScheduledIteration,
-} from '@aiworld/shared/schemas/simulation-command.schema';
+  simulationIterationSchema,
+  type ScheduledTurn,
+  type SimulationIteration,
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
 import { Injectable } from '@nestjs/common';
 
 import { CommentAction } from '@/simulation/actions/comment.action';
@@ -42,7 +43,7 @@ export type IterationRunResult =
     }
   | { status: 'failed'; failure: ActionFailure; log: SimulationLogRecord };
 
-export type ScheduledTickRunResult =
+export type ScheduledTurnRunResult =
   | IterationRunResult
   | { status: 'rejected'; reason: string; log: SimulationLogRecord };
 
@@ -74,16 +75,16 @@ export class SimulationRunner {
     private readonly provider: LlmProvider,
   ) {}
 
-  async runScheduledTick(
-    iteration: ScheduledIteration,
+  async runScheduledTurn(
+    turn: ScheduledTurn,
     jobId?: string | null,
-  ): Promise<ScheduledTickRunResult> {
-    const world = await this.requireWorld(iteration.worldSlug);
+  ): Promise<ScheduledTurnRunResult> {
+    const world = await this.requireWorld(turn.worldSlug);
 
     try {
-      return await this.executeIteration({ world, iteration, jobId });
+      return await this.executeIteration({ world, iteration: turn, jobId });
     } catch (error) {
-      // A missing World cannot be logged, so dead-letter the Tick.
+      // A missing World cannot be logged, so dead-letter the Turn.
       if (
         error instanceof SimulationActionError &&
         error.code === 'WORLD_NOT_FOUND'
@@ -93,9 +94,9 @@ export class SimulationRunner {
       if (error instanceof SimulationWorkRejectedError) {
         const log = await this.logService.writeRejected({
           worldId: world.id,
-          characterId: iteration.characterId,
-          action: iteration.actionType,
-          executionSource: iteration.executionSource,
+          characterId: turn.characterId,
+          action: turn.actionType,
+          executionSource: turn.executionSource,
           ...this.providerMetadata(),
           reason: error.message,
           jobId,
@@ -103,7 +104,7 @@ export class SimulationRunner {
         return { status: 'rejected', reason: error.message, log };
       }
       if (error instanceof SimulationActionError) {
-        return this.failScheduled(iteration, world.id, jobId, error);
+        return this.failScheduled(turn, world.id, jobId, error);
       }
       throw error;
     }
@@ -132,7 +133,7 @@ export class SimulationRunner {
   }
 
   async runManualIteration(
-    iteration: ScheduledIteration,
+    iteration: SimulationIteration,
     jobId?: string | null,
   ): Promise<IterationRunResult> {
     const world = await this.requireWorld(iteration.worldSlug);
@@ -141,7 +142,7 @@ export class SimulationRunner {
 
   private async executeIteration(input: {
     world: WorldRecord;
-    iteration: ScheduledIteration;
+    iteration: SimulationIteration;
     jobId?: string | null;
   }): Promise<IterationRunResult> {
     const { world, iteration, jobId } = input;
@@ -235,7 +236,7 @@ export class SimulationRunner {
 
   private assertWorkAllowed(
     worldId: string,
-    executionSource: ScheduledIteration['executionSource'],
+    executionSource: SimulationIteration['executionSource'],
   ): Promise<WorldSimulationConfigRecord> {
     if (executionSource === 'scheduled') {
       return this.lifecycleService.assertScheduledWorkAllowed(worldId);
@@ -247,7 +248,7 @@ export class SimulationRunner {
     worldSlug: string,
     executionSource: 'one-action' | 'custom',
     input: { characterId?: string; actionType?: SimulationActionType },
-  ): Promise<ScheduledIteration> {
+  ): Promise<SimulationIteration> {
     const world = await this.requireWorld(worldSlug);
     await this.lifecycleService.assertManualWorkAllowed(world.id);
     const config = await this.requireConfig(world.id);
@@ -272,7 +273,7 @@ export class SimulationRunner {
       input.actionType ??
       (await this.picker.pickAutomaticAction(world.id, config.actionWeights));
 
-    return simulationCommandSchema.parse({
+    return simulationIterationSchema.parse({
       worldSlug: world.slug,
       characterId,
       actionType,
@@ -282,11 +283,11 @@ export class SimulationRunner {
   }
 
   private async failScheduled(
-    iteration: ScheduledIteration,
+    iteration: ScheduledTurn,
     worldId: string,
     jobId: string | null | undefined,
     error: unknown,
-  ): Promise<ScheduledTickRunResult> {
+  ): Promise<ScheduledTurnRunResult> {
     const failure = toActionFailure(error);
     const retryableFailure = isTransientSchedulerError(error)
       ? { ...failure, retryable: true }

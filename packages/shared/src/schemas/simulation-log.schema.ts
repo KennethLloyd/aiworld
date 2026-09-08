@@ -3,7 +3,7 @@ import { paginationMetaSchema, paginationQueryFields } from './pagination.schema
 import {
   simulationActionTypes,
   simulationExecutionSources,
-} from './simulation-command.schema.ts';
+} from './simulation-iteration.schema.ts';
 
 // Admin logs omit prompts and raw provider responses.
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { simulationSpeedMultiplierSchema } from './simulation-command.schema.ts';
+import { simulationSpeedMultiplierSchema } from './simulation-iteration.schema.ts';
 
 // Shared lifecycle and speed contracts for admin simulation controls.
 

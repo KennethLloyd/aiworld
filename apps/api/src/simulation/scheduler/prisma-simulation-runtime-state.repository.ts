@@ -34,14 +34,14 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
     if (input.workExpected !== undefined) {
       updateData.workExpected = input.workExpected;
     }
-    if (input.nextTickAt !== undefined) {
-      updateData.nextTickAt = input.nextTickAt;
+    if (input.nextTurnAt !== undefined) {
+      updateData.nextTurnAt = input.nextTurnAt;
     }
-    if (input.lastTickStartedAt !== undefined) {
-      updateData.lastTickStartedAt = input.lastTickStartedAt;
+    if (input.lastTurnStartedAt !== undefined) {
+      updateData.lastTurnStartedAt = input.lastTurnStartedAt;
     }
-    if (input.lastTickCompletedAt !== undefined) {
-      updateData.lastTickCompletedAt = input.lastTickCompletedAt;
+    if (input.lastTurnCompletedAt !== undefined) {
+      updateData.lastTurnCompletedAt = input.lastTurnCompletedAt;
     }
     if (input.retrying !== undefined) updateData.retrying = input.retrying;
     if (input.recentRetryCount !== undefined) {
@@ -79,9 +79,9 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
         worldId,
         pending: input.pending ?? false,
         workExpected: input.workExpected ?? false,
-        nextTickAt: input.nextTickAt ?? null,
-        lastTickStartedAt: input.lastTickStartedAt ?? null,
-        lastTickCompletedAt: input.lastTickCompletedAt ?? null,
+        nextTurnAt: input.nextTurnAt ?? null,
+        lastTurnStartedAt: input.lastTurnStartedAt ?? null,
+        lastTurnCompletedAt: input.lastTurnCompletedAt ?? null,
         retrying: input.retrying ?? false,
         recentRetryCount: input.recentRetryCount ?? 0,
         lastRetryAt: input.lastRetryAt ?? null,
@@ -141,9 +141,9 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
       worldId: row.worldId,
       pending: row.pending,
       workExpected: row.workExpected,
-      nextTickAt: row.nextTickAt,
-      lastTickStartedAt: row.lastTickStartedAt,
-      lastTickCompletedAt: row.lastTickCompletedAt,
+      nextTurnAt: row.nextTurnAt,
+      lastTurnStartedAt: row.lastTurnStartedAt,
+      lastTurnCompletedAt: row.lastTurnCompletedAt,
       retrying: row.retrying,
       recentRetryCount: row.recentRetryCount,
       lastRetryAt: row.lastRetryAt,

@@ -1,12 +1,13 @@
 import {
   deriveScheduledDelayMs,
-  simulationCommandSchema,
+  simulationIterationSchema,
+  scheduledTurnSchema,
   simulationSpeedMultiplierSchema,
-} from '@aiworld/shared/schemas/simulation-command.schema';
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
 
-describe('shared simulation command contract', () => {
-  describe('simulationCommandSchema', () => {
-    const validCommand = {
+describe('shared simulation iteration contract', () => {
+  describe('simulationIterationSchema', () => {
+    const validIteration = {
       worldSlug: 'mbti-house',
       characterId: 'character-1',
       actionType: 'POST',
@@ -14,8 +15,8 @@ describe('shared simulation command contract', () => {
       issuedAt: '2026-08-13T00:00:00.000Z',
     };
 
-    it('accepts a fully-formed command', () => {
-      expect(simulationCommandSchema.safeParse(validCommand).success).toBe(
+    it('accepts a fully-formed iteration', () => {
+      expect(simulationIterationSchema.safeParse(validIteration).success).toBe(
         true,
       );
     });
@@ -24,7 +25,7 @@ describe('shared simulation command contract', () => {
       'accepts the %s action type',
       (actionType) => {
         expect(
-          simulationCommandSchema.safeParse({ ...validCommand, actionType })
+          simulationIterationSchema.safeParse({ ...validIteration, actionType })
             .success,
         ).toBe(true);
       },
@@ -34,8 +35,8 @@ describe('shared simulation command contract', () => {
       'accepts the %s execution source',
       (executionSource) => {
         expect(
-          simulationCommandSchema.safeParse({
-            ...validCommand,
+          simulationIterationSchema.safeParse({
+            ...validIteration,
             executionSource,
           }).success,
         ).toBe(true);
@@ -43,28 +44,57 @@ describe('shared simulation command contract', () => {
     );
 
     it('rejects an unknown action type', () => {
-      const result = simulationCommandSchema.safeParse({
-        ...validCommand,
+      const result = simulationIterationSchema.safeParse({
+        ...validIteration,
         actionType: 'DELETE',
       });
       expect(result.success).toBe(false);
     });
 
     it('rejects an unknown execution source', () => {
-      const result = simulationCommandSchema.safeParse({
-        ...validCommand,
+      const result = simulationIterationSchema.safeParse({
+        ...validIteration,
         executionSource: 'manual',
       });
       expect(result.success).toBe(false);
     });
 
     it('rejects a malformed issuedAt timestamp', () => {
-      const result = simulationCommandSchema.safeParse({
-        ...validCommand,
+      const result = simulationIterationSchema.safeParse({
+        ...validIteration,
         issuedAt: 'not-a-date',
       });
       expect(result.success).toBe(false);
     });
+  });
+
+  describe('scheduledTurnSchema', () => {
+    it('accepts only scheduled iterations', () => {
+      const result = scheduledTurnSchema.safeParse({
+        worldSlug: 'mbti-house',
+        characterId: 'character-1',
+        actionType: 'POST',
+        executionSource: 'scheduled',
+        issuedAt: '2026-08-13T00:00:00.000Z',
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it.each(['one-action', 'custom'] as const)(
+      'rejects the %s execution source',
+      (executionSource) => {
+        const result = scheduledTurnSchema.safeParse({
+          worldSlug: 'mbti-house',
+          characterId: 'character-1',
+          actionType: 'POST',
+          executionSource,
+          issuedAt: '2026-08-13T00:00:00.000Z',
+        });
+
+        expect(result.success).toBe(false);
+      },
+    );
   });
 
   describe('simulationSpeedMultiplierSchema', () => {

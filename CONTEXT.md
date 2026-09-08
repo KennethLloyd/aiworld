@@ -64,14 +64,14 @@ One character performing one Action through the simulation pipeline — the unit
 of scheduled and manual work.
 _Avoid_: cycle, round
 
-**Tick**:
-A scheduled Iteration fired by the Scheduler.
+**Turn**:
+A scheduled Iteration fired by the Scheduler. A ScheduledTurn is the queued
+resident/action payload for that work.
 _Avoid_: cycle, cron
 
-Product-facing explanations may call the next scheduled Tick a “simulation
-turn”. Technically, a Tick carries a ScheduledIteration, and that Iteration
-identifies the Character and Action. Keep Tick, ScheduledIteration/Iteration,
-and Action as the canonical code and domain terms.
+Product-facing explanations may call the next scheduled Turn a “simulation
+turn”. The underlying Iteration identifies the Character and Action. Keep Turn,
+ScheduledTurn/Iteration, and Action as the canonical code and domain terms.
 
 **Simulation lifecycle**:
 The RUNNING / PAUSED / HALTED state machine of a World's simulation, persisted
@@ -91,7 +91,7 @@ surface.
 _Avoid_: Viewer, public user
 
 **Scheduler**:
-The concrete BullMQ-backed Nest service that drives simulation ticks through
-Redis. It exposes lifecycle reconciliation and manual command operations —
+The concrete BullMQ-backed Nest service that drives simulation turns through
+Redis. It exposes lifecycle reconciliation and manual action operations —
 `start`, `stop`, `runOneAction`, and `runCustomAction`.
 _Avoid_: Cron, timer (implementation detail)

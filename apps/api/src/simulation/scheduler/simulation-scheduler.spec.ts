@@ -49,7 +49,7 @@ function configRecord(
 function fakeJob(overrides: Record<string, unknown> = {}) {
   return {
     id: 'job-1',
-    name: 'tick_world-1',
+    name: 'turn_world-1',
     timestamp: Date.now(),
     delay: 1800000,
     data: {
@@ -93,8 +93,8 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     findActiveActor: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<SimulationCastingRepository>;
 
-  const tickRunner = {
-    runScheduledTick: jest.fn(),
+  const turnRunner = {
+    runScheduledTurn: jest.fn(),
     runOneAction: jest.fn(),
     runCustomAction: jest.fn(),
   } as unknown as jest.Mocked<SimulationRunner>;
@@ -130,9 +130,9 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     worldId: 'world-1',
     pending: false,
     workExpected: false,
-    nextTickAt: null,
-    lastTickStartedAt: null,
-    lastTickCompletedAt: null,
+    nextTurnAt: null,
+    lastTurnStartedAt: null,
+    lastTurnCompletedAt: null,
     retrying: false,
     recentRetryCount: 0,
     lastRetryAt: null,
@@ -174,7 +174,7 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     picker,
     castingRepository,
     randomSource,
-    tickRunner,
+    turnRunner,
     runtimeStateRepository,
     queue as never,
     dlq as never,
@@ -193,7 +193,7 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     worldRepository,
     picker,
     castingRepository,
-    tickRunner,
+    turnRunner,
     queue,
     connection,
     dlq,
@@ -243,7 +243,7 @@ const successResult = {
 };
 
 describe('SimulationScheduler', () => {
-  it('start retains an existing Tick instead of creating a duplicate', async () => {
+  it('start retains an existing Turn instead of creating a duplicate', async () => {
     const { scheduler, queue } = createScheduler();
     const stale = fakeJob({ id: 'stale' });
     queue.getDeduplicationJobId.mockResolvedValue('stale');
@@ -258,10 +258,10 @@ describe('SimulationScheduler', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('ensureScheduled does not create a second pending Tick', async () => {
+  it('ensureScheduled does not create a second pending Turn', async () => {
     const { scheduler, queue, worldRepository } = createScheduler();
-    const existing = fakeJob({ id: 'existing-tick' });
-    queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
+    const existing = fakeJob({ id: 'existing-turn' });
+    queue.getDeduplicationJobId.mockResolvedValue('existing-turn');
     queue.getJob.mockResolvedValue(existing);
 
     await scheduler.ensureScheduled('world-1');
@@ -290,10 +290,10 @@ describe('SimulationScheduler', () => {
     });
   });
 
-  it('removes a pending Tick when all active AI Residents become unavailable', async () => {
+  it('removes a pending Turn when all active AI Residents become unavailable', async () => {
     const { scheduler, castingRepository, queue } = createScheduler();
-    const existing = fakeJob({ id: 'existing-tick' });
-    queue.getDeduplicationJobId.mockResolvedValue('existing-tick');
+    const existing = fakeJob({ id: 'existing-turn' });
+    queue.getDeduplicationJobId.mockResolvedValue('existing-turn');
     queue.getJob.mockResolvedValue(existing);
     castingRepository.findActiveActors.mockResolvedValue([]);
 
@@ -320,7 +320,7 @@ describe('SimulationScheduler', () => {
       recentRetryCount: 0,
       deadLetterCount: 0,
     });
-    expect(observability.nextTickAt).toBeInstanceOf(Date);
+    expect(observability.nextTurnAt).toBeInstanceOf(Date);
 
     const handler = worker.on.mock.calls.find(
       ([event]) => event === 'failed',
@@ -335,12 +335,12 @@ describe('SimulationScheduler', () => {
     expect(observability).toMatchObject({
       pending: false,
       workExpected: false,
-      nextTickAt: null,
+      nextTurnAt: null,
       deadLetterCount: 1,
       lastDeadLetterReason: 'TIMEOUT',
     });
     expect(dlq.add).toHaveBeenCalledWith(
-      'tick_world-1',
+      'turn_world-1',
       expect.objectContaining({ reason: 'TIMEOUT' }),
       expect.anything(),
     );
@@ -379,7 +379,7 @@ describe('SimulationScheduler', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('stop removes the pending native-deduplicated tick', async () => {
+  it('stop removes the pending native-deduplicated turn', async () => {
     const { scheduler, queue } = createScheduler();
 
     await scheduler.start('world-1');
@@ -403,15 +403,15 @@ describe('SimulationScheduler', () => {
   });
 
   describe('process', () => {
-    it('completes on success and schedules the next tick', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue(successResult);
+    it('completes on success and schedules the next turn', async () => {
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue(successResult);
 
       await expect(
         scheduler.process(fakeJob() as never),
       ).resolves.toBeUndefined();
 
-      expect(tickRunner.runScheduledTick).toHaveBeenCalledWith(
+      expect(turnRunner.runScheduledTurn).toHaveBeenCalledWith(
         {
           worldSlug: 'mbti-house',
           characterId: 'character-1',
@@ -422,7 +422,7 @@ describe('SimulationScheduler', () => {
         'job-1',
       );
       expect(queue.add).toHaveBeenCalledTimes(1);
-      expect(queue.add.mock.calls[0][0]).toBe('tick_world-1');
+      expect(queue.add.mock.calls[0][0]).toBe('turn_world-1');
       expect(queue.add.mock.calls[0][2]).toEqual(
         expect.objectContaining({
           deduplication: { id: 'world-1', keepLastIfActive: true },
@@ -430,15 +430,15 @@ describe('SimulationScheduler', () => {
       );
     });
 
-    it('keeps native deduplication active while an existing tick is running', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue(successResult);
+    it('keeps native deduplication active while an existing turn is running', async () => {
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue(successResult);
       queue.add.mockResolvedValue(fakeJob({ id: 'active-job' }));
 
       await scheduler.process(fakeJob({ id: 'active-job' }) as never);
 
       expect(queue.add).toHaveBeenCalledWith(
-        'tick_world-1',
+        'turn_world-1',
         expect.any(Object),
         expect.objectContaining({
           deduplication: { id: 'world-1', keepLastIfActive: true },
@@ -447,8 +447,8 @@ describe('SimulationScheduler', () => {
     });
 
     it('treats a lifecycle rejection as a completed job and reschedules', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue({
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue({
         status: 'rejected',
         reason: 'rejected',
         log: logRecord({ status: 'REJECTED' }),
@@ -462,8 +462,8 @@ describe('SimulationScheduler', () => {
     });
 
     it('throws a retryable error on a transient failure so BullMQ retries', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue({
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue({
         status: 'failed',
         failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
         log: logRecord({ status: 'FAILED' }),
@@ -475,9 +475,9 @@ describe('SimulationScheduler', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
-    it('resolves a permanent Action failure and schedules a fresh tick', async () => {
-      const { scheduler, tickRunner, queue, dlq } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue({
+    it('resolves a permanent Action failure and schedules a fresh turn', async () => {
+      const { scheduler, turnRunner, queue, dlq } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue({
         status: 'failed',
         failure: {
           code: 'CHARACTER_INACTIVE',
@@ -494,9 +494,9 @@ describe('SimulationScheduler', () => {
       expect(dlq.add).not.toHaveBeenCalled();
     });
 
-    it('resolves an exhausted transient Action failure and schedules a fresh tick', async () => {
-      const { scheduler, tickRunner, queue, dlq } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue({
+    it('resolves an exhausted transient Action failure and schedules a fresh turn', async () => {
+      const { scheduler, turnRunner, queue, dlq } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue({
         status: 'failed',
         failure: { code: 'TIMEOUT', message: 'timeout', retryable: true },
         log: logRecord({ status: 'FAILED' }),
@@ -511,9 +511,9 @@ describe('SimulationScheduler', () => {
       expect(dlq.add).not.toHaveBeenCalled();
     });
 
-    it('keeps a fresh-tick scheduling error on the scheduler fault path', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue({
+    it('keeps a fresh-turn scheduling error on the scheduler fault path', async () => {
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue({
         status: 'failed',
         failure: {
           code: 'CHARACTER_INACTIVE',
@@ -529,18 +529,18 @@ describe('SimulationScheduler', () => {
       ).rejects.toBeInstanceOf(UnrecoverableError);
     });
 
-    it('dead-letters malformed commands without running them', async () => {
-      const { scheduler, tickRunner } = createScheduler();
+    it('dead-letters malformed turns without running them', async () => {
+      const { scheduler, turnRunner } = createScheduler();
 
       await expect(
         scheduler.process(fakeJob({ data: { actionType: 'DELETE' } }) as never),
       ).rejects.toBeInstanceOf(UnrecoverableError);
-      expect(tickRunner.runScheduledTick).not.toHaveBeenCalled();
+      expect(turnRunner.runScheduledTurn).not.toHaveBeenCalled();
     });
 
     it('dead-letters an unresolvable world surfaced by the runner', async () => {
-      const { scheduler, tickRunner } = createScheduler();
-      tickRunner.runScheduledTick.mockRejectedValue(
+      const { scheduler, turnRunner } = createScheduler();
+      turnRunner.runScheduledTurn.mockRejectedValue(
         new Error('World "mbti-house" was not found'),
       );
 
@@ -549,15 +549,15 @@ describe('SimulationScheduler', () => {
       ).rejects.toBeInstanceOf(UnrecoverableError);
     });
 
-    it('never retries a completed tick whose next-tick scheduling failed', async () => {
-      const { scheduler, tickRunner, queue } = createScheduler();
-      tickRunner.runScheduledTick.mockResolvedValue(successResult);
+    it('never retries a completed turn whose next-turn scheduling failed', async () => {
+      const { scheduler, turnRunner, queue } = createScheduler();
+      turnRunner.runScheduledTurn.mockResolvedValue(successResult);
       queue.add.mockRejectedValue(new Error('Redis unreachable'));
 
       await expect(
         scheduler.process(fakeJob() as never),
       ).rejects.toBeInstanceOf(UnrecoverableError);
-      expect(tickRunner.runScheduledTick).toHaveBeenCalledTimes(1);
+      expect(turnRunner.runScheduledTurn).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -576,9 +576,9 @@ describe('SimulationScheduler', () => {
     );
 
     expect(dlq.add).toHaveBeenCalledWith(
-      'tick_world-1',
+      'turn_world-1',
       expect.objectContaining({
-        command: expect.any(Object),
+        turn: expect.any(Object),
         jobId: 'job-7',
         reason: 'authorization: Bearer [REDACTED] [URL_REDACTED]',
       }),
@@ -601,17 +601,17 @@ describe('SimulationScheduler', () => {
   });
 
   it('delegates Run One Action to the shared SimulationRunner', async () => {
-    const { scheduler, tickRunner } = createScheduler();
-    tickRunner.runOneAction.mockResolvedValue(successResult);
+    const { scheduler, turnRunner } = createScheduler();
+    turnRunner.runOneAction.mockResolvedValue(successResult);
 
     await scheduler.runOneAction('mbti-house');
 
-    expect(tickRunner.runOneAction).toHaveBeenCalledWith('mbti-house');
+    expect(turnRunner.runOneAction).toHaveBeenCalledWith('mbti-house');
   });
 
   it('delegates Custom Action to the shared SimulationRunner', async () => {
-    const { scheduler, tickRunner } = createScheduler();
-    tickRunner.runCustomAction.mockResolvedValue(successResult);
+    const { scheduler, turnRunner } = createScheduler();
+    turnRunner.runCustomAction.mockResolvedValue(successResult);
 
     const input = {
       worldSlug: 'mbti-house',
@@ -620,6 +620,6 @@ describe('SimulationScheduler', () => {
     } as const;
     await scheduler.runCustomAction(input);
 
-    expect(tickRunner.runCustomAction).toHaveBeenCalledWith(input);
+    expect(turnRunner.runCustomAction).toHaveBeenCalledWith(input);
   });
 });

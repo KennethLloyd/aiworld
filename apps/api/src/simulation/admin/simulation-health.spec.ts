@@ -34,9 +34,9 @@ const progressingScheduler: SimulationSchedulerObservabilityRecord = {
   available: true,
   pending: true,
   workExpected: true,
-  nextTickAt: new Date('2026-08-13T01:00:00.000Z'),
-  lastTickStartedAt: new Date('2026-08-13T00:20:00.000Z'),
-  lastTickCompletedAt: new Date('2026-08-13T00:20:20.000Z'),
+  nextTurnAt: new Date('2026-08-13T01:00:00.000Z'),
+  lastTurnStartedAt: new Date('2026-08-13T00:20:00.000Z'),
+  lastTurnCompletedAt: new Date('2026-08-13T00:20:20.000Z'),
   retrying: false,
   recentRetryCount: 0,
   blockedReason: null,
@@ -99,8 +99,8 @@ describe('deriveSimulationHealth', () => {
         {},
         {
           pending: false,
-          lastTickStartedAt: new Date('2026-08-11T00:00:00.000Z'),
-          lastTickCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
+          lastTurnStartedAt: new Date('2026-08-11T00:00:00.000Z'),
+          lastTurnCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
         },
       ),
     ).toMatchObject({ status: 'DEGRADED' });
@@ -112,40 +112,40 @@ describe('deriveSimulationHealth', () => {
         {
           pending: false,
           workExpected: false,
-          lastTickCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
+          lastTurnCompletedAt: new Date('2026-08-12T00:00:00.000Z'),
         },
       ).status,
     ).toBe('UNKNOWN');
   });
 
-  it('does not report an in-flight tick as stalled', () => {
+  it('does not report an in-flight turn as stalled', () => {
     expect(
       derive(
         {},
         {
           pending: false,
           workExpected: true,
-          lastTickStartedAt: new Date('2026-08-13T00:29:00.000Z'),
-          lastTickCompletedAt: new Date('2026-08-13T00:20:00.000Z'),
+          lastTurnStartedAt: new Date('2026-08-13T00:29:00.000Z'),
+          lastTurnCompletedAt: new Date('2026-08-13T00:20:00.000Z'),
         },
       ).status,
     ).toBe('HEALTHY');
   });
-  it('marks an in-flight tick unhealthy after the expected interval', () => {
+  it('marks an in-flight turn unhealthy after the expected interval', () => {
     expect(
       derive(
         {},
         {
           pending: false,
           workExpected: true,
-          lastTickStartedAt: new Date('2026-08-12T00:00:00.000Z'),
-          lastTickCompletedAt: new Date('2026-08-11T23:00:00.000Z'),
+          lastTurnStartedAt: new Date('2026-08-12T00:00:00.000Z'),
+          lastTurnCompletedAt: new Date('2026-08-11T23:00:00.000Z'),
         },
       ),
     ).toMatchObject({
       status: 'UNHEALTHY',
       reason:
-        'A scheduled tick has not completed within the expected interval.',
+        'A scheduled turn has not completed within the expected interval.',
     });
   });
 
@@ -171,7 +171,7 @@ describe('deriveSimulationHealth', () => {
           pending: false,
           workExpected: true,
           retrying: true,
-          lastTickCompletedAt: null,
+          lastTurnCompletedAt: null,
         },
       ),
     ).toEqual({

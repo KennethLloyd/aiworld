@@ -3,7 +3,7 @@ import {
   simulationExecutionSources,
   type SimulationActionType,
   type SimulationExecutionSource,
-} from '@aiworld/shared/schemas/simulation-command.schema';
+} from '@aiworld/shared/schemas/simulation-iteration.schema';
 import {
   simulationLogStatuses,
   type ListSimulationLogsQuery,

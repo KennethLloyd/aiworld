@@ -9,7 +9,7 @@ const allowedTransitions: Record<SimulationState, readonly SimulationState[]> =
     HALTED: ['RUNNING'],
   };
 
-/** Scheduled ticks run only while RUNNING. */
+/** Scheduled turns run only while RUNNING. */
 export function canSchedule(state: SimulationState): boolean {
   return state === 'RUNNING';
 }
