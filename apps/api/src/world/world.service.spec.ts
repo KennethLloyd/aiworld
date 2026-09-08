@@ -2,6 +2,7 @@ import { Prisma } from '@/generated/prisma/client';
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 import { PrismaService } from '@/lib/database/prisma.service';
 
+import { WorldDeactivationRejectedError } from './world.error';
 import { WorldService } from './world.service';
 
 describe('WorldService', () => {
@@ -106,5 +107,25 @@ describe('WorldService', () => {
     expect(prisma.world.delete).toHaveBeenCalledWith({
       where: { slug: 'mbti' },
     });
+  });
+
+  it('rejects deactivation of a World with a RUNNING simulation', async () => {
+    const transaction = {
+      world: {
+        findUnique: jest.fn().mockResolvedValue(row),
+        update: jest.fn(),
+      },
+      worldSimulationConfig: {
+        findUnique: jest.fn().mockResolvedValue({ state: 'RUNNING' }),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback(transaction as never),
+    );
+
+    await expect(
+      service.update('mbti', { isActive: false }),
+    ).rejects.toBeInstanceOf(WorldDeactivationRejectedError);
+    expect(transaction.world.update).not.toHaveBeenCalled();
   });
 });

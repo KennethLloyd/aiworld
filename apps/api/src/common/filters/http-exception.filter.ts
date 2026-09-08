@@ -21,6 +21,7 @@ import {
   SimulationCharacterNotActiveError,
   SimulationIterationPickError,
 } from '@/simulation/scheduler/simulation-scheduler.error';
+import { WorldDeactivationRejectedError } from '@/world/world.error';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -93,7 +94,8 @@ function mapDomainException(exception: unknown): HttpException | null {
   if (
     exception instanceof InvalidSimulationStateTransitionError ||
     exception instanceof SimulationWorkRejectedError ||
-    exception instanceof SimulationIterationPickError
+    exception instanceof SimulationIterationPickError ||
+    exception instanceof WorldDeactivationRejectedError
   ) {
     return new ConflictException(exception.message);
   }

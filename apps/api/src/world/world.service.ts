@@ -4,12 +4,14 @@ import {
   ListWorldsQuery,
   UpdateWorld,
 } from '@aiworld/shared/schemas/world.schema';
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { Prisma, World as PrismaWorld } from '@/generated/prisma/client';
 import type { SimulationConfigDefaults } from '@/lib/config/simulation-config-defaults';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { WORLD_SIMULATION_CONFIG_DEFAULTS } from '@/world/world.tokens';
+
+import { WorldDeactivationRejectedError } from './world.error';
 
 export interface WorldView {
   id: string;
@@ -183,9 +185,7 @@ export class WorldService {
           select: { state: true },
         });
         if (config?.state === 'RUNNING') {
-          throw new ConflictException(
-            'Cannot deactivate a World while its simulation is RUNNING',
-          );
+          throw new WorldDeactivationRejectedError();
         }
         return transaction.world.update({
           where: { id: current.id },

@@ -12,6 +12,7 @@ import {
   SimulationCharacterNotActiveError,
   SimulationIterationPickError,
 } from '@/simulation/scheduler/simulation-scheduler.error';
+import { WorldDeactivationRejectedError } from '@/world/world.error';
 
 import { HttpExceptionFilter } from './http-exception.filter';
 
@@ -101,6 +102,7 @@ describe('HttpExceptionFilter', () => {
     [new SimulationCharacterNotActiveError('character-1', 'world-1'), 400],
     [new InvalidSimulationStateTransitionError('HALTED', 'PAUSED'), 409],
     [new SimulationWorkRejectedError('MANUAL', 'HALTED'), 409],
+    [new WorldDeactivationRejectedError(), 409],
     [
       new SimulationIterationPickError(
         'NO_ACTIVE_CHARACTERS',

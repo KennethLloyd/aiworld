@@ -254,7 +254,14 @@ describe('Worlds API (e2e)', () => {
     await request(app.getHttpServer())
       .patch('/api/worlds/mbti')
       .send({ isActive: false })
-      .expect(409);
+      .expect(409)
+      .expect((res) => {
+        expect(res.body).toEqual({
+          statusCode: 409,
+          message: 'Cannot deactivate a World while its simulation is RUNNING',
+          error: 'Conflict',
+        });
+      });
 
     expect(prismaStub.world.update).not.toHaveBeenCalled();
   });
