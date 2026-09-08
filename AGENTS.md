@@ -18,8 +18,9 @@ Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`
 ## Architecture boundaries
 
 - Place transport schemas in `packages/shared` as the single source when data crosses the API boundary.
-- Keep generated Prisma types inside concrete repository adapters and seed infrastructure.
-- Use dependency injection and repository or provider ports at genuine infrastructure seams.
+- For ordinary backend persistence, use `Controller → Service → PrismaService`. Generated Prisma types may be used inside backend services and local persistence helpers where appropriate; keep them within the backend boundary.
+- Use dependency injection and repository or provider ports only for genuine infrastructure variation or meaningful architectural seams, not merely to wrap Prisma.
+- Keep controllers focused on transport and delegate persistence to services; controllers must not access Prisma directly.
 - Enforce authorization on the NestJS server; use client route guards for UX behavior.
 - Keep public observer responses separate from admin prompts, raw provider responses, and telemetry.
 - Cover domain decisions with focused unit tests and boundary behavior with integration or end-to-end tests.
@@ -27,7 +28,7 @@ Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`
 ## Engineering standard
 
 - Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS capabilities before adding custom infrastructure.
-- Preserve existing feature boundaries and dependency direction.
+- Preserve feature boundaries and clear ownership without requiring artificial dependency inversion between ordinary feature services.
 - Keep schemas, persistence, and controllers behind their existing boundaries, with explicit ownership and only genuine seams. This prevents duplicated schemas, direct controller-to-Prisma access, ceremonial indirection, and workaround layers.
 
 ## Verification
