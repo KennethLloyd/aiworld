@@ -24,7 +24,7 @@ import {
 
 import { adminKeys } from './admin-keys';
 
-/** Live admin status, health, log, and resident views need fast feedback. */
+/** Live admin simulation, health, and log views need fast feedback. */
 export const ADMIN_POLL_INTERVAL_MS = 5_000;
 
 const recentLogsQuery: ListSimulationLogsQuery = { page: 1, limit: 5 };
