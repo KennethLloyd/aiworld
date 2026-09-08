@@ -1,8 +1,8 @@
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { CommentsService } from '@/comments/comments.service';
+import { PostsService } from '@/posts/posts.service';
 import { SimulationWriteError } from '@/simulation/actions/simulation-action.error';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
-import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
+import { VotesService } from '@/votes/votes.service';
 
 function createWriter(overrides: {
   commentLinks?: Map<
@@ -12,10 +12,10 @@ function createWriter(overrides: {
 }) {
   const postRepository = {
     create: jest.fn().mockResolvedValue({ id: 'post-created' }),
-  } as unknown as PostRepository;
+  } as unknown as PostsService;
   const voteRepository = {
     setForPost: jest.fn().mockResolvedValue({ id: 'vote-created' }),
-  } as unknown as VoteRepository;
+  } as unknown as VotesService;
   const commentRepository = {
     create: jest.fn().mockResolvedValue({ id: 'comment-created' }),
     findById: jest
@@ -23,7 +23,7 @@ function createWriter(overrides: {
       .mockImplementation((id: string) =>
         Promise.resolve(overrides.commentLinks?.get(id) ?? null),
       ),
-  } as unknown as CommentRepository;
+  } as unknown as CommentsService;
 
   const writer = new SimulationContentWriter(
     postRepository,

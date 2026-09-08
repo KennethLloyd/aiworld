@@ -1,11 +1,9 @@
 import { commentResponseSchema } from '@aiworld/shared/schemas/comment-response.schema';
 
-import { CommentRecord } from '@/comments/domain/comment-record';
-import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
+import { Comment } from '@/comments/domain/comment';
+import { mapCommentResponse } from '@/comments/mappers/comment-response.mapper';
 
-describe('CommentResponseMapper', () => {
-  const mapper = new CommentResponseMapper();
-
+describe('mapCommentResponse', () => {
   const authorFixture = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
@@ -13,7 +11,7 @@ describe('CommentResponseMapper', () => {
     avatarUrl: null,
   };
 
-  const commentRecordFixture: CommentRecord = {
+  const commentRecordFixture: Comment = {
     id: '00000000-0000-4000-8000-000000000201',
     author: authorFixture,
     content: 'It was me. I said it.',
@@ -24,7 +22,7 @@ describe('CommentResponseMapper', () => {
   };
 
   it('maps a comment to the shared contract', () => {
-    const response = mapper.mapToCommentResponse(commentRecordFixture);
+    const response = mapCommentResponse(commentRecordFixture);
 
     expect(response).toEqual({
       id: commentRecordFixture.id,
@@ -39,18 +37,18 @@ describe('CommentResponseMapper', () => {
   });
 
   it('maps replies recursively', () => {
-    const reply: CommentRecord = {
+    const reply: Comment = {
       ...commentRecordFixture,
       id: '00000000-0000-4000-8000-000000000301',
       author: { ...authorFixture, id: '00000000-0000-4000-8000-000000000401' },
       content: 'No it was not.',
     };
-    const record: CommentRecord = {
+    const record: Comment = {
       ...commentRecordFixture,
       replies: [reply],
     };
 
-    const response = mapper.mapToCommentResponse(record);
+    const response = mapCommentResponse(record);
 
     expect(response.replies).toEqual([
       {

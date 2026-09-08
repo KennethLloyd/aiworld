@@ -1,4 +1,4 @@
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
+import { FlatComment } from '@/comments/domain/comment';
 import {
   buildCommentTree,
   MAX_COMMENT_DEPTH,
@@ -8,7 +8,7 @@ function flatComment(
   id: string,
   parentCommentId: string | null,
   createdAt = '2026-08-06T09:00:00.000Z',
-): FlatCommentRecord {
+): FlatComment {
   return {
     id,
     postId: '00000000-0000-4000-8000-000000000001',

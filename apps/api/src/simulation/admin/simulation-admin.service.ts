@@ -5,28 +5,27 @@ import { SimulationActionError } from '@/simulation/actions/simulation-action.er
 import {
   deriveSimulationHealth,
   normalizeProviderExecutionTimestamps,
-  SimulationHealthRecord,
+  SimulationHealth,
 } from '@/simulation/admin/simulation-health';
 import {
   emptySimulationTelemetry,
-  SimulationTelemetryRecord,
+  SimulationTelemetry,
 } from '@/simulation/domain/simulation-telemetry';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import { SimulationState } from '@/simulation/lifecycle/domain/simulation-state';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
 import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
 import {
   SimulationLogFilters,
-  SimulationLogRepository,
-} from '@/simulation/logging/simulation-log-repository.interface';
+  SimulationLogEntry,
+} from '@/simulation/logging/simulation-log.service';
+import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import {
   RunCustomActionInput as SchedulerRunCustomActionInput,
   SimulationScheduler,
 } from '@/simulation/scheduler/simulation-scheduler';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldService, WorldView } from '@/world/world.service';
 
 export type ListSimulationLogsInput = {
   slug: string;
@@ -45,20 +44,20 @@ export type RunCustomActionInput = Omit<
 @Injectable()
 export class SimulationAdminService {
   constructor(
-    private readonly worldRepository: WorldRepository,
+    private readonly worldService: WorldService,
     private readonly lifecycleService: SimulationLifecycleService,
     private readonly scheduler: SimulationScheduler,
-    private readonly logRepository: SimulationLogRepository,
+    private readonly logService: SimulationLogService,
   ) {}
 
-  async getConfig(slug: string): Promise<WorldSimulationConfigRecord> {
+  async getConfig(slug: string): Promise<SimulationConfig> {
     return (await this.requireConfig(slug)).config;
   }
 
   async updateState(
     slug: string,
     state: SimulationState,
-  ): Promise<WorldSimulationConfigRecord> {
+  ): Promise<SimulationConfig> {
     const world = await this.requireWorld(slug);
     return this.lifecycleService.transitionTo(world.id, state);
   }
@@ -66,7 +65,7 @@ export class SimulationAdminService {
   async updateSpeed(
     slug: string,
     speedMultiplier: number,
-  ): Promise<WorldSimulationConfigRecord> {
+  ): Promise<SimulationConfig> {
     const world = await this.requireWorld(slug);
     return this.lifecycleService.updateSpeed(world.id, speedMultiplier);
   }
@@ -85,9 +84,9 @@ export class SimulationAdminService {
 
   async listLogs(
     input: ListSimulationLogsInput,
-  ): Promise<Paginated<SimulationLogRecord>> {
+  ): Promise<Paginated<SimulationLogEntry>> {
     const world = await this.requireWorld(input.slug);
-    return this.logRepository.findMany({
+    return this.logService.list({
       worldId: world.id,
       filters: input.filters,
       page: input.page,
@@ -95,17 +94,17 @@ export class SimulationAdminService {
     });
   }
 
-  async getTelemetry(slug: string): Promise<SimulationTelemetryRecord> {
+  async getTelemetry(slug: string): Promise<SimulationTelemetry> {
     const world = await this.requireWorld(slug);
-    const telemetry = await this.logRepository.getTelemetry(world.id);
+    const telemetry = await this.logService.getTelemetry(world.id);
     return telemetry ?? emptySimulationTelemetry(world.id);
   }
-  async getHealth(slug: string): Promise<SimulationHealthRecord> {
+  async getHealth(slug: string): Promise<SimulationHealth> {
     const { world, config } = await this.requireConfig(slug);
 
     const [observedScheduler, storedTelemetry] = await Promise.all([
       this.scheduler.getObservability(world.id),
-      this.logRepository.getTelemetry(world.id),
+      this.logService.getTelemetry(world.id),
     ]);
     const scheduler =
       config.state === 'RUNNING'
@@ -147,8 +146,8 @@ export class SimulationAdminService {
   }
 
   private async requireConfig(slug: string): Promise<{
-    world: WorldRecord;
-    config: WorldSimulationConfigRecord;
+    world: WorldView;
+    config: SimulationConfig;
   }> {
     const world = await this.requireWorld(slug);
     const config = await this.lifecycleService.getByWorldId(world.id);
@@ -158,8 +157,8 @@ export class SimulationAdminService {
     return { world, config };
   }
 
-  private async requireWorld(slug: string): Promise<WorldRecord> {
-    const world = await this.worldRepository.findBySlug(slug);
+  private async requireWorld(slug: string): Promise<WorldView> {
+    const world = await this.worldService.getBySlug(slug, true);
     if (!world) {
       throw new SimulationActionError(
         'WORLD_NOT_FOUND',

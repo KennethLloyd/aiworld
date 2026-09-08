@@ -13,26 +13,18 @@ import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
 import { VoteAction } from '@/simulation/actions/vote.action';
-import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
 import { SimulationAdminController } from '@/simulation/admin/simulation-admin.controller';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 import { loadSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
-import { PrismaWorldSimulationConfigRepository } from '@/simulation/lifecycle/prisma-world-simulation-config.repository';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
-import { PrismaSimulationLogRepository } from '@/simulation/logging/prisma-simulation-log.repository';
-import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
-import { PrismaSimulationCastingRepository } from '@/simulation/scheduler/prisma-simulation-casting.repository';
-import { PrismaSimulationRuntimeStateRepository } from '@/simulation/scheduler/prisma-simulation-runtime-state.repository';
-import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
-import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import { SimulationRuntimeStateService } from '@/simulation/scheduler/simulation-runtime-state.service';
 import {
   SIMULATION_DLQ,
   SIMULATION_QUEUE,
@@ -79,24 +71,8 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       useFactory: () => new SimulationCostEstimator(loadSimulationCostConfig()),
     },
     {
-      provide: SimulationLogRepository,
-      useClass: PrismaSimulationLogRepository,
-    },
-    {
-      provide: WorldSimulationConfigRepository,
-      useClass: PrismaWorldSimulationConfigRepository,
-    },
-    {
       provide: SCHEDULER_CONFIG,
       useFactory: () => loadSchedulerConfig(),
-    },
-    {
-      provide: SimulationCastingRepository,
-      useClass: PrismaSimulationCastingRepository,
-    },
-    {
-      provide: SimulationRuntimeStateRepository,
-      useClass: PrismaSimulationRuntimeStateRepository,
     },
     {
       provide: SIMULATION_REDIS,
@@ -126,15 +102,14 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     SimulationContentWriter,
     SimulationRandomSource,
     SimulationIterationPicker,
+    SimulationRuntimeStateService,
     SimulationRunner,
     SimulationSchedulerBootstrap,
     SimulationAdminService,
-    SimulationAdminResponseMapper,
   ],
   exports: [
     LlmProvider,
     SimulationLifecycleService,
-    WorldSimulationConfigRepository,
     SimulationScheduler,
     SimulationRunner,
   ],

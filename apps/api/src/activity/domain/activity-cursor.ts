@@ -1,4 +1,4 @@
-import { ActivityItemRecord } from '@/activity/domain/activity-record';
+import { ActivityItem } from '@/activity/domain/activity';
 
 /**
  * Keyset position in the merged activity timeline. Both streams are
@@ -18,7 +18,7 @@ export type ActivityCursorParseResult =
  * item's `{ createdAt, kind, id }`. `kind` is carried for inspectability
  * only; the persisted position is createdAt + id.
  */
-export function encodeActivityCursor(item: ActivityItemRecord): string {
+export function encodeActivityCursor(item: ActivityItem): string {
   return Buffer.from(
     JSON.stringify({
       createdAt: item.record.createdAt.toISOString(),

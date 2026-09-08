@@ -6,7 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 
 import { AppModule } from '@/app.module';
-import { PrismaCommentRepository } from '@/comments/repositories/prisma-comment.repository';
+import { CommentsService } from '@/comments/comments.service';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 
@@ -316,11 +316,11 @@ describe('Post detail (real database)', () => {
     });
 
     try {
-      const repository = new PrismaCommentRepository(
+      const commentsService = new CommentsService(
         queryPrisma as unknown as PrismaService,
       );
       const postId = seedUuid(`post:${fixture.post.key}`);
-      await repository.findByPostId(postId);
+      await commentsService.findByPostId(postId);
 
       const commentQuery = queries.find(
         (event) =>

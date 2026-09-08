@@ -2,12 +2,9 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { SearchQuery } from '@aiworld/shared/schemas/search.schema';
 import { Injectable } from '@nestjs/common';
 
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import {
-  compareSearchResults,
-  SearchResultRecord,
-} from '@/search/domain/search-record';
+import { CommentsService } from '@/comments/comments.service';
+import { PostsService } from '@/posts/posts.service';
+import { compareSearchResults, SearchResult } from '@/search/domain/search';
 import { WorldService } from '@/world/world.service';
 
 const MIN_QUERY_LENGTH = 2;
@@ -16,14 +13,14 @@ const MIN_QUERY_LENGTH = 2;
 export class SearchService {
   constructor(
     private readonly worldService: WorldService,
-    private readonly postRepository: PostRepository,
-    private readonly commentRepository: CommentRepository,
+    private readonly postsService: PostsService,
+    private readonly commentsService: CommentsService,
   ) {}
 
   async search(
     worldSlug: string,
     query: SearchQuery,
-  ): Promise<Paginated<SearchResultRecord> | null> {
+  ): Promise<Paginated<SearchResult> | null> {
     const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       return null;
@@ -40,11 +37,11 @@ export class SearchService {
     }
 
     const [posts, comments] = await Promise.all([
-      this.postRepository.searchByText(world.id, q),
-      this.commentRepository.searchByText(world.id, q),
+      this.postsService.searchByText(world.id, q),
+      this.commentsService.searchByText(world.id, q),
     ]);
 
-    const merged: SearchResultRecord[] = [
+    const merged: SearchResult[] = [
       ...posts.map((post) => ({ type: 'post' as const, post })),
       ...comments.map((comment) => ({ type: 'comment' as const, comment })),
     ].sort(compareSearchResults);

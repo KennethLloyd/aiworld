@@ -13,15 +13,14 @@ import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldResponseMapper } from '@/world/mappers/world-response.mapper';
 import { WorldController } from '@/world/world.controller';
+import { WorldView } from '@/world/world.service';
 import { WorldService } from '@/world/world.service';
 
 describe('WorldController', () => {
   let controller: WorldController;
 
-  const worldRecordFixture: WorldRecord = {
+  const worldRecordFixture: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'MBTI Discussion',
     slug: 'mbti',
@@ -34,7 +33,7 @@ describe('WorldController', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
-  const paginatedWorldRecord: Paginated<WorldRecord> = {
+  const paginatedWorldRecord: Paginated<WorldView> = {
     items: [worldRecordFixture],
     meta: {
       page: 1,
@@ -70,11 +69,6 @@ describe('WorldController', () => {
     delete: jest.fn(),
   };
 
-  const mockWorldResponseMapper: jest.Mocked<WorldResponseMapper> = {
-    mapToWorldResponse: jest.fn(),
-    mapToPaginatedWorldResponse: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorldController],
@@ -82,10 +76,6 @@ describe('WorldController', () => {
         {
           provide: WorldService,
           useValue: mockWorldService,
-        },
-        {
-          provide: WorldResponseMapper,
-          useValue: mockWorldResponseMapper,
         },
       ],
     }).compile();
@@ -102,34 +92,22 @@ describe('WorldController', () => {
       };
 
       mockWorldService.list.mockResolvedValue(paginatedWorldRecord);
-      mockWorldResponseMapper.mapToPaginatedWorldResponse.mockReturnValue(
-        paginatedWorldResponse,
-      );
 
       const response = await controller.list(query);
 
       expect(response).toEqual(paginatedWorldResponse);
       expect(mockWorldService.list).toHaveBeenCalledWith(query, false);
-      expect(
-        mockWorldResponseMapper.mapToPaginatedWorldResponse,
-      ).toHaveBeenCalledWith(paginatedWorldRecord);
     });
   });
 
   describe('getBySlug', () => {
     it('should return the requested world mapped to a WorldResponse', async () => {
       mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-      mockWorldResponseMapper.mapToWorldResponse.mockReturnValue(
-        worldResponseFixture,
-      );
 
       const response = await controller.getBySlug('mbti');
 
       expect(response).toEqual(worldResponseFixture);
       expect(mockWorldService.getBySlug).toHaveBeenCalledWith('mbti', false);
-      expect(mockWorldResponseMapper.mapToWorldResponse).toHaveBeenCalledWith(
-        worldRecordFixture,
-      );
     });
 
     it('should throw NotFoundException when the world is not found', async () => {
@@ -142,7 +120,6 @@ describe('WorldController', () => {
         'nonexistent',
         false,
       );
-      expect(mockWorldResponseMapper.mapToWorldResponse).not.toHaveBeenCalled();
     });
   });
 
@@ -157,24 +134,18 @@ describe('WorldController', () => {
       };
 
       mockWorldService.create.mockResolvedValue(worldRecordFixture);
-      mockWorldResponseMapper.mapToWorldResponse.mockReturnValue(
-        worldResponseFixture,
-      );
 
       const response = await controller.create(body);
 
       expect(response).toEqual(worldResponseFixture);
       expect(mockWorldService.create).toHaveBeenCalledWith(body);
-      expect(mockWorldResponseMapper.mapToWorldResponse).toHaveBeenCalledWith(
-        worldRecordFixture,
-      );
     });
   });
 
   describe('update', () => {
     it('should update a world and return the mapped WorldResponse', async () => {
       const body: UpdateWorld = { name: 'MBTI Discussion (updated)' };
-      const updatedFixture: WorldRecord = {
+      const updatedFixture: WorldView = {
         ...worldRecordFixture,
         name: 'MBTI Discussion (updated)',
       };
@@ -184,17 +155,11 @@ describe('WorldController', () => {
       };
 
       mockWorldService.update.mockResolvedValue(updatedFixture);
-      mockWorldResponseMapper.mapToWorldResponse.mockReturnValue(
-        updatedResponseFixture,
-      );
 
       const response = await controller.update('mbti', body);
 
       expect(response).toEqual(updatedResponseFixture);
       expect(mockWorldService.update).toHaveBeenCalledWith('mbti', body);
-      expect(mockWorldResponseMapper.mapToWorldResponse).toHaveBeenCalledWith(
-        updatedFixture,
-      );
     });
 
     it('should throw NotFoundException when the world is not found', async () => {
@@ -206,7 +171,6 @@ describe('WorldController', () => {
       expect(mockWorldService.update).toHaveBeenCalledWith('nonexistent', {
         name: 'Unknown',
       });
-      expect(mockWorldResponseMapper.mapToWorldResponse).not.toHaveBeenCalled();
     });
   });
 

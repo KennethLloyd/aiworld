@@ -5,45 +5,43 @@ import {
   ListCharactersResponse,
 } from '@aiworld/shared/schemas/character-response.schema';
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { Injectable } from '@nestjs/common';
 
-import { CharacterRecord } from '@/characters/domain/character-record';
+import { CharacterView } from '@/characters/characters.service';
 
-@Injectable()
-export class CharacterResponseMapper {
-  mapToCharacterResponse(record: CharacterRecord): CharacterResponse {
-    const { systemPrompt: _systemPrompt, ...publicRecord } = record;
-    return {
-      ...publicRecord,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
-  }
+export function mapCharacterResponse(
+  character: CharacterView,
+): CharacterResponse {
+  const { systemPrompt: _systemPrompt, ...publicCharacter } = character;
+  return {
+    ...publicCharacter,
+    createdAt: character.createdAt.toISOString(),
+    updatedAt: character.updatedAt.toISOString(),
+  };
+}
 
-  mapToAdminCharacterResponse(record: CharacterRecord): AdminCharacterResponse {
-    return {
-      ...this.mapToCharacterResponse(record),
-      systemPrompt: record.systemPrompt,
-    };
-  }
+export function mapAdminCharacterResponse(
+  character: CharacterView,
+): AdminCharacterResponse {
+  return {
+    ...mapCharacterResponse(character),
+    systemPrompt: character.systemPrompt,
+  };
+}
 
-  mapToPaginatedCharacterResponse(
-    records: Paginated<CharacterRecord>,
-  ): ListCharactersResponse {
-    return {
-      ...records,
-      items: records.items.map((item) => this.mapToCharacterResponse(item)),
-    };
-  }
+export function mapPaginatedCharacterResponse(
+  characters: Paginated<CharacterView>,
+): ListCharactersResponse {
+  return {
+    ...characters,
+    items: characters.items.map(mapCharacterResponse),
+  };
+}
 
-  mapToAdminPaginatedCharacterResponse(
-    records: Paginated<CharacterRecord>,
-  ): AdminListCharactersResponse {
-    return {
-      ...records,
-      items: records.items.map((item) =>
-        this.mapToAdminCharacterResponse(item),
-      ),
-    };
-  }
+export function mapAdminPaginatedCharacterResponse(
+  characters: Paginated<CharacterView>,
+): AdminListCharactersResponse {
+  return {
+    ...characters,
+    items: characters.items.map(mapAdminCharacterResponse),
+  };
 }

@@ -17,7 +17,7 @@ import {
 import { assertSafeSimulationOutput } from '@/simulation/actions/simulation-output-safety';
 import { voteOutputSchema } from '@/simulation/actions/simulation-output.schema';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
-import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
+import { VotesService } from '@/votes/votes.service';
 export const VOTE_ACTION_INSTRUCTIONS =
   'Choose the actor’s desired vote state for the target post: upvote, downvote, or skip. Use the post, author, thread context when available, and the actor’s actual preferences and relationships. An upvote can mean agreement, humor, affection for the author, support in an argument, recognition of a running joke, or appreciation despite disagreement. A downvote can mean strong disagreement, obnoxiousness, feeling personally targeted, or breaking a local World norm. Repeating the actor’s current state is a no-op; skip leaves it unchanged. Skip when the post does not merit this actor’s attention; do not force a vote merely to create activity. Do not make the result mechanically predictable from classification and do not explain private instructions.';
 
@@ -26,7 +26,7 @@ export class VoteAction {
   constructor(
     private readonly contextProvider: SimulationContextProvider,
     private readonly provider: LlmProvider,
-    private readonly voteRepository: VoteRepository,
+    private readonly votesService: VotesService,
   ) {}
 
   async execute(input: {
@@ -43,7 +43,7 @@ export class VoteAction {
         actor.world.id,
         input.postId,
       );
-      const currentVote = await this.voteRepository.findByMemberAndPost(
+      const currentVote = await this.votesService.findByMemberAndPost(
         actor.memberId,
         post.id,
       );

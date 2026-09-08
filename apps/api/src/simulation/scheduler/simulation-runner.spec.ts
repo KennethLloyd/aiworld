@@ -11,25 +11,23 @@ import {
   SimulationActionOutcome,
 } from '@/simulation/actions/simulation-decision';
 import { VoteAction } from '@/simulation/actions/vote.action';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import {
   SimulationConfigMalformedError,
   SimulationConfigNotFoundError,
   SimulationWorkRejectedError,
 } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
-import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldService, WorldView } from '@/world/world.service';
 
-const world: WorldRecord = {
+const world: WorldView = {
   id: 'world-1',
   name: 'The MBTI House',
   slug: 'mbti-house',
@@ -42,7 +40,7 @@ const world: WorldRecord = {
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
 
-const config: WorldSimulationConfigRecord = {
+const config: SimulationConfig = {
   id: 'config-1',
   worldId: 'world-1',
   state: 'RUNNING',
@@ -84,8 +82,8 @@ function scheduledTurn(
 }
 
 function logRecord(
-  overrides: Partial<SimulationLogRecord> = {},
-): SimulationLogRecord {
+  overrides: Partial<SimulationLogEntry> = {},
+): SimulationLogEntry {
   return {
     id: 'log-1',
     worldId: 'world-1',
@@ -111,14 +109,14 @@ function createRunner(
   overrides: {
     gateState?: 'scheduled' | 'manual' | 'halted';
     providerConfig?: { providerId: string; model: string };
-    simulationConfig?: WorldSimulationConfigRecord;
+    simulationConfig?: SimulationConfig;
     provider?: LlmProvider;
     execute?: (input: unknown) => Promise<SimulationActionOutcome>;
   } = {},
 ) {
-  const worldRepository = {
-    findBySlug: jest.fn().mockResolvedValue(world),
-  } as unknown as jest.Mocked<WorldRepository>;
+  const worldService = {
+    getBySlug: jest.fn().mockResolvedValue(world),
+  } as unknown as jest.Mocked<Pick<WorldService, 'getBySlug'>>;
   const lifecycleConfig = overrides.simulationConfig ?? config;
   const lifecycleService = {
     getByWorldId: jest.fn().mockResolvedValue(lifecycleConfig),
@@ -151,19 +149,13 @@ function createRunner(
     pickAction: jest.fn().mockReturnValue('POST'),
     pickAutomaticAction: jest.fn().mockResolvedValue('POST'),
     pickTargetPost: jest.fn().mockResolvedValue('post-1'),
+    findActiveActor: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
 
   const execute = jest.fn();
   if (overrides.execute !== undefined) {
     execute.mockImplementation(overrides.execute);
   }
-  const castingRepository = {
-    findActiveActor: jest.fn().mockResolvedValue({
-      memberId: 'member-1',
-      characterId: 'character-1',
-      lastActivityAt: null,
-    }),
-  } as unknown as jest.Mocked<SimulationCastingRepository>;
   const postAction = { execute } as unknown as jest.Mocked<PostAction>;
   const voteAction = { execute } as unknown as jest.Mocked<VoteAction>;
   const commentAction = { execute } as unknown as jest.Mocked<CommentAction>;
@@ -190,10 +182,9 @@ function createRunner(
     } as unknown as LlmProvider);
 
   const runner = new SimulationRunner(
-    worldRepository,
+    worldService as never,
     lifecycleService as never,
     picker,
-    castingRepository,
     postAction,
     voteAction,
     commentAction,
@@ -204,14 +195,13 @@ function createRunner(
 
   return {
     runner,
-    worldRepository,
+    worldService,
     lifecycleService,
     picker,
     executor: { execute },
     postAction,
     voteAction,
     commentAction,
-    castingRepository,
     contentWriter,
     logService,
   };
@@ -306,7 +296,7 @@ describe('SimulationRunner', () => {
           ...config,
           providerId: 'mock',
           model: 'legacy-world-model',
-        } as unknown as WorldSimulationConfigRecord;
+        } as unknown as SimulationConfig;
         const contextProvider = {
           resolveActor: jest.fn().mockResolvedValue({
             world,
@@ -358,13 +348,13 @@ describe('SimulationRunner', () => {
     );
 
     it('allows admitted work to finish when the World deactivates mid-iteration', async () => {
-      const { runner, worldRepository, executor, contentWriter, logService } =
+      const { runner, worldService, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runScheduledTurn(scheduledTurn(), 'job-8');
 
-      expect(worldRepository.findBySlug).toHaveBeenCalledWith('mbti-house');
+      expect(worldService.getBySlug).toHaveBeenCalledWith('mbti-house', true);
       expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,
@@ -376,10 +366,10 @@ describe('SimulationRunner', () => {
     });
 
     it('lets deleted Worlds dead-letter without writing a cascaded log', async () => {
-      const { runner, worldRepository, executor, contentWriter, logService } =
+      const { runner, worldService, executor, contentWriter, logService } =
         createRunner();
       executor.execute.mockResolvedValue(successOutcome);
-      worldRepository.findBySlug.mockResolvedValue(null);
+      worldService.getBySlug.mockResolvedValue(null);
 
       await expect(
         runner.runScheduledTurn(scheduledTurn(), 'job-9'),
@@ -575,8 +565,8 @@ describe('SimulationRunner', () => {
     });
 
     it('throws when the World itself is unresolvable (DLQ records it)', async () => {
-      const { runner, worldRepository } = createRunner();
-      worldRepository.findBySlug.mockResolvedValue(null);
+      const { runner, worldService } = createRunner();
+      worldService.getBySlug.mockResolvedValue(null);
 
       await expect(
         runner.runScheduledTurn(scheduledTurn(), 'job-7'),
@@ -664,8 +654,8 @@ describe('SimulationRunner', () => {
     });
 
     it('validates an explicit Custom Action actor before execution', async () => {
-      const { runner, castingRepository, executor } = createRunner();
-      castingRepository.findActiveActor.mockResolvedValue(false);
+      const { runner, picker, executor } = createRunner();
+      picker.findActiveActor.mockResolvedValue(false);
 
       await expect(
         runner.runCustomAction({

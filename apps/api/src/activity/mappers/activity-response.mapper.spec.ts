@@ -1,15 +1,7 @@
-import { CharacterActivityPageRecord } from '@/activity/domain/activity-record';
-import { ActivityResponseMapper } from '@/activity/mappers/activity-response.mapper';
-import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
+import { CharacterActivityPage } from '@/activity/domain/activity';
+import { mapCharacterActivityResponse } from '@/activity/mappers/activity-response.mapper';
 
-describe('ActivityResponseMapper', () => {
-  const commentResponseMapper = new CommentResponseMapper();
-  const mapper = new ActivityResponseMapper(
-    new PostResponseMapper(commentResponseMapper),
-    commentResponseMapper,
-  );
-
+describe('mapCharacterActivityResponse', () => {
   const authorFixture = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
@@ -17,7 +9,7 @@ describe('ActivityResponseMapper', () => {
     avatarUrl: null,
   };
 
-  const pageRecordFixture: CharacterActivityPageRecord = {
+  const pageRecordFixture: CharacterActivityPage = {
     items: [
       {
         kind: 'post',
@@ -50,7 +42,7 @@ describe('ActivityResponseMapper', () => {
   };
 
   it('maps merged items with their kind and the cursor', () => {
-    const response = mapper.mapToCharacterActivityResponse(pageRecordFixture);
+    const response = mapCharacterActivityResponse(pageRecordFixture);
 
     expect(response).toEqual({
       items: [
@@ -89,7 +81,7 @@ describe('ActivityResponseMapper', () => {
       avatarUrl: null,
     };
 
-    const response = mapper.mapToCharacterActivityResponse({
+    const response = mapCharacterActivityResponse({
       items: [
         {
           kind: 'comment',
@@ -113,7 +105,7 @@ describe('ActivityResponseMapper', () => {
   });
 
   it('passes the nextCursor through untouched', () => {
-    const response = mapper.mapToCharacterActivityResponse({
+    const response = mapCharacterActivityResponse({
       items: [],
       nextCursor: 'another-cursor',
     });

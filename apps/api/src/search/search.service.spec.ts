@@ -1,22 +1,18 @@
 import { SearchQuery } from '@aiworld/shared/schemas/search.schema';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  AuthorRecord,
-  FlatCommentRecord,
-} from '@/comments/domain/comment-record';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { SearchResultRecord } from '@/search/domain/search-record';
+import { CommentsService } from '@/comments/comments.service';
+import { Author, FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { PostsService } from '@/posts/posts.service';
+import { SearchResult } from '@/search/domain/search';
 import { SearchService } from '@/search/search.service';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldService } from '@/world/world.service';
+import { WorldService, WorldView } from '@/world/world.service';
 
 describe('SearchService', () => {
   let service: SearchService;
 
-  const worldRecordFixture: WorldRecord = {
+  const worldRecordFixture: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'The MBTI House',
     slug: 'mbti-house',
@@ -29,14 +25,14 @@ describe('SearchService', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
-  const authorFixture: AuthorRecord = {
+  const authorFixture: Author = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
     name: 'Standard_Procedure',
     avatarUrl: null,
   };
 
-  const postAt = (id: string, createdAt: string): PostWithAuthorRecord => ({
+  const postAt = (id: string, createdAt: string): PostWithAuthor => ({
     id,
     title: 'Title matches the query',
     content: 'Body matches the query',
@@ -46,7 +42,7 @@ describe('SearchService', () => {
     updatedAt: new Date(createdAt),
   });
 
-  const commentAt = (id: string, createdAt: string): FlatCommentRecord => ({
+  const commentAt = (id: string, createdAt: string): FlatComment => ({
     id,
     postId: '00000000-0000-4000-8000-000000000002',
     parentCommentId: null,
@@ -64,13 +60,12 @@ describe('SearchService', () => {
     getBySlug: jest.fn(),
   };
 
-  const mockPostRepository: jest.Mocked<Pick<PostRepository, 'searchByText'>> =
-    {
-      searchByText: jest.fn(),
-    };
+  const mockPostsService: jest.Mocked<Pick<PostsService, 'searchByText'>> = {
+    searchByText: jest.fn(),
+  };
 
-  const mockCommentRepository: jest.Mocked<
-    Pick<CommentRepository, 'searchByText'>
+  const mockCommentsService: jest.Mocked<
+    Pick<CommentsService, 'searchByText'>
   > = {
     searchByText: jest.fn(),
   };
@@ -80,8 +75,8 @@ describe('SearchService', () => {
       providers: [
         SearchService,
         { provide: WorldService, useValue: mockWorldService },
-        { provide: PostRepository, useValue: mockPostRepository },
-        { provide: CommentRepository, useValue: mockCommentRepository },
+        { provide: PostsService, useValue: mockPostsService },
+        { provide: CommentsService, useValue: mockCommentsService },
       ],
     }).compile();
 
@@ -95,14 +90,14 @@ describe('SearchService', () => {
     const results = await service.search('missing-world', queryFixture);
 
     expect(results).toBeNull();
-    expect(mockPostRepository.searchByText).not.toHaveBeenCalled();
-    expect(mockCommentRepository.searchByText).not.toHaveBeenCalled();
+    expect(mockPostsService.searchByText).not.toHaveBeenCalled();
+    expect(mockCommentsService.searchByText).not.toHaveBeenCalled();
   });
 
   it('resolves the active world and queries both repositories with its id', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([]);
-    mockCommentRepository.searchByText.mockResolvedValue([]);
+    mockPostsService.searchByText.mockResolvedValue([]);
+    mockCommentsService.searchByText.mockResolvedValue([]);
 
     const results = await service.search('mbti-house', queryFixture);
 
@@ -110,11 +105,11 @@ describe('SearchService', () => {
       'mbti-house',
       false,
     );
-    expect(mockPostRepository.searchByText).toHaveBeenCalledWith(
+    expect(mockPostsService.searchByText).toHaveBeenCalledWith(
       worldRecordFixture.id,
       'quillfox',
     );
-    expect(mockCommentRepository.searchByText).toHaveBeenCalledWith(
+    expect(mockCommentsService.searchByText).toHaveBeenCalledWith(
       worldRecordFixture.id,
       'quillfox',
     );
@@ -139,8 +134,8 @@ describe('SearchService', () => {
         items: [],
         meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
       });
-      expect(mockPostRepository.searchByText).not.toHaveBeenCalled();
-      expect(mockCommentRepository.searchByText).not.toHaveBeenCalled();
+      expect(mockPostsService.searchByText).not.toHaveBeenCalled();
+      expect(mockCommentsService.searchByText).not.toHaveBeenCalled();
     },
   );
 
@@ -157,14 +152,14 @@ describe('SearchService', () => {
       items: [],
       meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
     });
-    expect(mockPostRepository.searchByText).not.toHaveBeenCalled();
-    expect(mockCommentRepository.searchByText).not.toHaveBeenCalled();
+    expect(mockPostsService.searchByText).not.toHaveBeenCalled();
+    expect(mockCommentsService.searchByText).not.toHaveBeenCalled();
   });
 
   it('trims surrounding whitespace from q before matching', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([]);
-    mockCommentRepository.searchByText.mockResolvedValue([]);
+    mockPostsService.searchByText.mockResolvedValue([]);
+    mockCommentsService.searchByText.mockResolvedValue([]);
 
     await service.search('mbti-house', {
       q: '  quillfox  ',
@@ -172,7 +167,7 @@ describe('SearchService', () => {
       limit: 20,
     });
 
-    expect(mockPostRepository.searchByText).toHaveBeenCalledWith(
+    expect(mockPostsService.searchByText).toHaveBeenCalledWith(
       worldRecordFixture.id,
       'quillfox',
     );
@@ -180,7 +175,7 @@ describe('SearchService', () => {
 
   it('merges posts and comments deterministically by createdAt desc then id desc', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([
+    mockPostsService.searchByText.mockResolvedValue([
       postAt(
         '00000000-0000-4000-8000-000000000003',
         '2026-08-06T10:00:00.000Z',
@@ -190,7 +185,7 @@ describe('SearchService', () => {
         '2026-08-06T08:00:00.000Z',
       ),
     ]);
-    mockCommentRepository.searchByText.mockResolvedValue([
+    mockCommentsService.searchByText.mockResolvedValue([
       commentAt(
         '00000000-0000-4000-8000-000000000001',
         '2026-08-06T11:00:00.000Z',
@@ -218,13 +213,13 @@ describe('SearchService', () => {
 
   it('tags each merged record with its type', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([
+    mockPostsService.searchByText.mockResolvedValue([
       postAt(
         '00000000-0000-4000-8000-000000000001',
         '2026-08-06T10:00:00.000Z',
       ),
     ]);
-    mockCommentRepository.searchByText.mockResolvedValue([
+    mockCommentsService.searchByText.mockResolvedValue([
       commentAt(
         '00000000-0000-4000-8000-000000000002',
         '2026-08-06T11:00:00.000Z',
@@ -232,7 +227,7 @@ describe('SearchService', () => {
     ]);
 
     const results = (await service.search('mbti-house', queryFixture))!;
-    const records = results.items as SearchResultRecord[];
+    const records = results.items as SearchResult[];
 
     expect(records[0]).toEqual({
       type: 'comment',
@@ -250,7 +245,7 @@ describe('SearchService', () => {
 
   it('computes pagination metadata from the full merged result set', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([
+    mockPostsService.searchByText.mockResolvedValue([
       postAt(
         '00000000-0000-4000-8000-000000000001',
         '2026-08-06T10:00:00.000Z',
@@ -260,7 +255,7 @@ describe('SearchService', () => {
         '2026-08-06T09:00:00.000Z',
       ),
     ]);
-    mockCommentRepository.searchByText.mockResolvedValue([
+    mockCommentsService.searchByText.mockResolvedValue([
       commentAt(
         '00000000-0000-4000-8000-000000000003',
         '2026-08-06T11:00:00.000Z',
@@ -284,7 +279,7 @@ describe('SearchService', () => {
 
   it('slices the merged list by page and keeps metadata stable beyond the last page', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockPostRepository.searchByText.mockResolvedValue([
+    mockPostsService.searchByText.mockResolvedValue([
       postAt(
         '00000000-0000-4000-8000-000000000001',
         '2026-08-06T10:00:00.000Z',
@@ -294,7 +289,7 @@ describe('SearchService', () => {
         '2026-08-06T09:00:00.000Z',
       ),
     ]);
-    mockCommentRepository.searchByText.mockResolvedValue([
+    mockCommentsService.searchByText.mockResolvedValue([
       commentAt(
         '00000000-0000-4000-8000-000000000003',
         '2026-08-06T11:00:00.000Z',

@@ -1,4 +1,4 @@
-import { AuthorRecord } from '@/comments/domain/comment-record';
+import { Author } from '@/comments/domain/comment';
 
 /**
  * The WorldMember that wrote the content, as loaded by Prisma:
@@ -26,9 +26,9 @@ export interface ContentAuthorRow {
  * their Character; HUMAN members show their User. If a member has
  * neither, fall back to a neutral identity.
  */
-export function mapContentAuthor(member: ContentAuthorRow): AuthorRecord {
+export function mapContentAuthor(member: ContentAuthorRow): Author {
   if (member.character) {
-    const author: AuthorRecord = {
+    const author: Author = {
       id: member.id,
       handle: member.character.handle,
       name: member.character.name,

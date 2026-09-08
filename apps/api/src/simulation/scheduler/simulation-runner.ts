@@ -19,33 +19,33 @@ import {
 } from '@/simulation/actions/simulation-decision';
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import {
+  SimulationLogEntry,
+  SimulationLogService,
+} from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
-import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import {
   isTransientSchedulerError,
   SimulationCharacterNotActiveError,
 } from '@/simulation/scheduler/simulation-scheduler.error';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldView, WorldService } from '@/world/world.service';
 
 export type IterationRunResult =
   | {
       status: 'success';
       decision: SimulationDecision;
-      log: SimulationLogRecord;
+      log: SimulationLogEntry;
     }
-  | { status: 'failed'; failure: ActionFailure; log: SimulationLogRecord };
+  | { status: 'failed'; failure: ActionFailure; log: SimulationLogEntry };
 
 export type ScheduledTurnRunResult =
   | IterationRunResult
-  | { status: 'rejected'; reason: string; log: SimulationLogRecord };
+  | { status: 'rejected'; reason: string; log: SimulationLogEntry };
 
 type LogContext = {
   worldId: string;
@@ -63,10 +63,9 @@ type ProviderMetadata = {
 @Injectable()
 export class SimulationRunner {
   constructor(
-    private readonly worldRepository: WorldRepository,
+    private readonly worldService: WorldService,
     private readonly lifecycleService: SimulationLifecycleService,
     private readonly picker: SimulationIterationPicker,
-    private readonly castingRepository: SimulationCastingRepository,
     private readonly postAction: PostAction,
     private readonly voteAction: VoteAction,
     private readonly commentAction: CommentAction,
@@ -141,7 +140,7 @@ export class SimulationRunner {
   }
 
   private async executeIteration(input: {
-    world: WorldRecord;
+    world: WorldView;
     iteration: SimulationIteration;
     jobId?: string | null;
   }): Promise<IterationRunResult> {
@@ -237,7 +236,7 @@ export class SimulationRunner {
   private assertWorkAllowed(
     worldId: string,
     executionSource: SimulationIteration['executionSource'],
-  ): Promise<WorldSimulationConfigRecord> {
+  ): Promise<SimulationConfig> {
     if (executionSource === 'scheduled') {
       return this.lifecycleService.assertScheduledWorkAllowed(worldId);
     }
@@ -254,7 +253,7 @@ export class SimulationRunner {
     const config = await this.requireConfig(world.id);
 
     if (input.characterId) {
-      const isActiveMember = await this.castingRepository.findActiveActor(
+      const isActiveMember = await this.picker.findActiveActor(
         world.id,
         input.characterId,
       );
@@ -311,9 +310,7 @@ export class SimulationRunner {
     };
   }
 
-  private async requireConfig(
-    worldId: string,
-  ): Promise<WorldSimulationConfigRecord> {
+  private async requireConfig(worldId: string): Promise<SimulationConfig> {
     const config = await this.lifecycleService.getByWorldId(worldId);
     if (!config) {
       throw new SimulationActionError(
@@ -324,8 +321,8 @@ export class SimulationRunner {
     return config;
   }
 
-  private async requireWorld(worldSlug: string): Promise<WorldRecord> {
-    const world = await this.worldRepository.findBySlug(worldSlug);
+  private async requireWorld(worldSlug: string): Promise<WorldView> {
+    const world = await this.worldService.getBySlug(worldSlug, true);
     if (!world) {
       throw new SimulationActionError(
         'WORLD_NOT_FOUND',

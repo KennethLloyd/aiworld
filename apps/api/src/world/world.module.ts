@@ -1,14 +1,9 @@
 import { Module } from '@nestjs/common';
 
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
-import { WorldResponseMapper } from '@/world/mappers/world-response.mapper';
-import { PrismaWorldRepository } from '@/world/repositories/prisma-world.repository';
-import {
-  WORLD_SIMULATION_CONFIG_DEFAULTS,
-  WorldRepository,
-} from '@/world/repositories/world-repository.interface';
 import { WorldController } from '@/world/world.controller';
 import { WorldService } from '@/world/world.service';
+import { WORLD_SIMULATION_CONFIG_DEFAULTS } from '@/world/world.tokens';
 
 @Module({
   controllers: [WorldController],
@@ -17,13 +12,8 @@ import { WorldService } from '@/world/world.service';
       provide: WORLD_SIMULATION_CONFIG_DEFAULTS,
       useFactory: createDefaultSimulationConfig,
     },
-    {
-      provide: WorldRepository,
-      useClass: PrismaWorldRepository,
-    },
-    WorldResponseMapper,
     WorldService,
   ],
-  exports: [WorldService, WorldRepository],
+  exports: [WorldService],
 })
 export class WorldModule {}

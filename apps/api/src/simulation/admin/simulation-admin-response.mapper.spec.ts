@@ -8,13 +8,20 @@ import { simulationRunResultResponseSchema } from '@aiworld/shared/schemas/simul
 import { simulationConfigResponseSchema } from '@aiworld/shared/schemas/simulation-state.schema';
 import { simulationTelemetryResponseSchema } from '@aiworld/shared/schemas/simulation-telemetry.schema';
 
-import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
-import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import {
+  mapSimulationConfig,
+  mapSimulationHealth,
+  mapSimulationLog,
+  mapSimulationLogs,
+  mapSimulationRunResult,
+  mapSimulationTelemetry,
+} from '@/simulation/admin/simulation-admin-response.mapper';
+import { SimulationTelemetry } from '@/simulation/domain/simulation-telemetry';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
+import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 
-const configRecord: WorldSimulationConfigRecord = {
+const configRecord: SimulationConfig = {
   id: '00000000-0000-4000-8000-000000000010',
   worldId: '00000000-0000-4000-8000-000000000001',
   state: 'PAUSED',
@@ -26,7 +33,7 @@ const configRecord: WorldSimulationConfigRecord = {
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
 
-const logRecord: SimulationLogRecord = {
+const logRecord: SimulationLogEntry = {
   id: '00000000-0000-4000-8000-000000000003',
   worldId: configRecord.worldId,
   characterId: '00000000-0000-4000-8000-000000000002',
@@ -45,7 +52,7 @@ const logRecord: SimulationLogRecord = {
   executedAt: new Date('2026-08-13T00:00:00.000Z'),
 };
 
-const telemetryRecord: SimulationTelemetryRecord = {
+const telemetryRecord: SimulationTelemetry = {
   worldId: configRecord.worldId,
   totalRuns: 5,
   successCount: 4,
@@ -58,11 +65,9 @@ const telemetryRecord: SimulationTelemetryRecord = {
   lastRunAt: new Date('2026-08-13T00:00:00.000Z'),
 };
 
-const mapper = new SimulationAdminResponseMapper();
-
-describe('SimulationAdminResponseMapper', () => {
+describe('simulation admin response mapper', () => {
   it('maps a config record to the shared config response', () => {
-    const response = mapper.mapConfig(configRecord);
+    const response = mapSimulationConfig(configRecord);
 
     expect(simulationConfigResponseSchema.safeParse(response).success).toBe(
       true,
@@ -88,7 +93,7 @@ describe('SimulationAdminResponseMapper', () => {
       log: logRecord,
     };
 
-    const response = mapper.mapRunResult(result);
+    const response = mapSimulationRunResult(result);
 
     expect(simulationRunResultResponseSchema.safeParse(response).success).toBe(
       true,
@@ -115,7 +120,7 @@ describe('SimulationAdminResponseMapper', () => {
       },
     };
 
-    const response = mapper.mapRunResult(result);
+    const response = mapSimulationRunResult(result);
 
     expect(simulationRunResultResponseSchema.safeParse(response).success).toBe(
       true,
@@ -127,7 +132,7 @@ describe('SimulationAdminResponseMapper', () => {
   });
 
   it('maps a log record to the shared log response without provider secrets', () => {
-    const response = mapper.mapLog(logRecord);
+    const response = mapSimulationLog(logRecord);
 
     expect(simulationLogResponseSchema.safeParse(response).success).toBe(true);
     expect(response.executionSource).toBe('one-action');
@@ -136,12 +141,12 @@ describe('SimulationAdminResponseMapper', () => {
   });
 
   it('maps a paginated log page to the shared list response', () => {
-    const paginated: Paginated<SimulationLogRecord> = {
+    const paginated: Paginated<SimulationLogEntry> = {
       items: [logRecord],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
     };
 
-    const response = mapper.mapLogs(paginated);
+    const response = mapSimulationLogs(paginated);
 
     expect(listSimulationLogsResponseSchema.safeParse(response).success).toBe(
       true,
@@ -150,7 +155,7 @@ describe('SimulationAdminResponseMapper', () => {
   });
 
   it('maps a telemetry record to the shared telemetry response', () => {
-    const response = mapper.mapTelemetry(telemetryRecord);
+    const response = mapSimulationTelemetry(telemetryRecord);
 
     expect(simulationTelemetryResponseSchema.safeParse(response).success).toBe(
       true,
@@ -160,7 +165,7 @@ describe('SimulationAdminResponseMapper', () => {
   });
 
   it('maps runtime health without exposing scheduler or provider secrets', () => {
-    const response = mapper.mapHealth({
+    const response = mapSimulationHealth({
       lifecycleState: 'RUNNING',
       health: {
         status: 'DEGRADED',
@@ -202,7 +207,7 @@ describe('SimulationAdminResponseMapper', () => {
   });
 
   it('maps a telemetry record with null aggregates', () => {
-    const response = mapper.mapTelemetry({
+    const response = mapSimulationTelemetry({
       ...telemetryRecord,
       totalTokensUsed: null,
       totalCostEstimateUsd: null,

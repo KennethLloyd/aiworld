@@ -28,17 +28,19 @@ import {
 import { AllowAnonymous, Roles } from '@thallesp/nestjs-better-auth';
 
 import { CharactersService } from '@/characters/characters.service';
-import { CharacterResponseMapper } from '@/characters/mappers/character-response.mapper';
+import {
+  mapAdminCharacterResponse,
+  mapAdminPaginatedCharacterResponse,
+  mapCharacterResponse,
+  mapPaginatedCharacterResponse,
+} from '@/characters/mappers/character-response.mapper';
 import { ZodValidationPipe } from '@/common/pipes';
 import { isAdminRequest } from '@/lib/auth/request-access';
 import type { AuthenticatedRequest } from '@/lib/auth/request-access';
 
 @Controller('characters')
 export class CharactersController {
-  constructor(
-    private readonly charactersService: CharactersService,
-    private readonly characterResponseMapper: CharacterResponseMapper,
-  ) {}
+  constructor(private readonly charactersService: CharactersService) {}
 
   @Get()
   @AllowAnonymous()
@@ -51,12 +53,8 @@ export class CharactersController {
     const characters = await this.charactersService.list(query, admin);
 
     return admin
-      ? this.characterResponseMapper.mapToAdminPaginatedCharacterResponse(
-          characters,
-        )
-      : this.characterResponseMapper.mapToPaginatedCharacterResponse(
-          characters,
-        );
+      ? mapAdminPaginatedCharacterResponse(characters)
+      : mapPaginatedCharacterResponse(characters);
   }
 
   @Get(':characterId')
@@ -72,8 +70,8 @@ export class CharactersController {
     }
 
     return admin
-      ? this.characterResponseMapper.mapToAdminCharacterResponse(character)
-      : this.characterResponseMapper.mapToCharacterResponse(character);
+      ? mapAdminCharacterResponse(character)
+      : mapCharacterResponse(character);
   }
 
   @Post()
@@ -82,7 +80,7 @@ export class CharactersController {
     @Body(new ZodValidationPipe(createCharacterSchema)) input: CreateCharacter,
   ): Promise<AdminCharacterResponse> {
     const character = await this.charactersService.create(input);
-    return this.characterResponseMapper.mapToAdminCharacterResponse(character);
+    return mapAdminCharacterResponse(character);
   }
 
   @Patch(':characterId')
@@ -96,6 +94,6 @@ export class CharactersController {
       throw new NotFoundException();
     }
 
-    return this.characterResponseMapper.mapToAdminCharacterResponse(character);
+    return mapAdminCharacterResponse(character);
   }
 }

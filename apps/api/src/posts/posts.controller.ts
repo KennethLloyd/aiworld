@@ -18,15 +18,15 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { ZodValidationPipe } from '@/common/pipes';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
+import {
+  mapPaginatedPostResponse,
+  mapPostDetailResponse,
+} from '@/posts/mappers/post-response.mapper';
 import { PostsService } from '@/posts/posts.service';
 
 @Controller('worlds/:slug/posts')
 export class PostsController {
-  constructor(
-    private readonly postsService: PostsService,
-    private readonly postResponseMapper: PostResponseMapper,
-  ) {}
+  constructor(private readonly postsService: PostsService) {}
 
   @Get()
   @AllowAnonymous()
@@ -41,7 +41,7 @@ export class PostsController {
       throw new NotFoundException();
     }
 
-    return this.postResponseMapper.mapToPaginatedPostResponse(feed);
+    return mapPaginatedPostResponse(feed);
   }
 
   @Get(':postId')
@@ -50,12 +50,15 @@ export class PostsController {
     @Param(new ZodValidationPipe(postDetailParamsSchema))
     params: PostDetailParams,
   ): Promise<PostDetailResponse> {
-    const post = await this.postsService.findById(params.slug, params.postId);
+    const post = await this.postsService.findByWorldSlug(
+      params.slug,
+      params.postId,
+    );
 
     if (!post) {
       throw new NotFoundException();
     }
 
-    return this.postResponseMapper.mapToPostDetailResponse(post);
+    return mapPostDetailResponse(post);
   }
 }

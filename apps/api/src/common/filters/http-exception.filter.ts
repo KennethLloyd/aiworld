@@ -1,21 +1,36 @@
 import {
   ArgumentsHost,
+  BadRequestException,
   Catch,
+  ConflictException,
   ExceptionFilter,
   HttpException,
+  NotFoundException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 import { redactDiagnostics } from '@/common/diagnostics';
+import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
+import {
+  InvalidSimulationStateTransitionError,
+  SimulationConfigMalformedError,
+  SimulationConfigNotFoundError,
+  SimulationWorkRejectedError,
+} from '@/simulation/lifecycle/simulation-lifecycle.error';
+import {
+  SimulationCharacterNotActiveError,
+  SimulationIterationPickError,
+} from '@/simulation/scheduler/simulation-scheduler.error';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    const httpException = mapDomainException(exception) ?? exception;
 
-    if (exception instanceof HttpException) {
-      const status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+    if (httpException instanceof HttpException) {
+      const status = httpException.getStatus();
+      const exceptionResponse = httpException.getResponse();
 
       if (
         typeof exceptionResponse === 'object' &&
@@ -33,8 +48,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message:
           typeof exceptionResponse === 'string'
             ? exceptionResponse
-            : exception.message,
-        error: exception.name,
+            : httpException.message,
+        error: httpException.name,
       });
       return;
     }
@@ -59,4 +74,28 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: 'Internal Server Error',
     });
   }
+}
+
+function mapDomainException(exception: unknown): HttpException | null {
+  if (
+    exception instanceof SimulationConfigNotFoundError ||
+    (exception instanceof SimulationActionError &&
+      exception.code === 'WORLD_NOT_FOUND')
+  ) {
+    return new NotFoundException();
+  }
+  if (
+    exception instanceof SimulationCharacterNotActiveError ||
+    exception instanceof SimulationConfigMalformedError
+  ) {
+    return new BadRequestException(exception.message);
+  }
+  if (
+    exception instanceof InvalidSimulationStateTransitionError ||
+    exception instanceof SimulationWorkRejectedError ||
+    exception instanceof SimulationIterationPickError
+  ) {
+    return new ConflictException(exception.message);
+  }
+  return null;
 }

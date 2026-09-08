@@ -1,7 +1,7 @@
 /** Aggregate simulation telemetry derived from SimulationLog rows. Provider
  * identifiers, prompts, and raw responses are deliberately absent: this is the
  * operator-facing view, never a leak of provider secrets. */
-export interface SimulationTelemetryRecord {
+export interface SimulationTelemetry {
   worldId: string;
   totalRuns: number;
   successCount: number;
@@ -18,9 +18,7 @@ export interface SimulationTelemetryRecord {
   lastProviderFailureAt?: Date | null;
 }
 
-export function emptySimulationTelemetry(
-  worldId: string,
-): SimulationTelemetryRecord {
+export function emptySimulationTelemetry(worldId: string): SimulationTelemetry {
   return {
     worldId,
     totalRuns: 0,

@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-import { CharacterRecord } from '@/characters/domain/character-record';
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
+import {
+  CharacterView,
+  CharactersService,
+} from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
+import { FlatComment } from '@/comments/domain/comment';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { PostsService } from '@/posts/posts.service';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
@@ -18,9 +20,11 @@ import { SimulationContextProvider } from '@/simulation/actions/simulation-conte
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { defaultSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
-import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import {
+  SimulationLogCreateInput,
+  SimulationLogEntry,
+  SimulationLogService,
+} from '@/simulation/logging/simulation-log.service';
 import {
   LlmProvider,
   LlmProviderRequest,
@@ -28,9 +32,9 @@ import {
   LlmProviderResult,
 } from '@/simulation/providers/llm-provider.port';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
-import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { VotesService } from '@/votes/votes.service';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService } from '@/world/world.service';
 
 import { canonicalWorld, characters } from '../../../../prisma/seed-data';
 import { mockLlmFixtures } from './fixtures/mock-llm-fixtures';
@@ -104,7 +108,7 @@ describe('bounded long-run mock simulation', () => {
 
   it('runs every resident through the action, writer, and log pipeline', async () => {
     const date = new Date('2026-01-01');
-    const characterRecords: CharacterRecord[] = characters.map(
+    const characterRecords: CharacterView[] = characters.map(
       (character, index) => ({
         id: `character-${index}`,
         handle: character.key,
@@ -126,7 +130,7 @@ describe('bounded long-run mock simulation', () => {
         { id: `member-${index}` },
       ]),
     );
-    const authorFor = (character: CharacterRecord) => ({
+    const authorFor = (character: CharacterView) => ({
       id: character.id,
       characterId: character.id,
       handle: character.handle,
@@ -135,7 +139,7 @@ describe('bounded long-run mock simulation', () => {
       classification: character.classification,
       classificationGroup: character.classificationGroup,
     });
-    const posts: PostWithAuthorRecord[] = [
+    const posts: PostWithAuthor[] = [
       {
         id: 'seed-post',
         title: 'House schedule',
@@ -146,18 +150,18 @@ describe('bounded long-run mock simulation', () => {
         author: authorFor(characterRecords[0]!),
       },
     ];
-    const comments: FlatCommentRecord[] = [];
+    const comments: FlatComment[] = [];
     const votes = new Map<string, 1 | -1>();
-    const logs: SimulationLogRecord[] = [];
+    const logs: SimulationLogEntry[] = [];
 
-    const worldRepository = {
-      findBySlug: async (slug: string) => (slug === world.slug ? world : null),
-    } as unknown as WorldRepository;
-    const characterRepository = {
-      findById: async (id: string) =>
+    const worldService = {
+      getBySlug: async (slug: string) => (slug === world.slug ? world : null),
+    } as unknown as WorldService;
+    const charactersService = {
+      getById: async (id: string) =>
         characterRecords.find((character) => character.id === id) ?? null,
-    } as unknown as CharacterRepository;
-    const memberRepository = {
+    } as unknown as CharactersService;
+    const worldMembersService = {
       findActiveByWorldAndCharacter: async (
         worldId: string,
         characterId: string,
@@ -165,8 +169,8 @@ describe('bounded long-run mock simulation', () => {
         worldId === world.id
           ? (memberByCharacter.get(characterId) ?? null)
           : null,
-    } as unknown as WorldMemberRepository;
-    const postRepository = {
+    } as unknown as WorldMembersService;
+    const postsService = {
       findById: async (worldId: string, postId: string) =>
         worldId === world.id
           ? (posts.find((post) => post.id === postId) ?? null)
@@ -203,8 +207,8 @@ describe('bounded long-run mock simulation', () => {
         });
         return { id };
       },
-    } as unknown as PostRepository;
-    const commentRepository = {
+    } as unknown as PostsService;
+    const commentsService = {
       findById: async (id: string) =>
         comments.find((comment) => comment.id === id) ?? null,
       findByPostId: async (postId: string) =>
@@ -233,8 +237,8 @@ describe('bounded long-run mock simulation', () => {
         });
         return { id };
       },
-    } as unknown as CommentRepository;
-    const voteRepository = {
+    } as unknown as CommentsService;
+    const votesService = {
       findByMemberAndPost: async (memberId: string, postId: string) => {
         const value = votes.get(`${memberId}:${postId}`);
         return value === undefined
@@ -254,13 +258,13 @@ describe('bounded long-run mock simulation', () => {
         votes.set(key, input.value);
         return { id: `vote-${key}` };
       },
-    } as unknown as VoteRepository;
+    } as unknown as VotesService;
     const contextProvider = new SimulationContextProvider(
-      worldRepository,
-      characterRepository,
-      memberRepository,
-      postRepository,
-      commentRepository,
+      worldService as unknown as WorldService,
+      charactersService as unknown as CharactersService,
+      worldMembersService as unknown as WorldMembersService,
+      postsService as unknown as PostsService,
+      commentsService as unknown as CommentsService,
     );
     const baseProvider = new MockLlmProvider(
       loadProviderConfig({
@@ -285,42 +289,50 @@ describe('bounded long-run mock simulation', () => {
     const voteAction = new VoteAction(
       contextProvider,
       provider,
-      voteRepository,
+      votesService as unknown as VotesService,
     );
     const commentAction = new CommentAction(contextProvider, provider);
     const writer = new SimulationContentWriter(
-      postRepository,
-      commentRepository,
-      voteRepository,
+      postsService as unknown as PostsService,
+      commentsService as unknown as CommentsService,
+      votesService as unknown as VotesService,
     );
-    const logRepository = {
-      create: async (
-        input: Parameters<SimulationLogRepository['create']>[0],
-      ) => {
-        const record: SimulationLogRecord = {
-          id: `log-${logs.length}`,
-          worldId: input.worldId,
-          characterId: input.characterId,
-          action: input.action,
-          targetId: input.targetId ?? null,
-          reasoning: input.reasoning ?? null,
-          provider: input.provider,
-          model: input.model,
-          latencyMs: input.latencyMs ?? null,
-          jobId: input.jobId ?? null,
-          executionSource: input.executionSource,
-          tokensUsed: input.tokensUsed ?? null,
-          costEstimate: input.costEstimate ?? null,
-          status: input.status,
-          errorMessage: input.errorMessage ?? null,
-          executedAt: date,
-        };
-        logs.push(record);
-        return record;
-      },
-    } as unknown as SimulationLogRepository;
     const logService = new SimulationLogService(
-      logRepository,
+      {
+        simulationLog: {
+          create: async ({ data }: { data: SimulationLogCreateInput }) => {
+            const record: SimulationLogEntry = {
+              id: `log-${logs.length}`,
+              worldId: data.worldId,
+              characterId: data.characterId,
+              action: data.action,
+              targetId: data.targetId ?? null,
+              reasoning: data.reasoning ?? null,
+              provider: data.provider,
+              model: data.model,
+              latencyMs: data.latencyMs ?? null,
+              jobId: data.jobId ?? null,
+              executionSource: data.executionSource,
+              tokensUsed: data.tokensUsed ?? null,
+              costEstimate: data.costEstimate ?? null,
+              status: data.status,
+              errorMessage: data.errorMessage ?? null,
+              executedAt: date,
+            };
+            logs.push(record);
+            return {
+              ...record,
+              executionSource:
+                data.executionSource === 'scheduled'
+                  ? 'SCHEDULED'
+                  : data.executionSource === 'custom'
+                    ? 'CUSTOM'
+                    : 'ONE_ACTION',
+              providerFailure: data.providerFailure ?? false,
+            };
+          },
+        },
+      } as never,
       new SimulationCostEstimator(defaultSimulationCostConfig),
     );
 

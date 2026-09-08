@@ -6,7 +6,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
 import { PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { PostsService } from '@/posts/posts.service';
 
 import { seedUuid } from '../prisma/seed-data';
 
@@ -217,7 +217,7 @@ describe('Recent POST context (real database)', () => {
 
     try {
       const posts = await app
-        .get(PostRepository)
+        .get(PostsService)
         .findRecentByWorld(fixture.worldId, 5);
 
       expect(posts.map((post) => post.id)).toEqual([

@@ -1,12 +1,11 @@
 import {
-  Inject,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 
-import { WorldSimulationConfigRepository } from '@/simulation/lifecycle/world-simulation-config-repository.interface';
+import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 
 const RECONCILIATION_INTERVAL_MS = 60_000;
@@ -20,8 +19,7 @@ export class SimulationSchedulerBootstrap
   private reconciliationInFlight: Promise<void> | null = null;
 
   constructor(
-    @Inject(WorldSimulationConfigRepository)
-    private readonly configRepository: WorldSimulationConfigRepository,
+    private readonly lifecycleService: SimulationLifecycleService,
     private readonly scheduler: SimulationScheduler,
   ) {}
 
@@ -58,7 +56,7 @@ export class SimulationSchedulerBootstrap
   private async reconcileRunningWorldsNow(): Promise<void> {
     let running: Array<{ worldId: string }>;
     try {
-      running = await this.configRepository.findAllByState('RUNNING');
+      running = await this.lifecycleService.findWorldIdsByState('RUNNING');
     } catch (error) {
       this.logger.warn(
         JSON.stringify({

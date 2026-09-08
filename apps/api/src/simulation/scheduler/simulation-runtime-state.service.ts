@@ -1,28 +1,34 @@
 import type { SimulationBlockedReason } from '@aiworld/shared/schemas/simulation-health.schema';
 import { Injectable } from '@nestjs/common';
 
-import { Prisma, SimulationRuntimeState } from '@/generated/prisma/client';
-import { PrismaService } from '@/lib/database/prisma.service';
-import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
 import {
-  SimulationRuntimeStateRecord,
-  SimulationRuntimeStateRepository,
-  SimulationRuntimeStateUpdate,
-} from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+  Prisma,
+  SimulationRuntimeState as PrismaRuntimeState,
+} from '@/generated/prisma/client';
+import { PrismaService } from '@/lib/database/prisma.service';
+import {
+  RECENT_RETRY_WINDOW_MS,
+  SimulationRuntimeSignals,
+} from '@/simulation/scheduler/simulation-runtime-signals';
+
+export type SimulationRuntimeState = SimulationRuntimeSignals & {
+  worldId: string;
+  lastRetryAt: Date | null;
+};
+
+export type SimulationRuntimeStateUpdate = Partial<
+  Omit<SimulationRuntimeState, 'worldId'>
+>;
 
 @Injectable()
-export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeStateRepository {
-  constructor(private readonly prisma: PrismaService) {
-    super();
-  }
+export class SimulationRuntimeStateService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findByWorldId(
-    worldId: string,
-  ): Promise<SimulationRuntimeStateRecord | null> {
+  async findByWorldId(worldId: string): Promise<SimulationRuntimeState | null> {
     const row = await this.prisma.simulationRuntimeState.findUnique({
       where: { worldId },
     });
-    return row === null ? null : this.mapToRecord(row);
+    return row ? mapRuntimeState(row) : null;
   }
 
   async update(
@@ -31,12 +37,10 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
   ): Promise<void> {
     const updateData: Prisma.SimulationRuntimeStateUncheckedUpdateInput = {};
     if (input.pending !== undefined) updateData.pending = input.pending;
-    if (input.workExpected !== undefined) {
+    if (input.workExpected !== undefined)
       updateData.workExpected = input.workExpected;
-    }
-    if (input.nextTurnAt !== undefined) {
+    if (input.nextTurnAt !== undefined)
       updateData.nextTurnAt = input.nextTurnAt;
-    }
     if (input.lastTurnStartedAt !== undefined) {
       updateData.lastTurnStartedAt = input.lastTurnStartedAt;
     }
@@ -47,15 +51,12 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
     if (input.recentRetryCount !== undefined) {
       updateData.recentRetryCount = input.recentRetryCount;
     }
-    if (input.blockedReason !== undefined) {
+    if (input.blockedReason !== undefined)
       updateData.blockedReason = input.blockedReason;
-    }
-    if (input.lastRetryAt !== undefined) {
+    if (input.lastRetryAt !== undefined)
       updateData.lastRetryAt = input.lastRetryAt;
-    }
-    if (input.deadLetterCount !== undefined) {
+    if (input.deadLetterCount !== undefined)
       updateData.deadLetterCount = input.deadLetterCount;
-    }
     if (input.lastDeadLetterAt !== undefined) {
       updateData.lastDeadLetterAt = input.lastDeadLetterAt;
     }
@@ -103,7 +104,6 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
       current?.lastRetryAt !== null &&
       current?.lastRetryAt !== undefined &&
       now.getTime() - current.lastRetryAt.getTime() < RECENT_RETRY_WINDOW_MS;
-
     await this.update(worldId, {
       retrying: true,
       recentRetryCount: hasRecentRetry
@@ -133,31 +133,29 @@ export class PrismaSimulationRuntimeStateRepository extends SimulationRuntimeSta
       },
     });
   }
+}
 
-  private mapToRecord(
-    row: SimulationRuntimeState,
-  ): SimulationRuntimeStateRecord {
-    return {
-      worldId: row.worldId,
-      pending: row.pending,
-      workExpected: row.workExpected,
-      nextTurnAt: row.nextTurnAt,
-      lastTurnStartedAt: row.lastTurnStartedAt,
-      lastTurnCompletedAt: row.lastTurnCompletedAt,
-      retrying: row.retrying,
-      recentRetryCount: row.recentRetryCount,
-      lastRetryAt: row.lastRetryAt,
-      blockedReason: row.blockedReason as SimulationBlockedReason | null,
-      deadLetterCount: row.deadLetterCount,
-      lastDeadLetterAt: row.lastDeadLetterAt,
-      lastDeadLetterReason: row.lastDeadLetterReason,
-      bootResumeFailure:
-        row.bootResumeFailureAt === null || row.bootResumeFailureReason === null
-          ? null
-          : {
-              occurredAt: row.bootResumeFailureAt,
-              reason: row.bootResumeFailureReason,
-            },
-    };
-  }
+function mapRuntimeState(row: PrismaRuntimeState): SimulationRuntimeState {
+  return {
+    worldId: row.worldId,
+    pending: row.pending,
+    workExpected: row.workExpected,
+    nextTurnAt: row.nextTurnAt,
+    lastTurnStartedAt: row.lastTurnStartedAt,
+    lastTurnCompletedAt: row.lastTurnCompletedAt,
+    retrying: row.retrying,
+    recentRetryCount: row.recentRetryCount,
+    lastRetryAt: row.lastRetryAt,
+    blockedReason: row.blockedReason as SimulationBlockedReason | null,
+    deadLetterCount: row.deadLetterCount,
+    lastDeadLetterAt: row.lastDeadLetterAt,
+    lastDeadLetterReason: row.lastDeadLetterReason,
+    bootResumeFailure:
+      row.bootResumeFailureAt === null || row.bootResumeFailureReason === null
+        ? null
+        : {
+            occurredAt: row.bootResumeFailureAt,
+            reason: row.bootResumeFailureReason,
+          },
+  };
 }

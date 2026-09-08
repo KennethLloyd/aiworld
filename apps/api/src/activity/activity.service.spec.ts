@@ -6,23 +6,21 @@ import {
   encodeActivityCursor,
   parseActivityCursor,
 } from '@/activity/domain/activity-cursor';
-import { CharacterRecord } from '@/characters/domain/character-record';
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
 import {
-  AuthorRecord,
-  FlatCommentRecord,
-} from '@/comments/domain/comment-record';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldService } from '@/world/world.service';
+  CharacterView,
+  CharactersService,
+} from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
+import { Author, FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { PostsService } from '@/posts/posts.service';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService, WorldView } from '@/world/world.service';
 
 describe('ActivityService', () => {
   let service: ActivityService;
 
-  const worldRecordFixture: WorldRecord = {
+  const worldRecordFixture: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'The MBTI House',
     slug: 'mbti-house',
@@ -35,7 +33,7 @@ describe('ActivityService', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
-  const characterFixture: CharacterRecord = {
+  const characterFixture: CharacterView = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
     name: 'Standard_Procedure',
@@ -50,7 +48,7 @@ describe('ActivityService', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
-  const inactiveCharacterFixture: CharacterRecord = {
+  const inactiveCharacterFixture: CharacterView = {
     ...characterFixture,
     id: '00000000-0000-4000-8000-000000000102',
     isActive: false,
@@ -58,14 +56,14 @@ describe('ActivityService', () => {
 
   const membershipFixture = { id: '00000000-0000-4000-8000-000000000201' };
 
-  const authorFixture: AuthorRecord = {
+  const authorFixture: Author = {
     id: characterFixture.id,
     handle: 'standard_procedure',
     name: 'Standard_Procedure',
     avatarUrl: null,
   };
 
-  const postFixture = (id: string, createdAt: Date): PostWithAuthorRecord => ({
+  const postFixture = (id: string, createdAt: Date): PostWithAuthor => ({
     id,
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
@@ -79,7 +77,7 @@ describe('ActivityService', () => {
     id: string,
     createdAt: Date,
     postId = '00000000-0000-4000-8000-000000000301',
-  ): FlatCommentRecord => ({
+  ): FlatComment => ({
     id,
     postId,
     parentCommentId: null,
@@ -118,26 +116,25 @@ describe('ActivityService', () => {
     getBySlug: jest.fn(),
   };
 
-  const mockCharacterRepository: jest.Mocked<
-    Pick<CharacterRepository, 'findById'>
-  > = {
-    findById: jest.fn(),
-  };
+  const mockCharactersService: jest.Mocked<Pick<CharactersService, 'getById'>> =
+    {
+      getById: jest.fn(),
+    };
 
-  const mockWorldMemberRepository: jest.Mocked<
-    Pick<WorldMemberRepository, 'findByWorldAndCharacter'>
+  const mockWorldMembersService: jest.Mocked<
+    Pick<WorldMembersService, 'findByWorldAndCharacter'>
   > = {
     findByWorldAndCharacter: jest.fn(),
   };
 
-  const mockPostRepository: jest.Mocked<
-    Pick<PostRepository, 'findByAuthorMembership'>
+  const mockPostsService: jest.Mocked<
+    Pick<PostsService, 'findByAuthorMembership'>
   > = {
     findByAuthorMembership: jest.fn(),
   };
 
-  const mockCommentRepository: jest.Mocked<
-    Pick<CommentRepository, 'findByAuthorMembership'>
+  const mockCommentsService: jest.Mocked<
+    Pick<CommentsService, 'findByAuthorMembership'>
   > = {
     findByAuthorMembership: jest.fn(),
   };
@@ -147,13 +144,13 @@ describe('ActivityService', () => {
       providers: [
         ActivityService,
         { provide: WorldService, useValue: mockWorldService },
-        { provide: CharacterRepository, useValue: mockCharacterRepository },
+        { provide: CharactersService, useValue: mockCharactersService },
         {
-          provide: WorldMemberRepository,
-          useValue: mockWorldMemberRepository,
+          provide: WorldMembersService,
+          useValue: mockWorldMembersService,
         },
-        { provide: PostRepository, useValue: mockPostRepository },
-        { provide: CommentRepository, useValue: mockCommentRepository },
+        { provide: PostsService, useValue: mockPostsService },
+        { provide: CommentsService, useValue: mockCommentsService },
       ],
     }).compile();
 
@@ -163,16 +160,16 @@ describe('ActivityService', () => {
 
   it('resolves the world and character, over-fetches one per stream, and merges the timeline', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
-    mockPostRepository.findByAuthorMembership.mockResolvedValue([
+    mockPostsService.findByAuthorMembership.mockResolvedValue([
       latestPost,
       middlePost,
       earlyPost,
     ]);
-    mockCommentRepository.findByAuthorMembership.mockResolvedValue([
+    mockCommentsService.findByAuthorMembership.mockResolvedValue([
       lateComment,
       earlyComment,
     ]);
@@ -198,19 +195,20 @@ describe('ActivityService', () => {
       'mbti-house',
       false,
     );
-    expect(mockCharacterRepository.findById).toHaveBeenCalledWith(
+    expect(mockCharactersService.getById).toHaveBeenCalledWith(
       characterFixture.id,
+      true,
     );
     expect(
-      mockWorldMemberRepository.findByWorldAndCharacter,
+      mockWorldMembersService.findByWorldAndCharacter,
     ).toHaveBeenCalledWith(worldRecordFixture.id, characterFixture.id);
-    expect(mockPostRepository.findByAuthorMembership).toHaveBeenCalledWith(
+    expect(mockPostsService.findByAuthorMembership).toHaveBeenCalledWith(
       worldRecordFixture.id,
       membershipFixture.id,
       null,
       21,
     );
-    expect(mockCommentRepository.findByAuthorMembership).toHaveBeenCalledWith(
+    expect(mockCommentsService.findByAuthorMembership).toHaveBeenCalledWith(
       worldRecordFixture.id,
       membershipFixture.id,
       null,
@@ -220,15 +218,15 @@ describe('ActivityService', () => {
 
   it('emits only the first `limit` items and a cursor to the next page when more remain', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
-    mockPostRepository.findByAuthorMembership.mockResolvedValue([
+    mockPostsService.findByAuthorMembership.mockResolvedValue([
       latestPost,
       middlePost,
     ]);
-    mockCommentRepository.findByAuthorMembership.mockResolvedValue([]);
+    mockCommentsService.findByAuthorMembership.mockResolvedValue([]);
 
     const activity = await service.findActivity(
       characterFixture.id,
@@ -248,12 +246,12 @@ describe('ActivityService', () => {
 
   it('returns a null nextCursor when the merged result fits on one page', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
-    mockPostRepository.findByAuthorMembership.mockResolvedValue([latestPost]);
-    mockCommentRepository.findByAuthorMembership.mockResolvedValue([
+    mockPostsService.findByAuthorMembership.mockResolvedValue([latestPost]);
+    mockCommentsService.findByAuthorMembership.mockResolvedValue([
       earlyComment,
     ]);
 
@@ -275,12 +273,12 @@ describe('ActivityService', () => {
 
   it('decodes the cursor and passes it to both repositories on subsequent pages', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
-    mockPostRepository.findByAuthorMembership.mockResolvedValue([]);
-    mockCommentRepository.findByAuthorMembership.mockResolvedValue([
+    mockPostsService.findByAuthorMembership.mockResolvedValue([]);
+    mockCommentsService.findByAuthorMembership.mockResolvedValue([
       earlyComment,
     ]);
 
@@ -288,13 +286,13 @@ describe('ActivityService', () => {
 
     await service.findActivity(characterFixture.id, 'mbti-house', cursor, 20);
 
-    expect(mockPostRepository.findByAuthorMembership).toHaveBeenCalledWith(
+    expect(mockPostsService.findByAuthorMembership).toHaveBeenCalledWith(
       worldRecordFixture.id,
       membershipFixture.id,
       { createdAt: latestPost.createdAt, id: latestPost.id },
       21,
     );
-    expect(mockCommentRepository.findByAuthorMembership).toHaveBeenCalledWith(
+    expect(mockCommentsService.findByAuthorMembership).toHaveBeenCalledWith(
       worldRecordFixture.id,
       membershipFixture.id,
       { createdAt: latestPost.createdAt, id: latestPost.id },
@@ -304,8 +302,8 @@ describe('ActivityService', () => {
 
   it('rejects a malformed cursor through the 400 validation envelope', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
 
@@ -327,8 +325,8 @@ describe('ActivityService', () => {
     expect(response.error).toBe('Validation Failed');
     const issues = response.message as Array<{ path: string[] }>;
     expect(issues[0]).toEqual(expect.objectContaining({ path: ['cursor'] }));
-    expect(mockPostRepository.findByAuthorMembership).not.toHaveBeenCalled();
-    expect(mockCommentRepository.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockPostsService.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockCommentsService.findByAuthorMembership).not.toHaveBeenCalled();
   });
 
   it('returns null without resolving anything else when the world is missing', async () => {
@@ -342,17 +340,17 @@ describe('ActivityService', () => {
     );
 
     expect(activity).toBeNull();
-    expect(mockCharacterRepository.findById).not.toHaveBeenCalled();
+    expect(mockCharactersService.getById).not.toHaveBeenCalled();
     expect(
-      mockWorldMemberRepository.findByWorldAndCharacter,
+      mockWorldMembersService.findByWorldAndCharacter,
     ).not.toHaveBeenCalled();
-    expect(mockPostRepository.findByAuthorMembership).not.toHaveBeenCalled();
-    expect(mockCommentRepository.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockPostsService.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockCommentsService.findByAuthorMembership).not.toHaveBeenCalled();
   });
 
   it('returns null without querying membership when the character is missing', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(null);
+    mockCharactersService.getById.mockResolvedValue(null);
 
     const activity = await service.findActivity(
       '00000000-0000-4000-8000-00000000dead',
@@ -363,16 +361,16 @@ describe('ActivityService', () => {
 
     expect(activity).toBeNull();
     expect(
-      mockWorldMemberRepository.findByWorldAndCharacter,
+      mockWorldMembersService.findByWorldAndCharacter,
     ).not.toHaveBeenCalled();
-    expect(mockPostRepository.findByAuthorMembership).not.toHaveBeenCalled();
-    expect(mockCommentRepository.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockPostsService.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockCommentsService.findByAuthorMembership).not.toHaveBeenCalled();
   });
 
   it('returns an empty page with a null cursor when the character has no membership in the world', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(characterFixture);
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(null);
+    mockCharactersService.getById.mockResolvedValue(characterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(null);
 
     const activity = await service.findActivity(
       characterFixture.id,
@@ -382,20 +380,18 @@ describe('ActivityService', () => {
     );
 
     expect(activity).toEqual({ items: [], nextCursor: null });
-    expect(mockPostRepository.findByAuthorMembership).not.toHaveBeenCalled();
-    expect(mockCommentRepository.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockPostsService.findByAuthorMembership).not.toHaveBeenCalled();
+    expect(mockCommentsService.findByAuthorMembership).not.toHaveBeenCalled();
   });
 
   it('resolves inactive characters without the active filter and still lists their content', async () => {
     mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-    mockCharacterRepository.findById.mockResolvedValue(
-      inactiveCharacterFixture,
-    );
-    mockWorldMemberRepository.findByWorldAndCharacter.mockResolvedValue(
+    mockCharactersService.getById.mockResolvedValue(inactiveCharacterFixture);
+    mockWorldMembersService.findByWorldAndCharacter.mockResolvedValue(
       membershipFixture,
     );
-    mockPostRepository.findByAuthorMembership.mockResolvedValue([latestPost]);
-    mockCommentRepository.findByAuthorMembership.mockResolvedValue([]);
+    mockPostsService.findByAuthorMembership.mockResolvedValue([latestPost]);
+    mockCommentsService.findByAuthorMembership.mockResolvedValue([]);
 
     const activity = await service.findActivity(
       inactiveCharacterFixture.id,
@@ -408,10 +404,11 @@ describe('ActivityService', () => {
       items: [{ kind: 'post', record: latestPost }],
       nextCursor: null,
     });
-    expect(mockCharacterRepository.findById).toHaveBeenCalledWith(
+    expect(mockCharactersService.getById).toHaveBeenCalledWith(
       inactiveCharacterFixture.id,
+      true,
     );
-    expect(mockPostRepository.findByAuthorMembership).toHaveBeenCalledWith(
+    expect(mockPostsService.findByAuthorMembership).toHaveBeenCalledWith(
       worldRecordFixture.id,
       membershipFixture.id,
       null,

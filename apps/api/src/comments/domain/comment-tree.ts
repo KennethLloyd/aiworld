@@ -1,15 +1,10 @@
-import {
-  CommentRecord,
-  FlatCommentRecord,
-} from '@/comments/domain/comment-record';
+import { Comment, FlatComment } from '@/comments/domain/comment';
 
 /** Replies never nest deeper than three levels. */
 export const MAX_COMMENT_DEPTH = 3;
 
-export function buildCommentTree(
-  comments: FlatCommentRecord[],
-): CommentRecord[] {
-  const byParent = new Map<string | null, FlatCommentRecord[]>();
+export function buildCommentTree(comments: FlatComment[]): Comment[] {
+  const byParent = new Map<string | null, FlatComment[]>();
   for (const comment of comments) {
     const siblings = byParent.get(comment.parentCommentId);
     if (siblings) {
@@ -30,12 +25,12 @@ export function buildCommentTree(
   const buildLevel = (
     parentCommentId: string | null,
     depth: number,
-  ): CommentRecord[] => {
+  ): Comment[] => {
     const siblings = byParent.get(parentCommentId) ?? [];
     const repliesAllowed = depth < MAX_COMMENT_DEPTH;
 
     return siblings.map((comment) => {
-      const record: CommentRecord = {
+      const record: Comment = {
         id: comment.id,
         author: comment.author,
         content: comment.content,

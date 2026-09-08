@@ -2,11 +2,11 @@ import {
   compareActivityOrder,
   mergeActivityItems,
 } from '@/activity/domain/activity-timeline';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
+import { FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
 
 describe('activity timeline', () => {
-  const post = (id: string, iso: string): PostWithAuthorRecord => ({
+  const post = (id: string, iso: string): PostWithAuthor => ({
     id,
     title: 'A post',
     content: 'Post content.',
@@ -21,7 +21,7 @@ describe('activity timeline', () => {
     },
   });
 
-  const comment = (id: string, iso: string): FlatCommentRecord => ({
+  const comment = (id: string, iso: string): FlatComment => ({
     id,
     postId: '00000000-0000-4000-8000-000000000301',
     parentCommentId: null,

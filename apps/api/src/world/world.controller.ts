@@ -30,15 +30,15 @@ import { AllowAnonymous, Roles } from '@thallesp/nestjs-better-auth';
 import { ZodValidationPipe } from '@/common/pipes';
 import { isAdminRequest } from '@/lib/auth/request-access';
 import type { AuthenticatedRequest } from '@/lib/auth/request-access';
-import { WorldResponseMapper } from '@/world/mappers/world-response.mapper';
+import {
+  mapPaginatedWorldResponse,
+  mapWorldResponse,
+} from '@/world/mappers/world-response.mapper';
 import { WorldService } from '@/world/world.service';
 
 @Controller('worlds')
 export class WorldController {
-  constructor(
-    private readonly worldService: WorldService,
-    private readonly worldResponseMapper: WorldResponseMapper,
-  ) {}
+  constructor(private readonly worldService: WorldService) {}
 
   @Post()
   @Roles(['ADMIN'])
@@ -47,7 +47,7 @@ export class WorldController {
   ): Promise<WorldResponse> {
     const newWorld = await this.worldService.create(createWorldDto);
 
-    return this.worldResponseMapper.mapToWorldResponse(newWorld);
+    return mapWorldResponse(newWorld);
   }
 
   @Patch(':slug')
@@ -62,7 +62,7 @@ export class WorldController {
       throw new NotFoundException();
     }
 
-    return this.worldResponseMapper.mapToWorldResponse(updatedWorld);
+    return mapWorldResponse(updatedWorld);
   }
 
   @Get()
@@ -76,7 +76,7 @@ export class WorldController {
       isAdminRequest(request ?? {}),
     );
 
-    return this.worldResponseMapper.mapToPaginatedWorldResponse(worlds);
+    return mapPaginatedWorldResponse(worlds);
   }
 
   @Get(':slug')
@@ -93,7 +93,7 @@ export class WorldController {
       throw new NotFoundException();
     }
 
-    return this.worldResponseMapper.mapToWorldResponse(world);
+    return mapWorldResponse(world);
   }
 
   @Delete(':slug')

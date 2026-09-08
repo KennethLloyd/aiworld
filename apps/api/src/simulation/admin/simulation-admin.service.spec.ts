@@ -3,18 +3,19 @@ import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
 import { PostDecision } from '@/simulation/actions/simulation-decision';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
-import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import { SimulationTelemetry } from '@/simulation/domain/simulation-telemetry';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation-lifecycle.error';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { SimulationLogRepository } from '@/simulation/logging/simulation-log-repository.interface';
+import {
+  SimulationLogEntry,
+  SimulationLogService,
+} from '@/simulation/logging/simulation-log.service';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldService, WorldView } from '@/world/world.service';
 
-const worldRecord: WorldRecord = {
+const worldRecord: WorldView = {
   id: '00000000-0000-4000-8000-000000000001',
   name: 'The MBTI House',
   slug: 'mbti-house',
@@ -27,7 +28,7 @@ const worldRecord: WorldRecord = {
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
 
-const configRecord: WorldSimulationConfigRecord = {
+const configRecord: SimulationConfig = {
   id: '00000000-0000-4000-8000-000000000010',
   worldId: worldRecord.id,
   state: 'PAUSED',
@@ -39,7 +40,7 @@ const configRecord: WorldSimulationConfigRecord = {
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
 
-const logRecord: SimulationLogRecord = {
+const logRecord: SimulationLogEntry = {
   id: '00000000-0000-4000-8000-000000000003',
   worldId: worldRecord.id,
   characterId: '00000000-0000-4000-8000-000000000002',
@@ -58,7 +59,7 @@ const logRecord: SimulationLogRecord = {
   executedAt: new Date('2026-08-13T00:00:00.000Z'),
 };
 
-const telemetryRecord: SimulationTelemetryRecord = {
+const telemetryRecord: SimulationTelemetry = {
   worldId: worldRecord.id,
   totalRuns: 5,
   successCount: 4,
@@ -82,9 +83,9 @@ const postDecision: PostDecision = {
 };
 
 function createService() {
-  const worldRepository = {
-    findBySlug: jest.fn(),
-  } as unknown as jest.Mocked<Pick<WorldRepository, 'findBySlug'>>;
+  const worldService = {
+    getBySlug: jest.fn(),
+  } as unknown as jest.Mocked<Pick<WorldService, 'getBySlug'>>;
   const lifecycleService = {
     getByWorldId: jest.fn(),
     transitionTo: jest.fn(),
@@ -105,29 +106,29 @@ function createService() {
       'runOneAction' | 'runCustomAction' | 'getObservability'
     >
   >;
-  const logRepository = {
-    findMany: jest.fn(),
+  const logService = {
+    list: jest.fn(),
     getTelemetry: jest.fn(),
   } as unknown as jest.Mocked<
-    Pick<SimulationLogRepository, 'findMany' | 'getTelemetry'>
+    Pick<SimulationLogService, 'list' | 'getTelemetry'>
   >;
 
   const service = new SimulationAdminService(
-    worldRepository as unknown as WorldRepository,
+    worldService as unknown as WorldService,
     lifecycleService as unknown as SimulationLifecycleService,
     scheduler as unknown as SimulationScheduler,
-    logRepository as unknown as SimulationLogRepository,
+    logService as unknown as SimulationLogService,
   );
 
-  worldRepository.findBySlug.mockResolvedValue(worldRecord);
+  worldService.getBySlug.mockResolvedValue(worldRecord);
   lifecycleService.getByWorldId.mockResolvedValue(configRecord);
 
   return {
     service,
-    worldRepository,
+    worldService,
     lifecycleService,
     scheduler,
-    logRepository,
+    logService,
   };
 }
 
@@ -154,8 +155,8 @@ describe('SimulationAdminService', () => {
     });
 
     it('throws WORLD_NOT_FOUND when the world does not exist', async () => {
-      const { service, worldRepository } = createService();
-      worldRepository.findBySlug.mockResolvedValue(null);
+      const { service, worldService } = createService();
+      worldService.getBySlug.mockResolvedValue(null);
 
       await expect(service.getConfig('missing')).rejects.toMatchObject({
         code: 'WORLD_NOT_FOUND',
@@ -241,12 +242,12 @@ describe('SimulationAdminService', () => {
 
   describe('listLogs', () => {
     it('resolves the world and queries logs by world id with filters', async () => {
-      const { service, logRepository } = createService();
-      const paginated: Paginated<SimulationLogRecord> = {
+      const { service, logService } = createService();
+      const paginated: Paginated<SimulationLogEntry> = {
         items: [logRecord],
         meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
       };
-      logRepository.findMany.mockResolvedValue(paginated);
+      logService.list.mockResolvedValue(paginated);
 
       const result = await service.listLogs({
         slug: 'mbti-house',
@@ -256,7 +257,7 @@ describe('SimulationAdminService', () => {
       });
 
       expect(result).toEqual(paginated);
-      expect(logRepository.findMany).toHaveBeenCalledWith({
+      expect(logService.list).toHaveBeenCalledWith({
         worldId: worldRecord.id,
         filters: { action: 'POST', executionSource: 'one-action' },
         page: 1,
@@ -267,7 +268,7 @@ describe('SimulationAdminService', () => {
 
   describe('getHealth', () => {
     it('combines lifecycle, scheduler, and telemetry runtime signals', async () => {
-      const { service, lifecycleService, scheduler, logRepository } =
+      const { service, lifecycleService, scheduler, logService } =
         createService();
       lifecycleService.getByWorldId.mockResolvedValue({
         ...configRecord,
@@ -288,7 +289,7 @@ describe('SimulationAdminService', () => {
         lastDeadLetterReason: null,
         bootResumeFailure: null,
       });
-      logRepository.getTelemetry.mockResolvedValue({
+      logService.getTelemetry.mockResolvedValue({
         ...telemetryRecord,
         lastSuccessAt: new Date('2026-08-13T00:20:07.000Z'),
         lastFailureAt: null,
@@ -309,18 +310,18 @@ describe('SimulationAdminService', () => {
 
   describe('getTelemetry', () => {
     it('returns the aggregated telemetry for the world', async () => {
-      const { service, logRepository } = createService();
-      logRepository.getTelemetry.mockResolvedValue(telemetryRecord);
+      const { service, logService } = createService();
+      logService.getTelemetry.mockResolvedValue(telemetryRecord);
 
       await expect(service.getTelemetry('mbti-house')).resolves.toEqual(
         telemetryRecord,
       );
-      expect(logRepository.getTelemetry).toHaveBeenCalledWith(worldRecord.id);
+      expect(logService.getTelemetry).toHaveBeenCalledWith(worldRecord.id);
     });
 
     it('returns an empty telemetry record when the world has no logs', async () => {
-      const { service, logRepository } = createService();
-      logRepository.getTelemetry.mockResolvedValue(null);
+      const { service, logService } = createService();
+      logService.getTelemetry.mockResolvedValue(null);
 
       await expect(service.getTelemetry('mbti-house')).resolves.toEqual({
         worldId: worldRecord.id,

@@ -2,8 +2,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 import { Prisma, PrismaClient } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { PrismaVoteRepository } from '@/votes/repositories/prisma-vote.repository';
-import { PrismaWorldMemberRepository } from '@/world-members/repositories/prisma-world-member.repository';
+import { VotesService } from '@/votes/votes.service';
+import { WorldMembersService } from '@/world-members/world-members.service';
 
 import { seedUuid } from '../prisma/seed-data';
 
@@ -119,11 +119,9 @@ describe('seed persistence constraints', () => {
     await prisma.vote.deleteMany({ where: { id: firstVoteId } });
   });
   it('changes, repeats, and removes a Post vote with a consistent score', async () => {
-    const voteRepository = new PrismaVoteRepository(
-      prisma as unknown as PrismaService,
-    );
+    const votesService = new VotesService(prisma as unknown as PrismaService);
 
-    const created = await voteRepository.setForPost({
+    const created = await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: 1,
@@ -133,7 +131,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 1 });
 
-    const repeated = await voteRepository.setForPost({
+    const repeated = await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: 1,
@@ -146,7 +144,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 1 });
 
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: -1,
@@ -155,7 +153,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: -1 });
 
-    const repeatedDownvote = await voteRepository.setForPost({
+    const repeatedDownvote = await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: -1,
@@ -165,7 +163,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: -1 });
 
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: 1,
@@ -174,7 +172,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 1 });
 
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: null,
@@ -183,7 +181,7 @@ describe('seed persistence constraints', () => {
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 0 });
 
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: -1,
@@ -191,7 +189,7 @@ describe('seed persistence constraints', () => {
     expect(
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: -1 });
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: null,
@@ -206,11 +204,9 @@ describe('seed persistence constraints', () => {
     ).toMatchObject({ voteScore: 0 });
   });
   it('changes, repeats, and removes a Comment vote with a consistent score', async () => {
-    const voteRepository = new PrismaVoteRepository(
-      prisma as unknown as PrismaService,
-    );
+    const votesService = new VotesService(prisma as unknown as PrismaService);
 
-    const created = await voteRepository.setForComment({
+    const created = await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: 1,
@@ -220,7 +216,7 @@ describe('seed persistence constraints', () => {
       await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: 1 });
 
-    const repeated = await voteRepository.setForComment({
+    const repeated = await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: 1,
@@ -235,7 +231,7 @@ describe('seed persistence constraints', () => {
       await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: 1 });
 
-    await voteRepository.setForComment({
+    await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: -1,
@@ -244,7 +240,7 @@ describe('seed persistence constraints', () => {
       await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: -1 });
 
-    await voteRepository.setForComment({
+    await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: null,
@@ -259,24 +255,22 @@ describe('seed persistence constraints', () => {
     ).toMatchObject({ voteScore: 0 });
   });
   it('keeps inactive-member votes out of stored Post and Comment scores', async () => {
-    const voteRepository = new PrismaVoteRepository(
-      prisma as unknown as PrismaService,
-    );
-    const memberRepository = new PrismaWorldMemberRepository(
+    const votesService = new VotesService(prisma as unknown as PrismaService);
+    const worldMembersService = new WorldMembersService(
       prisma as unknown as PrismaService,
     );
 
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: 1,
     });
-    await voteRepository.setForComment({
+    await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: 1,
     });
-    await memberRepository.update(memberId, { isActive: false });
+    await worldMembersService.update(memberId, { isActive: false });
     expect(
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 0 });
@@ -284,19 +278,19 @@ describe('seed persistence constraints', () => {
       await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: 0 });
 
-    await memberRepository.update(memberId, { isActive: true });
+    await worldMembersService.update(memberId, { isActive: true });
     expect(
       await prisma.post.findUniqueOrThrow({ where: { id: postId } }),
     ).toMatchObject({ voteScore: 1 });
     expect(
       await prisma.comment.findUniqueOrThrow({ where: { id: commentId } }),
     ).toMatchObject({ voteScore: 1 });
-    await voteRepository.setForPost({
+    await votesService.setForPost({
       postId,
       authorMemberId: memberId,
       value: null,
     });
-    await voteRepository.setForComment({
+    await votesService.setForComment({
       commentId,
       authorMemberId: memberId,
       value: null,
@@ -304,9 +298,7 @@ describe('seed persistence constraints', () => {
   });
 
   it('rolls back failed Post and Comment vote mutations', async () => {
-    const voteRepository = new PrismaVoteRepository(
-      prisma as unknown as PrismaService,
-    );
+    const votesService = new VotesService(prisma as unknown as PrismaService);
     const maxInt = 2_147_483_647;
 
     await prisma.post.update({
@@ -320,7 +312,7 @@ describe('seed persistence constraints', () => {
 
     try {
       await expect(
-        voteRepository.setForPost({
+        votesService.setForPost({
           postId,
           authorMemberId: memberId,
           value: 1,
@@ -332,7 +324,7 @@ describe('seed persistence constraints', () => {
         }),
       ).resolves.toBeNull();
       await expect(
-        voteRepository.setForComment({
+        votesService.setForComment({
           commentId,
           authorMemberId: memberId,
           value: 1,

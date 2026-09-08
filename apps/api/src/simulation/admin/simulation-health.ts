@@ -1,8 +1,8 @@
 import type { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
 
-import type { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
-import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler';
+import type { SimulationTelemetry } from '@/simulation/domain/simulation-telemetry';
+import type { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
+import type { SimulationSchedulerObservability } from '@/simulation/scheduler/simulation-scheduler';
 
 export type SimulationHealthStatus =
   SimulationHealthResponse['health']['status'];
@@ -15,9 +15,9 @@ export type SimulationHealthDecision = {
   providerStatus: SimulationProviderHealthStatus;
 };
 export type SimulationHealthInput = {
-  config: WorldSimulationConfigRecord;
-  scheduler: SimulationSchedulerObservabilityRecord;
-  telemetry: SimulationTelemetryRecord;
+  config: SimulationConfig;
+  scheduler: SimulationSchedulerObservability;
+  telemetry: SimulationTelemetry;
 };
 
 export const SIMULATION_HEALTH_RECENCY_WINDOW_MS = 15 * 60 * 1_000;
@@ -30,7 +30,7 @@ type ProviderExecutionTimestamps = {
 };
 
 export function normalizeProviderExecutionTimestamps(
-  telemetry: SimulationTelemetryRecord,
+  telemetry: SimulationTelemetry,
 ): ProviderExecutionTimestamps {
   const lastSuccessAt = telemetry.lastSuccessAt ?? null;
   const lastFailureAt = telemetry.lastFailureAt ?? null;
@@ -60,13 +60,13 @@ function isRecent(
  * Lifecycle states intentionally short-circuit to IDLE: PAUSED and HALTED are
  * deliberate controls, not scheduler incidents. A RUNNING World is healthy
  * only when its live scheduler has pending work and no active incident. */
-export type SimulationHealthRecord = {
-  lifecycleState: WorldSimulationConfigRecord['state'];
+export type SimulationHealth = {
+  lifecycleState: SimulationConfig['state'];
   health: {
     status: SimulationHealthStatus;
     reason: string | null;
   };
-  scheduler: SimulationSchedulerObservabilityRecord;
+  scheduler: SimulationSchedulerObservability;
   execution: {
     lastSuccessAt: Date | null;
     lastFailureAt: Date | null;
@@ -76,7 +76,7 @@ export type SimulationHealthRecord = {
     lastSuccessAt: Date | null;
     lastFailureAt: Date | null;
   };
-  telemetry: SimulationTelemetryRecord;
+  telemetry: SimulationTelemetry;
 };
 export function deriveSimulationHealth(
   input: SimulationHealthInput,

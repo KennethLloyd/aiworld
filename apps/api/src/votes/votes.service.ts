@@ -2,36 +2,32 @@ import { Injectable } from '@nestjs/common';
 
 import { Prisma } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
-import {
-  CurrentVote,
-  VoteRepository,
-  VoteValue,
-} from '@/votes/repositories/vote-repository.interface';
+
+export type VoteValue = 1 | -1;
+export type CurrentVote = { id: string; value: VoteValue };
 type VoteTarget =
   | { postId: string; commentId?: never }
   | { commentId: string; postId?: never };
 
 @Injectable()
-export class PrismaVoteRepository extends VoteRepository {
-  constructor(private readonly prisma: PrismaService) {
-    super();
-  }
+export class VotesService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findByMemberAndPost(
+  findByMemberAndPost(
     memberId: string,
     postId: string,
   ): Promise<CurrentVote | null> {
     return this.findByMemberAndTarget(memberId, { postId });
   }
 
-  async findByMemberAndComment(
+  findByMemberAndComment(
     memberId: string,
     commentId: string,
   ): Promise<CurrentVote | null> {
     return this.findByMemberAndTarget(memberId, { commentId });
   }
 
-  async setForPost(input: {
+  setForPost(input: {
     postId: string;
     authorMemberId: string;
     value: VoteValue | null;
@@ -43,7 +39,7 @@ export class PrismaVoteRepository extends VoteRepository {
     });
   }
 
-  async setForComment(input: {
+  setForComment(input: {
     commentId: string;
     authorMemberId: string;
     value: VoteValue | null;
@@ -78,13 +74,10 @@ export class PrismaVoteRepository extends VoteRepository {
           select: { id: true, value: true },
         });
 
-        // Null is explicit removal (for example, a human toggle), not simulation skip.
-        // Remove the score contribution only when the vote counted.
         if (input.value === null) {
           if (!existing) {
             return null;
           }
-
           await transaction.vote.delete({ where: { id: existing.id } });
           if (await this.isActiveMember(transaction, input.authorMemberId)) {
             await this.updateScore(transaction, input.target, -existing.value);
@@ -118,7 +111,6 @@ export class PrismaVoteRepository extends VoteRepository {
         if (scoreDelta !== 0) {
           await this.updateScore(transaction, input.target, scoreDelta);
         }
-
         return { id: vote.id };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -137,7 +129,6 @@ export class PrismaVoteRepository extends VoteRepository {
       });
       return;
     }
-
     await transaction.comment.update({
       where: { id: target.commentId },
       data: { voteScore: { increment: scoreDelta } },

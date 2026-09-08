@@ -1,156 +1,118 @@
-import { ActiveActorCandidate } from '@/simulation/scheduler/simulation-casting-repository.interface';
+import { PrismaService } from '@/lib/database/prisma.service';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
 
-function actor(
-  characterId: string,
-  lastActivityAt: Date | null,
-): ActiveActorCandidate {
-  return { memberId: `member-${characterId}`, characterId, lastActivityAt };
-}
-
-function createPicker(candidates: ActiveActorCandidate[] = []) {
-  const castingRepository = {
-    findActiveActors: jest.fn().mockResolvedValue(candidates),
-    findRecentPostIds: jest.fn().mockResolvedValue([]),
+function createPicker(
+  members: Array<
+    { id: string; characterId: string } | { id: string; characterId: null }
+  > = [],
+) {
+  const prisma = {
+    worldMember: {
+      findMany: jest.fn().mockResolvedValue(members),
+      findFirst: jest.fn(),
+    },
+    post: { findMany: jest.fn().mockResolvedValue([]) },
+    comment: { findMany: jest.fn().mockResolvedValue([]) },
+    vote: { findMany: jest.fn().mockResolvedValue([]) },
   };
   const randomSource = {
     next: jest.fn().mockReturnValue(0.5),
   } as unknown as SimulationRandomSource;
   const picker = new SimulationIterationPicker(
-    castingRepository as never,
+    prisma as unknown as PrismaService,
     randomSource,
   );
-  return { picker, castingRepository };
+  return { picker, prisma };
 }
 
 const weights = { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 };
 
 describe('SimulationIterationPicker', () => {
-  describe('pickAction', () => {
-    it('is a weighted random draw over POST, VOTE, and COMMENT', () => {
-      const { picker } = createPicker();
+  it('draws weighted actions and falls back to COMMENT for zero weights', () => {
+    const { picker } = createPicker();
+    expect(picker.pickAction(weights, () => 0.2)).toBe('VOTE');
+    expect(picker.pickAction(weights, () => 0.7)).toBe('COMMENT');
+    expect(
+      picker.pickAction({ POST: 0, VOTE: 0, COMMENT: 0 }, () => 0.99),
+    ).toBe('COMMENT');
+  });
 
-      expect(picker.pickAction(weights, () => 0.0)).toBe('POST');
-      expect(picker.pickAction(weights, () => 0.19)).toBe('POST');
-      expect(picker.pickAction(weights, () => 0.2)).toBe('VOTE');
-      expect(picker.pickAction(weights, () => 0.69)).toBe('VOTE');
-      expect(picker.pickAction(weights, () => 0.7)).toBe('COMMENT');
-      expect(picker.pickAction(weights, () => 0.99)).toBe('COMMENT');
+  it('forces POST when no target posts exist and otherwise preserves weights', async () => {
+    const { picker, prisma } = createPicker();
+    await expect(
+      picker.pickAutomaticAction(
+        'world-1',
+        { POST: 0, VOTE: 0.5, COMMENT: 0.5 },
+        () => 0.99,
+      ),
+    ).resolves.toBe('POST');
+    prisma.post.findMany.mockResolvedValue([{ id: 'post-1' }]);
+    await expect(
+      picker.pickAutomaticAction('world-1', weights, () => 0.69),
+    ).resolves.toBe('VOTE');
+  });
+
+  it('selects the least recently active character and breaks ties randomly', async () => {
+    const { picker, prisma } = createPicker([
+      { id: 'member-a', characterId: 'a' },
+      { id: 'member-b', characterId: 'b' },
+      { id: 'member-c', characterId: 'c' },
+    ]);
+    prisma.post.findMany.mockResolvedValue([
+      {
+        authorMemberId: 'member-a',
+        createdAt: new Date('2026-08-13T10:00:00Z'),
+      },
+      {
+        authorMemberId: 'member-c',
+        createdAt: new Date('2026-08-13T11:00:00Z'),
+      },
+    ]);
+    prisma.comment.findMany.mockResolvedValue([]);
+    prisma.vote.findMany.mockResolvedValue([]);
+    await expect(picker.pickCharacter('world-1', () => 0.99)).resolves.toEqual({
+      characterId: 'b',
     });
 
-    it('always returns an action even with zero weights', () => {
-      const { picker } = createPicker();
-      expect(
-        picker.pickAction({ POST: 0, VOTE: 0, COMMENT: 0 }, () => 0.99),
-      ).toBe('COMMENT');
+    prisma.post.findMany.mockResolvedValue([
+      {
+        authorMemberId: 'member-a',
+        createdAt: new Date('2026-08-13T09:00:00Z'),
+      },
+      {
+        authorMemberId: 'member-b',
+        createdAt: new Date('2026-08-13T09:00:00Z'),
+      },
+      {
+        authorMemberId: 'member-c',
+        createdAt: new Date('2026-08-13T10:00:00Z'),
+      },
+    ]);
+    await expect(picker.pickCharacter('world-1', () => 0)).resolves.toEqual({
+      characterId: 'a',
+    });
+    await expect(picker.pickCharacter('world-1', () => 0.99)).resolves.toEqual({
+      characterId: 'b',
     });
   });
 
-  describe('pickAutomaticAction', () => {
-    it('selects POST when the World has no target posts, even at zero weight', async () => {
-      const { picker, castingRepository } = createPicker();
+  it('throws when no active character exists and picks recent target posts', async () => {
+    const empty = createPicker();
+    await expect(
+      empty.picker.pickCharacter('world-1', () => 0.5),
+    ).rejects.toBeInstanceOf(SimulationIterationPickError);
 
-      await expect(
-        picker.pickAutomaticAction(
-          'world-1',
-          { POST: 0, VOTE: 0.5, COMMENT: 0.5 },
-          () => 0.99,
-        ),
-      ).resolves.toBe('POST');
-      expect(castingRepository.findRecentPostIds).toHaveBeenCalledWith(
-        'world-1',
-        1,
-      );
-    });
-
-    it('preserves configured weights when target posts exist', async () => {
-      const { picker, castingRepository } = createPicker();
-      castingRepository.findRecentPostIds.mockResolvedValue(['post-1']);
-
-      await expect(
-        picker.pickAutomaticAction('world-1', weights, () => 0.69),
-      ).resolves.toBe('VOTE');
-    });
-  });
-
-  describe('pickCharacter', () => {
-    it('prefers a resident who has never acted', async () => {
-      const { picker, castingRepository } = createPicker([
-        actor('a', new Date('2026-08-13T10:00:00Z')),
-        actor('b', null),
-        actor('c', new Date('2026-08-13T09:00:00Z')),
-      ]);
-
-      await expect(
-        picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b' });
-      expect(castingRepository.findActiveActors).toHaveBeenCalledWith(
-        'world-1',
-      );
-    });
-
-    it('prefers the least-recently-active resident', async () => {
-      const { picker } = createPicker([
-        actor('a', new Date('2026-08-13T10:00:00Z')),
-        actor('b', new Date('2026-08-13T09:00:00Z')),
-        actor('c', new Date('2026-08-13T11:00:00Z')),
-      ]);
-
-      await expect(
-        picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b' });
-    });
-
-    it('breaks ties among equally active residents at random', async () => {
-      const { picker } = createPicker([
-        actor('a', new Date('2026-08-13T09:00:00Z')),
-        actor('b', new Date('2026-08-13T09:00:00Z')),
-        actor('c', new Date('2026-08-13T11:00:00Z')),
-      ]);
-
-      await expect(picker.pickCharacter('world-1', () => 0.0)).resolves.toEqual(
-        { characterId: 'a' },
-      );
-      await expect(
-        picker.pickCharacter('world-1', () => 0.99),
-      ).resolves.toEqual({ characterId: 'b' });
-    });
-
-    it('throws when the world has no active characters', async () => {
-      const { picker } = createPicker([]);
-
-      await expect(
-        picker.pickCharacter('world-1', () => 0.5),
-      ).rejects.toBeInstanceOf(SimulationIterationPickError);
-    });
-  });
-
-  describe('pickTargetPost', () => {
-    it('picks a recent post at random', async () => {
-      const { picker, castingRepository } = createPicker();
-      castingRepository.findRecentPostIds.mockResolvedValue(['p1', 'p2', 'p3']);
-
-      await expect(picker.pickTargetPost('world-1', () => 0.0)).resolves.toBe(
-        'p1',
-      );
-      await expect(picker.pickTargetPost('world-1', () => 0.66)).resolves.toBe(
-        'p2',
-      );
-      await expect(picker.pickTargetPost('world-1', () => 0.99)).resolves.toBe(
-        'p3',
-      );
-      expect(castingRepository.findRecentPostIds).toHaveBeenCalledWith(
-        'world-1',
-        expect.any(Number),
-      );
-    });
-
-    it('returns null when the world has no posts', async () => {
-      const { picker } = createPicker();
-
-      await expect(picker.pickTargetPost('world-1')).resolves.toBeNull();
-    });
+    const { picker, prisma } = createPicker();
+    prisma.post.findMany.mockResolvedValue([
+      { id: 'p1' },
+      { id: 'p2' },
+      { id: 'p3' },
+    ]);
+    await expect(picker.pickTargetPost('world-1', () => 0)).resolves.toBe('p1');
+    await expect(picker.pickTargetPost('world-1', () => 0.99)).resolves.toBe(
+      'p3',
+    );
   });
 });

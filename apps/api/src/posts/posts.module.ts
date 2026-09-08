@@ -1,11 +1,8 @@
 import { Module } from '@nestjs/common';
 
 import { CommentsModule } from '@/comments/comments.module';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
 import { PostsController } from '@/posts/posts.controller';
 import { PostsService } from '@/posts/posts.service';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { PrismaPostRepository } from '@/posts/repositories/prisma-post.repository';
 import { WorldModule } from '@/world/world.module';
 
 // CommentsModule imports nothing, so this cannot create a cycle.
@@ -13,14 +10,7 @@ import { WorldModule } from '@/world/world.module';
 @Module({
   imports: [WorldModule, CommentsModule],
   controllers: [PostsController],
-  providers: [
-    {
-      provide: PostRepository,
-      useClass: PrismaPostRepository,
-    },
-    PostResponseMapper,
-    PostsService,
-  ],
-  exports: [PostRepository, PostResponseMapper],
+  providers: [PostsService],
+  exports: [PostsService],
 })
 export class PostsModule {}

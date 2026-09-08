@@ -25,16 +25,16 @@ import {
 import { Roles } from '@thallesp/nestjs-better-auth';
 
 import { ZodValidationPipe } from '@/common/pipes';
-import { WorldMemberResponseMapper } from '@/world-members/mappers/world-member-response.mapper';
+import {
+  mapPaginatedWorldMemberResponse,
+  mapWorldMemberResponse,
+} from '@/world-members/mappers/world-member-response.mapper';
 import { WorldMembersService } from '@/world-members/world-members.service';
 
 @Controller('world-members')
 @Roles(['ADMIN'])
 export class WorldMembersController {
-  constructor(
-    private readonly worldMembersService: WorldMembersService,
-    private readonly worldMemberResponseMapper: WorldMemberResponseMapper,
-  ) {}
+  constructor(private readonly worldMembersService: WorldMembersService) {}
 
   @Get()
   async list(
@@ -42,9 +42,7 @@ export class WorldMembersController {
     query: ListWorldMembersQuery,
   ): Promise<ListWorldMembersResponse> {
     const members = await this.worldMembersService.list(query);
-    return this.worldMemberResponseMapper.mapToPaginatedWorldMemberResponse(
-      members,
-    );
+    return mapPaginatedWorldMemberResponse(members);
   }
 
   @Get(':memberId')
@@ -55,7 +53,7 @@ export class WorldMembersController {
     if (!member) {
       throw new NotFoundException();
     }
-    return this.worldMemberResponseMapper.mapToWorldMemberResponse(member);
+    return mapWorldMemberResponse(member);
   }
 
   @Post()
@@ -64,7 +62,7 @@ export class WorldMembersController {
     input: CreateWorldMember,
   ): Promise<WorldMemberResponse> {
     const member = await this.worldMembersService.create(input);
-    return this.worldMemberResponseMapper.mapToWorldMemberResponse(member);
+    return mapWorldMemberResponse(member);
   }
 
   @Patch(':memberId')
@@ -77,6 +75,6 @@ export class WorldMembersController {
     if (!member) {
       throw new NotFoundException();
     }
-    return this.worldMemberResponseMapper.mapToWorldMemberResponse(member);
+    return mapWorldMemberResponse(member);
   }
 }
