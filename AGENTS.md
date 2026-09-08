@@ -63,7 +63,7 @@ pnpm --filter @aiworld/api test:e2e
 
 Before opening or updating a UI pull request, complete this browser-first gate:
 
-1. Use the `control-in-app-browser` skill to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
+1. Use the available browser-control capability (prefer the control-in-app-browser skill when available) to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
 2. Verify every materially different affected page and state at an iPhone 15-sized viewport (`393×852`) and a desktop viewport at least `1280px` wide. Completion: both responsive views pass without overflow or behavior regressions.
 3. Capture enough screenshots from the in-app browser to cover the change, including complete mobile and desktop views that visibly show the new behavior. Completion: the pull request has the necessary evidence for every affected page or state.
 4. Add a `What to expect` section to the pull request description or a pull-request comment in simplified, product-facing technical English. Explain the visible change, key interactions, responsive behavior, and demo-data limitations. Completion: a reviewer can understand and reproduce the changed behavior from the section.
