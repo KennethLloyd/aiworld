@@ -1,19 +1,20 @@
 import { Injectable } from '@nestjs/common';
 
 import { ActivityCursor } from '@/activity/domain/activity-cursor';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
+import { Comment, FlatComment } from '@/comments/domain/comment';
 import {
   ContentAuthorRow,
   mapContentAuthor,
 } from '@/comments/domain/content-author';
-import {
-  CommentRepository,
-  CommentLinkRecord,
-} from '@/comments/repositories/comment-repository.interface';
-import { prismaContentAuthorSelect } from '@/comments/repositories/prisma-content-author-select';
-import { Prisma, Comment } from '@/generated/prisma/client';
+import { prismaContentAuthorSelect } from '@/comments/prisma-content-author-select';
+import { Prisma, Comment as PrismaComment } from '@/generated/prisma/client';
 import { PrismaService } from '@/lib/database/prisma.service';
 import { escapeSearchText } from '@/lib/search-text';
+
+export type CommentLink = Pick<
+  PrismaComment,
+  'id' | 'postId' | 'parentCommentId'
+>;
 
 const commentSelect = {
   id: true,
@@ -27,13 +28,8 @@ const commentSelect = {
   post: { select: { title: true } },
 } as const;
 
-const commentWithPostSelect = {
-  ...commentSelect,
-  post: { select: { title: true } },
-} as const;
-
 type CommentRow = Pick<
-  Comment,
+  PrismaComment,
   | 'id'
   | 'postId'
   | 'parentCommentId'
@@ -46,22 +42,15 @@ type CommentRow = Pick<
   post: { title: string };
 };
 
-const commentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
+const chronologicalOrder: Prisma.CommentOrderByWithRelationInput[] = [
   { createdAt: 'asc' },
   { id: 'asc' },
 ];
-
-const searchOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
+const newestFirstOrder: Prisma.CommentOrderByWithRelationInput[] = [
   { createdAt: 'desc' },
   { id: 'desc' },
 ];
 
-const activityCommentOrderBy: Prisma.CommentOrderByWithRelationInput[] = [
-  { createdAt: 'desc' },
-  { id: 'desc' },
-];
-
-/** Keyset filter: strictly after the cursor in the activity order. */
 function activityCursorFilter(
   cursor: ActivityCursor,
 ): Prisma.CommentWhereInput {
@@ -74,25 +63,23 @@ function activityCursorFilter(
 }
 
 @Injectable()
-export class PrismaCommentRepository extends CommentRepository {
-  constructor(private readonly prisma: PrismaService) {
-    super();
-  }
+export class CommentsService {
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<CommentLinkRecord | null> {
+  findById(id: string): Promise<CommentLink | null> {
     return this.prisma.comment.findUnique({
       where: { id },
       select: { id: true, postId: true, parentCommentId: true },
     });
   }
 
-  async findByPostId(postId: string): Promise<FlatCommentRecord[]> {
+  async findByPostId(postId: string): Promise<FlatComment[]> {
     const comments = await this.prisma.comment.findMany({
       where: { postId },
-      select: commentWithPostSelect,
-      orderBy: commentOrderBy,
+      select: commentSelect,
+      orderBy: chronologicalOrder,
     });
-    return comments.map((comment) => this.mapToRecord(comment));
+    return comments.map(mapComment);
   }
 
   async findByAuthorMembership(
@@ -100,23 +87,21 @@ export class PrismaCommentRepository extends CommentRepository {
     authorMemberId: string,
     cursor: ActivityCursor | null,
     limit: number,
-  ): Promise<FlatCommentRecord[]> {
+  ): Promise<FlatComment[]> {
     const comments = await this.prisma.comment.findMany({
       where: {
         authorMemberId,
         post: { worldId },
         ...(cursor ? activityCursorFilter(cursor) : {}),
       },
-      select: commentWithPostSelect,
-      orderBy: activityCommentOrderBy,
+      select: commentSelect,
+      orderBy: newestFirstOrder,
       take: limit,
     });
-    return comments.map((comment) => this.mapToRecord(comment));
+    return comments.map(mapComment);
   }
 
-  async searchByText(worldId: string, q: string): Promise<FlatCommentRecord[]> {
-    // World-scoped through the post relation: a comment belongs to a World
-    // exactly when its post does, which is the no-leak guarantee.
+  async searchByText(worldId: string, q: string): Promise<FlatComment[]> {
     const pattern = escapeSearchText(q);
     const comments = await this.prisma.comment.findMany({
       where: {
@@ -124,9 +109,9 @@ export class PrismaCommentRepository extends CommentRepository {
         post: { worldId },
       },
       select: commentSelect,
-      orderBy: searchOrderBy,
+      orderBy: newestFirstOrder,
     });
-    return comments.map((comment) => this.mapToRecord(comment));
+    return comments.map(mapComment);
   }
 
   async countByPostIds(postIds: string[]): Promise<Map<string, number>> {
@@ -139,12 +124,7 @@ export class PrismaCommentRepository extends CommentRepository {
       where: { postId: { in: postIds } },
       _count: { _all: true },
     });
-
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      counts.set(row.postId, row._count._all);
-    }
-    return counts;
+    return new Map(rows.map((row) => [row.postId, row._count._all]));
   }
 
   async create(input: {
@@ -156,18 +136,20 @@ export class PrismaCommentRepository extends CommentRepository {
     const comment = await this.prisma.comment.create({ data: input });
     return { id: comment.id };
   }
-
-  private mapToRecord(comment: CommentRow): FlatCommentRecord {
-    return {
-      id: comment.id,
-      postId: comment.postId,
-      parentCommentId: comment.parentCommentId,
-      author: mapContentAuthor(comment.author),
-      content: comment.content,
-      voteScore: comment.voteScore,
-      createdAt: comment.createdAt,
-      updatedAt: comment.updatedAt,
-      postTitle: comment.post.title,
-    };
-  }
 }
+
+function mapComment(comment: CommentRow): FlatComment {
+  return {
+    id: comment.id,
+    postId: comment.postId,
+    parentCommentId: comment.parentCommentId,
+    author: mapContentAuthor(comment.author),
+    content: comment.content,
+    voteScore: comment.voteScore,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    postTitle: comment.post.title,
+  };
+}
+
+export type { Comment };

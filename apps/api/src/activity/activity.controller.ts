@@ -17,15 +17,12 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { ActivityService } from '@/activity/activity.service';
-import { ActivityResponseMapper } from '@/activity/mappers/activity-response.mapper';
+import { mapCharacterActivityResponse } from '@/activity/mappers/activity-response.mapper';
 import { ZodValidationPipe } from '@/common/pipes';
 
 @Controller('characters/:characterId/activity')
 export class ActivityController {
-  constructor(
-    private readonly activityService: ActivityService,
-    private readonly activityResponseMapper: ActivityResponseMapper,
-  ) {}
+  constructor(private readonly activityService: ActivityService) {}
 
   @Get()
   @AllowAnonymous()
@@ -45,6 +42,6 @@ export class ActivityController {
       throw new NotFoundException();
     }
 
-    return this.activityResponseMapper.mapToCharacterActivityResponse(activity);
+    return mapCharacterActivityResponse(activity);
   }
 }

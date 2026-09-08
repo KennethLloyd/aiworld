@@ -1,15 +1,9 @@
 import { Module } from '@nestjs/common';
 
-import { PrismaVoteRepository } from '@/votes/repositories/prisma-vote.repository';
-import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
+import { VotesService } from '@/votes/votes.service';
 
 @Module({
-  providers: [
-    {
-      provide: VoteRepository,
-      useClass: PrismaVoteRepository,
-    },
-  ],
-  exports: [VoteRepository],
+  providers: [VotesService],
+  exports: [VotesService],
 })
 export class VotesModule {}

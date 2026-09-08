@@ -1,8 +1,8 @@
-import type { PostFeedRecord } from '@/posts/domain/post-record';
+import type { FeedPost } from '@/posts/domain/post';
 
 import { encodePostFeedCursor, parsePostFeedCursor } from './post-feed-cursor';
 
-const post: PostFeedRecord = {
+const post: FeedPost = {
   id: '00000000-0000-4000-8000-000000000001',
   title: 'A post',
   content: 'A body',

@@ -1,9 +1,9 @@
 import { deriveSimulationHealth } from '@/simulation/admin/simulation-health';
-import type { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
-import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import type { SimulationSchedulerObservabilityRecord } from '@/simulation/scheduler/simulation-scheduler';
+import type { SimulationTelemetry } from '@/simulation/domain/simulation-telemetry';
+import type { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
+import type { SimulationSchedulerObservability } from '@/simulation/scheduler/simulation-scheduler';
 
-const config: WorldSimulationConfigRecord = {
+const config: SimulationConfig = {
   id: 'config-1',
   worldId: 'world-1',
   state: 'RUNNING',
@@ -15,7 +15,7 @@ const config: WorldSimulationConfigRecord = {
   updatedAt: new Date('2026-08-01T00:00:00.000Z'),
 };
 
-const telemetry: SimulationTelemetryRecord = {
+const telemetry: SimulationTelemetry = {
   worldId: 'world-1',
   totalRuns: 1,
   successCount: 1,
@@ -30,7 +30,7 @@ const telemetry: SimulationTelemetryRecord = {
   lastFailureAt: null,
 };
 
-const progressingScheduler: SimulationSchedulerObservabilityRecord = {
+const progressingScheduler: SimulationSchedulerObservability = {
   available: true,
   pending: true,
   workExpected: true,
@@ -47,9 +47,9 @@ const progressingScheduler: SimulationSchedulerObservabilityRecord = {
 };
 
 function derive(
-  overrides: Partial<WorldSimulationConfigRecord> = {},
-  schedulerOverrides: Partial<SimulationSchedulerObservabilityRecord> = {},
-  telemetryOverrides: Partial<SimulationTelemetryRecord> = {},
+  overrides: Partial<SimulationConfig> = {},
+  schedulerOverrides: Partial<SimulationSchedulerObservability> = {},
+  telemetryOverrides: Partial<SimulationTelemetry> = {},
 ) {
   return deriveSimulationHealth(
     {

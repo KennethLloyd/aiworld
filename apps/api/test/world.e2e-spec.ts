@@ -10,7 +10,7 @@ import { App } from 'supertest/types';
 
 import { AppModule } from '@/app.module';
 import { PrismaService } from '@/lib/database/prisma.service';
-import { WorldRecord } from '@/world/domain/world-record';
+import { WorldView } from '@/world/world.service';
 
 import { MOCK_AUTH_SESSION } from './__mocks__/nestjs-better-auth';
 import type { MockAuthSessionHolder } from './__mocks__/nestjs-better-auth';
@@ -19,7 +19,7 @@ describe('Worlds API (e2e)', () => {
   let app: INestApplication<App>;
   let createdSimulationConfig: Record<string, unknown> | null;
 
-  const mbtiWorldRecord: WorldRecord = {
+  const mbtiWorldRecord: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'MBTI Discussion',
     slug: 'mbti',
@@ -32,7 +32,7 @@ describe('Worlds API (e2e)', () => {
     updatedAt: new Date('2026-08-01T00:00:00.000Z'),
   };
 
-  const createdWorldRecord: WorldRecord = {
+  const createdWorldRecord: WorldView = {
     id: '00000000-0000-4000-8000-000000000002',
     name: 'New World',
     slug: 'new-world',
@@ -45,7 +45,7 @@ describe('Worlds API (e2e)', () => {
     updatedAt: new Date('2026-08-01T12:00:00.000Z'),
   };
 
-  const updatedWorldRecord: WorldRecord = {
+  const updatedWorldRecord: WorldView = {
     ...mbtiWorldRecord,
     name: 'MBTI Discussion (updated)',
     updatedAt: new Date('2026-08-02T00:00:00.000Z'),
@@ -254,7 +254,14 @@ describe('Worlds API (e2e)', () => {
     await request(app.getHttpServer())
       .patch('/api/worlds/mbti')
       .send({ isActive: false })
-      .expect(409);
+      .expect(409)
+      .expect((res) => {
+        expect(res.body).toEqual({
+          statusCode: 409,
+          message: 'Cannot deactivate a World while its simulation is RUNNING',
+          error: 'Conflict',
+        });
+      });
 
     expect(prismaStub.world.update).not.toHaveBeenCalled();
   });

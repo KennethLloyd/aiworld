@@ -11,15 +11,12 @@ import {
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 import { ZodValidationPipe } from '@/common/pipes';
-import { SearchResponseMapper } from '@/search/mappers/search-response.mapper';
+import { mapSearchResponse } from '@/search/mappers/search-response.mapper';
 import { SearchService } from '@/search/search.service';
 
 @Controller('worlds/:slug/search')
 export class SearchController {
-  constructor(
-    private readonly searchService: SearchService,
-    private readonly searchResponseMapper: SearchResponseMapper,
-  ) {}
+  constructor(private readonly searchService: SearchService) {}
 
   @Get()
   @AllowAnonymous()
@@ -33,6 +30,6 @@ export class SearchController {
       throw new NotFoundException();
     }
 
-    return this.searchResponseMapper.mapToSearchResponse(results);
+    return mapSearchResponse(results);
   }
 }

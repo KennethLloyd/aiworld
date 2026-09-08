@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+import { CommentLink, CommentsService } from '@/comments/comments.service';
 import { MAX_COMMENT_DEPTH } from '@/comments/domain/comment-tree';
-import { CommentLinkRecord } from '@/comments/repositories/comment-repository.interface';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { PostsService } from '@/posts/posts.service';
 import { SimulationWriteError } from '@/simulation/actions/simulation-action.error';
 import {
   SimulationDecision,
@@ -11,15 +10,15 @@ import {
   PostDecision,
   VoteDecision,
 } from '@/simulation/actions/simulation-decision';
-import { VoteRepository } from '@/votes/repositories/vote-repository.interface';
+import { VotesService } from '@/votes/votes.service';
 
-/** Persists validated decisions through repository ports. */
+/** Persists validated decisions after actions have validated their output. */
 @Injectable()
 export class SimulationContentWriter {
   constructor(
-    private readonly postRepository: PostRepository,
-    private readonly commentRepository: CommentRepository,
-    private readonly voteRepository: VoteRepository,
+    private readonly postsService: PostsService,
+    private readonly commentsService: CommentsService,
+    private readonly votesService: VotesService,
   ) {}
 
   /** Returns the created row id, or null for a vote decision that skipped. */
@@ -35,7 +34,7 @@ export class SimulationContentWriter {
   }
 
   async persistPost(decision: PostDecision): Promise<{ id: string }> {
-    return this.postRepository.create({
+    return this.postsService.create({
       worldId: decision.worldId,
       authorMemberId: decision.memberId,
       title: decision.title,
@@ -47,7 +46,7 @@ export class SimulationContentWriter {
     if (decision.decision === 'skip') {
       return null;
     }
-    return this.voteRepository.setForPost({
+    return this.votesService.setForPost({
       postId: decision.postId,
       authorMemberId: decision.memberId,
       value: decision.decision === 'upvote' ? 1 : -1,
@@ -57,7 +56,7 @@ export class SimulationContentWriter {
   /** Enforces parent and depth checks before persisting a comment. */
   async persistComment(decision: CommentDecision): Promise<{ id: string }> {
     await this.assertAllowedParent(decision.postId, decision.parentCommentId);
-    return this.commentRepository.create({
+    return this.commentsService.create({
       postId: decision.postId,
       authorMemberId: decision.memberId,
       parentCommentId: decision.parentCommentId,
@@ -73,7 +72,7 @@ export class SimulationContentWriter {
       return;
     }
 
-    const parent = await this.commentRepository.findById(parentCommentId);
+    const parent = await this.commentsService.findById(parentCommentId);
     if (!parent) {
       throw new SimulationWriteError(
         'COMMENT_PARENT_NOT_FOUND',
@@ -97,11 +96,11 @@ export class SimulationContentWriter {
   }
 
   /** Returns the comment depth; writes cap it at three levels. */
-  private async depthOf(comment: CommentLinkRecord): Promise<number> {
+  private async depthOf(comment: CommentLink): Promise<number> {
     let depth = 1;
     let parentCommentId = comment.parentCommentId;
     while (parentCommentId) {
-      const parent = await this.commentRepository.findById(parentCommentId);
+      const parent = await this.commentsService.findById(parentCommentId);
       if (!parent) {
         break;
       }

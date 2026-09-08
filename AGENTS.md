@@ -18,8 +18,9 @@ Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`
 ## Architecture boundaries
 
 - Place transport schemas in `packages/shared` as the single source when data crosses the API boundary.
-- Keep generated Prisma types inside concrete repository adapters and seed infrastructure.
-- Use dependency injection and repository or provider ports at genuine infrastructure seams.
+- For ordinary backend persistence, use `Controller → Service → PrismaService`. Generated Prisma types may be used inside backend services and local persistence helpers where appropriate; keep them within the backend boundary.
+- Use dependency injection and repository or provider ports only for genuine infrastructure variation or meaningful architectural seams, not merely to wrap Prisma.
+- Keep controllers focused on transport and delegate persistence to services; controllers must not access Prisma directly.
 - Enforce authorization on the NestJS server; use client route guards for UX behavior.
 - Keep public observer responses separate from admin prompts, raw provider responses, and telemetry.
 - Cover domain decisions with focused unit tests and boundary behavior with integration or end-to-end tests.
@@ -27,7 +28,7 @@ Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`
 ## Engineering standard
 
 - Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS capabilities before adding custom infrastructure.
-- Preserve existing feature boundaries and dependency direction.
+- Preserve feature boundaries and clear ownership without requiring artificial dependency inversion between ordinary feature services.
 - Keep schemas, persistence, and controllers behind their existing boundaries, with explicit ownership and only genuine seams. This prevents duplicated schemas, direct controller-to-Prisma access, ceremonial indirection, and workaround layers.
 
 ## Verification
@@ -62,7 +63,7 @@ pnpm --filter @aiworld/api test:e2e
 
 Before opening or updating a UI pull request, complete this browser-first gate:
 
-1. Use the `control-in-app-browser` skill to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
+1. Use the available browser-control capability (prefer the control-in-app-browser skill when available) to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
 2. Verify every materially different affected page and state at an iPhone 15-sized viewport (`393×852`) and a desktop viewport at least `1280px` wide. Completion: both responsive views pass without overflow or behavior regressions.
 3. Capture enough screenshots from the in-app browser to cover the change, including complete mobile and desktop views that visibly show the new behavior. Completion: the pull request has the necessary evidence for every affected page or state.
 4. Add a `What to expect` section to the pull request description or a pull-request comment in simplified, product-facing technical English. Explain the visible change, key interactions, responsive behavior, and demo-data limitations. Completion: a reviewer can understand and reproduce the changed behavior from the section.

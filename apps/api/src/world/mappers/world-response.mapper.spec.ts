@@ -3,16 +3,16 @@ import {
   ListWorldsResponse,
   WorldResponse,
 } from '@aiworld/shared/schemas/world-response.schema';
-import { Test, TestingModule } from '@nestjs/testing';
 
-import { WorldRecord } from '@/world/domain/world-record';
+import { WorldView } from '@/world/world.service';
 
-import { WorldResponseMapper } from './world-response.mapper';
+import {
+  mapPaginatedWorldResponse,
+  mapWorldResponse,
+} from './world-response.mapper';
 
-describe('WorldResponseMapper', () => {
-  let mapper: WorldResponseMapper;
-
-  const worldRecordFixture: WorldRecord = {
+describe('world response mapper', () => {
+  const worldRecordFixture: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'MBTI Discussion',
     slug: 'mbti',
@@ -31,17 +31,9 @@ describe('WorldResponseMapper', () => {
     updatedAt: worldRecordFixture.updatedAt.toISOString(),
   };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [WorldResponseMapper],
-    }).compile();
-
-    mapper = module.get<WorldResponseMapper>(WorldResponseMapper);
-  });
-
-  describe('mapToWorldResponse', () => {
+  describe('mapWorldResponse', () => {
     it('should convert a WorldRecord to a WorldResponse with ISO date strings', () => {
-      const result = mapper.mapToWorldResponse(worldRecordFixture);
+      const result = mapWorldResponse(worldRecordFixture);
 
       expect(result).toEqual(worldResponseFixture);
       expect(result.createdAt).toBe('2026-08-01T00:00:00.000Z');
@@ -49,7 +41,7 @@ describe('WorldResponseMapper', () => {
     });
 
     it('should preserve the non-date fields unchanged', () => {
-      const result = mapper.mapToWorldResponse(worldRecordFixture);
+      const result = mapWorldResponse(worldRecordFixture);
 
       expect(result.id).toBe(worldRecordFixture.id);
       expect(result.name).toBe(worldRecordFixture.name);
@@ -61,9 +53,9 @@ describe('WorldResponseMapper', () => {
     });
   });
 
-  describe('mapToPaginatedWorldResponse', () => {
+  describe('mapPaginatedWorldResponse', () => {
     it('should map each item and preserve the pagination metadata', () => {
-      const paginatedRecords: Paginated<WorldRecord> = {
+      const paginatedRecords: Paginated<WorldView> = {
         items: [worldRecordFixture],
         meta: {
           page: 1,
@@ -83,7 +75,7 @@ describe('WorldResponseMapper', () => {
         },
       };
 
-      const result = mapper.mapToPaginatedWorldResponse(paginatedRecords);
+      const result = mapPaginatedWorldResponse(paginatedRecords);
 
       expect(result).toEqual(expected);
       expect(result.items[0].createdAt).toBe('2026-08-01T00:00:00.000Z');
@@ -91,7 +83,7 @@ describe('WorldResponseMapper', () => {
     });
 
     it('should handle an empty items array with metadata intact', () => {
-      const paginatedRecords: Paginated<WorldRecord> = {
+      const paginatedRecords: Paginated<WorldView> = {
         items: [],
         meta: {
           page: 1,
@@ -101,7 +93,7 @@ describe('WorldResponseMapper', () => {
         },
       };
 
-      const result = mapper.mapToPaginatedWorldResponse(paginatedRecords);
+      const result = mapPaginatedWorldResponse(paginatedRecords);
 
       expect(result).toEqual({
         items: [],

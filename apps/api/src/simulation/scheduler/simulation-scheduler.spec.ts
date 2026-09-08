@@ -1,22 +1,20 @@
 import { UnrecoverableError } from 'bullmq';
 
 import { PostDecision } from '@/simulation/actions/simulation-decision';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
-import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
+import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
-import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
-import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import type { SimulationRuntimeState } from '@/simulation/scheduler/simulation-runtime-state.service';
+import { SimulationRuntimeStateService } from '@/simulation/scheduler/simulation-runtime-state.service';
 import { SimulationScheduler } from '@/simulation/scheduler/simulation-scheduler';
 import { SchedulerConfig } from '@/simulation/scheduler/simulation-scheduler-config';
 import { SimulationIterationPickError } from '@/simulation/scheduler/simulation-scheduler.error';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldService, WorldView } from '@/world/world.service';
 
-const world: WorldRecord = {
+const world: WorldView = {
   id: 'world-1',
   name: 'The MBTI House',
   slug: 'mbti-house',
@@ -30,8 +28,8 @@ const world: WorldRecord = {
 };
 
 function configRecord(
-  overrides: Partial<WorldSimulationConfigRecord> = {},
-): WorldSimulationConfigRecord {
+  overrides: Partial<SimulationConfig> = {},
+): SimulationConfig {
   return {
     id: 'config-1',
     worldId: 'world-1',
@@ -71,27 +69,17 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     assertManualWorkAllowed: jest.fn().mockResolvedValue(configRecord()),
   } as unknown as jest.Mocked<SimulationLifecycleService>;
 
-  const worldRepository = {
+  const worldService = {
     findById: jest.fn().mockResolvedValue(world),
-    findBySlug: jest.fn().mockResolvedValue(world),
-  } as unknown as jest.Mocked<WorldRepository>;
+    getBySlug: jest.fn().mockResolvedValue(world),
+  } as unknown as jest.Mocked<Pick<WorldService, 'findById' | 'getBySlug'>>;
 
   const picker = {
     pickCharacter: jest.fn().mockResolvedValue({ characterId: 'character-1' }),
     pickAction: jest.fn().mockReturnValue('POST'),
     pickAutomaticAction: jest.fn().mockResolvedValue('POST'),
+    hasActiveActors: jest.fn().mockResolvedValue(true),
   } as unknown as jest.Mocked<SimulationIterationPicker>;
-
-  const castingRepository = {
-    findActiveActors: jest.fn().mockResolvedValue([
-      {
-        memberId: 'member-1',
-        characterId: 'character-1',
-        lastActivityAt: null,
-      },
-    ]),
-    findActiveActor: jest.fn().mockResolvedValue(true),
-  } as unknown as jest.Mocked<SimulationCastingRepository>;
 
   const turnRunner = {
     runScheduledTurn: jest.fn(),
@@ -126,7 +114,7 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
     quit: jest.fn().mockResolvedValue(undefined),
     status: 'ready',
   };
-  let runtimeState: SimulationRuntimeStateRecord = {
+  let runtimeState: SimulationRuntimeState = {
     worldId: 'world-1',
     pending: false,
     workExpected: false,
@@ -165,14 +153,13 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
           lastDeadLetterReason: reason,
         };
       }),
-  } as unknown as jest.Mocked<SimulationRuntimeStateRepository>;
+  } as unknown as jest.Mocked<SimulationRuntimeStateService>;
 
   const scheduler = new SimulationScheduler(
     schedulerConfig,
     lifecycleService,
-    worldRepository,
+    worldService as unknown as WorldService,
     picker,
-    castingRepository,
     randomSource,
     turnRunner,
     runtimeStateRepository,
@@ -190,9 +177,8 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
   return {
     scheduler,
     lifecycleService,
-    worldRepository,
+    worldService,
     picker,
-    castingRepository,
     turnRunner,
     queue,
     connection,
@@ -203,8 +189,8 @@ function createScheduler(config: Partial<SchedulerConfig> = {}) {
 }
 
 function logRecord(
-  overrides: Partial<SimulationLogRecord> = {},
-): SimulationLogRecord {
+  overrides: Partial<SimulationLogEntry> = {},
+): SimulationLogEntry {
   return {
     id: 'log-1',
     worldId: 'world-1',
@@ -259,14 +245,14 @@ describe('SimulationScheduler', () => {
   });
 
   it('ensureScheduled does not create a second pending Turn', async () => {
-    const { scheduler, queue, worldRepository } = createScheduler();
+    const { scheduler, queue, worldService } = createScheduler();
     const existing = fakeJob({ id: 'existing-turn' });
     queue.getDeduplicationJobId.mockResolvedValue('existing-turn');
     queue.getJob.mockResolvedValue(existing);
 
     await scheduler.ensureScheduled('world-1');
 
-    expect(worldRepository.findById).toHaveBeenCalledWith('world-1');
+    expect(worldService.findById).toHaveBeenCalledWith('world-1');
     expect(queue.add).not.toHaveBeenCalled();
     expect(existing.remove).not.toHaveBeenCalled();
   });
@@ -291,11 +277,11 @@ describe('SimulationScheduler', () => {
   });
 
   it('removes a pending Turn when all active AI Residents become unavailable', async () => {
-    const { scheduler, castingRepository, queue } = createScheduler();
+    const { scheduler, picker, queue } = createScheduler();
     const existing = fakeJob({ id: 'existing-turn' });
     queue.getDeduplicationJobId.mockResolvedValue('existing-turn');
     queue.getJob.mockResolvedValue(existing);
-    castingRepository.findActiveActors.mockResolvedValue([]);
+    picker.hasActiveActors.mockResolvedValue(false);
 
     await scheduler.ensureScheduled('world-1');
 
@@ -368,8 +354,8 @@ describe('SimulationScheduler', () => {
   });
 
   it('start is a no-op for an inactive World even when RUNNING is persisted', async () => {
-    const { scheduler, worldRepository, queue } = createScheduler();
-    worldRepository.findById.mockResolvedValue({
+    const { scheduler, worldService, queue } = createScheduler();
+    worldService.findById.mockResolvedValue({
       ...world,
       isActive: false,
     });

@@ -1,25 +1,25 @@
 import { Injectable } from '@nestjs/common';
 
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { CharactersService } from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
+import { FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { PostsService } from '@/posts/posts.service';
 import { ResolvedActor } from '@/simulation/actions/action-context';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService } from '@/world/world.service';
 
 const RECENT_POST_LIMIT = 5;
 
 @Injectable()
 export class SimulationContextProvider {
   constructor(
-    private readonly worldRepository: WorldRepository,
-    private readonly characterRepository: CharacterRepository,
-    private readonly worldMemberRepository: WorldMemberRepository,
-    private readonly postRepository: PostRepository,
-    private readonly commentRepository: CommentRepository,
+    private readonly worldService: WorldService,
+    private readonly charactersService: CharactersService,
+    private readonly worldMembersService: WorldMembersService,
+    private readonly postsService: PostsService,
+    private readonly commentsService: CommentsService,
   ) {}
 
   /** Resolves the actor behind an action: an active World, an active
@@ -29,7 +29,7 @@ export class SimulationContextProvider {
     worldSlug: string,
     characterId: string,
   ): Promise<ResolvedActor> {
-    const world = await this.worldRepository.findBySlug(worldSlug, true);
+    const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       throw new SimulationActionError(
         'WORLD_NOT_FOUND',
@@ -37,10 +37,7 @@ export class SimulationContextProvider {
       );
     }
 
-    const character = await this.characterRepository.findById(
-      characterId,
-      true,
-    );
+    const character = await this.charactersService.getById(characterId, false);
     if (!character) {
       throw new SimulationActionError(
         'CHARACTER_INACTIVE',
@@ -48,11 +45,10 @@ export class SimulationContextProvider {
       );
     }
 
-    const member =
-      await this.worldMemberRepository.findActiveByWorldAndCharacter(
-        world.id,
-        characterId,
-      );
+    const member = await this.worldMembersService.findActiveByWorldAndCharacter(
+      world.id,
+      characterId,
+    );
     if (!member) {
       throw new SimulationActionError(
         'MEMBER_NOT_FOUND',
@@ -63,11 +59,8 @@ export class SimulationContextProvider {
     return { world, character, memberId: member.id };
   }
 
-  async findPost(
-    worldId: string,
-    postId: string,
-  ): Promise<PostWithAuthorRecord> {
-    const post = await this.postRepository.findById(worldId, postId);
+  async findPost(worldId: string, postId: string): Promise<PostWithAuthor> {
+    const post = await this.postsService.findById(worldId, postId);
     if (!post) {
       throw new SimulationActionError(
         'POST_NOT_FOUND',
@@ -77,11 +70,11 @@ export class SimulationContextProvider {
     return post;
   }
 
-  async findRecentPosts(worldId: string): Promise<PostWithAuthorRecord[]> {
-    return this.postRepository.findRecentByWorld(worldId, RECENT_POST_LIMIT);
+  async findRecentPosts(worldId: string): Promise<PostWithAuthor[]> {
+    return this.postsService.findRecentByWorld(worldId, RECENT_POST_LIMIT);
   }
 
-  async findThread(postId: string): Promise<FlatCommentRecord[]> {
-    return this.commentRepository.findByPostId(postId);
+  async findThread(postId: string): Promise<FlatComment[]> {
+    return this.commentsService.findByPostId(postId);
   }
 }

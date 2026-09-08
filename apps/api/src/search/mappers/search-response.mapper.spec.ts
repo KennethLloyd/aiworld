@@ -1,17 +1,12 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { Test, TestingModule } from '@nestjs/testing';
 
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
-import { SearchResultRecord } from '@/search/domain/search-record';
-import { SearchResponseMapper } from '@/search/mappers/search-response.mapper';
+import { FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { SearchResult } from '@/search/domain/search';
+import { mapSearchResponse } from '@/search/mappers/search-response.mapper';
 
-describe('SearchResponseMapper', () => {
-  let mapper: SearchResponseMapper;
-
-  const postRecordFixture: PostWithAuthorRecord = {
+describe('search response mapper', () => {
+  const postRecordFixture: PostWithAuthor = {
     id: '00000000-0000-4000-8000-000000000001',
     title: 'The quillfox manifesto',
     content: 'Bamboo wisdom.',
@@ -26,7 +21,7 @@ describe('SearchResponseMapper', () => {
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
   };
 
-  const commentRecordFixture: FlatCommentRecord = {
+  const commentRecordFixture: FlatComment = {
     id: '00000000-0000-4000-8000-000000000002',
     postId: postRecordFixture.id,
     parentCommentId: null,
@@ -38,25 +33,13 @@ describe('SearchResponseMapper', () => {
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
   };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        SearchResponseMapper,
-        PostResponseMapper,
-        CommentResponseMapper,
-      ],
-    }).compile();
-
-    mapper = module.get<SearchResponseMapper>(SearchResponseMapper);
-  });
-
   it('maps posts with the post type tag', () => {
-    const records: Paginated<SearchResultRecord> = {
+    const records: Paginated<SearchResult> = {
       items: [{ type: 'post', post: postRecordFixture }],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
     };
 
-    expect(mapper.mapToSearchResponse(records)).toEqual({
+    expect(mapSearchResponse(records)).toEqual({
       items: [
         {
           type: 'post',
@@ -76,12 +59,12 @@ describe('SearchResponseMapper', () => {
   });
 
   it('maps comments with the comment type tag and an empty replies list', () => {
-    const records: Paginated<SearchResultRecord> = {
+    const records: Paginated<SearchResult> = {
       items: [{ type: 'comment', comment: commentRecordFixture }],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
     };
 
-    const response = mapper.mapToSearchResponse(records);
+    const response = mapSearchResponse(records);
 
     expect(response.items).toEqual([
       {
@@ -102,7 +85,7 @@ describe('SearchResponseMapper', () => {
   });
 
   it('maps a mixed list preserving order and the shared meta', () => {
-    const records: Paginated<SearchResultRecord> = {
+    const records: Paginated<SearchResult> = {
       items: [
         { type: 'comment', comment: commentRecordFixture },
         { type: 'post', post: postRecordFixture },
@@ -110,7 +93,7 @@ describe('SearchResponseMapper', () => {
       meta: { page: 2, limit: 5, total: 2, totalPages: 1 },
     };
 
-    const response = mapper.mapToSearchResponse(records);
+    const response = mapSearchResponse(records);
 
     expect(response.items.map((item) => item.type)).toEqual([
       'comment',

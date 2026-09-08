@@ -1,8 +1,8 @@
-import { CharacterRecord } from '@/characters/domain/character-record';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
+import { CharacterView } from '@/characters/characters.service';
+import { FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
 import { PromptSection } from '@/simulation/actions/action-prompt';
-import { WorldRecord } from '@/world/domain/world-record';
+import { WorldView } from '@/world/world.service';
 
 const RECENT_ACTIVITY_SECTION_LIMIT = 7_000;
 const RECENT_ACTIVITY_TITLE_LIMIT = 200;
@@ -27,7 +27,7 @@ function truncateText(value: string, limit: number): string {
   return `${value.slice(0, contentLimit)}${TRUNCATION_MARKER}`;
 }
 
-function formatRecentPost(post: PostWithAuthorRecord): string {
+function formatRecentPost(post: PostWithAuthor): string {
   const authorHandle = truncateText(
     post.author.handle,
     RECENT_ACTIVITY_AUTHOR_FIELD_LIMIT,
@@ -73,7 +73,7 @@ function appendWithinLimit(
 
 /** Formats a small, reference-only window of persisted posts for POST prompts. */
 export function recentActivitySection(
-  posts: PostWithAuthorRecord[],
+  posts: PostWithAuthor[],
 ): PromptSection | null {
   if (posts.length === 0) {
     return null;
@@ -105,7 +105,7 @@ export function recentActivitySection(
   return { heading: 'Recent Activity', body };
 }
 
-export function worldSection(world: WorldRecord): PromptSection {
+export function worldSection(world: WorldView): PromptSection {
   const description = Object.entries(world.description ?? {})
     .map(([label, value]) => `${label}: ${value}`)
     .join('\n');
@@ -123,7 +123,7 @@ export function worldSection(world: WorldRecord): PromptSection {
   };
 }
 
-export function characterSection(character: CharacterRecord): PromptSection {
+export function characterSection(character: CharacterView): PromptSection {
   return {
     heading: 'Character',
     body: [
@@ -152,7 +152,7 @@ export function currentVoteSection(currentVote: 1 | -1 | null): PromptSection {
   };
 }
 
-export function targetPostSection(post: PostWithAuthorRecord): PromptSection {
+export function targetPostSection(post: PostWithAuthor): PromptSection {
   return {
     heading: 'Target post',
     body: `"${post.title}" by @${post.author.handle}\n${post.content}`,
@@ -162,7 +162,7 @@ export function targetPostSection(post: PostWithAuthorRecord): PromptSection {
 /** The parent chain of the target comment plus the most recent comments,
  * bounded so the prompt stays small. */
 export function threadSection(
-  thread: FlatCommentRecord[],
+  thread: FlatComment[],
   parentCommentId: string | null | undefined,
   limit = 5,
 ): PromptSection {
@@ -172,7 +172,7 @@ export function threadSection(
   );
   const byId = new Map(thread.map((comment) => [comment.id, comment]));
 
-  const chain: FlatCommentRecord[] = [];
+  const chain: FlatComment[] = [];
   if (parentCommentId) {
     let current = byId.get(parentCommentId) ?? null;
     while (current) {
@@ -183,7 +183,7 @@ export function threadSection(
     }
   }
 
-  const selected: FlatCommentRecord[] = [...chain];
+  const selected: FlatComment[] = [...chain];
   for (const comment of sorted.slice(-limit)) {
     if (!selected.some((candidate) => candidate.id === comment.id)) {
       selected.push(comment);

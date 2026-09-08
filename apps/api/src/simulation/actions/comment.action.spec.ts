@@ -1,10 +1,10 @@
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
+import { CharactersService } from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { PostsService } from '@/posts/posts.service';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService } from '@/world/world.service';
 
 import { CommentAction } from './comment.action';
 import { SimulationContextProvider } from './simulation-context-provider';
@@ -101,26 +101,26 @@ function createAction(
   } = {},
 ) {
   const worldRepository = {
-    findBySlug: jest.fn().mockResolvedValue(world),
-  } as unknown as WorldRepository;
+    getBySlug: jest.fn().mockResolvedValue(world),
+  } as unknown as WorldService;
   const characterRepository = {
-    findById: jest.fn().mockResolvedValue(character),
-  } as unknown as CharacterRepository;
+    getById: jest.fn().mockResolvedValue(character),
+  } as unknown as CharactersService;
   const worldMemberRepository = {
     findActiveByWorldAndCharacter: jest.fn().mockResolvedValue({
       id: 'member-1',
     }),
-  } as unknown as WorldMemberRepository;
+  } as unknown as WorldMembersService;
   const postRepository = {
     findById: jest.fn().mockResolvedValue(post),
-  } as unknown as PostRepository;
+  } as unknown as PostsService;
   const commentRepository = {
     findByPostId: jest
       .fn()
       .mockResolvedValue(
         overrides.thread === undefined ? comments : overrides.thread,
       ),
-  } as unknown as CommentRepository;
+  } as unknown as CommentsService;
 
   const contextProvider = new SimulationContextProvider(
     worldRepository,

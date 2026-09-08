@@ -3,25 +3,23 @@ import {
   ListWorldMembersResponse,
   WorldMemberResponse,
 } from '@aiworld/shared/schemas/world-member-response.schema';
-import { Injectable } from '@nestjs/common';
 
-import { WorldMemberRecord } from '@/world-members/domain/world-member-record';
+import { WorldMemberView } from '@/world-members/world-members.service';
 
-@Injectable()
-export class WorldMemberResponseMapper {
-  mapToWorldMemberResponse(record: WorldMemberRecord): WorldMemberResponse {
-    return {
-      ...record,
-      joinedAt: record.joinedAt.toISOString(),
-    };
-  }
+export function mapWorldMemberResponse(
+  member: WorldMemberView,
+): WorldMemberResponse {
+  return {
+    ...member,
+    joinedAt: member.joinedAt.toISOString(),
+  };
+}
 
-  mapToPaginatedWorldMemberResponse(
-    records: Paginated<WorldMemberRecord>,
-  ): ListWorldMembersResponse {
-    return {
-      ...records,
-      items: records.items.map((item) => this.mapToWorldMemberResponse(item)),
-    };
-  }
+export function mapPaginatedWorldMemberResponse(
+  members: Paginated<WorldMemberView>,
+): ListWorldMembersResponse {
+  return {
+    ...members,
+    items: members.items.map(mapWorldMemberResponse),
+  };
 }

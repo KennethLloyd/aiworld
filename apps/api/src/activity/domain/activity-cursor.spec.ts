@@ -1,11 +1,11 @@
+import { ActivityItem } from '@/activity/domain/activity';
 import {
   encodeActivityCursor,
   parseActivityCursor,
 } from '@/activity/domain/activity-cursor';
-import { ActivityItemRecord } from '@/activity/domain/activity-record';
 
 describe('activity cursor', () => {
-  const postItem: ActivityItemRecord = {
+  const postItem: ActivityItem = {
     kind: 'post',
     record: {
       id: '00000000-0000-4000-8000-000000000301',

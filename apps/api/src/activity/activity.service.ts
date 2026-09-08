@@ -1,25 +1,25 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { CharacterActivityPage } from '@/activity/domain/activity';
 import {
   encodeActivityCursor,
   parseActivityCursor,
 } from '@/activity/domain/activity-cursor';
-import { CharacterActivityPageRecord } from '@/activity/domain/activity-record';
 import { mergeActivityItems } from '@/activity/domain/activity-timeline';
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
+import { CharactersService } from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
+import { PostsService } from '@/posts/posts.service';
+import { WorldMembersService } from '@/world-members/world-members.service';
 import { WorldService } from '@/world/world.service';
 
 @Injectable()
 export class ActivityService {
   constructor(
     private readonly worldService: WorldService,
-    private readonly characterRepository: CharacterRepository,
-    private readonly worldMemberRepository: WorldMemberRepository,
-    private readonly postRepository: PostRepository,
-    private readonly commentRepository: CommentRepository,
+    private readonly charactersService: CharactersService,
+    private readonly worldMembersService: WorldMembersService,
+    private readonly postsService: PostsService,
+    private readonly commentsService: CommentsService,
   ) {}
 
   async findActivity(
@@ -27,7 +27,7 @@ export class ActivityService {
     worldSlug: string,
     cursor: string | undefined,
     limit: number,
-  ): Promise<CharacterActivityPageRecord | null> {
+  ): Promise<CharacterActivityPage | null> {
     const world = await this.worldService.getBySlug(worldSlug, false);
     if (!world) {
       return null;
@@ -35,7 +35,7 @@ export class ActivityService {
 
     // No active filter here: an inactive character's public content stays
     // visible (CharactersService.getById would filter it out).
-    const character = await this.characterRepository.findById(characterId);
+    const character = await this.charactersService.getById(characterId, true);
     if (!character) {
       return null;
     }
@@ -43,7 +43,7 @@ export class ActivityService {
     // The membership lookup is World-scoped, so another World's content
     // never surfaces. Inactive memberships still resolve; only a missing
     // membership returns empty.
-    const membership = await this.worldMemberRepository.findByWorldAndCharacter(
+    const membership = await this.worldMembersService.findByWorldAndCharacter(
       world.id,
       characterId,
     );
@@ -66,13 +66,13 @@ export class ActivityService {
     // merged page has more than `limit` items exactly when more items
     // remain, so nextCursor is exact.
     const [posts, comments] = await Promise.all([
-      this.postRepository.findByAuthorMembership(
+      this.postsService.findByAuthorMembership(
         world.id,
         membership.id,
         parsedCursor.cursor,
         limit + 1,
       ),
-      this.commentRepository.findByAuthorMembership(
+      this.commentsService.findByAuthorMembership(
         world.id,
         membership.id,
         parsedCursor.cursor,

@@ -6,16 +6,15 @@ import { NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { CommentRecord } from '@/comments/domain/comment-record';
-import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
+import { Comment } from '@/comments/domain/comment';
+import { FeedPost, PostItem } from '@/posts/domain/post';
 import { PostsController } from '@/posts/posts.controller';
 import { PostsService } from '@/posts/posts.service';
 
 describe('PostsController', () => {
   let controller: PostsController;
 
-  const postRecordFixture: PostRecord = {
+  const postRecordFixture: PostItem = {
     id: '00000000-0000-4000-8000-000000000001',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
@@ -42,12 +41,12 @@ describe('PostsController', () => {
         voteScore: 2,
         createdAt: new Date('2026-08-06T09:00:00.000Z'),
         updatedAt: new Date('2026-08-06T09:00:00.000Z'),
-        replies: [] as CommentRecord[],
+        replies: [] as Comment[],
       },
     ],
   };
 
-  const paginatedPostRecords: CursorPaginated<PostFeedRecord> = {
+  const paginatedPostRecords: CursorPaginated<FeedPost> = {
     items: [
       {
         ...postRecordFixture,
@@ -95,34 +94,16 @@ describe('PostsController', () => {
   const queryFixture: ListPostsQuery = { sort: 'hot', limit: 20 };
 
   const mockPostsService: jest.Mocked<
-    Pick<PostsService, 'findFeed' | 'findById'>
+    Pick<PostsService, 'findFeed' | 'findByWorldSlug'>
   > = {
     findFeed: jest.fn(),
-    findById: jest.fn(),
-  };
-
-  const mockPostResponseMapper: jest.Mocked<
-    Pick<
-      PostResponseMapper,
-      | 'mapToPostResponse'
-      | 'mapToPostWithAuthorResponse'
-      | 'mapToPostDetailResponse'
-      | 'mapToPaginatedPostResponse'
-    >
-  > = {
-    mapToPostResponse: jest.fn(),
-    mapToPostWithAuthorResponse: jest.fn(),
-    mapToPostDetailResponse: jest.fn(),
-    mapToPaginatedPostResponse: jest.fn(),
+    findByWorldSlug: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PostsController],
-      providers: [
-        { provide: PostsService, useValue: mockPostsService },
-        { provide: PostResponseMapper, useValue: mockPostResponseMapper },
-      ],
+      providers: [{ provide: PostsService, useValue: mockPostsService }],
     }).compile();
 
     controller = module.get<PostsController>(PostsController);
@@ -132,9 +113,6 @@ describe('PostsController', () => {
   describe('list', () => {
     it('should return the mapped paginated feed', async () => {
       mockPostsService.findFeed.mockResolvedValue(paginatedPostRecords);
-      mockPostResponseMapper.mapToPaginatedPostResponse.mockReturnValue(
-        paginatedPostResponse,
-      );
 
       const response = await controller.list('mbti-house', queryFixture);
 
@@ -143,9 +121,6 @@ describe('PostsController', () => {
         'mbti-house',
         queryFixture,
       );
-      expect(
-        mockPostResponseMapper.mapToPaginatedPostResponse,
-      ).toHaveBeenCalledWith(paginatedPostRecords);
     });
 
     it('should throw NotFoundException when the world does not exist', async () => {
@@ -158,17 +133,13 @@ describe('PostsController', () => {
         'missing-world',
         queryFixture,
       );
-      expect(
-        mockPostResponseMapper.mapToPaginatedPostResponse,
-      ).not.toHaveBeenCalled();
     });
   });
 
   describe('getById', () => {
     it('should return the mapped post detail', async () => {
-      mockPostsService.findById.mockResolvedValue(postDetailRecordFixture);
-      mockPostResponseMapper.mapToPostDetailResponse.mockReturnValue(
-        postDetailResponse,
+      mockPostsService.findByWorldSlug.mockResolvedValue(
+        postDetailRecordFixture,
       );
 
       const response = await controller.getById({
@@ -177,28 +148,22 @@ describe('PostsController', () => {
       });
 
       expect(response).toEqual(postDetailResponse);
-      expect(mockPostsService.findById).toHaveBeenCalledWith(
+      expect(mockPostsService.findByWorldSlug).toHaveBeenCalledWith(
         'mbti-house',
         postDetailRecordFixture.id,
       );
-      expect(
-        mockPostResponseMapper.mapToPostDetailResponse,
-      ).toHaveBeenCalledWith(postDetailRecordFixture);
     });
 
     it('should throw NotFoundException when the post is missing', async () => {
-      mockPostsService.findById.mockResolvedValue(null);
+      mockPostsService.findByWorldSlug.mockResolvedValue(null);
 
       await expect(
         controller.getById({ slug: 'mbti-house', postId: 'missing-post' }),
       ).rejects.toThrow(NotFoundException);
-      expect(mockPostsService.findById).toHaveBeenCalledWith(
+      expect(mockPostsService.findByWorldSlug).toHaveBeenCalledWith(
         'mbti-house',
         'missing-post',
       );
-      expect(
-        mockPostResponseMapper.mapToPostDetailResponse,
-      ).not.toHaveBeenCalled();
     });
   });
 

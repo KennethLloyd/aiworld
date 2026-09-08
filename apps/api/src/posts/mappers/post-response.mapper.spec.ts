@@ -4,14 +4,15 @@ import {
   PostResponse,
 } from '@aiworld/shared/schemas/post-response.schema';
 
-import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
-import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
-import { PostResponseMapper } from '@/posts/mappers/post-response.mapper';
+import { FeedPost, PostDetail, PostItem } from '@/posts/domain/post';
+import {
+  mapPaginatedPostResponse,
+  mapPostDetailResponse,
+  mapPostResponse,
+} from '@/posts/mappers/post-response.mapper';
 
-describe('PostResponseMapper', () => {
-  const mapper = new PostResponseMapper(new CommentResponseMapper());
-
-  const postRecordFixture: PostRecord = {
+describe('post response mapper', () => {
+  const postRecordFixture: PostItem = {
     id: '00000000-0000-4000-8000-000000000001',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
@@ -33,7 +34,7 @@ describe('PostResponseMapper', () => {
     avatarUrl: null,
   };
 
-  const feedPostRecordFixture: PostFeedRecord = {
+  const feedPostRecordFixture: FeedPost = {
     ...postRecordFixture,
     author: authorFixture,
     commentCount: 2,
@@ -45,7 +46,7 @@ describe('PostResponseMapper', () => {
     commentCount: 2,
   };
 
-  const paginatedPostRecords: CursorPaginated<PostFeedRecord> = {
+  const paginatedPostRecords: CursorPaginated<FeedPost> = {
     items: [feedPostRecordFixture],
     nextCursor: null,
   };
@@ -57,24 +58,22 @@ describe('PostResponseMapper', () => {
 
   describe('mapToPostResponse', () => {
     it('converts dates to ISO strings and preserves the vote score', () => {
-      expect(mapper.mapToPostResponse(postRecordFixture)).toEqual(
-        postResponseFixture,
-      );
+      expect(mapPostResponse(postRecordFixture)).toEqual(postResponseFixture);
     });
 
     it('keeps negative vote scores', () => {
-      const downvoted: PostRecord = {
+      const downvoted: PostItem = {
         ...postRecordFixture,
         voteScore: -3,
       };
 
-      expect(mapper.mapToPostResponse(downvoted).voteScore).toBe(-3);
+      expect(mapPostResponse(downvoted).voteScore).toBe(-3);
     });
   });
 
   describe('mapToPaginatedPostResponse', () => {
     it('maps every record with its author and comment count and preserves the pagination metadata', () => {
-      expect(mapper.mapToPaginatedPostResponse(paginatedPostRecords)).toEqual(
+      expect(mapPaginatedPostResponse(paginatedPostRecords)).toEqual(
         paginatedPostResponse,
       );
     });
@@ -82,7 +81,7 @@ describe('PostResponseMapper', () => {
 
   describe('mapToPostDetailResponse', () => {
     it('maps the author and the comment tree', () => {
-      const detailRecord = {
+      const detailRecord: PostDetail = {
         ...postRecordFixture,
         author: authorFixture,
         comments: [
@@ -98,7 +97,7 @@ describe('PostResponseMapper', () => {
         ],
       };
 
-      expect(mapper.mapToPostDetailResponse(detailRecord)).toEqual({
+      expect(mapPostDetailResponse(detailRecord)).toEqual({
         ...postResponseFixture,
         author: detailRecord.author,
         comments: [
@@ -122,7 +121,7 @@ describe('PostResponseMapper', () => {
         comments: [],
       };
 
-      expect(mapper.mapToPostDetailResponse(detailRecord).comments).toEqual([]);
+      expect(mapPostDetailResponse(detailRecord).comments).toEqual([]);
     });
   });
 });

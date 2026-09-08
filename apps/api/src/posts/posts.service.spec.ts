@@ -1,24 +1,17 @@
 import { CursorPaginated } from '@aiworld/shared/schemas/pagination.schema';
 import { ListPostsQuery } from '@aiworld/shared/schemas/post.schema';
 import { BadRequestException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  AuthorRecord,
-  CommentRecord,
-  FlatCommentRecord,
-} from '@/comments/domain/comment-record';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostFeedRecord, PostRecord } from '@/posts/domain/post-record';
-import { PostsService } from '@/posts/posts.service';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { WorldRecord } from '@/world/domain/world-record';
-import { WorldService } from '@/world/world.service';
+import { CommentsService } from '@/comments/comments.service';
+import { Author, Comment, FlatComment } from '@/comments/domain/comment';
+import { PrismaService } from '@/lib/database/prisma.service';
+import { FeedPost, PostItem } from '@/posts/domain/post';
+import { WorldService, WorldView } from '@/world/world.service';
+
+import { PostsService } from './posts.service';
 
 describe('PostsService', () => {
-  let service: PostsService;
-
-  const worldRecordFixture: WorldRecord = {
+  const world: WorldView = {
     id: '00000000-0000-4000-8000-000000000001',
     name: 'The MBTI House',
     slug: 'mbti-house',
@@ -27,18 +20,16 @@ describe('PostsService', () => {
     topicScope: 'MBTI theory and house life',
     residentCount: 16,
     isActive: true,
-    createdAt: new Date('2026-08-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+    createdAt: new Date('2026-08-01'),
+    updatedAt: new Date('2026-08-01'),
   };
-
-  const authorFixture: AuthorRecord = {
+  const author: Author = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
     name: 'Standard_Procedure',
     avatarUrl: null,
   };
-
-  const postRecordFixture: PostRecord = {
+  const post: PostItem = {
     id: '00000000-0000-4000-8000-000000000002',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
@@ -46,167 +37,136 @@ describe('PostsService', () => {
     createdAt: new Date('2026-08-06T08:00:00.000Z'),
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
   };
-
-  const flatCommentFixture: FlatCommentRecord = {
+  const flatComment: FlatComment = {
     id: '00000000-0000-4000-8000-000000000201',
-    postId: postRecordFixture.id,
+    postId: post.id,
     parentCommentId: null,
-    author: authorFixture,
+    author,
     content: 'It was me. I said it.',
     voteScore: 2,
     createdAt: new Date('2026-08-06T09:00:00.000Z'),
     updatedAt: new Date('2026-08-06T09:00:00.000Z'),
-    postTitle: postRecordFixture.title,
+    postTitle: post.title,
   };
-
-  const commentTreeFixture: CommentRecord[] = [
+  const commentTree: Comment[] = [
     {
-      id: flatCommentFixture.id,
-      author: authorFixture,
-      content: flatCommentFixture.content,
-      voteScore: flatCommentFixture.voteScore,
-      createdAt: flatCommentFixture.createdAt,
-      updatedAt: flatCommentFixture.updatedAt,
+      id: flatComment.id,
+      author,
+      content: flatComment.content,
+      voteScore: flatComment.voteScore,
+      createdAt: flatComment.createdAt,
+      updatedAt: flatComment.updatedAt,
       replies: [],
     },
   ];
-
-  const paginatedFeedFixture: CursorPaginated<PostFeedRecord> = {
-    items: [
-      {
-        ...postRecordFixture,
-        author: authorFixture,
-        commentCount: 2,
-      },
-    ],
+  const feed: CursorPaginated<FeedPost> = {
+    items: [{ ...post, author, commentCount: 2 }],
     nextCursor: null,
   };
-
-  const queryFixture: ListPostsQuery = { sort: 'hot', limit: 20 };
-
-  const mockWorldService: jest.Mocked<Pick<WorldService, 'getBySlug'>> = {
+  const query: ListPostsQuery = { sort: 'hot', limit: 20 };
+  const worldService = {
     getBySlug: jest.fn(),
-  };
-
-  const mockPostRepository: jest.Mocked<
-    Pick<PostRepository, 'findFeed' | 'findById'>
-  > = {
-    findFeed: jest.fn(),
-    findById: jest.fn(),
-  };
-
-  const mockCommentRepository: jest.Mocked<
-    Pick<CommentRepository, 'findByPostId'>
-  > = {
+  } as unknown as jest.Mocked<Pick<WorldService, 'getBySlug'>>;
+  const commentsService = {
     findByPostId: jest.fn(),
+    countByPostIds: jest.fn(),
+  } as unknown as jest.Mocked<
+    Pick<CommentsService, 'findByPostId' | 'countByPostIds'>
+  >;
+  const prisma = {
+    post: { findMany: jest.fn(), findFirst: jest.fn() },
   };
+  let service: PostsService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PostsService,
-        { provide: WorldService, useValue: mockWorldService },
-        { provide: PostRepository, useValue: mockPostRepository },
-        { provide: CommentRepository, useValue: mockCommentRepository },
-      ],
-    }).compile();
-
-    service = module.get<PostsService>(PostsService);
+  beforeEach(() => {
     jest.clearAllMocks();
+    service = new PostsService(
+      worldService as unknown as WorldService,
+      prisma as unknown as PrismaService,
+      commentsService as unknown as CommentsService,
+    );
+    worldService.getBySlug.mockResolvedValue(world);
+    commentsService.countByPostIds.mockResolvedValue(new Map([[post.id, 2]]));
   });
 
-  describe('findFeed', () => {
-    it('resolves the active world and delegates with its id', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-      mockPostRepository.findFeed.mockResolvedValue(paginatedFeedFixture);
-
-      const feed = await service.findFeed('mbti-house', queryFixture);
-
-      expect(feed).toEqual(paginatedFeedFixture);
-      expect(mockWorldService.getBySlug).toHaveBeenCalledWith(
-        'mbti-house',
-        false,
-      );
-      expect(mockPostRepository.findFeed).toHaveBeenCalledWith(
-        worldRecordFixture.id,
-        {
-          sort: 'hot',
-          limit: 20,
-          cursor: null,
+  it('resolves the active world and reads its feed directly from Prisma', async () => {
+    prisma.post.findMany.mockResolvedValue([
+      {
+        ...post,
+        author: {
+          id: author.id,
+          character: {
+            handle: author.handle,
+            name: author.name,
+            avatarUrl: author.avatarUrl,
+          },
+          user: null,
         },
-      );
-    });
+      },
+    ]);
 
-    it('rejects malformed cursors before querying the repository', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-
-      await expect(
-        service.findFeed('mbti-house', {
-          ...queryFixture,
-          cursor: 'not-a-valid-cursor',
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(mockPostRepository.findFeed).not.toHaveBeenCalled();
-    });
-
-    it('returns null without querying posts when the world is missing', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(null);
-
-      const feed = await service.findFeed('missing-world', queryFixture);
-
-      expect(feed).toBeNull();
-      expect(mockPostRepository.findFeed).not.toHaveBeenCalled();
-    });
+    await expect(service.findFeed('mbti-house', query)).resolves.toEqual(feed);
+    expect(worldService.getBySlug).toHaveBeenCalledWith('mbti-house', false);
+    expect(prisma.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ worldId: world.id }),
+      }),
+    );
   });
 
-  describe('findById', () => {
-    it('returns the post with its bounded comment tree', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-      mockPostRepository.findById.mockResolvedValue({
-        ...postRecordFixture,
-        author: authorFixture,
-      });
-      mockCommentRepository.findByPostId.mockResolvedValue([
-        flatCommentFixture,
-      ]);
+  it('rejects malformed cursors before querying Prisma', async () => {
+    await expect(
+      service.findFeed('mbti-house', { ...query, cursor: 'invalid' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.post.findMany).not.toHaveBeenCalled();
+  });
 
-      const detail = await service.findById('mbti-house', postRecordFixture.id);
+  it('returns null without querying posts when the world is missing', async () => {
+    worldService.getBySlug.mockResolvedValue(null);
 
-      expect(detail).toEqual({
-        ...postRecordFixture,
-        author: authorFixture,
-        comments: commentTreeFixture,
-      });
-      expect(mockPostRepository.findById).toHaveBeenCalledWith(
-        worldRecordFixture.id,
-        postRecordFixture.id,
-      );
-      expect(mockCommentRepository.findByPostId).toHaveBeenCalledWith(
-        postRecordFixture.id,
-      );
+    await expect(service.findFeed('missing-world', query)).resolves.toBeNull();
+    expect(prisma.post.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns a world-scoped post with its bounded comment tree', async () => {
+    prisma.post.findFirst.mockResolvedValue({
+      ...post,
+      author: {
+        id: author.id,
+        character: {
+          handle: author.handle,
+          name: author.name,
+          avatarUrl: author.avatarUrl,
+        },
+        user: null,
+      },
     });
+    commentsService.findByPostId.mockResolvedValue([flatComment]);
 
-    it('returns null without querying comments when the world is missing', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(null);
-
-      const detail = await service.findById('missing-world', 'some-post');
-
-      expect(detail).toBeNull();
-      expect(mockPostRepository.findById).not.toHaveBeenCalled();
-      expect(mockCommentRepository.findByPostId).not.toHaveBeenCalled();
+    await expect(
+      service.findByWorldSlug('mbti-house', post.id),
+    ).resolves.toEqual({
+      ...post,
+      author,
+      comments: commentTree,
     });
+    expect(prisma.post.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: post.id, worldId: world.id } }),
+    );
+    expect(commentsService.findByPostId).toHaveBeenCalledWith(post.id);
+  });
 
-    it('returns null without querying comments when the post is not in that world', async () => {
-      mockWorldService.getBySlug.mockResolvedValue(worldRecordFixture);
-      mockPostRepository.findById.mockResolvedValue(null);
+  it('returns null when the world or post is missing', async () => {
+    worldService.getBySlug.mockResolvedValue(null);
+    await expect(
+      service.findByWorldSlug('missing-world', post.id),
+    ).resolves.toBeNull();
 
-      const detail = await service.findById(
-        'mbti-house',
-        '00000000-0000-4000-8000-00000000dead',
-      );
-
-      expect(detail).toBeNull();
-      expect(mockCommentRepository.findByPostId).not.toHaveBeenCalled();
-    });
+    worldService.getBySlug.mockResolvedValue(world);
+    prisma.post.findFirst.mockResolvedValue(null);
+    await expect(
+      service.findByWorldSlug('mbti-house', 'missing-post'),
+    ).resolves.toBeNull();
+    expect(commentsService.findByPostId).not.toHaveBeenCalled();
   });
 });

@@ -5,24 +5,23 @@ import { NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { AuthorRecord } from '@/comments/domain/comment-record';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { SearchResultRecord } from '@/search/domain/search-record';
-import { SearchResponseMapper } from '@/search/mappers/search-response.mapper';
+import { Author } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { SearchResult } from '@/search/domain/search';
 import { SearchController } from '@/search/search.controller';
 import { SearchService } from '@/search/search.service';
 
 describe('SearchController', () => {
   let controller: SearchController;
 
-  const authorFixture: AuthorRecord = {
+  const authorFixture: Author = {
     id: '00000000-0000-4000-8000-000000000101',
     handle: 'standard_procedure',
     name: 'Standard_Procedure',
     avatarUrl: null,
   };
 
-  const postRecordFixture: PostWithAuthorRecord = {
+  const postRecordFixture: PostWithAuthor = {
     id: '00000000-0000-4000-8000-000000000001',
     title: 'Who actually uses the microwave for FISH?',
     content: 'It smells like low tide.',
@@ -32,7 +31,7 @@ describe('SearchController', () => {
     updatedAt: new Date('2026-08-06T08:00:00.000Z'),
   };
 
-  const resultsFixture: Paginated<SearchResultRecord> = {
+  const resultsFixture: Paginated<SearchResult> = {
     items: [{ type: 'post', post: postRecordFixture }],
     meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
   };
@@ -61,19 +60,10 @@ describe('SearchController', () => {
     search: jest.fn(),
   };
 
-  const mockSearchResponseMapper: jest.Mocked<
-    Pick<SearchResponseMapper, 'mapToSearchResponse'>
-  > = {
-    mapToSearchResponse: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SearchController],
-      providers: [
-        { provide: SearchService, useValue: mockSearchService },
-        { provide: SearchResponseMapper, useValue: mockSearchResponseMapper },
-      ],
+      providers: [{ provide: SearchService, useValue: mockSearchService }],
     }).compile();
 
     controller = module.get<SearchController>(SearchController);
@@ -82,9 +72,6 @@ describe('SearchController', () => {
 
   it('should return the mapped search response', async () => {
     mockSearchService.search.mockResolvedValue(resultsFixture);
-    mockSearchResponseMapper.mapToSearchResponse.mockReturnValue(
-      searchResponseFixture,
-    );
 
     const response = await controller.search('mbti-house', queryFixture);
 
@@ -92,9 +79,6 @@ describe('SearchController', () => {
     expect(mockSearchService.search).toHaveBeenCalledWith(
       'mbti-house',
       queryFixture,
-    );
-    expect(mockSearchResponseMapper.mapToSearchResponse).toHaveBeenCalledWith(
-      resultsFixture,
     );
   });
 
@@ -108,7 +92,6 @@ describe('SearchController', () => {
       'missing-world',
       queryFixture,
     );
-    expect(mockSearchResponseMapper.mapToSearchResponse).not.toHaveBeenCalled();
   });
 
   it('should be publicly accessible without a session', () => {

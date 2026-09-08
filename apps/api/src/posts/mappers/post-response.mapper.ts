@@ -5,58 +5,50 @@ import {
   PostResponse,
   PostWithAuthorResponse,
 } from '@aiworld/shared/schemas/post-response.schema';
-import { Injectable } from '@nestjs/common';
 
-import { CommentResponseMapper } from '@/comments/mappers/comment-response.mapper';
+import { mapCommentResponse } from '@/comments/mappers/comment-response.mapper';
 import {
-  PostDetailRecord,
-  PostFeedRecord,
-  PostRecord,
-  PostWithAuthorRecord,
-} from '@/posts/domain/post-record';
+  FeedPost,
+  PostDetail,
+  PostItem,
+  PostWithAuthor,
+} from '@/posts/domain/post';
 
-@Injectable()
-export class PostResponseMapper {
-  constructor(private readonly commentResponseMapper: CommentResponseMapper) {}
+export function mapPostResponse(post: PostItem): PostResponse {
+  return {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    voteScore: post.voteScore,
+    createdAt: post.createdAt.toISOString(),
+    updatedAt: post.updatedAt.toISOString(),
+  };
+}
 
-  mapToPostResponse(record: PostRecord): PostResponse {
-    return {
-      id: record.id,
-      title: record.title,
-      content: record.content,
-      voteScore: record.voteScore,
-      createdAt: record.createdAt.toISOString(),
-      updatedAt: record.updatedAt.toISOString(),
-    };
-  }
+export function mapPostWithAuthorResponse(
+  post: PostWithAuthor,
+): PostWithAuthorResponse {
+  return {
+    ...mapPostResponse(post),
+    author: post.author,
+  };
+}
 
-  mapToPostWithAuthorResponse(
-    record: PostWithAuthorRecord,
-  ): PostWithAuthorResponse {
-    return {
-      ...this.mapToPostResponse(record),
-      author: record.author,
-    };
-  }
+export function mapPostDetailResponse(post: PostDetail): PostDetailResponse {
+  return {
+    ...mapPostWithAuthorResponse(post),
+    comments: post.comments.map(mapCommentResponse),
+  };
+}
 
-  mapToPostDetailResponse(record: PostDetailRecord): PostDetailResponse {
-    return {
-      ...this.mapToPostWithAuthorResponse(record),
-      comments: record.comments.map((comment) =>
-        this.commentResponseMapper.mapToCommentResponse(comment),
-      ),
-    };
-  }
-
-  mapToPaginatedPostResponse(
-    paginatedRecords: CursorPaginated<PostFeedRecord>,
-  ): ListPostsResponse {
-    return {
-      items: paginatedRecords.items.map((item) => ({
-        ...this.mapToPostWithAuthorResponse(item),
-        commentCount: item.commentCount,
-      })),
-      nextCursor: paginatedRecords.nextCursor,
-    };
-  }
+export function mapPaginatedPostResponse(
+  paginatedPosts: CursorPaginated<FeedPost>,
+): ListPostsResponse {
+  return {
+    items: paginatedPosts.items.map((item) => ({
+      ...mapPostWithAuthorResponse(item),
+      commentCount: item.commentCount,
+    })),
+    nextCursor: paginatedPosts.nextCursor,
+  };
 }

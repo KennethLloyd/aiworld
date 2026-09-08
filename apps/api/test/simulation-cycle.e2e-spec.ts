@@ -15,7 +15,7 @@ import {
 } from '@/simulation/actions/simulation-decision';
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { SimulationExecutionSource } from '@/simulation/domain/simulation-log';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
@@ -32,20 +32,20 @@ type FullCycleStep =
       step: 'POST' | 'VOTE' | 'COMMENT';
       status: 'success';
       targetId: string;
-      log: SimulationLogRecord;
+      log: SimulationLogEntry;
     }
   | {
       step: 'VOTE';
       status: 'skipped';
       targetId: null;
-      log: SimulationLogRecord;
+      log: SimulationLogEntry;
     }
   | {
       step: 'POST' | 'VOTE' | 'COMMENT';
       status: 'failed';
       targetId: null;
       failure: ActionFailure;
-      log: SimulationLogRecord;
+      log: SimulationLogEntry;
     };
 
 async function runFullCycle(

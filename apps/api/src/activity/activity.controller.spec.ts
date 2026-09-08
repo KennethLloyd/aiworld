@@ -5,7 +5,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { ActivityController } from '@/activity/activity.controller';
 import { ActivityService } from '@/activity/activity.service';
-import { ActivityResponseMapper } from '@/activity/mappers/activity-response.mapper';
 
 describe('ActivityController', () => {
   let controller: ActivityController;
@@ -103,22 +102,10 @@ describe('ActivityController', () => {
     findActivity: jest.fn(),
   };
 
-  const mockActivityResponseMapper: jest.Mocked<
-    Pick<ActivityResponseMapper, 'mapToCharacterActivityResponse'>
-  > = {
-    mapToCharacterActivityResponse: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ActivityController],
-      providers: [
-        { provide: ActivityService, useValue: mockActivityService },
-        {
-          provide: ActivityResponseMapper,
-          useValue: mockActivityResponseMapper,
-        },
-      ],
+      providers: [{ provide: ActivityService, useValue: mockActivityService }],
     }).compile();
 
     controller = module.get<ActivityController>(ActivityController);
@@ -127,9 +114,6 @@ describe('ActivityController', () => {
 
   it('should return the mapped character activity', async () => {
     mockActivityService.findActivity.mockResolvedValue(activityRecordFixture);
-    mockActivityResponseMapper.mapToCharacterActivityResponse.mockReturnValue(
-      activityResponseFixture,
-    );
 
     const response = await controller.getActivity(
       { characterId: '00000000-0000-4000-8000-000000000101' },
@@ -143,17 +127,10 @@ describe('ActivityController', () => {
       undefined,
       20,
     );
-    expect(
-      mockActivityResponseMapper.mapToCharacterActivityResponse,
-    ).toHaveBeenCalledWith(activityRecordFixture);
   });
 
   it('should forward the cursor and limit from the query', async () => {
     mockActivityService.findActivity.mockResolvedValue({
-      items: [],
-      nextCursor: null,
-    });
-    mockActivityResponseMapper.mapToCharacterActivityResponse.mockReturnValue({
       items: [],
       nextCursor: null,
     });
@@ -186,9 +163,6 @@ describe('ActivityController', () => {
       undefined,
       20,
     );
-    expect(
-      mockActivityResponseMapper.mapToCharacterActivityResponse,
-    ).not.toHaveBeenCalled();
   });
 
   describe('access metadata', () => {

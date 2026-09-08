@@ -1,6 +1,19 @@
 import { BadRequestException, type ArgumentsHost } from '@nestjs/common';
 import type { Response } from 'express';
 
+import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
+import {
+  InvalidSimulationStateTransitionError,
+  SimulationConfigMalformedError,
+  SimulationConfigNotFoundError,
+  SimulationWorkRejectedError,
+} from '@/simulation/lifecycle/simulation-lifecycle.error';
+import {
+  SimulationCharacterNotActiveError,
+  SimulationIterationPickError,
+} from '@/simulation/scheduler/simulation-scheduler.error';
+import { WorldDeactivationRejectedError } from '@/world/world.error';
+
 import { HttpExceptionFilter } from './http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
@@ -81,4 +94,31 @@ describe('HttpExceptionFilter', () => {
       error: 'Internal Server Error',
     });
   });
+
+  it.each([
+    [new SimulationConfigNotFoundError('world-1'), 404],
+    [new SimulationActionError('WORLD_NOT_FOUND', 'missing'), 404],
+    [new SimulationConfigMalformedError('world-1', 'bad weights'), 400],
+    [new SimulationCharacterNotActiveError('character-1', 'world-1'), 400],
+    [new InvalidSimulationStateTransitionError('HALTED', 'PAUSED'), 409],
+    [new SimulationWorkRejectedError('MANUAL', 'HALTED'), 409],
+    [new WorldDeactivationRejectedError(), 409],
+    [
+      new SimulationIterationPickError(
+        'NO_ACTIVE_CHARACTERS',
+        'no active characters',
+      ),
+      409,
+    ],
+  ] as const)(
+    'maps domain error %s to HTTP %s',
+    (exception, expectedStatus) => {
+      filter.catch(exception, createHost());
+
+      expect(status).toHaveBeenCalledWith(expectedStatus);
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ statusCode: expectedStatus }),
+      );
+    },
+  );
 });

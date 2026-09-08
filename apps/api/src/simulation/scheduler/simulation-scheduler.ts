@@ -17,17 +17,19 @@ import { Redis as IORedis } from 'ioredis';
 import { redactDiagnostics } from '@/common/diagnostics';
 import type { SimulationActionType } from '@/simulation/actions/simulation-action-type';
 import { SimulationActionError } from '@/simulation/actions/simulation-action.error';
-import type { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
+import type { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
-import { SimulationCastingRepository } from '@/simulation/scheduler/simulation-casting-repository.interface';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import type { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
 import type { SimulationRuntimeSignals } from '@/simulation/scheduler/simulation-runtime-signals';
-import { SimulationRuntimeStateRepository } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
-import type { SimulationRuntimeStateRecord } from '@/simulation/scheduler/simulation-runtime-state-repository.interface';
+import {
+  SimulationRuntimeState,
+  SimulationRuntimeStateService,
+  SimulationRuntimeStateUpdate,
+} from '@/simulation/scheduler/simulation-runtime-state.service';
 import {
   SCHEDULER_CONFIG,
   type SchedulerConfig,
@@ -36,8 +38,7 @@ import {
   isTransientSchedulerError,
   SimulationIterationPickError,
 } from '@/simulation/scheduler/simulation-scheduler.error';
-import type { WorldRecord } from '@/world/domain/world-record';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldService, WorldView } from '@/world/world.service';
 
 export const SIMULATION_TURNS_QUEUE = 'simulation-turns';
 export const SIMULATION_TURNS_DLQ = 'simulation-turns-dlq';
@@ -45,7 +46,7 @@ export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
 export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
 export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');
 
-function emptyRuntimeState(worldId: string): SimulationRuntimeStateRecord {
+function emptyRuntimeState(worldId: string): SimulationRuntimeState {
   return {
     worldId,
     pending: false,
@@ -70,10 +71,9 @@ export type RunCustomActionInput = {
   actionType?: SimulationActionType;
 };
 
-export type SimulationSchedulerObservabilityRecord =
-  SimulationRuntimeSignals & {
-    available: boolean;
-  };
+export type SimulationSchedulerObservability = SimulationRuntimeSignals & {
+  available: boolean;
+};
 
 function turnJobName(worldId: string): string {
   return `turn_${worldId}`;
@@ -99,12 +99,11 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     @Inject(SCHEDULER_CONFIG)
     private readonly schedulerConfig: SchedulerConfig,
     private readonly lifecycleService: SimulationLifecycleService,
-    private readonly worldRepository: WorldRepository,
+    private readonly worldService: WorldService,
     private readonly picker: SimulationIterationPicker,
-    private readonly castingRepository: SimulationCastingRepository,
     private readonly randomSource: SimulationRandomSource,
     private readonly runner: SimulationRunner,
-    private readonly runtimeStateRepository: SimulationRuntimeStateRepository,
+    private readonly runtimeStateService: SimulationRuntimeStateService,
     @Inject(SIMULATION_QUEUE)
     private readonly queue: Queue,
     @Inject(SIMULATION_DLQ)
@@ -151,7 +150,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
   async getObservability(
     worldId: string,
-  ): Promise<SimulationSchedulerObservabilityRecord> {
+  ): Promise<SimulationSchedulerObservability> {
     const runtime = await this.getRuntimeObservability(
       worldId,
       this.connection.status === 'ready' && (this.worker?.isRunning() ?? false),
@@ -171,7 +170,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
     let worldId: string | undefined;
     try {
-      worldId = (await this.worldRepository.findBySlug(turn.worldSlug))?.id;
+      worldId = (await this.worldService.getBySlug(turn.worldSlug, true))?.id;
     } catch {
       // Let the runner classify processing errors even if lookup fails.
     }
@@ -255,7 +254,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     worldId: string,
     error: unknown,
   ): Promise<void> {
-    await this.runtimeStateRepository.update(worldId, {
+    await this.runtimeStateService.update(worldId, {
       bootResumeFailure: {
         occurredAt: new Date(),
         reason: redactDiagnostics(
@@ -342,7 +341,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
   private async markRetry(worldId: string): Promise<void> {
     try {
-      await this.runtimeStateRepository.recordRetry(worldId);
+      await this.runtimeStateService.recordRetry(worldId);
     } catch {
       return;
     }
@@ -354,7 +353,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     reason: string,
   ): Promise<void> {
     try {
-      await this.runtimeStateRepository.recordDeadLetter(
+      await this.runtimeStateService.recordDeadLetter(
         worldId,
         occurredAt,
         reason,
@@ -366,10 +365,10 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
 
   private async persistRuntimeState(
     worldId: string,
-    input: Parameters<SimulationRuntimeStateRepository['update']>[1],
+    input: SimulationRuntimeStateUpdate,
   ): Promise<void> {
     try {
-      await this.runtimeStateRepository.update(worldId, input);
+      await this.runtimeStateService.update(worldId, input);
     } catch {
       return;
     }
@@ -378,9 +377,9 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   private async getRuntimeObservability(
     worldId: string,
     available: boolean,
-  ): Promise<SimulationSchedulerObservabilityRecord> {
+  ): Promise<SimulationSchedulerObservability> {
     const stored =
-      (await this.runtimeStateRepository.findByWorldId(worldId)) ??
+      (await this.runtimeStateService.findByWorldId(worldId)) ??
       emptyRuntimeState(worldId);
     const retryIsRecent =
       stored.lastRetryAt !== null &&
@@ -431,15 +430,14 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const world = await this.worldRepository.findById(worldId);
+    const world = await this.worldService.findById(worldId);
     if (!world?.isActive) {
       await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
-    const actors = await this.castingRepository.findActiveActors(worldId);
-    if (actors.length === 0) {
+    if (!(await this.picker.hasActiveActors(worldId))) {
       await this.removePendingTurn(worldId);
       await this.markBlockedByNoActiveResidents(worldId);
       return;
@@ -468,15 +466,14 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const world = await this.worldRepository.findById(worldId);
+    const world = await this.worldService.findById(worldId);
     if (!world?.isActive) {
       await this.removePendingTurn(worldId);
       await this.markStopped(worldId);
       return;
     }
 
-    const actors = await this.castingRepository.findActiveActors(worldId);
-    if (actors.length === 0) {
+    if (!(await this.picker.hasActiveActors(worldId))) {
       await this.removePendingTurn(worldId);
       await this.markBlockedByNoActiveResidents(worldId);
       return;
@@ -581,10 +578,10 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
   private async composeScheduledTurn(worldId: string): Promise<
     | {
         turn: ScheduledTurn;
-        config: WorldSimulationConfigRecord;
+        config: SimulationConfig;
       }
     | {
-        config: WorldSimulationConfigRecord;
+        config: SimulationConfig;
         blockedReason: 'NO_ACTIVE_RESIDENTS';
       }
     | null
@@ -594,7 +591,7 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-    let world: WorldRecord;
+    let world: WorldView;
     try {
       world = await this.requireWorld(worldId);
     } catch (error) {
@@ -631,8 +628,8 @@ export class SimulationScheduler implements OnModuleInit, OnModuleDestroy {
     return { turn, config };
   }
 
-  private async requireWorld(worldId: string): Promise<WorldRecord> {
-    const world = await this.worldRepository.findById(worldId);
+  private async requireWorld(worldId: string): Promise<WorldView> {
+    const world = await this.worldService.findById(worldId);
     if (!world) {
       throw new SimulationActionError(
         'WORLD_NOT_FOUND',

@@ -1,11 +1,11 @@
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
+import { CharactersService } from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
+import { PostWithAuthor } from '@/posts/domain/post';
+import { PostsService } from '@/posts/posts.service';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService } from '@/world/world.service';
 
 import { PostAction } from './post.action';
 import { SimulationContextProvider } from './simulation-context-provider';
@@ -48,30 +48,30 @@ function mockConfig() {
 function createAction(overrides: {
   character?: typeof character | null;
   member?: { id: string } | null;
-  recentPosts?: PostWithAuthorRecord[];
+  recentPosts?: PostWithAuthor[];
   provider?: MockLlmProvider | StubLlmProvider;
 }) {
   const worldRepository = {
-    findBySlug: jest.fn().mockResolvedValue(world),
-  } as unknown as WorldRepository;
+    getBySlug: jest.fn().mockResolvedValue(world),
+  } as unknown as WorldService;
   const characterRepository = {
-    findById: jest
+    getById: jest
       .fn()
       .mockResolvedValue(
         overrides.character === undefined ? character : overrides.character,
       ),
-  } as unknown as CharacterRepository;
+  } as unknown as CharactersService;
   const worldMemberRepository = {
     findActiveByWorldAndCharacter: jest
       .fn()
       .mockResolvedValue(
         overrides.member === undefined ? { id: 'member-1' } : overrides.member,
       ),
-  } as unknown as WorldMemberRepository;
+  } as unknown as WorldMembersService;
   const postRepository = {
     findRecentByWorld: jest.fn().mockResolvedValue(overrides.recentPosts ?? []),
-  } as unknown as PostRepository;
-  const commentRepository = {} as unknown as CommentRepository;
+  } as unknown as PostsService;
+  const commentRepository = {} as unknown as CommentsService;
 
   const contextProvider = new SimulationContextProvider(
     worldRepository,

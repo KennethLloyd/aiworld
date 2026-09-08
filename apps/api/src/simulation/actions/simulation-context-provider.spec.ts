@@ -1,8 +1,8 @@
-import { CharacterRepository } from '@/characters/repositories/character-repository.interface';
-import { CommentRepository } from '@/comments/repositories/comment-repository.interface';
-import { PostRepository } from '@/posts/repositories/post-repository.interface';
-import { WorldMemberRepository } from '@/world-members/repositories/world-member-repository.interface';
-import { WorldRepository } from '@/world/repositories/world-repository.interface';
+import { CharactersService } from '@/characters/characters.service';
+import { CommentsService } from '@/comments/comments.service';
+import { PostsService } from '@/posts/posts.service';
+import { WorldMembersService } from '@/world-members/world-members.service';
+import { WorldService } from '@/world/world.service';
 
 import { SimulationContextProvider } from './simulation-context-provider';
 
@@ -17,7 +17,6 @@ const world = {
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };
-
 const character = {
   id: 'character-1',
   handle: 'standard_procedure',
@@ -32,7 +31,6 @@ const character = {
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };
-
 const post = {
   id: 'post-1',
   title: 'A thought',
@@ -40,12 +38,7 @@ const post = {
   voteScore: 0,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
-  author: {
-    id: 'member-2',
-    handle: 'other',
-    name: 'Other',
-    avatarUrl: null,
-  },
+  author: { id: 'member-2', handle: 'other', name: 'Other', avatarUrl: null },
 };
 
 function createProvider(
@@ -57,202 +50,134 @@ function createProvider(
     thread?: unknown[];
   } = {},
 ) {
-  const worldRepository: jest.Mocked<WorldRepository> = {
-    findAll: jest.fn(),
-    findBySlug: jest
+  const worldService = {
+    getBySlug: jest
       .fn()
       .mockResolvedValue(
         overrides.world === undefined ? world : overrides.world,
       ),
-    findById: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  };
-  const characterRepository: jest.Mocked<CharacterRepository> = {
-    findAll: jest.fn(),
-    findById: jest
+  } as unknown as jest.Mocked<WorldService>;
+  const charactersService = {
+    getById: jest
       .fn()
       .mockResolvedValue(
         overrides.character === undefined ? character : overrides.character,
       ),
-    findWorldSlugs: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  };
-  const worldMemberRepository: jest.Mocked<WorldMemberRepository> = {
-    findAll: jest.fn(),
-    findById: jest.fn(),
-    findByWorldAndCharacter: jest.fn(),
+  } as unknown as jest.Mocked<CharactersService>;
+  const worldMembersService = {
     findActiveByWorldAndCharacter: jest
       .fn()
       .mockResolvedValue(
         overrides.member === undefined ? { id: 'member-1' } : overrides.member,
       ),
-    create: jest.fn(),
-    update: jest.fn(),
-  };
-  const postRepository: jest.Mocked<PostRepository> = {
-    findFeed: jest.fn(),
+  } as unknown as jest.Mocked<WorldMembersService>;
+  const postsService = {
     findById: jest
       .fn()
       .mockResolvedValue(overrides.post === undefined ? post : overrides.post),
     findRecentByWorld: jest.fn().mockResolvedValue([]),
-    findByAuthorMembership: jest.fn(),
-    searchByText: jest.fn(),
-    create: jest.fn(),
-  };
-  const commentRepository: jest.Mocked<CommentRepository> = {
-    findById: jest.fn(),
-    findByPostId: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.thread === undefined ? [] : overrides.thread,
-      ),
-    findByAuthorMembership: jest.fn(),
-    searchByText: jest.fn(),
-    countByPostIds: jest.fn(),
-    create: jest.fn(),
-  };
-
-  const provider = new SimulationContextProvider(
-    worldRepository,
-    characterRepository,
-    worldMemberRepository,
-    postRepository,
-    commentRepository,
-  );
+  } as unknown as jest.Mocked<PostsService>;
+  const commentsService = {
+    findByPostId: jest.fn().mockResolvedValue(overrides.thread ?? []),
+  } as unknown as jest.Mocked<CommentsService>;
 
   return {
-    provider,
-    worldRepository,
-    characterRepository,
-    worldMemberRepository,
-    postRepository,
-    commentRepository,
+    provider: new SimulationContextProvider(
+      worldService,
+      charactersService,
+      worldMembersService,
+      postsService,
+      commentsService,
+    ),
+    worldService,
+    charactersService,
+    worldMembersService,
+    postsService,
+    commentsService,
   };
 }
 
 describe('SimulationContextProvider', () => {
-  describe('resolveActor', () => {
-    it('resolves an active character through its active WorldMember', async () => {
-      const { provider } = createProvider();
+  it('resolves an active character through its active WorldMember', async () => {
+    const { provider } = createProvider();
 
-      const actor = await provider.resolveActor('mbti-house', 'character-1');
-
-      expect(actor).toEqual({
-        world,
-        character,
-        memberId: 'member-1',
-      });
+    await expect(
+      provider.resolveActor('mbti-house', 'character-1'),
+    ).resolves.toEqual({
+      world,
+      character,
+      memberId: 'member-1',
     });
+  });
 
-    it('filters the membership lookup to active members', async () => {
-      const { provider, worldMemberRepository } = createProvider();
+  it('filters the membership lookup to active members', async () => {
+    const { provider, worldMembersService } = createProvider();
 
-      await provider.resolveActor('mbti-house', 'character-1');
+    await provider.resolveActor('mbti-house', 'character-1');
 
-      expect(
-        worldMemberRepository.findActiveByWorldAndCharacter,
-      ).toHaveBeenCalledWith('world-1', 'character-1');
-    });
+    expect(
+      worldMembersService.findActiveByWorldAndCharacter,
+    ).toHaveBeenCalledWith('world-1', 'character-1');
+  });
 
-    it('rejects an inactive character', async () => {
-      const { provider } = createProvider({ character: null });
+  it.each([
+    ['character', { character: null }, 'CHARACTER_INACTIVE'],
+    ['membership', { member: null }, 'MEMBER_NOT_FOUND'],
+    ['World', { world: null }, 'WORLD_NOT_FOUND'],
+  ] as const)(
+    'rejects a missing or inactive %s',
+    async (_label, overrides, code) => {
+      const { provider } = createProvider(overrides);
 
       await expect(
         provider.resolveActor('mbti-house', 'character-1'),
       ).rejects.toMatchObject({
-        code: 'CHARACTER_INACTIVE',
+        code,
         retryable: false,
       });
-    });
+    },
+  );
 
-    it('rejects a missing or inactive membership', async () => {
-      const { provider } = createProvider({ member: null });
+  it('returns the post in the World', async () => {
+    const { provider } = createProvider();
 
-      await expect(
-        provider.resolveActor('mbti-house', 'character-1'),
-      ).rejects.toMatchObject({
-        code: 'MEMBER_NOT_FOUND',
-        retryable: false,
-      });
-    });
+    await expect(provider.findPost('world-1', 'post-1')).resolves.toEqual(post);
+  });
 
-    it('rejects a missing or inactive World', async () => {
-      const { provider } = createProvider({ world: null });
+  it('rejects a post outside the World', async () => {
+    const { provider } = createProvider({ post: null });
 
-      await expect(
-        provider.resolveActor('mbti-house', 'character-1'),
-      ).rejects.toMatchObject({
-        code: 'WORLD_NOT_FOUND',
-        retryable: false,
-      });
+    await expect(provider.findPost('world-1', 'post-1')).rejects.toMatchObject({
+      code: 'POST_NOT_FOUND',
+      retryable: false,
     });
   });
 
-  describe('findPost', () => {
-    it('returns the post in the World', async () => {
-      const { provider } = createProvider();
-
-      await expect(provider.findPost('world-1', 'post-1')).resolves.toEqual(
-        post,
-      );
+  it('delegates bounded recent-post and thread reads to their services', async () => {
+    const comment = {
+      id: 'comment-1',
+      postId: 'post-1',
+      parentCommentId: null,
+      author: {
+        id: 'member-1',
+        handle: 'standard_procedure',
+        name: 'Standard_Procedure',
+        avatarUrl: null,
+      },
+      content: 'Agreed.',
+      voteScore: 0,
+      createdAt: new Date('2026-01-02'),
+      updatedAt: new Date('2026-01-02'),
+      postTitle: 'A thought',
+    };
+    const { provider, postsService, commentsService } = createProvider({
+      thread: [comment],
     });
+    postsService.findRecentByWorld.mockResolvedValue([post]);
 
-    it('rejects a post outside the World', async () => {
-      const { provider } = createProvider({ post: null });
-
-      await expect(
-        provider.findPost('world-1', 'post-1'),
-      ).rejects.toMatchObject({
-        code: 'POST_NOT_FOUND',
-        retryable: false,
-      });
-    });
-  });
-
-  describe('findRecentPosts', () => {
-    it('delegates a bounded recent-post read for the World', async () => {
-      const { provider, postRepository } = createProvider();
-      postRepository.findRecentByWorld.mockResolvedValue([post]);
-
-      await expect(provider.findRecentPosts('world-1')).resolves.toEqual([
-        post,
-      ]);
-      expect(postRepository.findRecentByWorld).toHaveBeenCalledWith(
-        'world-1',
-        5,
-      );
-    });
-  });
-
-  describe('findThread', () => {
-    it('delegates to the comment repository', async () => {
-      const comment = {
-        id: 'comment-1',
-        postId: 'post-1',
-        parentCommentId: null,
-        author: {
-          id: 'member-1',
-          handle: 'standard_procedure',
-          name: 'Standard_Procedure',
-          avatarUrl: null,
-        },
-        content: 'Agreed.',
-        voteScore: 0,
-        createdAt: new Date('2026-01-02'),
-        updatedAt: new Date('2026-01-02'),
-        postTitle: 'A thought',
-      };
-      const { provider, commentRepository } = createProvider({
-        thread: [comment],
-      });
-
-      const thread = await provider.findThread('post-1');
-
-      expect(commentRepository.findByPostId).toHaveBeenCalledWith('post-1');
-      expect(thread).toEqual([comment]);
-    });
+    await expect(provider.findRecentPosts('world-1')).resolves.toEqual([post]);
+    await expect(provider.findThread('post-1')).resolves.toEqual([comment]);
+    expect(postsService.findRecentByWorld).toHaveBeenCalledWith('world-1', 5);
+    expect(commentsService.findByPostId).toHaveBeenCalledWith('post-1');
   });
 });

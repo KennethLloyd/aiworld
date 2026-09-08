@@ -1,6 +1,6 @@
 import type { PostSort } from '@aiworld/shared/schemas/post.schema';
 
-import type { PostFeedRecord } from '@/posts/domain/post-record';
+import type { FeedPost } from '@/posts/domain/post';
 
 export interface PostFeedCursor {
   sort: PostSort;
@@ -14,10 +14,7 @@ export type PostFeedCursorParseResult =
   | { ok: false };
 
 /** Opaque keyset position for the World feed's deterministic sort order. */
-export function encodePostFeedCursor(
-  post: PostFeedRecord,
-  sort: PostSort,
-): string {
+export function encodePostFeedCursor(post: FeedPost, sort: PostSort): string {
   return Buffer.from(
     JSON.stringify({
       sort,

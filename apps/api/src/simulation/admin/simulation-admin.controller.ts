@@ -32,30 +32,26 @@ import {
 import { Roles } from '@thallesp/nestjs-better-auth';
 
 import { ZodValidationPipe } from '@/common/pipes';
-import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
-import { mapSimulationAdminError } from '@/simulation/admin/simulation-admin.errors';
+import {
+  mapSimulationConfig,
+  mapSimulationHealth,
+  mapSimulationLogs,
+  mapSimulationRunResult,
+  mapSimulationTelemetry,
+} from '@/simulation/admin/simulation-admin-response.mapper';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
 
 /** Admin-only simulation controls; manual work goes through the scheduler. */
 @Controller('worlds/:slug/simulation')
 export class SimulationAdminController {
-  constructor(
-    private readonly adminService: SimulationAdminService,
-    private readonly responseMapper: SimulationAdminResponseMapper,
-  ) {}
+  constructor(private readonly adminService: SimulationAdminService) {}
 
   @Get()
   @Roles(['ADMIN'])
   async getSimulation(
     @Param('slug') slug: string,
   ): Promise<SimulationConfigResponse> {
-    try {
-      return this.responseMapper.mapConfig(
-        await this.adminService.getConfig(slug),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationConfig(await this.adminService.getConfig(slug));
   }
 
   @Patch('state')
@@ -65,13 +61,9 @@ export class SimulationAdminController {
     @Body(new ZodValidationPipe(updateSimulationStateSchema))
     body: UpdateSimulationState,
   ): Promise<SimulationConfigResponse> {
-    try {
-      return this.responseMapper.mapConfig(
-        await this.adminService.updateState(slug, body.state),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationConfig(
+      await this.adminService.updateState(slug, body.state),
+    );
   }
 
   @Patch('speed')
@@ -81,13 +73,9 @@ export class SimulationAdminController {
     @Body(new ZodValidationPipe(updateSimulationSpeedSchema))
     body: UpdateSimulationSpeed,
   ): Promise<SimulationConfigResponse> {
-    try {
-      return this.responseMapper.mapConfig(
-        await this.adminService.updateSpeed(slug, body.speedMultiplier),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationConfig(
+      await this.adminService.updateSpeed(slug, body.speedMultiplier),
+    );
   }
 
   @Post('run-one-action')
@@ -96,13 +84,7 @@ export class SimulationAdminController {
   async runOneAction(
     @Param('slug') slug: string,
   ): Promise<SimulationRunResultResponse> {
-    try {
-      return this.responseMapper.mapRunResult(
-        await this.adminService.runOneAction(slug),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationRunResult(await this.adminService.runOneAction(slug));
   }
 
   @Post('custom-action')
@@ -112,17 +94,13 @@ export class SimulationAdminController {
     @Param('slug') slug: string,
     @Body(new ZodValidationPipe(runCustomActionSchema)) body: RunCustomAction,
   ): Promise<SimulationRunResultResponse> {
-    try {
-      return this.responseMapper.mapRunResult(
-        await this.adminService.runCustomAction({
-          slug,
-          characterId: body.characterId,
-          actionType: body.actionType,
-        }),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationRunResult(
+      await this.adminService.runCustomAction({
+        slug,
+        characterId: body.characterId,
+        actionType: body.actionType,
+      }),
+    );
   }
 
   @Get('health')
@@ -130,13 +108,7 @@ export class SimulationAdminController {
   async getHealth(
     @Param('slug') slug: string,
   ): Promise<SimulationHealthResponse> {
-    try {
-      return this.responseMapper.mapHealth(
-        await this.adminService.getHealth(slug),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationHealth(await this.adminService.getHealth(slug));
   }
 
   @Get('telemetry')
@@ -144,13 +116,7 @@ export class SimulationAdminController {
   async getTelemetry(
     @Param('slug') slug: string,
   ): Promise<SimulationTelemetryResponse> {
-    try {
-      return this.responseMapper.mapTelemetry(
-        await this.adminService.getTelemetry(slug),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationTelemetry(await this.adminService.getTelemetry(slug));
   }
 
   @Get('logs')
@@ -160,22 +126,18 @@ export class SimulationAdminController {
     @Query(new ZodValidationPipe(listSimulationLogsQuerySchema))
     query: ListSimulationLogsQuery,
   ): Promise<ListSimulationLogsResponse> {
-    try {
-      return this.responseMapper.mapLogs(
-        await this.adminService.listLogs({
-          slug,
-          filters: {
-            characterId: query.characterId,
-            action: query.action,
-            status: query.status,
-            executionSource: query.executionSource,
-          },
-          page: query.page,
-          limit: query.limit,
-        }),
-      );
-    } catch (error) {
-      throw mapSimulationAdminError(error);
-    }
+    return mapSimulationLogs(
+      await this.adminService.listLogs({
+        slug,
+        filters: {
+          characterId: query.characterId,
+          action: query.action,
+          status: query.status,
+          executionSource: query.executionSource,
+        },
+        page: query.page,
+        limit: query.limit,
+      }),
+    );
   }
 }

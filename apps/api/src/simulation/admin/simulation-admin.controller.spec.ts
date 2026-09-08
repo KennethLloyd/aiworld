@@ -1,95 +1,58 @@
 import { Paginated } from '@aiworld/shared/schemas/pagination.schema';
-import { SimulationHealthResponse } from '@aiworld/shared/schemas/simulation-health.schema';
-import {
-  ListSimulationLogsResponse,
-  SimulationLogResponse,
-} from '@aiworld/shared/schemas/simulation-log.schema';
-import { SimulationRunResultResponse } from '@aiworld/shared/schemas/simulation-run.schema';
-import { SimulationTelemetryResponse } from '@aiworld/shared/schemas/simulation-telemetry.schema';
-import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PostDecision } from '@/simulation/actions/simulation-decision';
-import { SimulationAdminResponseMapper } from '@/simulation/admin/simulation-admin-response.mapper';
 import { SimulationAdminController } from '@/simulation/admin/simulation-admin.controller';
 import { SimulationAdminService } from '@/simulation/admin/simulation-admin.service';
-import { SimulationHealthRecord } from '@/simulation/admin/simulation-health';
-import { SimulationTelemetryRecord } from '@/simulation/domain/simulation-telemetry';
-import { WorldSimulationConfigRecord } from '@/simulation/lifecycle/domain/world-simulation-config-record';
-import { SimulationConfigNotFoundError } from '@/simulation/lifecycle/simulation-lifecycle.error';
-import { SimulationWorkRejectedError } from '@/simulation/lifecycle/simulation-lifecycle.error';
-import { InvalidSimulationStateTransitionError } from '@/simulation/lifecycle/simulation-lifecycle.error';
-import { SimulationLogRecord } from '@/simulation/logging/simulation-log-record';
+import { SimulationHealth } from '@/simulation/admin/simulation-health';
+import { SimulationTelemetry } from '@/simulation/domain/simulation-telemetry';
+import { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-config';
+import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 
-const configRecord: WorldSimulationConfigRecord = {
-  id: '00000000-0000-4000-8000-000000000010',
-  worldId: '00000000-0000-4000-8000-000000000001',
+const config: SimulationConfig = {
+  id: 'config-1',
+  worldId: 'world-1',
   state: 'PAUSED',
   speedMultiplier: 1,
-  intervalMs: 1800000,
-  jitterMs: 300000,
+  intervalMs: 1_800_000,
+  jitterMs: 300_000,
   actionWeights: { POST: 0.2, VOTE: 0.5, COMMENT: 0.3 },
-  createdAt: new Date('2026-08-01T00:00:00.000Z'),
-  updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+  createdAt: new Date('2026-08-01'),
+  updatedAt: new Date('2026-08-01'),
 };
-
-const configResponse = {
-  ...configRecord,
-  createdAt: configRecord.createdAt.toISOString(),
-  updatedAt: configRecord.updatedAt.toISOString(),
-};
-
-const logRecord: SimulationLogRecord = {
-  id: '00000000-0000-4000-8000-000000000003',
-  worldId: configRecord.worldId,
-  characterId: '00000000-0000-4000-8000-000000000002',
+const log: SimulationLogEntry = {
+  id: 'log-1',
+  worldId: 'world-1',
+  characterId: 'character-1',
   action: 'POST',
   targetId: null,
-  reasoning: 'Thought it through.',
+  reasoning: 'R',
   provider: 'mock',
-  model: 'fixture-model',
+  model: 'fixture',
   latencyMs: 7,
   jobId: null,
   executionSource: 'one-action',
-  tokensUsed: 15,
-  costEstimate: 0.00001,
+  tokensUsed: 10,
+  costEstimate: 0.001,
   status: 'SUCCESS',
   errorMessage: null,
-  executedAt: new Date('2026-08-13T00:00:00.000Z'),
+  executedAt: new Date('2026-08-13'),
 };
-
-const logResponse: SimulationLogResponse = {
-  ...logRecord,
-  executedAt: logRecord.executedAt.toISOString(),
-};
-
-const postDecision: PostDecision = {
-  action: 'POST',
-  worldId: configRecord.worldId,
-  memberId: '00000000-0000-4000-8000-000000000004',
-  characterId: logRecord.characterId,
-  title: 'A title',
-  content: 'Body.',
-  reasoning: 'Thought it through.',
-};
-
-const telemetryRecord: SimulationTelemetryRecord = {
-  worldId: configRecord.worldId,
-  totalRuns: 5,
-  successCount: 4,
-  failedCount: 1,
+const telemetry: SimulationTelemetry = {
+  worldId: 'world-1',
+  totalRuns: 1,
+  successCount: 1,
+  failedCount: 0,
   skippedCount: 0,
   rejectedCount: 0,
-  totalTokensUsed: 100,
+  totalTokensUsed: 10,
   totalCostEstimateUsd: 0.001,
-  averageLatencyMs: 25,
-  lastRunAt: new Date('2026-08-13T00:00:00.000Z'),
+  averageLatencyMs: 7,
+  lastRunAt: log.executedAt,
 };
-
-const healthRecord: SimulationHealthRecord = {
-  lifecycleState: configRecord.state,
+const health: SimulationHealth = {
+  lifecycleState: 'PAUSED',
   health: { status: 'IDLE', reason: 'Simulation is intentionally PAUSED.' },
   scheduler: {
     available: true,
@@ -108,333 +71,145 @@ const healthRecord: SimulationHealthRecord = {
   },
   execution: { lastSuccessAt: null, lastFailureAt: null },
   provider: { status: 'UNKNOWN', lastSuccessAt: null, lastFailureAt: null },
-  telemetry: telemetryRecord,
-};
-const healthResponse: SimulationHealthResponse = {
-  lifecycle: { state: 'PAUSED' },
-  health: healthRecord.health,
-  scheduler: {
-    available: true,
-    pending: false,
-    workExpected: false,
-    nextTurnAt: null,
-    lastTurnStartedAt: null,
-    lastTurnCompletedAt: null,
-    retrying: false,
-    recentRetryCount: 0,
-    blockedReason: null,
-    deadLetterCount: 0,
-    lastDeadLetterAt: null,
-    lastDeadLetterReason: null,
-    bootResumeFailure: null,
-  },
-  execution: { lastSuccessAt: null, lastFailureAt: null },
-  provider: {
-    status: 'UNKNOWN',
-    lastSuccessAt: null,
-    lastFailureAt: null,
-  },
-  telemetry: {
-    ...telemetryRecord,
-    lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
-    lastSuccessAt: null,
-    lastProviderSuccessAt: null,
-    lastFailureAt: null,
-    lastProviderFailureAt: null,
-  },
+  telemetry,
 };
 
 describe('SimulationAdminController', () => {
   let controller: SimulationAdminController;
-
-  const mockAdminService: jest.Mocked<
-    Pick<
-      SimulationAdminService,
-      | 'getConfig'
-      | 'updateState'
-      | 'updateSpeed'
-      | 'runOneAction'
-      | 'runCustomAction'
-      | 'getTelemetry'
-      | 'getHealth'
-      | 'listLogs'
-    >
-  > = {
+  const adminService = {
     getConfig: jest.fn(),
     updateState: jest.fn(),
-    getHealth: jest.fn(),
     updateSpeed: jest.fn(),
     runOneAction: jest.fn(),
     runCustomAction: jest.fn(),
+    getHealth: jest.fn(),
     getTelemetry: jest.fn(),
     listLogs: jest.fn(),
-  };
-
-  const mockResponseMapper: jest.Mocked<
-    Pick<
-      SimulationAdminResponseMapper,
-      'mapConfig' | 'mapRunResult' | 'mapLogs' | 'mapTelemetry' | 'mapHealth'
-    >
-  > = {
-    mapConfig: jest.fn(),
-    mapRunResult: jest.fn(),
-    mapLogs: jest.fn(),
-    mapTelemetry: jest.fn(),
-    mapHealth: jest.fn(),
-  };
+  } as unknown as jest.Mocked<SimulationAdminService>;
 
   beforeEach(async () => {
-    jest.resetAllMocks();
-
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SimulationAdminController],
-      providers: [
-        { provide: SimulationAdminService, useValue: mockAdminService },
-        {
-          provide: SimulationAdminResponseMapper,
-          useValue: mockResponseMapper,
-        },
-      ],
+      providers: [{ provide: SimulationAdminService, useValue: adminService }],
     }).compile();
+    controller = module.get(SimulationAdminController);
+  });
 
-    controller = module.get<SimulationAdminController>(
-      SimulationAdminController,
+  it('maps config, run, health, telemetry, and log results with ordinary functions', async () => {
+    adminService.getConfig.mockResolvedValue(config);
+    await expect(controller.getSimulation('mbti-house')).resolves.toMatchObject(
+      {
+        id: config.id,
+        createdAt: config.createdAt.toISOString(),
+      },
     );
 
-    mockResponseMapper.mapConfig.mockReturnValue(configResponse);
-  });
-
-  describe('getSimulation', () => {
-    it('returns the mapped config', async () => {
-      mockAdminService.getConfig.mockResolvedValue(configRecord);
-
-      await expect(controller.getSimulation('mbti-house')).resolves.toEqual(
-        configResponse,
-      );
-      expect(mockAdminService.getConfig).toHaveBeenCalledWith('mbti-house');
+    const run: IterationRunResult = {
+      status: 'success',
+      decision: {
+        action: 'POST',
+        worldId: 'world-1',
+        memberId: 'member-1',
+        characterId: 'character-1',
+        title: 'A title',
+        content: 'Body',
+        reasoning: 'R',
+      },
+      log,
+    };
+    adminService.runOneAction.mockResolvedValue(run);
+    await expect(controller.runOneAction('mbti-house')).resolves.toMatchObject({
+      status: 'success',
+      log: { id: log.id, executedAt: log.executedAt.toISOString() },
     });
 
-    it('maps a missing config to 404', async () => {
-      mockAdminService.getConfig.mockRejectedValue(
-        new SimulationConfigNotFoundError(configRecord.worldId),
-      );
-
-      await expect(
-        controller.getSimulation('mbti-house'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+    adminService.getHealth.mockResolvedValue(health);
+    await expect(controller.getHealth('mbti-house')).resolves.toMatchObject({
+      lifecycle: { state: 'PAUSED' },
     });
-  });
-
-  describe('updateState', () => {
-    it('delegates the target state to the service', async () => {
-      mockAdminService.updateState.mockResolvedValue(configRecord);
-
-      await expect(
-        controller.updateState('mbti-house', { state: 'PAUSED' }),
-      ).resolves.toEqual(configResponse);
-      expect(mockAdminService.updateState).toHaveBeenCalledWith(
-        'mbti-house',
-        'PAUSED',
-      );
-    });
-
-    it('maps an invalid transition to 409', async () => {
-      mockAdminService.updateState.mockRejectedValue(
-        new InvalidSimulationStateTransitionError('HALTED', 'RUNNING'),
-      );
-
-      await expect(
-        controller.updateState('mbti-house', { state: 'RUNNING' }),
-      ).rejects.toBeInstanceOf(ConflictException);
+    adminService.getTelemetry.mockResolvedValue(telemetry);
+    await expect(controller.getTelemetry('mbti-house')).resolves.toMatchObject({
+      worldId: 'world-1',
+      lastRunAt: telemetry.lastRunAt?.toISOString(),
     });
   });
 
-  describe('updateSpeed', () => {
-    it('delegates the validated multiplier to the service', async () => {
-      mockAdminService.updateSpeed.mockResolvedValue(configRecord);
+  it('passes state, speed, custom action, and log filters to the service', async () => {
+    adminService.updateState.mockResolvedValue(config);
+    await controller.updateState('mbti-house', { state: 'PAUSED' });
+    expect(adminService.updateState).toHaveBeenCalledWith(
+      'mbti-house',
+      'PAUSED',
+    );
 
-      await expect(
-        controller.updateSpeed('mbti-house', { speedMultiplier: 2 }),
-      ).resolves.toEqual(configResponse);
-      expect(mockAdminService.updateSpeed).toHaveBeenCalledWith(
-        'mbti-house',
-        2,
-      );
+    adminService.updateSpeed.mockResolvedValue(config);
+    await controller.updateSpeed('mbti-house', { speedMultiplier: 2 });
+    expect(adminService.updateSpeed).toHaveBeenCalledWith('mbti-house', 2);
+
+    adminService.runCustomAction.mockResolvedValue({
+      status: 'success',
+      decision: {
+        action: 'POST',
+        worldId: 'world-1',
+        memberId: 'member-1',
+        characterId: 'character-1',
+        title: 'A title',
+        content: 'Body',
+        reasoning: 'R',
+      },
+      log,
+    });
+    await controller.runCustomAction('mbti-house', {
+      characterId: 'character-1',
+      actionType: 'POST',
+    });
+    expect(adminService.runCustomAction).toHaveBeenCalledWith({
+      slug: 'mbti-house',
+      characterId: 'character-1',
+      actionType: 'POST',
+    });
+
+    const page: Paginated<SimulationLogEntry> = {
+      items: [log],
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    };
+    adminService.listLogs.mockResolvedValue(page);
+    await controller.getLogs('mbti-house', {
+      characterId: 'character-1',
+      action: 'POST',
+      status: 'SUCCESS',
+      executionSource: 'one-action',
+      page: 1,
+      limit: 20,
+    });
+    expect(adminService.listLogs).toHaveBeenCalledWith({
+      slug: 'mbti-house',
+      filters: {
+        characterId: 'character-1',
+        action: 'POST',
+        status: 'SUCCESS',
+        executionSource: 'one-action',
+      },
+      page: 1,
+      limit: 20,
     });
   });
 
-  describe('runOneAction', () => {
-    it('delegates to the service and maps the run result', async () => {
-      const runResult: IterationRunResult = {
-        status: 'success',
-        decision: postDecision,
-        log: logRecord,
-      };
-      const mapped: SimulationRunResultResponse = {
-        status: 'success',
-        log: logResponse,
-      };
-      mockAdminService.runOneAction.mockResolvedValue(runResult);
-      mockResponseMapper.mapRunResult.mockReturnValue(mapped);
-
-      await expect(controller.runOneAction('mbti-house')).resolves.toBe(mapped);
-      expect(mockAdminService.runOneAction).toHaveBeenCalledWith('mbti-house');
-    });
-
-    it('maps a HALTED manual-work rejection to 409', async () => {
-      mockAdminService.runOneAction.mockRejectedValue(
-        new SimulationWorkRejectedError('MANUAL', 'HALTED'),
-      );
-
-      await expect(
-        controller.runOneAction('mbti-house'),
-      ).rejects.toBeInstanceOf(ConflictException);
-    });
-  });
-
-  describe('runCustomAction', () => {
-    it('passes the optional character and action through to the service', async () => {
-      const runResult: IterationRunResult = {
-        status: 'failed',
-        failure: {
-          code: 'CHARACTER_INACTIVE',
-          message: 'The character is inactive.',
-          retryable: false,
-        },
-        log: {
-          ...logRecord,
-          status: 'FAILED',
-          errorMessage: 'CHARACTER_INACTIVE',
-        },
-      };
-      const mapped: SimulationRunResultResponse = {
-        status: 'failed',
-        failure: runResult.failure,
-        log: { ...logResponse, status: 'FAILED' },
-      };
-      mockAdminService.runCustomAction.mockResolvedValue(runResult);
-      mockResponseMapper.mapRunResult.mockReturnValue(mapped);
-
-      await expect(
-        controller.runCustomAction('mbti-house', {
-          characterId: '00000000-0000-4000-8000-000000000002',
-          actionType: 'POST',
-        }),
-      ).resolves.toEqual(mapped);
-      expect(mockAdminService.runCustomAction).toHaveBeenCalledWith({
-        slug: 'mbti-house',
-        characterId: '00000000-0000-4000-8000-000000000002',
-        actionType: 'POST',
-      });
-    });
-
-    it('passes an empty body through as Any Character / Automatic', async () => {
-      mockAdminService.runCustomAction.mockResolvedValue({
-        status: 'success',
-        decision: postDecision,
-        log: logRecord,
-      });
-
-      await controller.runCustomAction('mbti-house', {});
-
-      expect(mockAdminService.runCustomAction).toHaveBeenCalledWith({
-        slug: 'mbti-house',
-        characterId: undefined,
-        actionType: undefined,
-      });
-    });
-  });
-
-  describe('getHealth', () => {
-    it('delegates to the service and maps runtime health', async () => {
-      mockAdminService.getHealth.mockResolvedValue(healthRecord);
-      mockResponseMapper.mapHealth.mockReturnValue(healthResponse);
-
-      await expect(controller.getHealth('mbti-house')).resolves.toEqual(
-        healthResponse,
-      );
-      expect(mockAdminService.getHealth).toHaveBeenCalledWith('mbti-house');
-      expect(mockResponseMapper.mapHealth).toHaveBeenCalledWith(healthRecord);
-    });
-  });
-
-  describe('getTelemetry', () => {
-    it('delegates to the service and maps the telemetry', async () => {
-      const mapped: SimulationTelemetryResponse = {
-        ...telemetryRecord,
-        lastRunAt: telemetryRecord.lastRunAt?.toISOString() ?? null,
-        lastSuccessAt: telemetryRecord.lastSuccessAt?.toISOString() ?? null,
-        lastProviderSuccessAt:
-          telemetryRecord.lastProviderSuccessAt?.toISOString() ?? null,
-        lastFailureAt: telemetryRecord.lastFailureAt?.toISOString() ?? null,
-        lastProviderFailureAt:
-          telemetryRecord.lastProviderFailureAt?.toISOString() ?? null,
-      };
-      mockAdminService.getTelemetry.mockResolvedValue(telemetryRecord);
-      mockResponseMapper.mapTelemetry.mockReturnValue(mapped);
-
-      await expect(controller.getTelemetry('mbti-house')).resolves.toEqual(
-        mapped,
-      );
-      expect(mockAdminService.getTelemetry).toHaveBeenCalledWith('mbti-house');
-    });
-  });
-
-  describe('getLogs', () => {
-    it('delegates filters and pagination to the service', async () => {
-      const paginated: Paginated<SimulationLogRecord> = {
-        items: [logRecord],
-        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-      };
-      const mapped: ListSimulationLogsResponse = {
-        items: [logResponse],
-        meta: paginated.meta,
-      };
-      mockAdminService.listLogs.mockResolvedValue(paginated);
-      mockResponseMapper.mapLogs.mockReturnValue(mapped);
-
-      await expect(
-        controller.getLogs('mbti-house', {
-          characterId: '00000000-0000-4000-8000-000000000002',
-          action: 'POST',
-          status: 'SUCCESS',
-          executionSource: 'one-action',
-          page: 1,
-          limit: 20,
-        }),
-      ).resolves.toEqual(mapped);
-      expect(mockAdminService.listLogs).toHaveBeenCalledWith({
-        slug: 'mbti-house',
-        filters: {
-          characterId: '00000000-0000-4000-8000-000000000002',
-          action: 'POST',
-          status: 'SUCCESS',
-          executionSource: 'one-action',
-        },
-        page: 1,
-        limit: 20,
-      });
-    });
-  });
-
-  describe('roles metadata', () => {
+  it('requires ADMIN on every operation', () => {
     const reflector = new Reflector();
-
-    it('requires ADMIN on every operation', () => {
-      const operations = [
-        controller.getSimulation,
-        controller.updateState,
-        controller.updateSpeed,
-        controller.runOneAction,
-        controller.runCustomAction,
-        controller.getHealth,
-        controller.getTelemetry,
-        controller.getLogs,
-      ];
-
-      for (const operation of operations) {
-        expect(reflector.get<string[]>('ROLES', operation)).toEqual(['ADMIN']);
-      }
-    });
+    const operations = [
+      controller.getSimulation,
+      controller.updateState,
+      controller.updateSpeed,
+      controller.runOneAction,
+      controller.runCustomAction,
+      controller.getHealth,
+      controller.getTelemetry,
+      controller.getLogs,
+    ];
+    for (const operation of operations) {
+      expect(reflector.get<string[]>('ROLES', operation)).toEqual(['ADMIN']);
+    }
   });
 });

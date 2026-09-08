@@ -1,6 +1,6 @@
-import { ActivityItemRecord } from '@/activity/domain/activity-record';
-import { FlatCommentRecord } from '@/comments/domain/comment-record';
-import { PostWithAuthorRecord } from '@/posts/domain/post-record';
+import { ActivityItem } from '@/activity/domain/activity';
+import { FlatComment } from '@/comments/domain/comment';
+import { PostWithAuthor } from '@/posts/domain/post';
 
 /**
  * Total order of the activity timeline: createdAt DESC, id DESC
@@ -24,10 +24,10 @@ export function compareActivityOrder(
  * timeline. Each stream arrives ordered, so this is a linear merge.
  */
 export function mergeActivityItems(
-  posts: PostWithAuthorRecord[],
-  comments: FlatCommentRecord[],
-): ActivityItemRecord[] {
-  const merged: ActivityItemRecord[] = [];
+  posts: PostWithAuthor[],
+  comments: FlatComment[],
+): ActivityItem[] {
+  const merged: ActivityItem[] = [];
   let postIndex = 0;
   let commentIndex = 0;
 
