@@ -4,8 +4,8 @@
   "packageManager": "pnpm@10.5.2",
   "scripts": {
     "build": "turbo run build",
-    "dev": "docker compose up --build",
-    "dev:local": "pnpm --filter @aiworld/shared build && node --env-file=.env node_modules/turbo/bin/turbo run dev",
+    "dev": "turbo run dev",
+    "predev": "pnpm --filter @aiworld/shared build",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
