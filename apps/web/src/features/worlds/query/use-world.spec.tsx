@@ -118,25 +118,4 @@ describe('useWorld', () => {
     expect((result.current.error as ApiError).status).toBe(404);
     expect(detailRequests).toBe(2);
   });
-
-  it('configures the public world snapshot polling cadence', async () => {
-    const client = createQueryClient();
-    function clientWrapper({ children }: { children: React.ReactNode }) {
-      return (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      );
-    }
-
-    const { result } = renderHook(() => useWorld('mbti', { polling: true }), {
-      wrapper: clientWrapper,
-    });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const query = client.getQueryCache().find({
-      queryKey: ['worlds', 'detail', 'mbti'],
-    });
-
-    const pollingOptions = query?.options as { refetchInterval?: number };
-    expect(pollingOptions.refetchInterval).toBe(30_000);
-  });
 });

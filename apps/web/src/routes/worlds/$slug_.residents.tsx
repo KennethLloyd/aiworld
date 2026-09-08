@@ -20,7 +20,7 @@ export const Route = createFileRoute('/worlds/$slug_/residents')({
 function ResidentsRoute() {
   const { slug } = Route.useParams();
   const navigate = Route.useNavigate();
-  const worldQuery = useWorld(slug, { polling: true });
+  const worldQuery = useWorld(slug);
   const charactersQuery = useCharacters(slug);
 
   return (

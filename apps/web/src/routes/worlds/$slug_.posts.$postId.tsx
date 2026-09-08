@@ -32,7 +32,7 @@ function PostDetailRoute() {
   const router = useRouter();
   const canGoBack = useCanGoBack();
   const postQuery = usePost(slug, postId);
-  const worldQuery = useWorld(slug, { polling: true });
+  const worldQuery = useWorld(slug);
 
   const handleBack = () => {
     if (canGoBack) {

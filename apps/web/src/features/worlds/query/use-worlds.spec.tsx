@@ -77,7 +77,7 @@ describe('useWorlds', () => {
     expect(listRequests).toBe(1);
   });
 
-  it('enables polling only when the public observer opts in', async () => {
+  it('keeps public world lists manual/cache-driven', async () => {
     const client = createQueryClient();
     function clientWrapper({ children }: { children: React.ReactNode }) {
       return (
@@ -86,8 +86,7 @@ describe('useWorlds', () => {
     }
 
     const { result } = renderHook(
-      () =>
-        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      () => useWorlds({ search: undefined, page: 1, limit: 20 }),
       { wrapper: clientWrapper },
     );
 
@@ -96,12 +95,8 @@ describe('useWorlds', () => {
       queryKey: ['worlds', 'list', { page: 1, limit: 20 }],
     });
 
-    const pollingOptions = query?.options as {
-      refetchInterval?: number;
-      refetchIntervalInBackground?: boolean;
-    };
-    expect(pollingOptions.refetchInterval).toBe(30_000);
-    expect(pollingOptions.refetchIntervalInBackground).toBe(false);
+    const queryOptions = query?.options as { refetchInterval?: number };
+    expect(queryOptions.refetchInterval).toBeUndefined();
   });
 
   it('replaces a refreshed snapshot instead of appending duplicate worlds', async () => {
@@ -121,8 +116,7 @@ describe('useWorlds', () => {
     );
     const client = createQueryClient();
     const { result } = renderHook(
-      () =>
-        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      () => useWorlds({ search: undefined, page: 1, limit: 20 }),
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
           <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -163,8 +157,7 @@ describe('useWorlds', () => {
     );
     const client = createQueryClient();
     const { result } = renderHook(
-      () =>
-        useWorlds({ search: undefined, page: 1, limit: 20 }, { polling: true }),
+      () => useWorlds({ search: undefined, page: 1, limit: 20 }),
       {
         wrapper: ({ children }: { children: React.ReactNode }) => (
           <QueryClientProvider client={client}>{children}</QueryClientProvider>

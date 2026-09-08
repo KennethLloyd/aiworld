@@ -34,7 +34,8 @@ export function createQueryClient(): QueryClient {
   client = new QueryClient({
     defaultOptions: {
       queries: {
-        // Worlds change rarely; public list/detail refetch after 30s.
+        // Public snapshots become eligible for focus revalidation after 30s;
+        // active feed polling uses its screen-specific cadence.
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: (failureCount, error) =>
