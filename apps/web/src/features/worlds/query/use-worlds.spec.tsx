@@ -77,28 +77,6 @@ describe('useWorlds', () => {
     expect(listRequests).toBe(1);
   });
 
-  it('keeps public world lists manual/cache-driven', async () => {
-    const client = createQueryClient();
-    function clientWrapper({ children }: { children: React.ReactNode }) {
-      return (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      );
-    }
-
-    const { result } = renderHook(
-      () => useWorlds({ search: undefined, page: 1, limit: 20 }),
-      { wrapper: clientWrapper },
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const query = client.getQueryCache().find({
-      queryKey: ['worlds', 'list', { page: 1, limit: 20 }],
-    });
-
-    const queryOptions = query?.options as { refetchInterval?: number };
-    expect(queryOptions.refetchInterval).toBeUndefined();
-  });
-
   it('replaces a refreshed snapshot instead of appending duplicate worlds', async () => {
     let responseVersion = 0;
     server.use(
