@@ -576,6 +576,17 @@ describe('Post detail (real database)', () => {
     });
   });
 
+  it('returns the public validation envelope for a malformed post id', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/worlds/mbti-house/posts/not-a-uuid')
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['postId'] }),
+    );
+  });
+
   it('reads a post authored by a HUMAN member with their User identity', async () => {
     const world = await createSyntheticWorld(prisma, 'human-member-test');
     const userId = seedUuid('user:human-member-test');

@@ -112,6 +112,17 @@ describe('World feed (seeded database)', () => {
     }
   });
 
+  it('returns the public validation envelope for an invalid feed sort', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/worlds/mbti-house/posts?sort=controversial')
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['sort'] }),
+    );
+  });
+
   it('paginates the hot feed with an opaque cursor', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/worlds/mbti-house/posts?sort=hot&limit=2')

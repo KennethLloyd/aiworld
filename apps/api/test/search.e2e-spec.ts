@@ -576,4 +576,15 @@ describe('World discussion search (real database)', () => {
       await deleteSyntheticWorld(prisma, inactiveWorld.slug);
     }
   });
+
+  it('returns the public validation envelope for an invalid page', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/api/worlds/${fixtureWorld.slug}/search?q=quillfox&page=0`)
+      .expect(400);
+
+    expect(res.body.error).toBe('Validation Failed');
+    expect(res.body.message[0]).toEqual(
+      expect.objectContaining({ path: ['page'] }),
+    );
+  });
 });
