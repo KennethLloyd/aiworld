@@ -8,7 +8,7 @@ An authenticated admin can manage Worlds and Characters, control simulations, in
 
 ## What to expect
 
-Production CI builds and validates immutable API, migration, and web images. Deployment is environment-specific and is kept separate from the normal local development workflow.
+Production build and deployment are managed outside this repository.
 
 ## What AIWorld does
 
@@ -24,7 +24,7 @@ AIWorld is a pnpm/Turborepo monorepo:
 - **API:** NestJS, Prisma, PostgreSQL, and Redis-backed BullMQ scheduling.
 - **Web:** React and Vite.
 - **Shared:** Typed Zod transport contracts consumed by both applications.
-- **Runtime dependencies:** PostgreSQL and Redis are available through the small local Compose file. Production builds produce separate API, migration, and web images; PostgreSQL and Redis remain independent runtime services.
+- **Runtime dependencies:** PostgreSQL and Redis are available through the small local Compose file.
 
 Turborepo is the application workspace orchestrator:
 
@@ -164,91 +164,6 @@ pnpm --filter @aiworld/api db:generate
 pnpm --filter @aiworld/api db:migrate:deploy
 pnpm --filter @aiworld/api test:e2e
 ```
-
-## Production containers
-
-The root `Dockerfile` contains separate targets for the runtime responsibilities:
-
-| Target | Responsibility |
-| --- | --- |
-| `api-runtime` | Non-root NestJS process running the compiled API artifact. |
-| `web-runtime` | Non-root Nginx process serving the built Vite assets and `/health`. |
-| `migrate` | One-shot Prisma migration process. |
-
-The builder installs the pnpm workspace with the frozen lockfile, generates
-Prisma, and runs the existing root `pnpm build` task. The API runtime is pruned
-with `pnpm deploy --prod`; the web runtime contains only static assets and its
-unprivileged web server. No database, Redis data, runtime secrets, or `.env`
-files are copied into an image.
-
-### Build the images
-
-Build API and migration artifacts with the same source revision:
-
-```bash
-docker build --target api-runtime -t aiworld-api:local .
-docker build --target migrate -t aiworld-migrate:local .
-```
-
-The web API origin is public build-time configuration because Vite embeds it in static JavaScript. Pass it only when the web image will call an API at a different origin:
-
-```bash
-docker build \
-  --build-arg VITE_API_BASE_URL=https://api.example.com \
-  --target web-runtime \
-  -t aiworld-web:local \
-  .
-```
-
-The web container has no API proxy. Build it with `VITE_API_BASE_URL` set to the public API origin before running it separately; the build example above uses `https://api.example.com`.
-
-### Apply production migrations explicitly
-
-Run the migration image as a reviewed release step before starting the API image:
-
-```bash
-docker run --rm \
-  --env DATABASE_URL='postgres://user:password@db.example/aiworld' \
-  aiworld-migrate:local
-```
-
-The migration image receives `DATABASE_URL` at runtime. It does not contain credentials and the API image does not perform migrations during startup. The same image can be run by a deployment platform as a one-shot job.
-
-### Run application images
-
-Provide runtime configuration, secrets, networking, and persistent services
-through the deployment platform:
-
-```bash
-docker run --rm \
-  --env DATABASE_URL='postgres://user:password@db.example/aiworld' \
-  --env REDIS_URL='redis://cache.example:6379' \
-  --env BETTER_AUTH_SECRET='replace-with-a-secret' \
-  --env BETTER_AUTH_URL='https://api.example.com' \
-  --env FRONTEND_ORIGIN='https://app.example.com' \
-  --publish 127.0.0.1:3000:3000 \
-  aiworld-api:local
-
-docker run --rm \
-  --publish 127.0.0.1:8080:8080 \
-  aiworld-web:local
-```
-
-PostgreSQL and Redis are intentionally outside the application images. Networking, TLS, DNS, reverse proxies, persistence, and secret injection remain deployment-platform responsibilities.
-
-### Health checks and artifacts
-
-- API `GET /api/health` returns the anonymous liveness contract used by the API image health check.
-- Web `GET /health` returns a cache-disabled JSON health response used by the web image health check.
-- Pull requests build `api-runtime`, `migrate`, and `web-runtime` for the
-  supported platforms without publishing, then smoke-test each runtime target.
-- The deployment workflow consumes the exact images produced by the successful
-  production CI run. The deployment platform applies migrations before replacing
-  the serving application and checks health before completing.
-- Configure only the public web API origin in `VITE_API_BASE_URL` when the web
-  image calls an API at a separate origin. Production environment
-  configuration, runtime secrets, and deployment controls remain outside this
-  repository.
 
 ## License
 
