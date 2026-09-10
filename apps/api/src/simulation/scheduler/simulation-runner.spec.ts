@@ -375,6 +375,7 @@ describe('SimulationRunner', () => {
         runner.runScheduledTurn(scheduledTurn(), 'job-9'),
       ).rejects.toMatchObject({
         code: 'WORLD_NOT_FOUND',
+        message: 'World "mbti-house" was not found',
       });
 
       expect(contentWriter.persist).not.toHaveBeenCalled();
@@ -492,42 +493,23 @@ describe('SimulationRunner', () => {
       },
     );
 
-    it('leaves a missing configuration as a scheduler fault', async () => {
+    it.each([
+      ['missing configuration', new SimulationConfigNotFoundError('world-1')],
+      [
+        'malformed configuration',
+        new SimulationConfigMalformedError(
+          'world-1',
+          'configuration is malformed',
+        ),
+      ],
+      ['configuration lookup error', new Error('configuration lookup failed')],
+    ] as const)('leaves a %s as a scheduler fault', async (_label, failure) => {
       const { runner, lifecycleService, logService } = createRunner();
-      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
-        new SimulationConfigNotFoundError('world-1'),
-      );
+      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(failure);
 
       await expect(
-        runner.runScheduledTurn(scheduledTurn(), 'job-5'),
-      ).rejects.toBeInstanceOf(SimulationConfigNotFoundError);
-      expect(logService.writeFailure).not.toHaveBeenCalled();
-    });
-
-    it('leaves malformed configuration as a scheduler fault', async () => {
-      const { runner, lifecycleService, logService } = createRunner();
-      const malformed = new SimulationConfigMalformedError(
-        'world-1',
-        'configuration is malformed',
-      );
-      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(malformed);
-
-      await expect(
-        runner.runScheduledTurn(scheduledTurn(), 'job-10'),
-      ).rejects.toBeInstanceOf(SimulationConfigMalformedError);
-      expect(logService.writeFailure).not.toHaveBeenCalled();
-    });
-
-    it('leaves a configuration lookup error as a scheduler fault', async () => {
-      const { runner, lifecycleService, logService } = createRunner();
-      const lookupFailure = new Error('configuration lookup failed');
-      lifecycleService.assertScheduledWorkAllowed.mockRejectedValue(
-        lookupFailure,
-      );
-
-      await expect(
-        runner.runScheduledTurn(scheduledTurn(), 'job-11'),
-      ).rejects.toBe(lookupFailure);
+        runner.runScheduledTurn(scheduledTurn(), 'job-config'),
+      ).rejects.toBe(failure);
       expect(logService.writeFailure).not.toHaveBeenCalled();
     });
 
@@ -562,15 +544,6 @@ describe('SimulationRunner', () => {
       await expect(
         runner.runScheduledTurn(scheduledTurn(), 'job-log-failure'),
       ).rejects.toBe(loggingFailure);
-    });
-
-    it('throws when the World itself is unresolvable (DLQ records it)', async () => {
-      const { runner, worldService } = createRunner();
-      worldService.getBySlug.mockResolvedValue(null);
-
-      await expect(
-        runner.runScheduledTurn(scheduledTurn(), 'job-7'),
-      ).rejects.toThrow('World "mbti-house" was not found');
     });
   });
 

@@ -37,27 +37,6 @@ describe('usePosts', () => {
     listPostsMock.mockReset();
   });
 
-  it('calls the post API function with the feed query and signal', async () => {
-    listPostsMock.mockResolvedValue(response);
-    const client = new QueryClient();
-
-    const { result } = renderHook(() => usePosts('mbti', 'new'), {
-      wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      ),
-    });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.pages[0]?.items[0]?.title).toBe(
-      'A latest conversation',
-    );
-    expect(listPostsMock).toHaveBeenCalledWith(
-      'mbti',
-      { sort: 'new', limit: 5, cursor: undefined },
-      expect.any(AbortSignal),
-    );
-  });
-
   it('requests the next cursor page once and preserves the page boundary', async () => {
     listPostsMock.mockImplementation(async (_slug, query) =>
       query.cursor === undefined

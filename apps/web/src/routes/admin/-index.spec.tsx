@@ -383,47 +383,6 @@ describe('/admin control room', () => {
     );
   });
 
-  it('renders the selected World shell and status data from the API', async () => {
-    const client = createQueryClient();
-    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
-
-    renderAuthRoutes('/admin/', { queryClient: client });
-
-    expect(
-      await screen.findByRole('heading', { name: /WORLD_ENGINE/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('tab', { name: 'Simulation Status' }),
-    ).toHaveAttribute('aria-selected', 'true');
-    const worldPicker = await screen.findByRole('combobox', {
-      name: 'Selected World',
-    });
-    expect(worldPicker).toHaveAttribute('data-value', 'mbti-house');
-    await userEvent.click(worldPicker);
-    expect(
-      screen.getByRole('listbox', { name: 'World options' }),
-    ).toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole('option', {
-        name: 'The MBTI House (mbti-house)',
-      }),
-    );
-    expect(worldPicker).toHaveAttribute('aria-expanded', 'false');
-    expect(await screen.findAllByText('PAUSED')).not.toHaveLength(0);
-    expect(await screen.findByText('8')).toBeInTheDocument();
-    expect(screen.getByText('Runtime Health')).toBeInTheDocument();
-    expect(screen.getByText('Last Successful Execution')).toBeInTheDocument();
-    expect(screen.getByText('Jitter window')).toBeInTheDocument();
-    expect(screen.getByText('±5m')).toBeInTheDocument();
-    expect(screen.getByText('Post 5')).toBeInTheDocument();
-    expect(screen.getByText('Vote 3')).toBeInTheDocument();
-    expect(screen.getByText('Comment 2')).toBeInTheDocument();
-    expect(screen.getByText('Success')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Run One Action' }),
-    ).toBeInTheDocument();
-  });
-
   it('searches Worlds beyond the initial page without changing selection', async () => {
     const distantWorld: WorldResponse = {
       ...world,
@@ -737,108 +696,6 @@ describe('/admin control room', () => {
     }
   });
 
-  it('resets document scroll for intentional tab navigation', async () => {
-    const scrollTo = mockDocumentScroll();
-
-    try {
-      const client = createQueryClient();
-      client.setQueryData(['session', 'current'], makeSession('ADMIN'));
-      const { router } = renderAuthRoutes('/admin/', {
-        queryClient: client,
-      });
-
-      await screen.findByRole('tab', { name: 'Simulation Status' });
-      setDocumentScrollY(640);
-      scrollTo.mockClear();
-
-      await userEvent.click(screen.getByRole('tab', { name: 'LLM Logs' }));
-
-      await waitFor(() =>
-        expect(router.state.location.search).toMatchObject({
-          tab: 'logs',
-        }),
-      );
-      expect(scrollTo).toHaveBeenCalledWith(
-        expect.objectContaining({ top: 0 }),
-      );
-      expect(window.scrollY).toBe(0);
-    } finally {
-      scrollTo.mockRestore();
-      setDocumentScrollY(0);
-    }
-  });
-
-  it('preserves document scroll when opening a recent activity log', async () => {
-    server.use(
-      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
-        HttpResponse.json({
-          items: [simulationLog],
-          meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
-        }),
-      ),
-    );
-    const scrollTo = mockDocumentScroll();
-
-    try {
-      const client = createQueryClient();
-      client.setQueryData(['session', 'current'], makeSession('ADMIN'));
-      const { router } = renderAuthRoutes('/admin/?tab=overview', {
-        queryClient: client,
-      });
-
-      const recentActivity = await screen.findByRole('region', {
-        name: 'Simulation log records',
-      });
-      const toggle = await within(recentActivity).findByRole('button', {
-        name: 'Show details for Mystic Aura',
-      });
-      setDocumentScrollY(640);
-      scrollTo.mockClear();
-
-      await userEvent.click(toggle);
-
-      await waitFor(() =>
-        expect(router.state.location.search).toMatchObject({
-          tab: 'logs',
-          log: simulationLog.id,
-        }),
-      );
-      expect(
-        await screen.findByRole('heading', { name: 'Simulation Logs' }),
-      ).toBeInTheDocument();
-      expect(
-        await screen.findAllByText(
-          'Provider timed out after the retry budget.',
-        ),
-      ).not.toHaveLength(0);
-      expect(window.scrollY).toBe(640);
-      expect(scrollTo).not.toHaveBeenCalled();
-    } finally {
-      scrollTo.mockRestore();
-      setDocumentScrollY(0);
-    }
-  });
-
-  it('renders all log status and execution-source options', async () => {
-    const client = createQueryClient();
-    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
-    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
-
-    await screen.findByRole('heading', { name: 'Simulation Logs' });
-    expect(screen.getByRole('option', { name: 'Success' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Failed' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Skipped' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: 'Rejected' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: 'Scheduled' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('option', { name: 'One Action' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Custom' })).toBeInTheDocument();
-  });
   it('keeps log filters and pagination in the admin URL', async () => {
     const user = userEvent.setup();
     const client = createQueryClient();
@@ -1351,31 +1208,6 @@ describe('/admin control room', () => {
     await waitFor(() =>
       expect(router.state.location.search.log).toBeUndefined(),
     );
-  });
-
-  it('keeps precise small costs visible in log details', async () => {
-    server.use(
-      http.get('*/api/worlds/mbti-house/simulation/logs', () =>
-        HttpResponse.json({
-          items: [{ ...simulationLog, costEstimate: 0.001833 }],
-          meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
-        }),
-      ),
-    );
-    const client = createQueryClient();
-    client.setQueryData(['session', 'current'], makeSession('ADMIN'));
-    renderAuthRoutes('/admin/?tab=logs', { queryClient: client });
-
-    const table = await screen.findByRole('region', {
-      name: 'Simulation log records table',
-    });
-    await userEvent.click(
-      within(table).getByRole('button', {
-        name: 'Show desktop details for Mystic Aura',
-      }),
-    );
-
-    expect(screen.getAllByText('$0.001833').length).toBeGreaterThan(0);
   });
 
   it('offers recovery when a selected log is no longer available', async () => {

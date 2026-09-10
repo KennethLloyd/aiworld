@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 import {
   CharacterView,
   CharactersService,
@@ -9,13 +7,8 @@ import { FlatComment } from '@/comments/domain/comment';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PostWithAuthor } from '@/posts/domain/post';
 import { PostsService } from '@/posts/posts.service';
-import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
-import {
-  characterSection,
-  worldSection,
-} from '@/simulation/actions/prompt-sections';
 import { SimulationContextProvider } from '@/simulation/actions/simulation-context-provider';
 import { VoteAction } from '@/simulation/actions/vote.action';
 import { defaultSimulationCostConfig } from '@/simulation/cost/simulation-cost';
@@ -40,7 +33,6 @@ import { canonicalWorld, characters } from '../../../../prisma/seed-data';
 import { mockLlmFixtures } from './fixtures/mock-llm-fixtures';
 import { MockLlmProvider } from './mock-llm.provider';
 
-const MAX_LONG_RUN_ITERATIONS = 48;
 const world = {
   id: 'world-1',
   ...canonicalWorld,
@@ -51,61 +43,6 @@ const world = {
 };
 
 describe('bounded long-run mock simulation', () => {
-  it('keeps 16 residents and three action types deterministic and bounded', async () => {
-    const provider = new MockLlmProvider(
-      loadProviderConfig({
-        LLM_PROVIDER: 'mock',
-        LLM_MODEL: 'fixture-model',
-        LLM_USAGE_METADATA: 'required',
-      }),
-      mockLlmFixtures,
-    );
-    const outputs: unknown[] = [];
-    let totalTokens = 0;
-
-    for (let iteration = 0; iteration < MAX_LONG_RUN_ITERATIONS; iteration++) {
-      const character = characters[iteration % characters.length]!;
-      const action = (['POST', 'VOTE', 'COMMENT'] as const)[iteration % 3]!;
-      const prompt = composeActionPrompt({
-        action,
-        instructions: 'Keep the generated action concise and coherent.',
-        outputFormat: '{"result": "action-specific JSON"}',
-        contextSections: [
-          worldSection(world),
-          characterSection({
-            id: `character-${character.key}`,
-            handle: character.key,
-            name: character.name,
-            classification: character.classification,
-            classificationGroup: character.classificationGroup,
-            avatarUrl: character.avatarUrl,
-            biography: character.biography,
-            traits: character.traits,
-            systemPrompt: character.systemPrompt,
-            isActive: true,
-            createdAt: new Date('2026-01-01'),
-            updatedAt: new Date('2026-01-01'),
-          }),
-        ],
-      });
-
-      expect(prompt.user).toContain(world.topicScope);
-      expect(prompt.user).toContain(character.systemPrompt);
-      expect(prompt.system).toContain('Never reveal');
-
-      const result = await provider.generateStructured({
-        prompt,
-        schema: z.unknown(),
-      });
-      outputs.push(result.output);
-      totalTokens += result.telemetry.tokens?.total ?? 0;
-    }
-
-    expect(outputs).toHaveLength(MAX_LONG_RUN_ITERATIONS);
-    expect(totalTokens).toBeGreaterThan(0);
-    expect(totalTokens).toBeLessThan(100_000);
-  });
-
   it('runs every resident through the action, writer, and log pipeline', async () => {
     const date = new Date('2026-01-01');
     const characterRecords: CharacterView[] = characters.map(

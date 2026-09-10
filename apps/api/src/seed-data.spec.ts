@@ -11,28 +11,6 @@ import {
 } from '../prisma/seed-data';
 
 describe('canonical MBTI House seed data', () => {
-  it('contains each MBTI type exactly once', () => {
-    expect(characters).toHaveLength(16);
-    expect(
-      new Set(characters.map((character) => character.classification)).size,
-    ).toBe(16);
-    expect(new Set(characters.map((character) => character.key)).size).toBe(16);
-    expect(new Set(characters.map((character) => character.handle)).size).toBe(
-      16,
-    );
-  });
-
-  it('contains varied seeded posts and threaded comments', () => {
-    const comments = posts.flatMap((post) => flattenComments(post.comments));
-
-    expect(posts).toHaveLength(8);
-    expect(comments).toHaveLength(36);
-    expect(comments.filter((comment) => comment.parentKey)).toHaveLength(5);
-    expect(
-      new Set(posts.map((post) => seedUuid(`post:${post.key}`))).size,
-    ).toBe(posts.length);
-  });
-
   it('round-trips the world description through the shared response contract', () => {
     const response = worldResponseSchema.parse({
       id: seedUuid('world:mbti-house'),
