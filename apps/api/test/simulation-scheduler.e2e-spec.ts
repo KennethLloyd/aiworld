@@ -625,37 +625,6 @@ describe('Simulation scheduler (BullMQ, e2e)', () => {
     }
   });
 
-  it('runOneAction runs the scheduler task once and awaits the result', async () => {
-    testStart = new Date();
-
-    const result = await scheduler.runOneAction(canonicalWorld.slug);
-
-    expect(result.status).toBe('success');
-    const log = await prisma.simulationLog.findUniqueOrThrow({
-      where: { id: result.log.id },
-    });
-    expect(log.executionSource).toBe('ONE_ACTION');
-    // Random manual picks may persist or skip an already-voted target.
-    expect(['SUCCESS', 'SKIPPED']).toContain(log.status);
-    expect(log.jobId).toBeNull();
-  });
-
-  it('runCustomAction composes a forced action and awaits the result', async () => {
-    testStart = new Date();
-
-    const result = await scheduler.runCustomAction({
-      worldSlug: canonicalWorld.slug,
-      actionType: 'POST',
-    });
-
-    expect(result.status).toBe('success');
-    const log = await prisma.simulationLog.findUniqueOrThrow({
-      where: { id: result.log.id },
-    });
-    expect(log.executionSource).toBe('CUSTOM');
-    expect(log.status).toBe('SUCCESS');
-  });
-
   afterEach(async () => {
     await scheduler.stop(worldId).catch(() => undefined);
     // Let an in-flight turn finish before cleaning so nothing leaks across

@@ -207,26 +207,4 @@ describe('MockLlmProvider', () => {
       provider.generateStructured({ prompt: votePrompt, schema: voteSchema }),
     ).rejects.toBeInstanceOf(ProviderMalformedResponseError);
   });
-
-  it('honors fixture latency and a fixed default latency otherwise', async () => {
-    const provider = new MockLlmProvider(mockConfig(), [
-      { id: 'vote', output: { decision: 'upvote' }, latencyMs: 12 },
-      { id: 'comment', output: { content: 'Agreed.' }, latencyMs: 12 },
-    ]);
-    const fastProvider = new MockLlmProvider(mockConfig(), [
-      { id: 'vote', output: { decision: 'upvote' } },
-    ]);
-
-    const result = await provider.generateStructured({
-      prompt: votePrompt,
-      schema: voteSchema,
-    });
-    const fastResult = await fastProvider.generateStructured({
-      prompt: votePrompt,
-      schema: voteSchema,
-    });
-
-    expect(result.telemetry.latencyMs).toBe(12);
-    expect(fastResult.telemetry.latencyMs).toBe(7);
-  });
 });

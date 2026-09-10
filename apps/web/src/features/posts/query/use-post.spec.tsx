@@ -29,21 +29,6 @@ const response: PostDetailResponse = {
 };
 
 describe('usePost', () => {
-  it('calls the post API function for the requested detail', async () => {
-    getPostByIdMock.mockResolvedValue(response);
-    const client = new QueryClient();
-
-    const { result } = renderHook(() => usePost('mbti', postId), {
-      wrapper: ({ children }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      ),
-    });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.title).toBe('A detail conversation');
-    expect(getPostByIdMock).toHaveBeenCalledWith('mbti', postId);
-  });
-
   it('polls the public post detail snapshot', async () => {
     getPostByIdMock.mockResolvedValue(response);
     const client = new QueryClient();

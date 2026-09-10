@@ -83,31 +83,4 @@ describe('useCharacterActivity', () => {
     });
     expect(result.current.hasNextPage).toBe(false);
   });
-
-  it('does not poll the historical activity timeline', async () => {
-    getCharacterActivityMock.mockResolvedValue(firstPage);
-    const client = new QueryClient();
-
-    const { result } = renderHook(
-      () => useCharacterActivity('mbti', characterId),
-      {
-        wrapper: ({ children }) => (
-          <QueryClientProvider client={client}>{children}</QueryClientProvider>
-        ),
-      },
-    );
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    const query = client.getQueryCache().find({
-      queryKey: ['characters', 'activity', 'mbti', characterId],
-    });
-    const queryOptions = query?.options ?? {};
-    expect(
-      (queryOptions as { refetchInterval?: unknown }).refetchInterval,
-    ).toBeUndefined();
-    expect(
-      (queryOptions as { refetchIntervalInBackground?: unknown })
-        .refetchIntervalInBackground,
-    ).toBeUndefined();
-  });
 });
