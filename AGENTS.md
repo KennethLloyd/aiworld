@@ -17,19 +17,32 @@ Use these canonical role labels: `needs-triage`, `needs-info`, `ready-for-agent`
 
 ## Architecture boundaries
 
-- Place transport schemas in `packages/shared` as the single source when data crosses the API boundary.
-- For ordinary backend persistence, use `Controller → Service → PrismaService`. Generated Prisma types may be used inside backend services and local persistence helpers where appropriate; keep them within the backend boundary.
-- Use dependency injection and repository or provider ports only for genuine infrastructure variation or meaningful architectural seams, not merely to wrap Prisma.
-- Keep controllers focused on transport and delegate persistence to services; controllers must not access Prisma directly.
-- Enforce authorization on the NestJS server; use client route guards for UX behavior.
-- Keep public observer responses separate from admin prompts, raw provider responses, and telemetry.
-- Cover domain decisions with focused unit tests and boundary behavior with integration or end-to-end tests.
+- Use schemas in `packages/shared` as the single source of truth for data that crosses the API boundary.
+- Use `Controller → Service → PrismaService` for ordinary backend persistence. Controllers own transport concerns; services own application behavior and persistence. Generated Prisma types stay within the backend boundary.
+- Add repository or provider ports only at a genuine infrastructure seam, such as interchangeable external providers. Use dependency injection without wrapping Prisma in ceremonial abstractions.
+- Enforce authorization in the NestJS API. Client route guards improve UX but are not a security boundary.
+- Keep public observer responses free of admin prompts, raw provider responses, and telemetry.
+- Keep deployment and infrastructure concerns outside this repository unless application behavior depends on them.
 
 ## Engineering standard
 
-- Prefer idiomatic Turborepo, Vite, React, TanStack Query, Tailwind, and NestJS capabilities before adding custom infrastructure.
-- Preserve feature boundaries and clear ownership without requiring artificial dependency inversion between ordinary feature services.
-- Keep schemas, persistence, and controllers behind their existing boundaries, with explicit ownership and only genuine seams. This prevents duplicated schemas, direct controller-to-Prisma access, ceremonial indirection, and workaround layers.
+- Start with the simplest idiomatic capability provided by Turborepo, Vite, React, TanStack Query, Tailwind, NestJS, Prisma, BullMQ, or the hosting platform.
+- Preserve feature boundaries and give each responsibility one clear owner. Keep the main flow short enough to follow without ceremonial indirection.
+- Keep source comments to two lines or fewer. Comment only on non-obvious domain or infrastructure constraints.
+
+## Simplicity and scope
+
+- Add an abstraction, wrapper, cache, concurrency control, or custom infrastructure only when a current requirement needs it. Record the concrete requirement in the issue or pull request.
+- Treat existing complexity as a claim to re-evaluate. Remove obsolete machinery when no current product behavior depends on it.
+- Keep focused changes focused. Change adjacent code only when required for correctness or to preserve an ownership boundary.
+- Design for current scale and failure modes. Revisit portability or future scale when a concrete need appears.
+
+## Tests
+
+- Protect meaningful product behavior, domain rules, security and privacy boundaries, persistence invariants, integrations, and important failure or recovery paths.
+- Use the strongest practical layer for each behavior: focused unit tests for domain decisions and integration or end-to-end tests for boundaries.
+- Before adding a test, confirm existing coverage does not already protect the behavior at a stronger layer.
+- Add tests for framework wiring, implementation details, configuration, presentation markup, query keys, logging, or fixtures only when they protect a demonstrated regression risk.
 
 ## Verification
 
@@ -63,12 +76,12 @@ pnpm --filter @aiworld/api test:e2e
 
 Before opening or updating a UI pull request, complete this browser-first gate:
 
-1. Use the available browser-control capability (prefer the control-in-app-browser skill when available) to exercise the changed flow end to end and its affected surrounding areas: validation, loading and error states, edits, retrieval and rendering, downloads, and deletes when applicable. Re-snapshot after navigation or dynamic state changes. Completion: every relevant browser scenario passes and the snapshots show the final states.
+1. Exercise the changed flow end to end with in-app browser control. Cover each affected validation, loading, error, edit, retrieval, rendering, download, and delete path that applies. Re-snapshot after navigation and dynamic state changes. Completion: every relevant scenario passes and the final states are visible in snapshots.
 2. Verify every materially different affected page and state at an iPhone 15-sized viewport (`393×852`) and a desktop viewport at least `1280px` wide. Completion: both responsive views pass without overflow or behavior regressions.
-3. Capture enough screenshots from the in-app browser to cover the change, including complete mobile and desktop views that visibly show the new behavior. Completion: the pull request has the necessary evidence for every affected page or state.
+3. Attach complete mobile and desktop screenshots for every materially different affected page or state to the pull request. Keep screenshots out of the repository and free of secrets. Completion: the pull request visibly demonstrates the changed behavior at both viewports.
 4. Add a `What to expect` section to the pull request description or a pull-request comment in simplified, product-facing technical English. Explain the visible change, key interactions, responsive behavior, and demo-data limitations. Completion: a reviewer can understand and reproduce the changed behavior from the section.
 
-Treat direct browser verification as the acceptance gate; use `agent-browser` for a complementary automated check or fallback when the in-app browser is unavailable.
+Direct browser verification is the acceptance gate. Use `agent-browser` as a complementary automated check or as the fallback when in-app browser control is unavailable, and record that limitation in the pull request.
 
 ## Safety
 
