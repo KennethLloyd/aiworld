@@ -1,4 +1,3 @@
-import type { WorldNarrativeResponse } from '@aiworld/shared/schemas/world-narrative-response.schema';
 import type {
   ListWorldsResponse,
   WorldResponse,
@@ -16,7 +15,6 @@ import {
   createWorld,
   deleteWorld,
   getWorldBySlug,
-  getWorldNarrative,
   listWorlds,
   updateWorld,
 } from './world-api';
@@ -147,26 +145,6 @@ describe('world API functions', () => {
     mockFetch(200, { name: 'Missing required fields' });
 
     await expect(getWorldBySlug('mbti')).rejects.toBeInstanceOf(ZodError);
-  });
-
-  it('parses the public narrative response', async () => {
-    const narrative: WorldNarrativeResponse = {
-      recentEvents: 'A new mystery is taking shape.',
-      storySoFar: 'The town began with a question.',
-    };
-    const fetchMock = mockFetch(200, narrative);
-
-    await expect(getWorldNarrative('mbti')).resolves.toEqual(narrative);
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/worlds/mbti/narrative',
-      expect.objectContaining({ method: 'GET' }),
-    );
-  });
-
-  it('rejects a malformed narrative payload', async () => {
-    mockFetch(200, { recentEvents: 'Only one field' });
-
-    await expect(getWorldNarrative('mbti')).rejects.toBeInstanceOf(ZodError);
   });
 
   it('creates through the collection endpoint and parses the response', async () => {

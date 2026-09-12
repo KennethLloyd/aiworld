@@ -184,43 +184,10 @@ function normalizeProse(value: string | null | undefined): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeHandleReferences(
-  value: string | null | undefined,
-  activities: NarrativeActivity[],
-  knownHandles: string[],
-): string | null {
-  const prose = normalizeProse(value);
-  if (prose === null) {
-    return null;
-  }
-
-  const handles = new Set(knownHandles);
-  for (const activity of activities) {
-    handles.add(activity.author.handle);
-    if (activity.type === 'comment') {
-      handles.add(activity.post.author.handle);
-      if (activity.parentComment !== null) {
-        handles.add(activity.parentComment.author.handle);
-      }
-    }
-  }
-
-  return [...handles].reduce((current, handle) => {
-    const escapedHandle = handle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(
-      `(^|[^@A-Za-z0-9_-])(${escapedHandle})(?=$|[^A-Za-z0-9_-])`,
-      'g',
-    );
-    return current.replace(pattern, '$1@$2');
-  }, prose);
-}
-
 function normalizeRecentEvents(
   value: string | null | undefined,
-  activities: NarrativeActivity[],
-  knownHandles: string[],
 ): string | null {
-  const prose = normalizeHandleReferences(value, activities, knownHandles);
+  const prose = normalizeProse(value);
   return prose?.replace(/\s*\n+\s*/g, ' ') ?? null;
 }
 
@@ -379,8 +346,6 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
         data: { worldId },
       })) as NarrativeRow;
     }
-    const knownHandles = await this.findWorldHandles(worldId);
-
     while (true) {
       const activities = await this.findNextActivity(worldId, narrative);
       if (activities.length === 0) {
@@ -402,7 +367,6 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
         narrative,
         activities,
         output,
-        knownHandles,
       )) as NarrativeRow;
     }
   }
@@ -476,32 +440,13 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
       .slice(0, NARRATIVE_BATCH_SIZE);
   }
 
-  private async findWorldHandles(worldId: string): Promise<string[]> {
-    const members = await this.prisma.worldMember.findMany({
-      where: { worldId, characterId: { not: null } },
-      select: { character: { select: { handle: true } } },
-    });
-    return members.flatMap((member) =>
-      member.character === null ? [] : [member.character.handle],
-    );
-  }
-
   private saveBatch(
     narrative: NarrativeRow,
     activities: NarrativeActivity[],
     output: NarrativeOutput,
-    knownHandles: string[],
   ) {
-    const recentEvents = normalizeRecentEvents(
-      output.recentEvents,
-      activities,
-      knownHandles,
-    );
-    const storyContinuation = normalizeHandleReferences(
-      output.storyContinuation,
-      activities,
-      knownHandles,
-    );
+    const recentEvents = normalizeRecentEvents(output.recentEvents);
+    const storyContinuation = normalizeProse(output.storyContinuation);
     const lastPost = [...activities]
       .reverse()
       .find((activity) => activity.type === 'post');
