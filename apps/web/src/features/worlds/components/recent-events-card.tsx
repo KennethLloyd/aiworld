@@ -195,7 +195,9 @@ export function StorySoFar({
         ) : paragraphs.length > 0 ? (
           <div className="relative flex flex-col gap-5 text-[1.02rem] leading-8 text-ink/80">
             {paragraphs.map((paragraph, index) => (
-              <p key={`${index}-${paragraph.slice(0, 20)}`}>{paragraph}</p>
+              <p key={`${index}-${paragraph.slice(0, 20)}`}>
+                {renderNarrativeText(paragraph)}
+              </p>
             ))}
           </div>
         ) : (

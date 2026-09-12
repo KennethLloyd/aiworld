@@ -108,6 +108,7 @@ function createService() {
       create: jest.fn(),
       update: jest.fn(),
     },
+    worldMember: { findMany: jest.fn().mockResolvedValue([]) },
     post: { findMany: jest.fn() },
     comment: { findMany: jest.fn() },
   };
@@ -214,11 +215,66 @@ describe('WorldNarrativeService', () => {
     expect(prompt.user).toContain('comment-1');
     expect(prompt.user).toContain('Source timestamp: 2026-08-01T01:00:00.000Z');
     expect(prompt.user).toContain('Source timestamp: 2026-08-01T02:00:00.000Z');
+    expect(prompt.system).toContain(
+      'simple, natural English with the low reading effort of a clear young-adult novel',
+    );
+    expect(prompt.system).toContain(
+      'End Recent Events with one short, specific question',
+    );
+    expect(prompt.system).toContain(
+      'Use exact @handles whenever referring to residents; do not use personal pronouns for residents or infer gender.',
+    );
+    expect(prompt.system).toContain(
+      'Do not include calendar dates, clock readings, times of day, or elapsed-day counts in published prose',
+    );
     expect(prisma.worldNarrative.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           lastPostId: firstPost.id,
           lastCommentId: firstComment.id,
+        }),
+      }),
+    );
+  });
+
+  it('publishes source resident handles with an @ prefix in both narratives', async () => {
+    const { service, prisma, provider } = createService();
+    const sourcePost = post(
+      'post-handle',
+      '2026-08-01T01:00:00.000Z',
+      'A new town observation.',
+    );
+    prisma.worldNarrative.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(emptyNarrative);
+    prisma.worldNarrative.create.mockResolvedValue(emptyNarrative);
+    prisma.worldMember.findMany.mockResolvedValue([
+      { character: { handle: 'papercomet' } },
+    ]);
+    prisma.post.findMany
+      .mockResolvedValueOnce([sourcePost])
+      .mockResolvedValue([]);
+    prisma.comment.findMany.mockResolvedValue([]);
+    provider.generateStructured.mockResolvedValue({
+      output: {
+        recentEvents: 'papercomet noticed the change.',
+        storyContinuation: 'papercomet started the observation.',
+        continuitySummary: 'The observation remains open.',
+      },
+      telemetry: { source: 'mock', model: 'fixture-model', latencyMs: 1 },
+    });
+    prisma.worldNarrative.update.mockImplementation(
+      ({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve(updatedNarrative(emptyNarrative, data)),
+    );
+
+    await service.processWorld(world.id);
+
+    expect(prisma.worldNarrative.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recentEvents: '@papercomet noticed the change.',
+          storySoFar: '@papercomet started the observation.',
         }),
       }),
     );

@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { RecentEventsCard } from './recent-events-card';
+import { RecentEventsCard, StorySoFar } from './recent-events-card';
 
 afterEach(() => cleanup());
 
@@ -21,6 +21,19 @@ describe('RecentEventsCard', () => {
     expect(
       screen.queryByRole('button', { name: 'Show more' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders resident handles in Story So Far with the same visual treatment', () => {
+    render(
+      <StorySoFar story="@readthemanual found a loose hinge.\n\n@quietsignals asked what happens next." />,
+    );
+
+    const handles = screen.getAllByText(/@(?:readthemanual|quietsignals)/);
+    expect(handles).toHaveLength(2);
+    for (const handle of handles) {
+      expect(handle.tagName).toBe('SPAN');
+      expect(handle).toHaveClass('text-brand-sentinel');
+    }
   });
 
   it('offers an accessible toggle only when the mobile briefing is truncated', async () => {
