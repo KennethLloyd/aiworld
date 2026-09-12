@@ -19,6 +19,7 @@ import { Route as AboutWorldRoute } from '@/routes/worlds/$slug_.about';
 import { Route as PostDetailRoute } from '@/routes/worlds/$slug_.posts.$postId';
 import { Route as ResidentsRoute } from '@/routes/worlds/$slug_.residents';
 import { Route as ResidentProfileRoute } from '@/routes/worlds/$slug_.residents_.$characterId';
+import { Route as StoryRoute } from '@/routes/worlds/$slug_.story';
 import { Toaster } from '@/shared/feedback/toaster';
 
 export interface RenderPublicRoutesOptions {
@@ -82,6 +83,11 @@ export function renderPublicRoutes(
     path: '/worlds/$slug/about',
     getParentRoute: () => rootRoute,
   } as unknown as Parameters<typeof AboutWorldRoute.update>[0]);
+  const storyRoute = StoryRoute.update({
+    id: '/worlds/$slug_/story',
+    path: '/worlds/$slug/story',
+    getParentRoute: () => rootRoute,
+  } as unknown as Parameters<typeof StoryRoute.update>[0]);
   const routeTree = rootRoute.addChildren({
     index: indexRoute,
     worlds: worldsRoute,
@@ -90,6 +96,7 @@ export function renderPublicRoutes(
     'worlds/$slug/residents': residentsRoute,
     'worlds/$slug/residents/$characterId': residentProfileRoute,
     'worlds/$slug/about': aboutWorldRoute,
+    'worlds/$slug/story': storyRoute,
   });
   const router = createRouter({
     routeTree,

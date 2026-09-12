@@ -42,6 +42,12 @@ const postId = '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11';
 
 const server = setupServer(
   http.get('*/api/worlds/mbti', () => HttpResponse.json(mbtiWorld)),
+  http.get('*/api/worlds/mbti/narrative', () =>
+    HttpResponse.json({
+      recentEvents: 'A recent development is drawing the residents together.',
+      storySoFar: 'The World has begun to find its voice.',
+    }),
+  ),
   http.get('*/api/worlds/mbti/posts', () =>
     HttpResponse.json({
       items: [
@@ -217,6 +223,14 @@ describe('public world detail route', () => {
     expect(
       within(summary).queryByText(/Follow the latest conversations/),
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'What is unfolding' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'A recent development is drawing the residents together.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('navigates to the post detail from the feed comments link', async () => {
@@ -412,5 +426,27 @@ describe('public world detail route', () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('keeps the feed visible when Recent Events fails and offers a distinct retry', async () => {
+    server.use(
+      http.get('*/api/worlds/mbti/narrative', () =>
+        HttpResponse.json(
+          { statusCode: 503, message: 'Service Unavailable', error: 'Error' },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    renderPublicRoutes('/worlds/mbti', { queryClient: retryDisabledClient() });
+
+    const error = await screen.findByRole('alert');
+    expect(error).toHaveTextContent('Recent Events unavailable');
+    expect(
+      within(error).getByRole('button', { name: 'Try again' }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('article', { name: 'A latest conversation' }),
+    ).toBeInTheDocument();
   });
 });

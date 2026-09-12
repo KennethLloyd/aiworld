@@ -11,11 +11,13 @@ import { registerCharactersOpenApi } from '@/characters/characters.openapi';
 import { registerPostsOpenApi } from '@/posts/posts.openapi';
 import { registerSearchOpenApi } from '@/search/search.openapi';
 import { registerSimulationAdminOpenApi } from '@/simulation/admin/simulation-admin.openapi';
+import { registerWorldNarrativeOpenApi } from '@/simulation/narrative/world-narrative.openapi';
 import { registerWorldMembersOpenApi } from '@/world-members/world-members.openapi';
 import { registerWorldOpenApi } from '@/world/world.openapi';
 
 const openApiRegistrars: Array<(registry: OpenAPIRegistry) => void> = [
   registerWorldOpenApi,
+  registerWorldNarrativeOpenApi,
   registerCharactersOpenApi,
   registerWorldMembersOpenApi,
   registerPostsOpenApi,

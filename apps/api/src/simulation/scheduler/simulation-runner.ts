@@ -26,6 +26,7 @@ import {
   SimulationLogEntry,
   SimulationLogService,
 } from '@/simulation/logging/simulation-log.service';
+import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import {
@@ -72,6 +73,7 @@ export class SimulationRunner {
     private readonly contentWriter: SimulationContentWriter,
     private readonly logService: SimulationLogService,
     private readonly provider: LlmProvider,
+    private readonly narrativeService?: WorldNarrativeService,
   ) {}
 
   async runScheduledTurn(
@@ -224,6 +226,13 @@ export class SimulationRunner {
 
     const decision = outcome.decision;
     await this.contentWriter.persist(decision);
+    if (decision.action !== 'VOTE') {
+      try {
+        await this.narrativeService?.enqueue(decision.worldId);
+      } catch {
+        // A narrative provider or queue outage cannot undo saved content.
+      }
+    }
     const log = await this.logService.writeSuccess(
       decision,
       outcome.telemetry,

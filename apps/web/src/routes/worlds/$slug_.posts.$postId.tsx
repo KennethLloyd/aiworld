@@ -62,9 +62,11 @@ function PostDetailRoute() {
           to:
             section === 'residents'
               ? '/worlds/$slug/residents'
-              : section === 'about-world'
-                ? '/worlds/$slug/about'
-                : '/worlds/$slug',
+              : section === 'story'
+                ? '/worlds/$slug/story'
+                : section === 'about-world'
+                  ? '/worlds/$slug/about'
+                  : '/worlds/$slug',
           params: { slug },
           search:
             section === 'feed' ? { section: 'feed', sort: 'hot' } : undefined,

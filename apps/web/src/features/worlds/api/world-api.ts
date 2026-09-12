@@ -1,3 +1,5 @@
+import type { WorldNarrativeResponse } from '@aiworld/shared/schemas/world-narrative-response.schema';
+import { worldNarrativeResponseSchema } from '@aiworld/shared/schemas/world-narrative-response.schema';
 import type {
   ListWorldsResponse,
   WorldResponse,
@@ -36,6 +38,13 @@ export async function listWorlds(
 export async function getWorldBySlug(slug: string): Promise<WorldResponse> {
   const raw = await apiClient.get<unknown>(endpoints.worlds.detail(slug));
   return worldResponseSchema.parse(raw);
+}
+
+export async function getWorldNarrative(
+  slug: string,
+): Promise<WorldNarrativeResponse> {
+  const raw = await apiClient.get<unknown>(endpoints.worlds.narrative(slug));
+  return worldNarrativeResponseSchema.parse(raw);
 }
 
 export async function createWorld(input: CreateWorld): Promise<WorldResponse> {
