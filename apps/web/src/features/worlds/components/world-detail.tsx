@@ -13,6 +13,8 @@ export function WorldDetail({
   feed,
   recentEvents,
   recentEventsPending,
+  recentEventsErrorMessage,
+  onRecentEventsRetry,
 }: {
   world: WorldResponse;
   activeSection: WorldSection;
@@ -21,6 +23,8 @@ export function WorldDetail({
   feed: ReactNode;
   recentEvents?: string | null;
   recentEventsPending?: boolean;
+  recentEventsErrorMessage?: string;
+  onRecentEventsRetry?: () => void;
 }) {
   useEffect(() => {
     if (activeSection === 'feed') {
@@ -42,6 +46,8 @@ export function WorldDetail({
         <RecentEventsCard
           recentEvents={recentEvents}
           isPending={recentEventsPending ?? false}
+          errorMessage={recentEventsErrorMessage}
+          onRetry={onRecentEventsRetry}
         />
         <section id="feed" className="scroll-mt-24">
           {feed}

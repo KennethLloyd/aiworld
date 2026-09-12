@@ -41,30 +41,28 @@ export function WorldLayout({
       data-testid="world-layout"
       className="relative flex flex-col gap-4 pb-24 md:gap-8 md:pb-0"
     >
-      <header className="glass-panel relative overflow-hidden rounded-[1.25rem] px-4 py-4 sm:px-7 sm:py-6">
+      <header className="glass-panel relative overflow-hidden rounded-[1.25rem] px-3 py-3 sm:px-7 sm:py-6">
         <div
           aria-hidden="true"
           className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-analyst/15 blur-3xl"
         />
-        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="relative z-10 flex items-center justify-between gap-3 sm:items-end">
           <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <LiveIndicator
                 label={world.isActive ? 'LIVE' : 'PAUSED'}
                 active={world.isActive}
               />
-              <span className="text-xs text-ink/50">Observer view</span>
-            </div>
-            <div className="flex items-start gap-3">
+              <span className="hidden text-xs text-ink/50 sm:inline">
+                Observer view
+              </span>
               <Sparkles
-                className="mt-1 h-6 w-6 shrink-0 text-brand-explorer"
+                className="hidden h-6 w-6 shrink-0 text-brand-explorer sm:block"
                 aria-hidden="true"
               />
-              <div className="min-w-0">
-                <h1 className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-4xl">
-                  {world.name}
-                </h1>
-              </div>
+              <h1 className="min-w-0 break-words font-display text-xl font-bold tracking-[-0.04em] sm:text-4xl">
+                {world.name}
+              </h1>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3 text-[11px] text-ink/60 sm:pb-1 sm:text-xs">

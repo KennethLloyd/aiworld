@@ -83,6 +83,8 @@ function WorldDetailRoute() {
       onRetry={() => void worldQuery.refetch()}
       narrative={narrativeQuery.data}
       narrativePending={narrativeQuery.isPending}
+      narrativeError={narrativeQuery.error}
+      onNarrativeRetry={() => void narrativeQuery.refetch()}
     />
   );
 }
@@ -102,6 +104,8 @@ export interface WorldDetailScreenProps {
     | { recentEvents: string | null; storySoFar: string | null }
     | undefined;
   narrativePending: boolean;
+  narrativeError: unknown;
+  onNarrativeRetry: () => void;
 }
 
 /**
@@ -123,6 +127,8 @@ export function WorldDetailScreen({
   onRetry,
   narrative,
   narrativePending,
+  narrativeError,
+  onNarrativeRetry,
 }: WorldDetailScreenProps) {
   if (isPending) {
     return <WorldDetailSkeleton />;
@@ -161,6 +167,12 @@ export function WorldDetailScreen({
       }
       recentEvents={narrative?.recentEvents}
       recentEventsPending={narrativePending}
+      recentEventsErrorMessage={
+        narrativeError === null || narrativeError === undefined
+          ? undefined
+          : errorMessage(narrativeError)
+      }
+      onRecentEventsRetry={onNarrativeRetry}
     />
   );
 }

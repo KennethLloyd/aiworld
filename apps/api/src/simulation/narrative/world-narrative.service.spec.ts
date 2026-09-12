@@ -51,6 +51,7 @@ const comment = (
   content = 'A thoughtful follow-up.',
   parentComment: {
     id: string;
+    createdAt: string;
     content: string;
     author: ReturnType<typeof author>;
   } | null = null,
@@ -63,7 +64,11 @@ const comment = (
   author: author(`member-${id}`, `resident-${id}`),
   post: sourcePost,
   parentComment: parentComment
-    ? { content: parentComment.content, author: parentComment.author }
+    ? {
+        createdAt: new Date(parentComment.createdAt),
+        content: parentComment.content,
+        author: parentComment.author,
+      }
     : null,
 });
 
@@ -207,6 +212,8 @@ describe('WorldNarrativeService', () => {
     const prompt = provider.generateStructured.mock.calls[0][0].prompt;
     expect(prompt.user).toContain('post-1');
     expect(prompt.user).toContain('comment-1');
+    expect(prompt.user).toContain('Source timestamp: 2026-08-01T01:00:00.000Z');
+    expect(prompt.user).toContain('Source timestamp: 2026-08-01T02:00:00.000Z');
     expect(prisma.worldNarrative.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -224,7 +231,7 @@ describe('WorldNarrativeService', () => {
     const current = {
       ...emptyNarrative,
       recentEvents: 'Earlier events.',
-      storySoFar: 'The opening chapter.',
+      storySoFar: 'The opening chapter.\n\nThe latest chapter.',
       continuitySummary: 'An established fact.',
       lastPostAt: oldPost.createdAt,
       lastPostId: oldPost.id,
@@ -244,6 +251,11 @@ describe('WorldNarrativeService', () => {
     const prompt = provider.generateStructured.mock.calls[0][0].prompt;
     expect(prompt.user).toContain('post-new');
     expect(prompt.user).not.toContain('post-old');
+    expect(prompt.user).toContain(
+      'Previous Story Ending (continuity only; do not repeat it):\nThe latest chapter.',
+    );
+    expect(prompt.user).not.toContain('The opening chapter.');
+    expect(prompt.user).toContain('Source timestamp: 2026-08-02T01:00:00.000Z');
     expect(prisma.post.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
