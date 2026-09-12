@@ -20,6 +20,7 @@ import {
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogEntry } from '@/simulation/logging/simulation-log.service';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -111,6 +112,7 @@ function createRunner(
     providerConfig?: { providerId: string; model: string };
     simulationConfig?: SimulationConfig;
     provider?: LlmProvider;
+    narrativeService?: Pick<WorldNarrativeService, 'enqueue'>;
     execute?: (input: unknown) => Promise<SimulationActionOutcome>;
   } = {},
 ) {
@@ -180,6 +182,8 @@ function createRunner(
         model: 'fixture-model',
       },
     } as unknown as LlmProvider);
+  const narrativeService =
+    overrides.narrativeService ?? ({ enqueue: jest.fn() } as const);
 
   const runner = new SimulationRunner(
     worldService as never,
@@ -191,6 +195,7 @@ function createRunner(
     contentWriter,
     logService,
     provider,
+    narrativeService as WorldNarrativeService,
   );
 
   return {
@@ -204,6 +209,7 @@ function createRunner(
     commentAction,
     contentWriter,
     logService,
+    narrativeService,
   };
 }
 
@@ -221,8 +227,14 @@ const successOutcome = {
 describe('SimulationRunner', () => {
   describe('runScheduledTurn', () => {
     it('gates scheduled work, uses the process-global provider, persists, and logs', async () => {
-      const { runner, lifecycleService, executor, contentWriter, logService } =
-        createRunner();
+      const {
+        runner,
+        lifecycleService,
+        executor,
+        contentWriter,
+        logService,
+        narrativeService,
+      } = createRunner();
       executor.execute.mockResolvedValue(successOutcome);
 
       const result = await runner.runScheduledTurn(scheduledTurn(), 'job-1');
@@ -235,6 +247,7 @@ describe('SimulationRunner', () => {
         characterId: 'character-1',
       });
       expect(contentWriter.persist).toHaveBeenCalledWith(postDecision);
+      expect(narrativeService.enqueue).toHaveBeenCalledWith('world-1');
       expect(logService.writeSuccess).toHaveBeenCalledWith(
         postDecision,
         expect.objectContaining({ source: 'mock' }),
@@ -242,6 +255,23 @@ describe('SimulationRunner', () => {
         'job-1',
       );
       expect(result).toMatchObject({ status: 'success' });
+    });
+
+    it('keeps a successful saved action successful when narrative enqueue fails', async () => {
+      const narrativeService = {
+        enqueue: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
+      };
+      const { runner, executor, logService } = createRunner({
+        narrativeService,
+      });
+      executor.execute.mockResolvedValue(successOutcome);
+
+      await expect(
+        runner.runScheduledTurn(scheduledTurn()),
+      ).resolves.toMatchObject({
+        status: 'success',
+      });
+      expect(logService.writeSuccess).toHaveBeenCalled();
     });
     it.each([
       { providerId: 'mock', model: 'server-model-v1' },
@@ -384,8 +414,19 @@ describe('SimulationRunner', () => {
     });
 
     it('targets a picked post for a VOTE Iteration', async () => {
-      const { runner, picker, executor } = createRunner();
-      executor.execute.mockResolvedValue(successOutcome);
+      const { runner, picker, executor, narrativeService } = createRunner();
+      executor.execute.mockResolvedValue({
+        ...successOutcome,
+        decision: {
+          action: 'VOTE',
+          worldId: 'world-1',
+          memberId: 'member-1',
+          characterId: 'character-1',
+          postId: 'post-3',
+          decision: 'upvote',
+          reasoning: 'The post is useful.',
+        },
+      });
       picker.pickTargetPost.mockResolvedValue('post-3');
 
       await runner.runScheduledTurn(scheduledTurn({ actionType: 'VOTE' }));
@@ -396,6 +437,7 @@ describe('SimulationRunner', () => {
         characterId: 'character-1',
         postId: 'post-3',
       });
+      expect(narrativeService.enqueue).not.toHaveBeenCalled();
     });
 
     it('logs a lifecycle rejection as REJECTED and never retries', async () => {

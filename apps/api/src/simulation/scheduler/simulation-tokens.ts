@@ -1,0 +1,3 @@
+export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
+export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
+export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');

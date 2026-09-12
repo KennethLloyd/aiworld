@@ -13,13 +13,14 @@ import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
 import { WorldDetail } from '@/features/worlds/components/world-detail';
 import type { WorldSection } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';
+import { useWorldNarrative } from '@/features/worlds/query/use-world-narrative';
 import { buttonClasses } from '@/shared/ui/button';
 import { ErrorState } from '@/shared/ui/error-state';
 import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 const worldDetailSearchSchema = z.object({
-  section: z.enum(['feed', 'residents', 'about-world']).optional(),
+  section: z.enum(['feed', 'story', 'residents', 'about-world']).optional(),
   sort: postSortSchema.default('hot'),
 });
 
@@ -29,6 +30,13 @@ export const Route = createFileRoute('/worlds/$slug')({
     if (search.section === 'residents') {
       throw redirect({
         to: '/worlds/$slug/residents',
+        params: { slug: params.slug },
+        replace: true,
+      });
+    }
+    if (search.section === 'story') {
+      throw redirect({
+        to: '/worlds/$slug/story',
         params: { slug: params.slug },
         replace: true,
       });
@@ -49,6 +57,7 @@ function WorldDetailRoute() {
   const { section, sort } = Route.useSearch();
   const navigate = Route.useNavigate();
   const worldQuery = useWorld(slug);
+  const narrativeQuery = useWorldNarrative(slug);
   return (
     <WorldDetailScreen
       slug={slug}
@@ -72,6 +81,8 @@ function WorldDetailRoute() {
       isError={worldQuery.isError}
       error={worldQuery.error}
       onRetry={() => void worldQuery.refetch()}
+      narrative={narrativeQuery.data}
+      narrativePending={narrativeQuery.isPending}
     />
   );
 }
@@ -87,6 +98,10 @@ export interface WorldDetailScreenProps {
   isError: boolean;
   error: unknown;
   onRetry: () => void;
+  narrative:
+    | { recentEvents: string | null; storySoFar: string | null }
+    | undefined;
+  narrativePending: boolean;
 }
 
 /**
@@ -106,6 +121,8 @@ export function WorldDetailScreen({
   isError,
   error,
   onRetry,
+  narrative,
+  narrativePending,
 }: WorldDetailScreenProps) {
   if (isPending) {
     return <WorldDetailSkeleton />;
@@ -142,6 +159,8 @@ export function WorldDetailScreen({
           onSortChange={onSortChange}
         />
       }
+      recentEvents={narrative?.recentEvents}
+      recentEventsPending={narrativePending}
     />
   );
 }

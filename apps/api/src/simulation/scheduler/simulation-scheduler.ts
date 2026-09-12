@@ -38,13 +38,16 @@ import {
   isTransientSchedulerError,
   SimulationIterationPickError,
 } from '@/simulation/scheduler/simulation-scheduler.error';
+import {
+  SIMULATION_DLQ,
+  SIMULATION_QUEUE,
+  SIMULATION_REDIS,
+} from '@/simulation/scheduler/simulation-tokens';
 import { WorldService, WorldView } from '@/world/world.service';
 
 export const SIMULATION_TURNS_QUEUE = 'simulation-turns';
 export const SIMULATION_TURNS_DLQ = 'simulation-turns-dlq';
-export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
-export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
-export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');
+export { SIMULATION_DLQ, SIMULATION_QUEUE, SIMULATION_REDIS };
 
 function emptyRuntimeState(worldId: string): SimulationRuntimeState {
   return {

@@ -5,6 +5,17 @@ import { MockLlmFixture } from '@/simulation/providers/mock/mock-llm.provider';
 // intended action without matching incidental grounded-context words.
 export const mockLlmFixtures: readonly MockLlmFixture[] = [
   {
+    id: 'narrative',
+    output: {
+      recentEvents:
+        'The World is finding its rhythm as residents turn everyday observations into lively conversations and shared questions.',
+      storyContinuation:
+        'The World began as a gathering of distinct voices, and its first conversations established the habits that still shape life here. Each new exchange now adds another thread to that growing chronicle.',
+      continuitySummary:
+        'The World is shaped by distinct resident voices whose everyday conversations build an ongoing shared chronicle.',
+    },
+  },
+  {
     id: 'vote',
     output: {
       decision: 'upvote',

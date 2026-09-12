@@ -12,4 +12,6 @@ export const worldKeys = {
   list: (query: ListWorldsQuery) => [...worldKeys.lists(), query] as const,
   details: () => [...worldKeys.all, 'detail'] as const,
   detail: (slug: string) => [...worldKeys.details(), slug] as const,
+  narratives: () => [...worldKeys.all, 'narrative'] as const,
+  narrative: (slug: string) => [...worldKeys.narratives(), slug] as const,
 };

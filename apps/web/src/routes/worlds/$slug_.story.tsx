@@ -1,72 +1,87 @@
+import type { WorldNarrativeResponse } from '@aiworld/shared/schemas/world-narrative-response.schema';
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { createFileRoute } from '@tanstack/react-router';
 
 import { ApiError } from '@/core/api/api-error';
-import { WorldAbout } from '@/features/worlds/components/world-about';
+import { StorySoFar } from '@/features/worlds/components/recent-events-card';
 import {
   WorldLayout,
   type WorldSection,
 } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';
+import { useWorldNarrative } from '@/features/worlds/query/use-world-narrative';
 import { ErrorState } from '@/shared/ui/error-state';
 import { Skeleton } from '@/shared/ui/skeleton';
 
-export const Route = createFileRoute('/worlds/$slug_/about')({
-  component: AboutWorldRoute,
+export const Route = createFileRoute('/worlds/$slug_/story')({
+  component: StoryRoute,
 });
 
-function AboutWorldRoute() {
+function StoryRoute() {
   const { slug } = Route.useParams();
   const navigate = Route.useNavigate();
   const worldQuery = useWorld(slug);
+  const narrativeQuery = useWorldNarrative(slug);
 
   return (
-    <AboutWorldScreen
+    <StoryScreen
       slug={slug}
       world={worldQuery.data}
-      isPending={worldQuery.isPending}
-      error={worldQuery.error}
-      onRetry={() => void worldQuery.refetch()}
+      narrative={narrativeQuery.data}
+      worldPending={worldQuery.isPending}
+      narrativePending={narrativeQuery.isPending}
+      worldError={worldQuery.error}
+      narrativeError={narrativeQuery.error}
+      onRetry={() => {
+        void worldQuery.refetch();
+        void narrativeQuery.refetch();
+      }}
       onSectionChange={(section) =>
         void navigate({
           to:
             section === 'residents'
               ? '/worlds/$slug/residents'
-              : section === 'story'
-                ? '/worlds/$slug/story'
-                : '/worlds/$slug',
+              : section === 'about-world'
+                ? '/worlds/$slug/about'
+                : section === 'story'
+                  ? '/worlds/$slug/story'
+                  : '/worlds/$slug',
           params: { slug },
           search:
-            section === 'residents'
-              ? undefined
-              : { section: 'feed', sort: 'hot' },
+            section === 'feed' ? { section: 'feed', sort: 'hot' } : undefined,
         })
       }
     />
   );
 }
 
-export interface AboutWorldScreenProps {
+interface StoryScreenProps {
   slug: string;
   world: WorldResponse | undefined;
-  isPending: boolean;
-  error: unknown;
+  narrative: WorldNarrativeResponse | undefined;
+  worldPending: boolean;
+  narrativePending: boolean;
+  worldError: unknown;
+  narrativeError: unknown;
   onRetry: () => void;
   onSectionChange: (section: WorldSection) => void;
 }
 
-export function AboutWorldScreen({
+export function StoryScreen({
   slug,
   world,
-  isPending,
-  error,
+  narrative,
+  worldPending,
+  narrativePending,
+  worldError,
+  narrativeError,
   onRetry,
   onSectionChange,
-}: AboutWorldScreenProps) {
-  if (isPending) {
+}: StoryScreenProps) {
+  if (worldPending) {
     return (
       <div
-        aria-label="Loading world about page"
+        aria-label="Loading World story"
         aria-busy="true"
         className="flex flex-col gap-6"
       >
@@ -76,7 +91,7 @@ export function AboutWorldScreen({
     );
   }
 
-  if (error instanceof ApiError && error.status === 404) {
+  if (worldError instanceof ApiError && worldError.status === 404) {
     return (
       <ErrorState
         title="World not found"
@@ -86,11 +101,21 @@ export function AboutWorldScreen({
     );
   }
 
-  if (error !== null && error !== undefined) {
+  if (worldError !== null && worldError !== undefined) {
     return (
       <ErrorState
         title="Could not load this world"
-        message={errorMessage(error)}
+        message={errorMessage(worldError)}
+        onRetry={onRetry}
+      />
+    );
+  }
+
+  if (narrativeError !== null && narrativeError !== undefined) {
+    return (
+      <ErrorState
+        title="Could not load the World story"
+        message={errorMessage(narrativeError)}
         onRetry={onRetry}
       />
     );
@@ -103,13 +128,14 @@ export function AboutWorldScreen({
   return (
     <WorldLayout
       world={world}
-      activeSection="about-world"
+      activeSection="story"
       onSectionChange={onSectionChange}
       sectionNavigation="routes"
     >
-      <section id="about-world" className="scroll-mt-24">
-        <WorldAbout world={world} />
-      </section>
+      <StorySoFar
+        story={narrative?.storySoFar ?? null}
+        isPending={narrativePending}
+      />
     </WorldLayout>
   );
 }

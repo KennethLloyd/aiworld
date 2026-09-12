@@ -38,9 +38,15 @@ function ResidentsRoute() {
       }}
       onSectionChange={(section) =>
         void navigate({
-          to: '/worlds/$slug',
+          to:
+            section === 'story'
+              ? '/worlds/$slug/story'
+              : section === 'about-world'
+                ? '/worlds/$slug/about'
+                : '/worlds/$slug',
           params: { slug },
-          search: { section, sort: 'hot' },
+          search:
+            section === 'feed' ? { section: 'feed', sort: 'hot' } : undefined,
         })
       }
     />

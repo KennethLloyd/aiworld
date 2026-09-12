@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
+  BookOpenText,
   Eye,
   LayoutList,
   type LucideIcon,
@@ -17,7 +18,7 @@ import { LiveIndicator } from '@/shared/ui/live-indicator';
 
 import { WorldStatusBadge } from './world-status-badge';
 
-export type WorldSection = 'feed' | 'residents' | 'about-world';
+export type WorldSection = 'feed' | 'story' | 'residents' | 'about-world';
 export type SectionNavigation = 'anchors' | 'routes';
 
 export interface WorldLayoutProps {
@@ -35,9 +36,6 @@ export function WorldLayout({
   onSectionChange,
   sectionNavigation = 'anchors',
 }: WorldLayoutProps) {
-  const premise =
-    world.description?.premise ?? world.description?.about ?? world.topicScope;
-
   return (
     <div
       data-testid="world-layout"
@@ -66,9 +64,6 @@ export function WorldLayout({
                 <h1 className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-4xl">
                   {world.name}
                 </h1>
-                <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-ink/70 sm:line-clamp-2 sm:block sm:text-base">
-                  {premise}
-                </p>
               </div>
             </div>
           </div>
@@ -142,6 +137,16 @@ export function WorldLayout({
           />
           <WorldNavLink
             worldSlug={world.slug}
+            section="story"
+            icon={BookOpenText}
+            label="Story"
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
+            mobile
+          />
+          <WorldNavLink
+            worldSlug={world.slug}
             section="about-world"
             icon={BookOpen}
             label="About"
@@ -183,6 +188,15 @@ function WorldNavigation({
         section="residents"
         icon={Users}
         label="Residents"
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+        sectionNavigation={sectionNavigation}
+      />
+      <WorldNavLink
+        worldSlug={worldSlug}
+        section="story"
+        icon={BookOpenText}
+        label="Story So Far"
         activeSection={activeSection}
         onNavigate={onNavigate}
         sectionNavigation={sectionNavigation}
@@ -233,6 +247,7 @@ function WorldNavLink({
     feed: 'text-brand-sentinel',
     residents: 'text-brand-diplomat',
     'about-world': 'text-brand-explorer',
+    story: 'text-brand-analyst',
   }[section];
   const iconClass = `h-5 w-5 ${iconColor}`;
 
@@ -255,6 +270,19 @@ function WorldNavLink({
       return (
         <Link
           to="/worlds/$slug/about"
+          params={{ slug: worldSlug }}
+          aria-current={active ? 'location' : undefined}
+          className={linkClass}
+        >
+          <Icon className={iconClass} aria-hidden="true" />
+          {label}
+        </Link>
+      );
+    }
+    if (section === 'story') {
+      return (
+        <Link
+          to="/worlds/$slug/story"
           params={{ slug: worldSlug }}
           aria-current={active ? 'location' : undefined}
           className={linkClass}
