@@ -1,0 +1,14 @@
+model WorldNarrative {
+  worldId           String  @id
+  recentEvents      String? @db.Text
+  storySoFar        String? @db.Text
+  continuitySummary String  @default("") @db.Text
+  lastPostAt        DateTime?
+  lastPostId        String?
+  lastCommentAt     DateTime?
+  lastCommentId     String?
+
+  world World @relation(fields: [worldId], references: [id], onDelete: Cascade)
+
+  @@map("world_narrative")
+}

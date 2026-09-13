@@ -10,6 +10,7 @@ import {
   PostDecision,
   VoteDecision,
 } from '@/simulation/actions/simulation-decision';
+import { WorldNarrativeQueue } from '@/simulation/narrative/world-narrative.queue';
 import { VotesService } from '@/votes/votes.service';
 
 /** Persists validated decisions after actions have validated their output. */
@@ -19,6 +20,7 @@ export class SimulationContentWriter {
     private readonly postsService: PostsService,
     private readonly commentsService: CommentsService,
     private readonly votesService: VotesService,
+    private readonly narrativeQueue: WorldNarrativeQueue,
   ) {}
 
   /** Returns the created row id, or null for a vote decision that skipped. */
@@ -34,12 +36,14 @@ export class SimulationContentWriter {
   }
 
   async persistPost(decision: PostDecision): Promise<{ id: string }> {
-    return this.postsService.create({
+    const post = await this.postsService.create({
       worldId: decision.worldId,
       authorMemberId: decision.memberId,
       title: decision.title,
       content: decision.content,
     });
+    this.narrativeQueue.enqueue(decision.worldId);
+    return post;
   }
 
   async persistVote(decision: VoteDecision): Promise<{ id: string } | null> {
@@ -56,12 +60,14 @@ export class SimulationContentWriter {
   /** Enforces parent and depth checks before persisting a comment. */
   async persistComment(decision: CommentDecision): Promise<{ id: string }> {
     await this.assertAllowedParent(decision.postId, decision.parentCommentId);
-    return this.commentsService.create({
+    const comment = await this.commentsService.create({
       postId: decision.postId,
       authorMemberId: decision.memberId,
       parentCommentId: decision.parentCommentId,
       content: decision.content,
     });
+    this.narrativeQueue.enqueue(decision.worldId);
+    return comment;
   }
 
   private async assertAllowedParent(

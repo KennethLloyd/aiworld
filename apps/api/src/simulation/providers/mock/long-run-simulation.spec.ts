@@ -233,6 +233,7 @@ describe('bounded long-run mock simulation', () => {
       postsService as unknown as PostsService,
       commentsService as unknown as CommentsService,
       votesService as unknown as VotesService,
+      { enqueue: jest.fn() } as never,
     );
     const logService = new SimulationLogService(
       {
