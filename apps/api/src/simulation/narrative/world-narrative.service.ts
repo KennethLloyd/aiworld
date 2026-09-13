@@ -148,6 +148,32 @@ function latestContext(value: string | null, limit: number): string {
   return value.length <= limit ? value : `…${value.slice(-limit)}`;
 }
 
+function selectEventBatch(candidates: SourceEvent[]): {
+  events: SourceEvent[];
+  hasMore: boolean;
+} {
+  const events: SourceEvent[] = [];
+  let contextChars = 0;
+
+  for (const candidate of candidates) {
+    if (events.length >= SOURCE_BATCH_SIZE) {
+      break;
+    }
+    const eventChars = sourceText(candidate).length;
+    const separatorChars = events.length > 0 ? 2 : 0;
+    if (
+      events.length > 0 &&
+      contextChars + separatorChars + eventChars > MAX_CONTEXT_CHARS
+    ) {
+      break;
+    }
+    events.push(candidate);
+    contextChars += separatorChars + eventChars;
+  }
+
+  return { events, hasMore: events.length < candidates.length };
+}
+
 /** Generates observer prose from saved source positions and public content. */
 @Injectable()
 export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
@@ -224,11 +250,12 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
         id: narrative.lastCommentId,
       }),
     ]);
-    const events = [...posts.items, ...comments.items].sort(
+    const candidates = [...posts.items, ...comments.items].sort(
       (left, right) =>
         left.occurredAt.getTime() - right.occurredAt.getTime() ||
         left.id.localeCompare(right.id),
     );
+    const { events, hasMore } = selectEventBatch(candidates);
 
     if (events.length === 0) {
       return;
@@ -239,8 +266,12 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
       schema: narrativeOutputSchema,
       temperature: 0.4,
     });
-    const lastPost = posts.items[posts.items.length - 1];
-    const lastComment = comments.items[comments.items.length - 1];
+    const lastPost = [...events]
+      .reverse()
+      .find((event) => event.kind === 'post');
+    const lastComment = [...events]
+      .reverse()
+      .find((event) => event.kind === 'comment');
     await this.prisma.worldNarrative.update({
       where: { worldId: world.id },
       data: {
@@ -267,7 +298,7 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    if (posts.hasMore || comments.hasMore) {
+    if (hasMore || posts.hasMore || comments.hasMore) {
       await this.enqueue(world.id);
     }
   }
@@ -279,7 +310,7 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: SOURCE_BATCH_SIZE + 1,
     })) as PostSource[];
-    const items = rows.slice(0, SOURCE_BATCH_SIZE).map((post) => ({
+    const items = rows.slice(0, SOURCE_BATCH_SIZE + 1).map((post) => ({
       kind: 'post' as const,
       id: post.id,
       occurredAt: post.createdAt,
@@ -295,7 +326,7 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: SOURCE_BATCH_SIZE + 1,
     })) as CommentSource[];
-    const items = rows.slice(0, SOURCE_BATCH_SIZE).map((comment) => ({
+    const items = rows.slice(0, SOURCE_BATCH_SIZE + 1).map((comment) => ({
       kind: 'comment' as const,
       id: comment.id,
       occurredAt: comment.createdAt,
@@ -319,10 +350,7 @@ export class WorldNarrativeService implements OnModuleInit, OnModuleDestroy {
     const description = Object.entries(world.description ?? {})
       .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
-    const eventText = truncate(
-      events.map(sourceText).join('\n\n'),
-      MAX_CONTEXT_CHARS,
-    );
+    const eventText = events.map(sourceText).join('\n\n');
     return {
       system: [
         'You write public observer narration for one AIWorld.',
