@@ -1,6 +1,7 @@
 import { CommentsService } from '@/comments/comments.service';
 import { PostsService } from '@/posts/posts.service';
 import { SimulationWriteError } from '@/simulation/actions/simulation-action.error';
+import { WorldNarrativeQueue } from '@/simulation/narrative/world-narrative.queue';
 import { SimulationContentWriter } from '@/simulation/writing/simulation-content-writer';
 import { VotesService } from '@/votes/votes.service';
 
@@ -24,14 +25,24 @@ function createWriter(overrides: {
         Promise.resolve(overrides.commentLinks?.get(id) ?? null),
       ),
   } as unknown as CommentsService;
+  const narrativeQueue = {
+    enqueue: jest.fn().mockResolvedValue(undefined),
+  };
 
   const writer = new SimulationContentWriter(
     postRepository,
     commentRepository,
     voteRepository,
+    narrativeQueue as unknown as WorldNarrativeQueue,
   );
 
-  return { writer, postRepository, voteRepository, commentRepository };
+  return {
+    writer,
+    postRepository,
+    voteRepository,
+    commentRepository,
+    narrativeQueue,
+  };
 }
 
 const postDecision = {
@@ -113,6 +124,19 @@ describe('SimulationContentWriter', () => {
       authorMemberId: 'member-1',
       value: -1,
     });
+  });
+
+  it('enqueues narration after saved posts and comments, but never for votes', async () => {
+    const { writer, narrativeQueue } = createWriter({});
+
+    await writer.persist(postDecision);
+    await writer.persist(commentDecision);
+    await writer.persist(voteDecision);
+    await Promise.resolve();
+
+    expect(narrativeQueue.enqueue).toHaveBeenCalledTimes(2);
+    expect(narrativeQueue.enqueue).toHaveBeenNthCalledWith(1, 'world-1');
+    expect(narrativeQueue.enqueue).toHaveBeenNthCalledWith(2, 'world-1');
   });
 
   it('persists no row for a skipped vote', async () => {

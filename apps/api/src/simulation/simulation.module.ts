@@ -19,6 +19,14 @@ import { loadSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import { WorldNarrativeController } from '@/simulation/narrative/world-narrative.controller';
+import {
+  WORLD_NARRATIVE_QUEUE,
+  WORLD_NARRATIVE_QUEUE_NAME,
+  WORLD_NARRATIVE_REDIS,
+  WorldNarrativeQueue,
+} from '@/simulation/narrative/world-narrative.queue';
+import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -55,7 +63,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     CommentsModule,
     VotesModule,
   ],
-  controllers: [SimulationAdminController],
+  controllers: [SimulationAdminController, WorldNarrativeController],
   providers: [
     {
       provide: LLM_PROVIDER_CONFIG,
@@ -92,6 +100,16 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
       useFactory: (connection: IORedis) =>
         new Queue(SIMULATION_TURNS_DLQ, { connection }),
     },
+    {
+      provide: WORLD_NARRATIVE_QUEUE,
+      inject: [SIMULATION_REDIS],
+      useFactory: (connection: IORedis) =>
+        new Queue(WORLD_NARRATIVE_QUEUE_NAME, { connection }),
+    },
+    {
+      provide: WORLD_NARRATIVE_REDIS,
+      useExisting: SIMULATION_REDIS,
+    },
     SimulationScheduler,
     SimulationContextProvider,
     PostAction,
@@ -100,6 +118,8 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     SimulationLifecycleService,
     SimulationLogService,
     SimulationContentWriter,
+    WorldNarrativeService,
+    WorldNarrativeQueue,
     SimulationRandomSource,
     SimulationIterationPicker,
     SimulationRuntimeStateService,

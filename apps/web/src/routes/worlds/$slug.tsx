@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { ApiError } from '@/core/api/api-error';
 import { WorldFeed } from '@/features/posts/components/world-feed';
 import { publicListWorldsDefaults } from '@/features/worlds/api/world-api';
+import { RecentEventsCard } from '@/features/worlds/components/recent-events-card';
 import { WorldDetail } from '@/features/worlds/components/world-detail';
 import type { WorldSection } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';
@@ -19,7 +20,7 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 const worldDetailSearchSchema = z.object({
-  section: z.enum(['feed', 'residents', 'about-world']).optional(),
+  section: z.enum(['feed', 'residents', 'about-world', 'story']).optional(),
   sort: postSortSchema.default('hot'),
 });
 
@@ -36,6 +37,13 @@ export const Route = createFileRoute('/worlds/$slug')({
     if (search.section === 'about-world') {
       throw redirect({
         to: '/worlds/$slug/about',
+        params: { slug: params.slug },
+        replace: true,
+      });
+    }
+    if (search.section === 'story') {
+      throw redirect({
+        to: '/worlds/$slug/story',
         params: { slug: params.slug },
         replace: true,
       });
@@ -134,13 +142,16 @@ export function WorldDetailScreen({
       onSectionChange={onSectionChange}
       sectionNavigation="routes"
       feed={
-        <WorldFeed
-          slug={data.slug}
-          worldName={data.name}
-          residentCount={data.residentCount}
-          sort={sort}
-          onSortChange={onSortChange}
-        />
+        <div className="flex flex-col gap-5">
+          <RecentEventsCard slug={data.slug} />
+          <WorldFeed
+            slug={data.slug}
+            worldName={data.name}
+            residentCount={data.residentCount}
+            sort={sort}
+            onSortChange={onSortChange}
+          />
+        </div>
       }
     />
   );

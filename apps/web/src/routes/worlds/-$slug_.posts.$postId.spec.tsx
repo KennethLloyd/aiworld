@@ -100,6 +100,9 @@ const server = setupServer(
     HttpResponse.json(detail),
   ),
   http.get('*/api/worlds/mbti', () => HttpResponse.json(world)),
+  http.get('*/api/worlds/mbti/narrative', () =>
+    HttpResponse.json({ recentEvents: null, storySoFar: null }),
+  ),
   http.get('*/api/worlds/mbti/posts', () =>
     HttpResponse.json({
       items: [
