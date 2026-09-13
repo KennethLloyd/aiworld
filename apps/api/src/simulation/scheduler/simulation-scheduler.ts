@@ -21,6 +21,7 @@ import type { SimulationConfig } from '@/simulation/lifecycle/domain/simulation-
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import { SimulationRandomSource } from '@/simulation/scheduler/simulation-random-source';
+import { SIMULATION_REDIS } from '@/simulation/scheduler/simulation-redis.token';
 import { SimulationRunner } from '@/simulation/scheduler/simulation-runner';
 import type { IterationRunResult } from '@/simulation/scheduler/simulation-runner';
 import { RECENT_RETRY_WINDOW_MS } from '@/simulation/scheduler/simulation-runtime-signals';
@@ -42,7 +43,7 @@ import { WorldService, WorldView } from '@/world/world.service';
 
 export const SIMULATION_TURNS_QUEUE = 'simulation-turns';
 export const SIMULATION_TURNS_DLQ = 'simulation-turns-dlq';
-export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');
+export { SIMULATION_REDIS } from '@/simulation/scheduler/simulation-redis.token';
 export const SIMULATION_QUEUE = Symbol('SIMULATION_QUEUE');
 export const SIMULATION_DLQ = Symbol('SIMULATION_DLQ');
 
