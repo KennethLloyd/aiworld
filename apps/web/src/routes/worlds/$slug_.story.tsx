@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { NarrativeProse } from '@/features/worlds/components/narrative-prose';
 import { WorldLayout } from '@/features/worlds/components/world-layout';
 import { useWorld } from '@/features/worlds/query/use-world';
 import { useWorldNarrative } from '@/features/worlds/query/use-world-narrative';
@@ -59,7 +60,9 @@ function StoryRoute() {
               .split(/\n\s*\n/)
               .filter(Boolean)
               .map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
+                <p key={index}>
+                  <NarrativeProse text={paragraph} />
+                </p>
               ))}
           </div>
         ) : (
