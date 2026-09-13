@@ -88,8 +88,21 @@ function ExpandableRecentEvents({ text }: { text: string }) {
   useEffect(() => {
     const element = textRef.current;
     if (!element) return;
-    const measure = () =>
-      setIsTruncated(element.scrollHeight > element.clientHeight + 1);
+    const measure = () => {
+      const shouldRestoreExpandedLayout = expanded;
+      if (shouldRestoreExpandedLayout) {
+        element.classList.remove('line-clamp-none');
+        element.classList.add('line-clamp-3');
+      }
+
+      const truncated = element.scrollHeight > element.clientHeight + 1;
+
+      if (shouldRestoreExpandedLayout) {
+        element.classList.remove('line-clamp-3');
+        element.classList.add('line-clamp-none');
+      }
+      setIsTruncated(truncated);
+    };
     measure();
     const observer =
       typeof ResizeObserver === 'undefined'
@@ -101,7 +114,7 @@ function ExpandableRecentEvents({ text }: { text: string }) {
       observer?.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [text]);
+  }, [expanded, text]);
 
   return (
     <>
