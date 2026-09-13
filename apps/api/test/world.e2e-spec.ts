@@ -67,6 +67,9 @@ describe('Worlds API (e2e)', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
     },
+    worldNarrative: {
+      findUnique: jest.fn(),
+    },
   };
   beforeEach(async () => {
     createdSimulationConfig = null;
@@ -104,6 +107,10 @@ describe('Worlds API (e2e)', () => {
             : null,
         ),
     );
+    prismaStub.worldNarrative.findUnique.mockResolvedValue({
+      recentEvents: null,
+      storySoFar: null,
+    });
     prismaStub.$transaction.mockImplementation(async (callback) =>
       callback(prismaStub),
     );
@@ -151,6 +158,28 @@ describe('Worlds API (e2e)', () => {
   it('GET /api/worlds/missing returns 404 with the normalized exception envelope', () => {
     return request(app.getHttpServer())
       .get('/api/worlds/missing')
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toEqual({
+          statusCode: 404,
+          message: 'Not Found',
+          error: 'NotFoundException',
+        });
+      });
+  });
+
+  it('GET /api/worlds/mbti/narrative returns only the public narrative fields', () => {
+    return request(app.getHttpServer())
+      .get('/api/worlds/mbti/narrative')
+      .expect(200)
+      .expect((res) => {
+        expect(res.body).toEqual({ recentEvents: null, storySoFar: null });
+      });
+  });
+
+  it('GET /api/worlds/missing/narrative returns 404', () => {
+    return request(app.getHttpServer())
+      .get('/api/worlds/missing/narrative')
       .expect(404)
       .expect((res) => {
         expect(res.body).toEqual({

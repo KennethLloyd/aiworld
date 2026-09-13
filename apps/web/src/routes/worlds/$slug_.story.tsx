@@ -2,7 +2,7 @@ import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schem
 import { createFileRoute } from '@tanstack/react-router';
 
 import { ApiError } from '@/core/api/api-error';
-import { WorldAbout } from '@/features/worlds/components/world-about';
+import { StorySoFar } from '@/features/worlds/components/story-so-far';
 import {
   WorldLayout,
   type WorldSection,
@@ -11,17 +11,17 @@ import { useWorld } from '@/features/worlds/query/use-world';
 import { ErrorState } from '@/shared/ui/error-state';
 import { Skeleton } from '@/shared/ui/skeleton';
 
-export const Route = createFileRoute('/worlds/$slug_/about')({
-  component: AboutWorldRoute,
+export const Route = createFileRoute('/worlds/$slug_/story')({
+  component: StoryRoute,
 });
 
-function AboutWorldRoute() {
+function StoryRoute() {
   const { slug } = Route.useParams();
   const navigate = Route.useNavigate();
   const worldQuery = useWorld(slug);
 
   return (
-    <AboutWorldScreen
+    <StoryScreen
       slug={slug}
       world={worldQuery.data}
       isPending={worldQuery.isPending}
@@ -30,23 +30,23 @@ function AboutWorldRoute() {
       onSectionChange={(section) =>
         void navigate({
           to:
-            section === 'residents'
-              ? '/worlds/$slug/residents'
-              : section === 'story'
-                ? '/worlds/$slug/story'
-                : '/worlds/$slug',
+            section === 'feed'
+              ? '/worlds/$slug'
+              : section === 'residents'
+                ? '/worlds/$slug/residents'
+                : section === 'about-world'
+                  ? '/worlds/$slug/about'
+                  : '/worlds/$slug/story',
           params: { slug },
           search:
-            section === 'residents'
-              ? undefined
-              : { section: 'feed', sort: 'hot' },
+            section === 'feed' ? { section: 'feed', sort: 'hot' } : undefined,
         })
       }
     />
   );
 }
 
-export interface AboutWorldScreenProps {
+export interface StoryScreenProps {
   slug: string;
   world: WorldResponse | undefined;
   isPending: boolean;
@@ -55,18 +55,18 @@ export interface AboutWorldScreenProps {
   onSectionChange: (section: WorldSection) => void;
 }
 
-export function AboutWorldScreen({
+export function StoryScreen({
   slug,
   world,
   isPending,
   error,
   onRetry,
   onSectionChange,
-}: AboutWorldScreenProps) {
+}: StoryScreenProps) {
   if (isPending) {
     return (
       <div
-        aria-label="Loading world about page"
+        aria-label="Loading Story So Far"
         aria-busy="true"
         className="flex flex-col gap-6"
       >
@@ -75,7 +75,6 @@ export function AboutWorldScreen({
       </div>
     );
   }
-
   if (error instanceof ApiError && error.status === 404) {
     return (
       <ErrorState
@@ -85,41 +84,32 @@ export function AboutWorldScreen({
       />
     );
   }
-
   if (error !== null && error !== undefined) {
     return (
       <ErrorState
         title="Could not load this world"
-        message={errorMessage(error)}
+        message={
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong while loading this content.'
+        }
         onRetry={onRetry}
       />
     );
   }
-
   if (world === undefined) {
     return null;
   }
-
   return (
     <WorldLayout
       world={world}
-      activeSection="about-world"
+      activeSection="story"
       onSectionChange={onSectionChange}
       sectionNavigation="routes"
     >
-      <section id="about-world" className="scroll-mt-24">
-        <WorldAbout world={world} />
+      <section aria-label="Story So Far">
+        <StorySoFar slug={slug} />
       </section>
     </WorldLayout>
   );
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.toUserMessage();
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'Something went wrong while loading this content.';
 }

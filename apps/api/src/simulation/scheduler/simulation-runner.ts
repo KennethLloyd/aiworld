@@ -3,7 +3,7 @@ import {
   type ScheduledTurn,
   type SimulationIteration,
 } from '@aiworld/shared/schemas/simulation-iteration.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { CommentAction } from '@/simulation/actions/comment.action';
 import { PostAction } from '@/simulation/actions/post.action';
@@ -26,6 +26,7 @@ import {
   SimulationLogEntry,
   SimulationLogService,
 } from '@/simulation/logging/simulation-log.service';
+import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
 import {
@@ -72,6 +73,11 @@ export class SimulationRunner {
     private readonly contentWriter: SimulationContentWriter,
     private readonly logService: SimulationLogService,
     private readonly provider: LlmProvider,
+    @Optional()
+    @Inject(WorldNarrativeService)
+    private readonly narrativeService:
+      | WorldNarrativeService
+      | undefined = undefined,
   ) {}
 
   async runScheduledTurn(
@@ -224,6 +230,11 @@ export class SimulationRunner {
 
     const decision = outcome.decision;
     await this.contentWriter.persist(decision);
+    if (decision.action !== 'VOTE') {
+      void this.narrativeService
+        ?.enqueue(decision.worldId)
+        .catch(() => undefined);
+    }
     const log = await this.logService.writeSuccess(
       decision,
       outcome.telemetry,

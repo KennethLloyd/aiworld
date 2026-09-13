@@ -7,6 +7,7 @@ import {
   Eye,
   LayoutList,
   type LucideIcon,
+  ScrollText,
   Sparkles,
   Users,
 } from 'lucide-react';
@@ -17,7 +18,7 @@ import { LiveIndicator } from '@/shared/ui/live-indicator';
 
 import { WorldStatusBadge } from './world-status-badge';
 
-export type WorldSection = 'feed' | 'residents' | 'about-world';
+export type WorldSection = 'feed' | 'story' | 'residents' | 'about-world';
 export type SectionNavigation = 'anchors' | 'routes';
 
 export interface WorldLayoutProps {
@@ -35,59 +36,33 @@ export function WorldLayout({
   onSectionChange,
   sectionNavigation = 'anchors',
 }: WorldLayoutProps) {
-  const premise =
-    world.description?.premise ?? world.description?.about ?? world.topicScope;
-
   return (
     <div
       data-testid="world-layout"
       className="relative flex flex-col gap-4 pb-24 md:gap-8 md:pb-0"
     >
-      <header className="glass-panel relative overflow-hidden rounded-[1.25rem] px-4 py-4 sm:px-7 sm:py-6">
-        <div
-          aria-hidden="true"
-          className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-analyst/15 blur-3xl"
-        />
-        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <LiveIndicator
-                label={world.isActive ? 'LIVE' : 'PAUSED'}
-                active={world.isActive}
-              />
-              <span className="text-xs text-ink/50">Observer view</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <Sparkles
-                className="mt-1 h-6 w-6 shrink-0 text-brand-explorer"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <h1 className="break-words font-display text-2xl font-bold tracking-[-0.04em] sm:text-4xl">
-                  {world.name}
-                </h1>
-                <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-ink/70 sm:line-clamp-2 sm:block sm:text-base">
-                  {premise}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-3 text-[11px] text-ink/60 sm:pb-1 sm:text-xs">
-            <span className="flex items-center gap-1.5">
-              <Users
-                className="h-4 w-4 text-brand-sentinel"
-                aria-hidden="true"
-              />
-              {world.residentCount} Residents
-            </span>
-            <span className="hidden items-center gap-1.5 sm:flex">
-              <Activity
-                className="h-4 w-4 text-brand-diplomat"
-                aria-hidden="true"
-              />
-              {world.isActive ? 'Activity is unfolding' : 'Between moments'}
-            </span>
-          </div>
+      <header className="flex items-center justify-between gap-3 border-b border-glass-border px-1 py-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Sparkles
+            className="h-5 w-5 shrink-0 text-brand-explorer"
+            aria-hidden="true"
+          />
+          <h1 className="truncate font-display text-xl font-bold tracking-[-0.04em] sm:text-2xl">
+            {world.name}
+          </h1>
+          <span className="hidden text-xs text-ink/45 sm:inline">
+            Observer view
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2.5 text-[11px] text-ink/60 sm:text-xs">
+          <LiveIndicator
+            label={world.isActive ? 'LIVE' : 'PAUSED'}
+            active={world.isActive}
+          />
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <Users className="h-4 w-4 text-brand-sentinel" aria-hidden="true" />
+            {world.residentCount}
+          </span>
         </div>
       </header>
 
@@ -142,6 +117,16 @@ export function WorldLayout({
           />
           <WorldNavLink
             worldSlug={world.slug}
+            section="story"
+            icon={ScrollText}
+            label="Story"
+            activeSection={activeSection}
+            onNavigate={onSectionChange}
+            sectionNavigation={sectionNavigation}
+            mobile
+          />
+          <WorldNavLink
+            worldSlug={world.slug}
             section="about-world"
             icon={BookOpen}
             label="About"
@@ -174,6 +159,15 @@ function WorldNavigation({
         section="feed"
         icon={LayoutList}
         label="The Feed"
+        activeSection={activeSection}
+        onNavigate={onNavigate}
+        sectionNavigation={sectionNavigation}
+      />
+      <WorldNavLink
+        worldSlug={worldSlug}
+        section="story"
+        icon={ScrollText}
+        label="Story So Far"
         activeSection={activeSection}
         onNavigate={onNavigate}
         sectionNavigation={sectionNavigation}
@@ -231,6 +225,7 @@ function WorldNavLink({
       : `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink/60 transition-colors hover:bg-glass-50 hover:text-ink ${focusClass}`;
   const iconColor = {
     feed: 'text-brand-sentinel',
+    story: 'text-brand-explorer',
     residents: 'text-brand-diplomat',
     'about-world': 'text-brand-explorer',
   }[section];
@@ -255,6 +250,19 @@ function WorldNavLink({
       return (
         <Link
           to="/worlds/$slug/about"
+          params={{ slug: worldSlug }}
+          aria-current={active ? 'location' : undefined}
+          className={linkClass}
+        >
+          <Icon className={iconClass} aria-hidden="true" />
+          {label}
+        </Link>
+      );
+    }
+    if (section === 'story') {
+      return (
+        <Link
+          to="/worlds/$slug/story"
           params={{ slug: worldSlug }}
           aria-current={active ? 'location' : undefined}
           className={linkClass}

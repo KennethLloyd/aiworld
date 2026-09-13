@@ -42,6 +42,9 @@ const postId = '7a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f11';
 
 const server = setupServer(
   http.get('*/api/worlds/mbti', () => HttpResponse.json(mbtiWorld)),
+  http.get('*/api/worlds/mbti/narrative', () =>
+    HttpResponse.json({ recentEvents: null, storySoFar: null }),
+  ),
   http.get('*/api/worlds/mbti/posts', () =>
     HttpResponse.json({
       items: [

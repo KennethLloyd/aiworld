@@ -19,7 +19,7 @@ import { GlassPanel } from '@/shared/ui/glass-panel';
 import { Skeleton } from '@/shared/ui/skeleton';
 
 const worldDetailSearchSchema = z.object({
-  section: z.enum(['feed', 'residents', 'about-world']).optional(),
+  section: z.enum(['feed', 'story', 'residents', 'about-world']).optional(),
   sort: postSortSchema.default('hot'),
 });
 
@@ -36,6 +36,13 @@ export const Route = createFileRoute('/worlds/$slug')({
     if (search.section === 'about-world') {
       throw redirect({
         to: '/worlds/$slug/about',
+        params: { slug: params.slug },
+        replace: true,
+      });
+    }
+    if (search.section === 'story') {
+      throw redirect({
+        to: '/worlds/$slug/story',
         params: { slug: params.slug },
         replace: true,
       });
