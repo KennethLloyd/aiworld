@@ -1,0 +1,1 @@
+export const SIMULATION_REDIS = Symbol('SIMULATION_REDIS');

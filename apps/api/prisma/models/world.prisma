@@ -14,6 +14,7 @@ model World {
   simulationLogs         SimulationLog[]
   simulationConfig       WorldSimulationConfig?
   simulationRuntimeState SimulationRuntimeState?
+  narrative              WorldNarrative?
 
   @@map("world")
 }

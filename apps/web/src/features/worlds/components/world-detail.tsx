@@ -1,6 +1,7 @@
 import type { WorldResponse } from '@aiworld/shared/schemas/world-response.schema';
 import { useEffect, type ReactNode } from 'react';
 
+import { RecentEvents } from './recent-events';
 import { WorldLayout, type WorldSection } from './world-layout';
 
 /** Public feed rendered inside the shared world layout. */
@@ -34,6 +35,7 @@ export function WorldDetail({
       sectionNavigation={sectionNavigation}
     >
       <article className="flex flex-col gap-6">
+        <RecentEvents slug={world.slug} />
         <section id="feed" className="scroll-mt-24">
           {feed}
         </section>

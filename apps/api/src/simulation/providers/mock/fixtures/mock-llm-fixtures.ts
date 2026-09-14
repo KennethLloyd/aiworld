@@ -5,6 +5,16 @@ import { MockLlmFixture } from '@/simulation/providers/mock/mock-llm.provider';
 // intended action without matching incidental grounded-context words.
 export const mockLlmFixtures: readonly MockLlmFixture[] = [
   {
+    id: 'narrative',
+    output: {
+      recentEvents:
+        'The residents have started talking. Their next conversation may bring more into focus.',
+      storyContinuation:
+        'The residents began sharing their thoughts in the World.',
+      continuitySummary: '',
+    },
+  },
+  {
     id: 'vote',
     output: {
       decision: 'upvote',

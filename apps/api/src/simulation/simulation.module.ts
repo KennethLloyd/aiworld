@@ -19,6 +19,9 @@ import { loadSimulationCostConfig } from '@/simulation/cost/simulation-cost';
 import { SimulationCostEstimator } from '@/simulation/cost/simulation-cost-estimator';
 import { SimulationLifecycleService } from '@/simulation/lifecycle/simulation-lifecycle.service';
 import { SimulationLogService } from '@/simulation/logging/simulation-log.service';
+import { WorldNarrativeController } from '@/simulation/narrative/world-narrative.controller';
+import { WorldNarrativeQueue } from '@/simulation/narrative/world-narrative.queue';
+import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { createLlmProvider } from '@/simulation/providers/llm-provider.registry';
 import { SimulationIterationPicker } from '@/simulation/scheduler/simulation-iteration-picker';
@@ -55,7 +58,7 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     CommentsModule,
     VotesModule,
   ],
-  controllers: [SimulationAdminController],
+  controllers: [SimulationAdminController, WorldNarrativeController],
   providers: [
     {
       provide: LLM_PROVIDER_CONFIG,
@@ -100,6 +103,8 @@ const LLM_PROVIDER_CONFIG = Symbol('LLM_PROVIDER_CONFIG');
     SimulationLifecycleService,
     SimulationLogService,
     SimulationContentWriter,
+    WorldNarrativeService,
+    WorldNarrativeQueue,
     SimulationRandomSource,
     SimulationIterationPicker,
     SimulationRuntimeStateService,

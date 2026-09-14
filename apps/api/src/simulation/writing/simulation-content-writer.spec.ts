@@ -29,6 +29,7 @@ function createWriter(overrides: {
     postRepository,
     commentRepository,
     voteRepository,
+    { enqueue: jest.fn() } as never,
   );
 
   return { writer, postRepository, voteRepository, commentRepository };
