@@ -1,8 +1,9 @@
 import type { CharacterResponse } from '@aiworld/shared/schemas/character-response.schema';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Orbit } from 'lucide-react';
+import { ArrowLeft, BookOpen, Orbit } from 'lucide-react';
 
 import { ActivityTimeline } from '@/features/characters/components/activity-timeline';
+import { NarrativeProse } from '@/features/worlds/components/narrative-prose';
 import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
@@ -13,6 +14,7 @@ import { IdentityBadge } from '@/shared/ui/identity-badge';
 export function ResidentProfile({
   worldSlug,
   character,
+  storySoFar,
   activity,
   hasNextPage,
   isFetchingNextPage,
@@ -21,6 +23,7 @@ export function ResidentProfile({
 }: {
   worldSlug: string;
   character: CharacterResponse;
+  storySoFar: string | null;
   activity: Parameters<typeof ActivityTimeline>[0]['pages'];
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -106,6 +109,30 @@ export function ResidentProfile({
           </div>
         </div>
       </GlassPanel>
+
+      {storySoFar ? (
+        <GlassPanel className="rounded-[1.25rem] p-4 sm:p-5">
+          <div className="flex items-center gap-2">
+            <BookOpen
+              className="h-4 w-4 text-brand-sentinel"
+              aria-hidden="true"
+            />
+            <h2 className="font-display text-xl font-semibold tracking-[-0.025em]">
+              Story So Far
+            </h2>
+          </div>
+          <div className="mt-3 space-y-3 text-sm leading-7 text-ink/80 sm:text-base">
+            {storySoFar
+              .split(/\n\s*\n/)
+              .filter(Boolean)
+              .map((paragraph, index) => (
+                <p key={index}>
+                  <NarrativeProse text={paragraph} />
+                </p>
+              ))}
+          </div>
+        </GlassPanel>
+      ) : null}
 
       <ActivityTimeline
         worldSlug={worldSlug}

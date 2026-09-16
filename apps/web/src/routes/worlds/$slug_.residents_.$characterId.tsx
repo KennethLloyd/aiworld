@@ -47,6 +47,7 @@ function ResidentProfileRoute() {
       slug={slug}
       world={worldQuery.data}
       character={characterQuery.data}
+      storySoFar={activityQuery.data?.pages[0]?.storySoFar}
       activity={activityQuery.data?.pages}
       worldPending={worldQuery.isPending}
       characterPending={characterQuery.isPending}
@@ -78,6 +79,7 @@ export interface ResidentProfileScreenProps {
   slug: string;
   world: WorldResponse | undefined;
   character: CharacterResponse | undefined;
+  storySoFar: string | null | undefined;
   activity:
     | {
         items: Parameters<
@@ -103,6 +105,7 @@ export function ResidentProfileScreen({
   slug,
   world,
   character,
+  storySoFar,
   activity,
   worldPending,
   characterPending,
@@ -172,6 +175,7 @@ export function ResidentProfileScreen({
       <ResidentProfile
         worldSlug={slug}
         character={character}
+        storySoFar={storySoFar ?? null}
         activity={activity}
         hasNextPage={hasNextPage}
         isFetchingNextPage={isFetchingNextPage}

@@ -91,10 +91,10 @@ export class WorldMembersService {
   async findByWorldAndCharacter(
     worldId: string,
     characterId: string,
-  ): Promise<{ id: string } | null> {
+  ): Promise<{ id: string; narrativeMemory: string } | null> {
     return this.prisma.worldMember.findFirst({
       where: { worldId, characterId },
-      select: { id: true },
+      select: { id: true, narrativeMemory: true },
     });
   }
 
