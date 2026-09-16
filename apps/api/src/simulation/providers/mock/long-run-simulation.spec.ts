@@ -64,7 +64,11 @@ describe('bounded long-run mock simulation', () => {
     const memberByCharacter = new Map(
       characterRecords.map((character, index) => [
         character.id,
-        { id: `member-${index}` },
+        {
+          id: `member-${index}`,
+          narrativeMemory: '',
+          recentEvents: null,
+        },
       ]),
     );
     const authorFor = (character: CharacterView) => ({
@@ -112,16 +116,6 @@ describe('bounded long-run mock simulation', () => {
         worldId === world.id
           ? (posts.find((post) => post.id === postId) ?? null)
           : null,
-      findRecentByWorld: async (worldId: string, limit: number) =>
-        worldId === world.id
-          ? [...posts]
-              .sort(
-                (a, b) =>
-                  b.createdAt.getTime() - a.createdAt.getTime() ||
-                  a.id.localeCompare(b.id),
-              )
-              .slice(0, limit)
-          : [],
       create: async (input: {
         worldId: string;
         authorMemberId: string;

@@ -101,11 +101,30 @@ export class WorldMembersService {
   async findActiveByWorldAndCharacter(
     worldId: string,
     characterId: string,
-  ): Promise<{ id: string } | null> {
-    return this.prisma.worldMember.findFirst({
+  ): Promise<{
+    id: string;
+    narrativeMemory: string;
+    recentEvents: string | null;
+  } | null> {
+    const member = await this.prisma.worldMember.findFirst({
       where: { worldId, characterId, isActive: true },
-      select: { id: true },
+      select: {
+        id: true,
+        narrativeMemory: true,
+        world: {
+          select: {
+            narrative: { select: { recentEvents: true } },
+          },
+        },
+      },
     });
+    return member
+      ? {
+          id: member.id,
+          narrativeMemory: member.narrativeMemory,
+          recentEvents: member.world.narrative?.recentEvents ?? null,
+        }
+      : null;
   }
 
   async create(input: CreateWorldMember): Promise<WorldMemberView> {

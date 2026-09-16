@@ -18,12 +18,21 @@ describe('World narrative persistence', () => {
   const worldId = randomUUID();
   const characterId = randomUUID();
   const memberId = randomUUID();
+  const replyingCharacterId = randomUUID();
+  const replyingMemberId = randomUUID();
+  const unrelatedCharacterId = randomUUID();
+  const unrelatedMemberId = randomUUID();
   const handle = `@ledger${worldId.replaceAll('-', '')}`;
+  const replyingHandle = `@planner${worldId.replaceAll('-', '')}`;
+  const unrelatedHandle = `@gardener${worldId.replaceAll('-', '')}`;
   const seen: string[][] = [];
   const contextTitles: string[] = [];
   const existingStories: Array<string | null> = [];
+  const existingCharacterMemories: string[][] = [];
   let narrativeCall = 0;
   let failNext = false;
+  let routineCommentId = '';
+  let unrelatedPostId = '';
 
   const provider = {
     generateStructured: jest.fn(
@@ -34,6 +43,10 @@ describe('World narrative persistence', () => {
         }
         const requestContext = JSON.parse(request.prompt.user) as {
           existingStorySoFar: string | null;
+          residents: Array<{
+            memberId: string;
+            existingNarrativeMemory: string;
+          }>;
           sources: Array<{
             id: string;
             kind: string;
@@ -42,6 +55,11 @@ describe('World narrative persistence', () => {
         };
         const sources = requestContext.sources;
         existingStories.push(requestContext.existingStorySoFar);
+        existingCharacterMemories.push(
+          requestContext.residents.map(
+            (resident) => resident.existingNarrativeMemory,
+          ),
+        );
         seen.push(sources.map((source) => source.id));
         contextTitles.push(
           ...sources.flatMap((source) =>
@@ -53,6 +71,9 @@ describe('World narrative persistence', () => {
         const routine = sources.every(
           (source) =>
             source.kind === 'comment' && source.id === routineCommentId,
+        );
+        const unrelated = sources.every(
+          (source) => source.kind === 'post' && source.id === unrelatedPostId,
         );
         return {
           output: {
@@ -67,13 +88,38 @@ describe('World narrative persistence', () => {
                 ? `${handle} consolidated the workshop story around the repair idea.`
                 : `The workshop story was consolidated (${narrativeCall}).`,
             continuitySummary: 'The repair idea remains open.',
+            characterNarratives: routine
+              ? []
+              : unrelated
+                ? [
+                    {
+                      memberId: unrelatedMemberId,
+                      narrativeMemory: `${unrelatedHandle} is focused on the community garden.`,
+                    },
+                  ]
+                : hasComment
+                  ? [
+                      {
+                        memberId,
+                        narrativeMemory: `${handle} is waiting for ${replyingHandle} to confirm the repair plan.`,
+                      },
+                      {
+                        memberId: replyingMemberId,
+                        narrativeMemory: `${replyingHandle} offered to confirm ${handle}'s repair plan.`,
+                      },
+                    ]
+                  : [
+                      {
+                        memberId,
+                        narrativeMemory: `${handle} consolidated the workshop plan (${narrativeCall}).`,
+                      },
+                    ],
           },
         };
       },
     ),
   } as unknown as LlmProvider;
   const service = new WorldNarrativeService(prisma as never, provider);
-  let routineCommentId = '';
 
   beforeAll(async () => {
     await prisma.world.create({
@@ -85,24 +131,62 @@ describe('World narrative persistence', () => {
         topicScope: 'Town workshop',
       },
     });
-    await prisma.character.create({
-      data: {
-        id: characterId,
-        handle: handle.slice(1),
-        name: 'Ledger',
-        biography: '',
-        traits: {},
-        systemPrompt: '',
-      },
+    await prisma.character.createMany({
+      data: [
+        {
+          id: characterId,
+          handle: handle.slice(1),
+          name: 'Ledger',
+          biography: '',
+          traits: {},
+          systemPrompt: '',
+        },
+        {
+          id: replyingCharacterId,
+          handle: replyingHandle.slice(1),
+          name: 'Planner',
+          biography: '',
+          traits: {},
+          systemPrompt: '',
+        },
+        {
+          id: unrelatedCharacterId,
+          handle: unrelatedHandle.slice(1),
+          name: 'Gardener',
+          biography: '',
+          traits: {},
+          systemPrompt: '',
+        },
+      ],
     });
-    await prisma.worldMember.create({
-      data: { id: memberId, worldId, characterId, role: 'AI' },
+    await prisma.worldMember.createMany({
+      data: [
+        { id: memberId, worldId, characterId, role: 'AI' },
+        {
+          id: replyingMemberId,
+          worldId,
+          characterId: replyingCharacterId,
+          role: 'AI',
+        },
+        {
+          id: unrelatedMemberId,
+          worldId,
+          characterId: unrelatedCharacterId,
+          role: 'AI',
+        },
+      ],
     });
   });
 
   afterAll(async () => {
     await prisma.world.delete({ where: { id: worldId } });
-    await prisma.character.delete({ where: { id: characterId } });
+    await prisma.character.deleteMany({
+      where: {
+        id: {
+          in: [characterId, replyingCharacterId, unrelatedCharacterId],
+        },
+      },
+    });
     await prisma.$disconnect();
   });
 
@@ -133,13 +217,24 @@ describe('World narrative persistence', () => {
       null,
       'The workshop story was consolidated (1).',
     ]);
+    expect(
+      await prisma.worldMember.findUnique({
+        where: { id: memberId },
+        select: { narrativeMemory: true },
+      }),
+    ).toEqual({
+      narrativeMemory: `${handle} consolidated the workshop plan (2).`,
+    });
+    expect(existingCharacterMemories[1]).toContain(
+      `${handle} consolidated the workshop plan (1).`,
+    );
 
     const oldPostId = ids[0]!;
     const comment = await prisma.comment.create({
       data: {
         postId: oldPostId,
-        authorMemberId: memberId,
-        content: 'The repair idea is still open.',
+        authorMemberId: replyingMemberId,
+        content: `${handle}, I will confirm the repair plan tomorrow.`,
         createdAt: new Date('2026-01-02T00:00:00Z'),
       },
     });
@@ -163,6 +258,24 @@ describe('World narrative persistence', () => {
     );
     expect(contextTitles).toContain('Workshop note 0');
     expect(
+      await prisma.worldMember.findMany({
+        where: { id: { in: [memberId, replyingMemberId] } },
+        select: { id: true, narrativeMemory: true },
+        orderBy: { id: 'asc' },
+      }),
+    ).toEqual(
+      [
+        {
+          id: memberId,
+          narrativeMemory: `${handle} is waiting for ${replyingHandle} to confirm the repair plan.`,
+        },
+        {
+          id: replyingMemberId,
+          narrativeMemory: `${replyingHandle} offered to confirm ${handle}'s repair plan.`,
+        },
+      ].sort((a, b) => a.id.localeCompare(b.id)),
+    );
+    expect(
       await prisma.worldNarrative.findUnique({
         where: { worldId },
         select: { lastCommentId: true },
@@ -182,12 +295,44 @@ describe('World narrative persistence', () => {
     routineCommentId = routineComment.id;
     await service.process(worldId);
     expect(await service.getPublic(worldId)).toEqual(beforeRoutine);
+    const memoriesAfterRoutine = await prisma.worldMember.findMany({
+      where: { id: { in: [memberId, replyingMemberId] } },
+      select: { id: true, narrativeMemory: true },
+      orderBy: { id: 'asc' },
+    });
     expect(
       await prisma.worldNarrative.findUnique({
         where: { worldId },
         select: { lastCommentId: true },
       }),
     ).toEqual({ lastCommentId: routineComment.id });
+
+    const unrelatedPost = await prisma.post.create({
+      data: {
+        worldId,
+        authorMemberId: unrelatedMemberId,
+        title: 'Community garden watering',
+        content: 'The seedlings need water before sunset.',
+        createdAt: new Date('2026-01-04T00:00:00Z'),
+      },
+    });
+    unrelatedPostId = unrelatedPost.id;
+    await service.process(worldId);
+    expect(
+      await prisma.worldMember.findMany({
+        where: { id: { in: [memberId, replyingMemberId] } },
+        select: { id: true, narrativeMemory: true },
+        orderBy: { id: 'asc' },
+      }),
+    ).toEqual(memoriesAfterRoutine);
+    expect(
+      await prisma.worldMember.findUnique({
+        where: { id: unrelatedMemberId },
+        select: { narrativeMemory: true },
+      }),
+    ).toEqual({
+      narrativeMemory: `${unrelatedHandle} is focused on the community garden.`,
+    });
     expect(Object.keys(await service.getPublic(worldId)).sort()).toEqual([
       'recentEvents',
       'storySoFar',

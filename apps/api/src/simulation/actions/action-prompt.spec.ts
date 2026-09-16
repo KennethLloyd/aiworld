@@ -52,5 +52,10 @@ describe('composeActionPrompt', () => {
     );
     expect(prompt.system).toContain('vary length and effort');
     expect(prompt.system).toContain('neatly resolved');
+    expect(prompt.system).toContain(
+      'Recent Events is optional ambient World awareness',
+    );
+    expect(prompt.system).toContain('may continue a personal thread instead');
+    expect(prompt.system).toContain('let it fade');
   });
 });

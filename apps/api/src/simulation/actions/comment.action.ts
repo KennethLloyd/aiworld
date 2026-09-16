@@ -4,6 +4,8 @@ import { CommentActionContext } from '@/simulation/actions/action-context';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import {
   characterSection,
+  characterNarrativeMemorySection,
+  recentEventsSection,
   targetPostSection,
   threadSection,
   worldSection,
@@ -47,6 +49,10 @@ export class CommentAction {
         post,
         thread: await this.contextProvider.findThread(post.id),
       };
+      const narrativeMemory = characterNarrativeMemorySection(
+        context.narrativeMemory,
+      );
+      const recentEvents = recentEventsSection(context.recentEvents);
       const prompt = composeActionPrompt({
         action: 'COMMENT',
         instructions: COMMENT_ACTION_INSTRUCTIONS,
@@ -55,6 +61,8 @@ export class CommentAction {
         contextSections: [
           worldSection(context.world),
           characterSection(context.character),
+          ...(narrativeMemory ? [narrativeMemory] : []),
+          ...(recentEvents ? [recentEvents] : []),
           targetPostSection(context.post),
           threadSection(context.thread, input.parentCommentId),
         ],

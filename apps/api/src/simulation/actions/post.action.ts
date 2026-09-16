@@ -4,7 +4,8 @@ import { PostActionContext } from '@/simulation/actions/action-context';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import {
   characterSection,
-  recentActivitySection,
+  characterNarrativeMemorySection,
+  recentEventsSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
 import { toActionFailure } from '@/simulation/actions/simulation-action.error';
@@ -35,11 +36,11 @@ export class PostAction {
         input.worldSlug,
         input.characterId,
       );
-      const context: PostActionContext = {
-        ...actor,
-        recentPosts: await this.contextProvider.findRecentPosts(actor.world.id),
-      };
-      const recentActivity = recentActivitySection(context.recentPosts);
+      const context: PostActionContext = actor;
+      const narrativeMemory = characterNarrativeMemorySection(
+        context.narrativeMemory,
+      );
+      const recentEvents = recentEventsSection(context.recentEvents);
       const prompt = composeActionPrompt({
         action: 'POST',
         instructions: POST_ACTION_INSTRUCTIONS,
@@ -48,7 +49,8 @@ export class PostAction {
         contextSections: [
           worldSection(context.world),
           characterSection(context.character),
-          ...(recentActivity ? [recentActivity] : []),
+          ...(narrativeMemory ? [narrativeMemory] : []),
+          ...(recentEvents ? [recentEvents] : []),
         ],
       });
       const { output, telemetry } = await this.provider.generateStructured({

@@ -109,6 +109,8 @@ function createAction(
   const worldMemberRepository = {
     findActiveByWorldAndCharacter: jest.fn().mockResolvedValue({
       id: 'member-1',
+      narrativeMemory: '@steady_hands promised to check the birthday list.',
+      recentEvents: '@other raised a question about the shared kitchen.',
     }),
   } as unknown as WorldMembersService;
   const postRepository = {
@@ -191,6 +193,10 @@ describe('CommentAction', () => {
     expect(prompt.user).toContain('"A thought" by @other');
     expect(prompt.user).toContain('@root: A root comment.');
     expect(prompt.user).toContain('@another: A reply.');
+    expect(prompt.user).toContain('## Personal narrative memory');
+    expect(prompt.user).toContain('promised to check the birthday list');
+    expect(prompt.user).toContain('## Recent Events');
+    expect(prompt.user).toContain('raised a question about the shared kitchen');
   });
 
   it('falls back to the command parent when the provider omits one', async () => {

@@ -11,6 +11,7 @@ model WorldMember {
   role        WorldMemberRole
   isActive    Boolean         @default(true)
   joinedAt    DateTime        @default(now())
+  narrativeMemory String      @default("") @db.Text
 
   world       World           @relation(fields: [worldId], references: [id], onDelete: Cascade)
   user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)

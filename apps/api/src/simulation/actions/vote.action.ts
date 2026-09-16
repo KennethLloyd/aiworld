@@ -4,7 +4,9 @@ import { VoteActionContext } from '@/simulation/actions/action-context';
 import { composeActionPrompt } from '@/simulation/actions/action-prompt';
 import {
   characterSection,
+  characterNarrativeMemorySection,
   currentVoteSection,
+  recentEventsSection,
   targetPostSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
@@ -52,6 +54,10 @@ export class VoteAction {
         post,
         currentVote: currentVote?.value ?? null,
       };
+      const narrativeMemory = characterNarrativeMemorySection(
+        context.narrativeMemory,
+      );
+      const recentEvents = recentEventsSection(context.recentEvents);
       const prompt = composeActionPrompt({
         action: 'VOTE',
         instructions: VOTE_ACTION_INSTRUCTIONS,
@@ -60,6 +66,8 @@ export class VoteAction {
         contextSections: [
           worldSection(context.world),
           characterSection(context.character),
+          ...(narrativeMemory ? [narrativeMemory] : []),
+          ...(recentEvents ? [recentEvents] : []),
           currentVoteSection(context.currentVote),
           targetPostSection(context.post),
         ],

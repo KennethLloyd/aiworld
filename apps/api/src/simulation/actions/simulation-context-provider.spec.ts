@@ -45,7 +45,11 @@ function createProvider(
   overrides: {
     world?: typeof world | null;
     character?: typeof character | null;
-    member?: { id: string } | null;
+    member?: {
+      id: string;
+      narrativeMemory: string;
+      recentEvents: string | null;
+    } | null;
     post?: typeof post | null;
     thread?: unknown[];
   } = {},
@@ -65,17 +69,20 @@ function createProvider(
       ),
   } as unknown as jest.Mocked<CharactersService>;
   const worldMembersService = {
-    findActiveByWorldAndCharacter: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.member === undefined ? { id: 'member-1' } : overrides.member,
-      ),
+    findActiveByWorldAndCharacter: jest.fn().mockResolvedValue(
+      overrides.member === undefined
+        ? {
+            id: 'member-1',
+            narrativeMemory: 'A personal thread remains open.',
+            recentEvents: 'The town is preparing for a storm.',
+          }
+        : overrides.member,
+    ),
   } as unknown as jest.Mocked<WorldMembersService>;
   const postsService = {
     findById: jest
       .fn()
       .mockResolvedValue(overrides.post === undefined ? post : overrides.post),
-    findRecentByWorld: jest.fn().mockResolvedValue([]),
   } as unknown as jest.Mocked<PostsService>;
   const commentsService = {
     findByPostId: jest.fn().mockResolvedValue(overrides.thread ?? []),
@@ -107,6 +114,8 @@ describe('SimulationContextProvider', () => {
       world,
       character,
       memberId: 'member-1',
+      narrativeMemory: 'A personal thread remains open.',
+      recentEvents: 'The town is preparing for a storm.',
     });
   });
 
@@ -153,7 +162,7 @@ describe('SimulationContextProvider', () => {
     });
   });
 
-  it('delegates bounded recent-post and thread reads to their services', async () => {
+  it('delegates bounded thread reads to the comments service', async () => {
     const comment = {
       id: 'comment-1',
       postId: 'post-1',
@@ -170,14 +179,11 @@ describe('SimulationContextProvider', () => {
       updatedAt: new Date('2026-01-02'),
       postTitle: 'A thought',
     };
-    const { provider, postsService, commentsService } = createProvider({
+    const { provider, commentsService } = createProvider({
       thread: [comment],
     });
-    postsService.findRecentByWorld.mockResolvedValue([post]);
 
-    await expect(provider.findRecentPosts('world-1')).resolves.toEqual([post]);
     await expect(provider.findThread('post-1')).resolves.toEqual([comment]);
-    expect(postsService.findRecentByWorld).toHaveBeenCalledWith('world-1', 5);
     expect(commentsService.findByPostId).toHaveBeenCalledWith('post-1');
   });
 });
