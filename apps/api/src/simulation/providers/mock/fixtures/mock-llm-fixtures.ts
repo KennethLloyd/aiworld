@@ -11,6 +11,7 @@ export const mockLlmFixtures: readonly MockLlmFixture[] = [
         'The residents have started talking. Their next conversation may bring more into focus.',
       storySoFar: 'The residents began sharing their thoughts in the World.',
       continuitySummary: '',
+      characterNarratives: [],
     },
   },
   {

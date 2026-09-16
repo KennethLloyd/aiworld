@@ -10,8 +10,6 @@ import { SimulationActionError } from '@/simulation/actions/simulation-action.er
 import { WorldMembersService } from '@/world-members/world-members.service';
 import { WorldService } from '@/world/world.service';
 
-const RECENT_POST_LIMIT = 5;
-
 @Injectable()
 export class SimulationContextProvider {
   constructor(
@@ -22,9 +20,8 @@ export class SimulationContextProvider {
     private readonly commentsService: CommentsService,
   ) {}
 
-  /** Resolves the actor behind an action: an active World, an active
-   * Character, and its active WorldMember membership (ADR-0002). Any
-   * inactive or missing link is a hard failure — never selected. */
+  /** Resolves an action actor only when the World, Character, and WorldMember
+   * membership are all active; otherwise it fails. */
   async resolveActor(
     worldSlug: string,
     characterId: string,
@@ -56,7 +53,13 @@ export class SimulationContextProvider {
       );
     }
 
-    return { world, character, memberId: member.id };
+    return {
+      world,
+      character,
+      memberId: member.id,
+      narrativeMemory: member.narrativeMemory,
+      recentEvents: member.recentEvents,
+    };
   }
 
   async findPost(worldId: string, postId: string): Promise<PostWithAuthor> {
@@ -68,10 +71,6 @@ export class SimulationContextProvider {
       );
     }
     return post;
-  }
-
-  async findRecentPosts(worldId: string): Promise<PostWithAuthor[]> {
-    return this.postsService.findRecentByWorld(worldId, RECENT_POST_LIMIT);
   }
 
   async findThread(postId: string): Promise<FlatComment[]> {

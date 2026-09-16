@@ -8,6 +8,7 @@ export function mapCharacterActivityResponse(
   activity: CharacterActivityPage,
 ): CharacterActivityResponse {
   return {
+    storySoFar: activity.storySoFar,
     items: activity.items.map((item) => {
       if (item.kind === 'post') {
         return {

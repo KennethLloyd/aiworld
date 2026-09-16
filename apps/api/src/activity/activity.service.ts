@@ -48,7 +48,7 @@ export class ActivityService {
       characterId,
     );
     if (!membership) {
-      return { items: [], nextCursor: null };
+      return { storySoFar: null, items: [], nextCursor: null };
     }
 
     const parsedCursor = parseActivityCursor(cursor);
@@ -87,6 +87,10 @@ export class ActivityService {
         ? encodeActivityCursor(items[items.length - 1])
         : null;
 
-    return { items, nextCursor };
+    return {
+      storySoFar: membership.narrativeMemory.trim() || null,
+      items,
+      nextCursor,
+    };
   }
 }

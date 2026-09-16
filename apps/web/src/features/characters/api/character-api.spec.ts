@@ -39,6 +39,7 @@ const adminCharacter: AdminCharacterResponse = {
 };
 
 const activity: CharacterActivityResponse = {
+  storySoFar: '@mystic_aura is following up on a thoughtful question.',
   items: [
     {
       kind: 'post',

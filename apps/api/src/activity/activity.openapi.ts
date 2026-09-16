@@ -34,6 +34,7 @@ const CommentActivityItemDoc = z
 
 const CharacterActivityResponseDoc = z
   .object({
+    storySoFar: z.string().nullable(),
     items: z.array(z.union([PostActivityItemDoc, CommentActivityItemDoc])),
     nextCursor: z.string().nullable(),
   })
@@ -46,7 +47,7 @@ export function registerActivityOpenApi(registry: OpenAPIRegistry): void {
     tags: ['activity'],
     summary: "List a character's posts and comments in a World",
     description:
-      'Merged activity timeline of the character in one World, keyset-paginated: ' +
+      "The character's public Story So Far and merged activity timeline in one World, keyset-paginated: " +
       'pass the previous page\u2019s `nextCursor` (opaque) as `cursor`, and the ' +
       'final page carries `nextCursor: null`.',
     request: {
@@ -56,7 +57,7 @@ export function registerActivityOpenApi(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description:
-          "One page of the character's posts and comments in the World, with current active-member vote scores and parent post identifiers and titles on comment items.",
+          "The character's public Story So Far and one page of their posts and comments in the World, with current active-member vote scores and parent post identifiers and titles on comment items.",
         content: {
           'application/json': {
             schema: CharacterActivityResponseDoc,

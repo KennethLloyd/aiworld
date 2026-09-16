@@ -40,6 +40,8 @@ const character: CharacterResponse = {
 };
 
 const activity: CharacterActivityResponse = {
+  storySoFar:
+    '@mystic_aura is preparing a careful question for the next house meeting.',
   items: [
     {
       kind: 'post',
@@ -115,6 +117,12 @@ describe('public resident profile route', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Curious')).toBeInTheDocument();
     expect(
+      screen.getByRole('heading', { name: 'Story So Far' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/is preparing a careful question/),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('heading', { name: 'Recent activity' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Started a discussion')).toBeInTheDocument();
@@ -133,6 +141,26 @@ describe('public resident profile route', () => {
         name: 'Open post: The first conversation',
       })[0],
     ).toHaveAttribute('href', `/worlds/mbti/posts/${postId}`);
+  });
+
+  it('hides an empty Story So Far without removing resident activity', async () => {
+    server.use(
+      http.get(`*/api/characters/${characterId}/activity`, () =>
+        HttpResponse.json({ ...activity, storySoFar: null }),
+      ),
+    );
+
+    renderPublicRoutes(`/worlds/mbti/residents/${characterId}`);
+
+    await screen.findByRole('heading', { name: '@mystic_aura' });
+    expect(
+      screen.queryByRole('heading', { name: 'Story So Far' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Recent activity' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Started a discussion')).toBeInTheDocument();
+    expect(screen.getByText('Commented on')).toBeInTheDocument();
   });
 
   it('returns to the residents grid with Back from a direct profile visit', async () => {

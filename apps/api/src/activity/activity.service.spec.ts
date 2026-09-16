@@ -54,7 +54,11 @@ describe('ActivityService', () => {
     isActive: false,
   };
 
-  const membershipFixture = { id: '00000000-0000-4000-8000-000000000201' };
+  const membershipFixture = {
+    id: '00000000-0000-4000-8000-000000000201',
+    narrativeMemory:
+      '@standard_procedure is still tracking the unresolved microwave dispute.',
+  };
 
   const authorFixture: Author = {
     id: characterFixture.id,
@@ -182,6 +186,7 @@ describe('ActivityService', () => {
     );
 
     expect(activity).toEqual({
+      storySoFar: membershipFixture.narrativeMemory,
       items: [
         { kind: 'post', record: latestPost },
         { kind: 'comment', record: lateComment },
@@ -263,6 +268,7 @@ describe('ActivityService', () => {
     );
 
     expect(activity).toEqual({
+      storySoFar: membershipFixture.narrativeMemory,
       items: [
         { kind: 'post', record: latestPost },
         { kind: 'comment', record: earlyComment },
@@ -379,7 +385,11 @@ describe('ActivityService', () => {
       20,
     );
 
-    expect(activity).toEqual({ items: [], nextCursor: null });
+    expect(activity).toEqual({
+      storySoFar: null,
+      items: [],
+      nextCursor: null,
+    });
     expect(mockPostsService.findByAuthorMembership).not.toHaveBeenCalled();
     expect(mockCommentsService.findByAuthorMembership).not.toHaveBeenCalled();
   });
@@ -401,6 +411,7 @@ describe('ActivityService', () => {
     );
 
     expect(activity).toEqual({
+      storySoFar: membershipFixture.narrativeMemory,
       items: [{ kind: 'post', record: latestPost }],
       nextCursor: null,
     });

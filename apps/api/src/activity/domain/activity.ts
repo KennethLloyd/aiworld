@@ -6,6 +6,7 @@ export type ActivityItem =
   | { kind: 'comment'; record: FlatComment };
 
 export interface CharacterActivityPage {
+  storySoFar: string | null;
   items: ActivityItem[];
   nextCursor: string | null;
 }

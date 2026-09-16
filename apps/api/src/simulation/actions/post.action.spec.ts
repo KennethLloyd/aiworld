@@ -1,7 +1,6 @@
 import { CharactersService } from '@/characters/characters.service';
 import { CommentsService } from '@/comments/comments.service';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
-import { PostWithAuthor } from '@/posts/domain/post';
 import { PostsService } from '@/posts/posts.service';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
 import { WorldMembersService } from '@/world-members/world-members.service';
@@ -47,8 +46,11 @@ function mockConfig() {
 
 function createAction(overrides: {
   character?: typeof character | null;
-  member?: { id: string } | null;
-  recentPosts?: PostWithAuthor[];
+  member?: {
+    id: string;
+    narrativeMemory: string;
+    recentEvents: string | null;
+  } | null;
   provider?: MockLlmProvider | StubLlmProvider;
 }) {
   const worldRepository = {
@@ -65,12 +67,12 @@ function createAction(overrides: {
     findActiveByWorldAndCharacter: jest
       .fn()
       .mockResolvedValue(
-        overrides.member === undefined ? { id: 'member-1' } : overrides.member,
+        overrides.member === undefined
+          ? { id: 'member-1', narrativeMemory: '', recentEvents: null }
+          : overrides.member,
       ),
   } as unknown as WorldMembersService;
-  const postRepository = {
-    findRecentByWorld: jest.fn().mockResolvedValue(overrides.recentPosts ?? []),
-  } as unknown as PostsService;
+  const postRepository = {} as unknown as PostsService;
   const commentRepository = {} as unknown as CommentsService;
 
   const contextProvider = new SimulationContextProvider(
@@ -144,10 +146,10 @@ describe('PostAction', () => {
     expect(prompt.user).toContain('The MBTI House');
     expect(prompt.user).toContain('@standard_procedure (Standard_Procedure)');
     expect(prompt.user).toContain('Personality debates');
-    expect(prompt.user).not.toContain('Recent Activity');
+    expect(prompt.user).not.toContain('Recent Events');
   });
 
-  it('includes recent persisted posts in one POST provider request', async () => {
+  it('uses personal narrative memory and Recent Events instead of raw posts', async () => {
     const provider = new StubLlmProvider(mockConfig(), {
       title: 'T',
       content: 'C',
@@ -155,36 +157,30 @@ describe('PostAction', () => {
     });
     const action = createAction({
       provider,
-      recentPosts: [
-        {
-          id: 'post-recent',
-          title: 'Station renovation delayed again',
-          content: 'We are apparently looking at another three weeks.',
-          voteScore: 0,
-          createdAt: new Date('2026-01-02T03:04:05.000Z'),
-          updatedAt: new Date('2026-01-02T03:04:05.000Z'),
-          author: {
-            id: 'member-other',
-            handle: 'theomercer',
-            name: 'Theo Mercer',
-            avatarUrl: null,
-          },
-        },
-      ],
+      member: {
+        id: 'member-1',
+        narrativeMemory:
+          '@standard_procedure still needs to return the borrowed ledger.',
+        recentEvents:
+          '@theomercer shared that the station renovation is delayed.',
+      },
     });
 
     await action.execute(input);
 
     expect(provider.requests).toHaveLength(1);
-    expect(provider.lastPrompt().user).toContain('## Recent Activity');
     expect(provider.lastPrompt().user).toContain(
-      'Post by @theomercer (Theo Mercer)',
+      '## Personal narrative memory',
     );
     expect(provider.lastPrompt().user).toContain(
-      'Title: Station renovation delayed again',
+      '@standard_procedure still needs to return the borrowed ledger.',
     );
+    expect(provider.lastPrompt().user).toContain('## Recent Events');
     expect(provider.lastPrompt().user).toContain(
-      'Content: We are apparently looking at another three weeks.',
+      '@theomercer shared that the station renovation is delayed.',
+    );
+    expect(provider.lastPrompt().system).toContain(
+      'optional ambient World awareness',
     );
   });
 

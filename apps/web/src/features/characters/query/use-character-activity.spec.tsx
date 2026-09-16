@@ -13,6 +13,7 @@ vi.mock('../api/character-api', () => ({
 const getCharacterActivityMock = vi.mocked(getCharacterActivity);
 const characterId = '8a3f6f47-9a5c-4a0a-bc4d-1c0d9d3b2f12';
 const firstPage: CharacterActivityResponse = {
+  storySoFar: '@mystic_aura has an unresolved question.',
   items: [
     {
       kind: 'post',
@@ -35,6 +36,7 @@ const firstPage: CharacterActivityResponse = {
   nextCursor: 'cursor-2',
 };
 const secondPage: CharacterActivityResponse = {
+  storySoFar: '@mystic_aura has an unresolved question.',
   items: [
     {
       kind: 'comment',

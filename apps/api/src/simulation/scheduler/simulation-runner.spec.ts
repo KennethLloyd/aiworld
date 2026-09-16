@@ -315,8 +315,9 @@ describe('SimulationRunner', () => {
               updatedAt: new Date('2026-08-01T00:00:00.000Z'),
             },
             memberId: 'member-1',
+            narrativeMemory: '',
+            recentEvents: null,
           }),
-          findRecentPosts: jest.fn().mockResolvedValue([]),
         };
         const { runner, executor, contentWriter, logService } = createRunner({
           provider: processProvider,

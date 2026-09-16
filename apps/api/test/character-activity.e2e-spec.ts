@@ -158,6 +158,10 @@ const commentAId = seedUuid('comment:activity-comment-a');
 const postA2Id = seedUuid('post:activity-post-a2');
 const commentA2Id = seedUuid('comment:activity-comment-a2');
 const postA3Id = seedUuid('post:activity-post-a3');
+const authorStoryA =
+  '@activity_author is keeping the workshop plan moving while waiting for @activity_commenter to confirm the final time.';
+const authorStoryB =
+  '@activity_author started a separate planning thread in the second World.';
 
 describe('Character activity (real database)', () => {
   let app: INestApplication<App>;
@@ -239,6 +243,7 @@ describe('Character activity (real database)', () => {
         worldId: worldA.id,
         characterId: author.id,
         role: 'AI',
+        narrativeMemory: authorStoryA,
       },
     });
     await prisma.worldMember.create({
@@ -276,6 +281,7 @@ describe('Character activity (real database)', () => {
         worldId: worldB.id,
         characterId: author.id,
         role: 'AI',
+        narrativeMemory: authorStoryB,
       },
     });
     await prisma.worldMember.create({
@@ -509,6 +515,14 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
+    expect(res.body.storySoFar).toBe(authorStoryA);
+    expect(Object.keys(res.body).sort()).toEqual([
+      'items',
+      'nextCursor',
+      'storySoFar',
+    ]);
+    expect(res.body).not.toHaveProperty('narrativeMemory');
+    expect(res.body).not.toHaveProperty('continuitySummary');
     expect(res.body.items.map((item: { id: string }) => item.id)).toEqual(
       authorTimelineIds,
     );
@@ -553,6 +567,8 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(worldB.body).success).toBe(
       true,
     );
+    expect(worldA.body.storySoFar).toBe(authorStoryA);
+    expect(worldB.body.storySoFar).toBe(authorStoryB);
     expect(worldB.body.items.map((i: { id: string }) => i.id)).toEqual([
       seedUuid('comment:activity-comment-b'),
       seedUuid('post:activity-post-b'),
@@ -575,6 +591,7 @@ describe('Character activity (real database)', () => {
     ]);
     expect(res.body.items[1].voteScore).toBe(2);
     expect(res.body.items[1].author).toEqual(inactiveIdentity);
+    expect(res.body.storySoFar).toBeNull();
   });
 
   it('lists content authored through an inactive membership', async () => {
@@ -601,7 +618,11 @@ describe('Character activity (real database)', () => {
     expect(characterActivityResponseSchema.safeParse(res.body).success).toBe(
       true,
     );
-    expect(res.body).toEqual({ items: [], nextCursor: null });
+    expect(res.body).toEqual({
+      storySoFar: null,
+      items: [],
+      nextCursor: null,
+    });
   });
 
   it('returns no more than the requested limit on the first page', async () => {

@@ -8,11 +8,11 @@ export type ResolvedActor = {
   world: WorldView;
   character: CharacterView;
   memberId: string;
+  narrativeMemory: string;
+  recentEvents: string | null;
 };
 
-export type PostActionContext = ResolvedActor & {
-  recentPosts: PostWithAuthor[];
-};
+export type PostActionContext = ResolvedActor;
 
 export type VoteActionContext = ResolvedActor & {
   post: PostWithAuthor;

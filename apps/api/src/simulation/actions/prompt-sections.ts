@@ -4,107 +4,6 @@ import { PostWithAuthor } from '@/posts/domain/post';
 import { PromptSection } from '@/simulation/actions/action-prompt';
 import { WorldView } from '@/world/world.service';
 
-const RECENT_ACTIVITY_SECTION_LIMIT = 7_000;
-const RECENT_ACTIVITY_TITLE_LIMIT = 200;
-const RECENT_ACTIVITY_CONTENT_LIMIT = 1_000;
-const RECENT_ACTIVITY_AUTHOR_FIELD_LIMIT = 200;
-const TRUNCATION_MARKER = '... [truncated]';
-const OMITTED_POSTS_MARKER = '... [older recent posts omitted]';
-
-function truncateText(value: string, limit: number): string {
-  if (value.length <= limit) {
-    return value;
-  }
-
-  if (limit <= 0) {
-    return '';
-  }
-  if (limit <= TRUNCATION_MARKER.length) {
-    return TRUNCATION_MARKER.slice(0, limit);
-  }
-
-  const contentLimit = limit - TRUNCATION_MARKER.length;
-  return `${value.slice(0, contentLimit)}${TRUNCATION_MARKER}`;
-}
-
-function formatRecentPost(post: PostWithAuthor): string {
-  const authorHandle = truncateText(
-    post.author.handle,
-    RECENT_ACTIVITY_AUTHOR_FIELD_LIMIT,
-  );
-  const authorName = truncateText(
-    post.author.name,
-    RECENT_ACTIVITY_AUTHOR_FIELD_LIMIT,
-  );
-  const author =
-    authorName === authorHandle
-      ? `@${authorHandle}`
-      : `@${authorHandle} (${authorName})`;
-
-  return [
-    `Post by ${author}`,
-    `Created: ${post.createdAt.toISOString()}`,
-    `Title: ${truncateText(post.title, RECENT_ACTIVITY_TITLE_LIMIT)}`,
-    `Content: ${truncateText(post.content, RECENT_ACTIVITY_CONTENT_LIMIT)}`,
-  ].join('\n');
-}
-
-function appendWithinLimit(
-  current: string,
-  addition: string,
-  limit: number,
-): string {
-  if (current.length === 0) {
-    return truncateText(addition, limit);
-  }
-
-  const separator = '\n\n';
-  const remaining = limit - current.length - separator.length;
-  if (remaining < TRUNCATION_MARKER.length) {
-    return current;
-  }
-
-  if (addition.length <= remaining) {
-    return `${current}${separator}${addition}`;
-  }
-
-  return `${current}${separator}${truncateText(addition, remaining)}`;
-}
-
-/** Formats a small, reference-only window of persisted posts for POST prompts. */
-export function recentActivitySection(
-  posts: PostWithAuthor[],
-): PromptSection | null {
-  if (posts.length === 0) {
-    return null;
-  }
-
-  const headingPrefix = '## Recent Activity\n';
-  const bodyLimit = RECENT_ACTIVITY_SECTION_LIMIT - headingPrefix.length;
-  const intro =
-    'Reference data from a limited recent window. Use it when relevant; do not assume this is complete memory.';
-  let body = intro;
-  let included = 0;
-
-  for (const post of posts) {
-    const next = appendWithinLimit(body, formatRecentPost(post), bodyLimit);
-    if (next === body) {
-      break;
-    }
-    body = next;
-    included += 1;
-    if (body.length >= bodyLimit) {
-      break;
-    }
-  }
-
-  if (included < posts.length) {
-    body = appendWithinLimit(body, OMITTED_POSTS_MARKER, bodyLimit);
-  }
-
-  return { heading: 'Recent Activity', body };
-}
-
 export function worldSection(world: WorldView): PromptSection {
   const description = Object.entries(world.description ?? {})
     .map(([label, value]) => `${label}: ${value}`)
@@ -140,6 +39,20 @@ export function characterSection(character: CharacterView): PromptSection {
       .filter(Boolean)
       .join('\n'),
   };
+}
+
+export function characterNarrativeMemorySection(
+  narrativeMemory: string,
+): PromptSection | null {
+  const memory = narrativeMemory.trim();
+  return memory ? { heading: 'Personal narrative memory', body: memory } : null;
+}
+
+export function recentEventsSection(
+  recentEvents: string | null,
+): PromptSection | null {
+  const events = recentEvents?.trim();
+  return events ? { heading: 'Recent Events', body: events } : null;
 }
 
 export function currentVoteSection(currentVote: 1 | -1 | null): PromptSection {

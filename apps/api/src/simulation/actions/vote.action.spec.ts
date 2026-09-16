@@ -82,6 +82,8 @@ function createAction(
   const worldMemberRepository = {
     findActiveByWorldAndCharacter: jest.fn().mockResolvedValue({
       id: 'member-1',
+      narrativeMemory: '@steady_hands is reconsidering the kitchen rota.',
+      recentEvents: '@other proposed a new schedule.',
     }),
   } as unknown as WorldMembersService;
   const postRepository = {
@@ -176,6 +178,10 @@ describe('VoteAction', () => {
     expect(prompt.user).toContain('"A thought" by @other');
     expect(prompt.user).toContain('Body text.');
     expect(prompt.user).toContain('No current vote.');
+    expect(prompt.user).toContain('## Personal narrative memory');
+    expect(prompt.user).toContain('reconsidering the kitchen rota');
+    expect(prompt.user).toContain('## Recent Events');
+    expect(prompt.user).toContain('@other proposed a new schedule.');
   });
 
   it.each([

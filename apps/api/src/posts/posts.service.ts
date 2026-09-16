@@ -181,19 +181,6 @@ export class PostsService {
     return post ? mapPostWithAuthor(post) : null;
   }
 
-  async findRecentByWorld(
-    worldId: string,
-    limit: number,
-  ): Promise<PostWithAuthor[]> {
-    const posts = await this.prisma.post.findMany({
-      where: { worldId },
-      select: postWithAuthorSelect,
-      orderBy: newOrderBy,
-      take: limit,
-    });
-    return posts.map(mapPostWithAuthor);
-  }
-
   async findByAuthorMembership(
     worldId: string,
     authorMemberId: string,

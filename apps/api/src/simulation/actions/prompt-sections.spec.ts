@@ -1,36 +1,11 @@
 import {
   characterSection,
+  characterNarrativeMemorySection,
   currentVoteSection,
-  recentActivitySection,
+  recentEventsSection,
   threadSection,
   worldSection,
 } from './prompt-sections';
-
-function post(
-  id: string,
-  createdAt: string,
-  overrides: {
-    title?: string;
-    content?: string;
-    handle?: string;
-    name?: string;
-  } = {},
-) {
-  return {
-    id,
-    title: overrides.title ?? `Title ${id}`,
-    content: overrides.content ?? `Content ${id}`,
-    voteScore: 0,
-    createdAt: new Date(createdAt),
-    updatedAt: new Date(createdAt),
-    author: {
-      id: `member-${id}`,
-      handle: overrides.handle ?? `handle-${id}`,
-      name: overrides.name ?? `Name ${id}`,
-      avatarUrl: null,
-    },
-  };
-}
 
 function comment(
   id: string,
@@ -102,55 +77,22 @@ describe('threadSection', () => {
   });
 });
 
-describe('recentActivitySection', () => {
-  it('formats persisted posts with author identity and timestamps', () => {
-    const section = recentActivitySection([
-      post('newest', '2026-01-02T03:04:05.000Z'),
-      post('older', '2026-01-01T03:04:05.000Z'),
-    ]);
-
-    expect(section).toEqual({
-      heading: 'Recent Activity',
-      body: expect.stringContaining(
-        'Reference data from a limited recent window.',
-      ),
+describe('narrative context sections', () => {
+  it('formats personal memory and Recent Events when present', () => {
+    expect(characterNarrativeMemorySection('A promise remains open.')).toEqual({
+      heading: 'Personal narrative memory',
+      body: 'A promise remains open.',
     });
-    expect(section?.body).toContain('Post by @handle-newest (Name newest)');
-    expect(section?.body).toContain('Created: 2026-01-02T03:04:05.000Z');
-    expect(section?.body).toContain('Title: Title newest');
-    expect(section?.body).toContain('Content: Content newest');
-    expect(section!.body.indexOf('Title newest')).toBeLessThan(
-      section!.body.indexOf('Title older'),
-    );
+    expect(recentEventsSection('The station reopened.')).toEqual({
+      heading: 'Recent Events',
+      body: 'The station reopened.',
+    });
   });
 
-  it('omits the section when the World has no posts', () => {
-    expect(recentActivitySection([])).toBeNull();
-  });
-
-  it('marks field truncation and keeps the complete section within its budget', () => {
-    const section = recentActivitySection(
-      Array.from({ length: 5 }, (_, index) =>
-        post(`long-${index}`, '2026-01-02T03:04:05.000Z', {
-          handle: 'h'.repeat(10_000),
-          name: 'n'.repeat(10_000),
-          title: 't'.repeat(500),
-          content: 'c'.repeat(2_000),
-        }),
-      ),
-    );
-
-    expect(section).not.toBeNull();
-    expect(
-      `## ${section!.heading}\n${section!.body}`.length,
-    ).toBeLessThanOrEqual(7_000);
-    expect(section!.body).toContain('... [truncated]');
-    expect(section!.body.match(/Title: .*$/m)?.[0].length).toBeLessThanOrEqual(
-      'Title: '.length + 200,
-    );
-    expect(
-      section!.body.match(/Content: .*$/m)?.[0].length,
-    ).toBeLessThanOrEqual('Content: '.length + 1_000);
+  it('omits empty narrative context', () => {
+    expect(characterNarrativeMemorySection('  ')).toBeNull();
+    expect(recentEventsSection(null)).toBeNull();
+    expect(recentEventsSection('')).toBeNull();
   });
 });
 

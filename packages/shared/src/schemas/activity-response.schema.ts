@@ -19,6 +19,7 @@ export const activityItemSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const characterActivityResponseSchema = z.object({
+  storySoFar: z.string().nullable(),
   items: z.array(activityItemSchema),
   nextCursor: z.string().nullable(),
 });
