@@ -21,6 +21,7 @@ describe('World narrative persistence', () => {
   const handle = `@ledger${worldId.replaceAll('-', '')}`;
   const seen: string[][] = [];
   const contextTitles: string[] = [];
+  const existingStories: Array<string | null> = [];
   let narrativeCall = 0;
   let failNext = false;
 
@@ -31,15 +32,16 @@ describe('World narrative persistence', () => {
           failNext = false;
           throw new Error('narrator unavailable');
         }
-        const sources = (
-          JSON.parse(request.prompt.user) as {
-            sources: Array<{
-              id: string;
-              kind: string;
-              parentPost?: { title: string };
-            }>;
-          }
-        ).sources;
+        const requestContext = JSON.parse(request.prompt.user) as {
+          existingStorySoFar: string | null;
+          sources: Array<{
+            id: string;
+            kind: string;
+            parentPost?: { title: string };
+          }>;
+        };
+        const sources = requestContext.sources;
+        existingStories.push(requestContext.existingStorySoFar);
         seen.push(sources.map((source) => source.id));
         contextTitles.push(
           ...sources.flatMap((source) =>
@@ -59,11 +61,11 @@ describe('World narrative persistence', () => {
               : hasComment
                 ? `${handle} returned to the earlier repair idea.`
                 : `${handle} opened the workshop story (${narrativeCall}).`,
-            storyContinuation: routine
+            storySoFar: routine
               ? ''
               : hasComment
-                ? `${handle} returned to the earlier repair idea.`
-                : `The workshop story grew (${narrativeCall}).`,
+                ? `${handle} consolidated the workshop story around the repair idea.`
+                : `The workshop story was consolidated (${narrativeCall}).`,
             continuitySummary: 'The repair idea remains open.',
           },
         };
@@ -124,9 +126,13 @@ describe('World narrative persistence', () => {
     await service.process(worldId);
     expect(seen.map((batch) => batch.length)).toEqual([40, 5]);
     expect(new Set(seen.flat()).size).toBe(45);
-    expect((await service.getPublic(worldId)).storySoFar).toContain(
-      'The workshop story grew (2).',
-    );
+    expect(await service.getPublic(worldId)).toMatchObject({
+      storySoFar: 'The workshop story was consolidated (2).',
+    });
+    expect(existingStories).toEqual([
+      null,
+      'The workshop story was consolidated (1).',
+    ]);
 
     const oldPostId = ids[0]!;
     const comment = await prisma.comment.create({
@@ -146,8 +152,14 @@ describe('World narrative persistence', () => {
     );
     await service.process(worldId);
     expect(seen.at(-1)).toEqual([comment.id]);
-    expect((await service.getPublic(worldId)).storySoFar).toContain(
-      `${handle} returned to the earlier repair idea.`,
+    expect(await service.getPublic(worldId)).toMatchObject({
+      storySoFar: `${handle} consolidated the workshop story around the repair idea.`,
+    });
+    expect((await service.getPublic(worldId)).storySoFar).not.toContain(
+      'The workshop story was consolidated (2).',
+    );
+    expect(existingStories.at(-1)).toBe(
+      'The workshop story was consolidated (2).',
     );
     expect(contextTitles).toContain('Workshop note 0');
     expect(

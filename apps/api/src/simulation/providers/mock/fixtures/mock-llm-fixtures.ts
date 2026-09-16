@@ -9,8 +9,7 @@ export const mockLlmFixtures: readonly MockLlmFixture[] = [
     output: {
       recentEvents:
         'The residents have started talking. Their next conversation may bring more into focus.',
-      storyContinuation:
-        'The residents began sharing their thoughts in the World.',
+      storySoFar: 'The residents began sharing their thoughts in the World.',
       continuitySummary: '',
     },
   },
