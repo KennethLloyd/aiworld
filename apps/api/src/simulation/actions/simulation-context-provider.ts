@@ -20,9 +20,8 @@ export class SimulationContextProvider {
     private readonly commentsService: CommentsService,
   ) {}
 
-  /** Resolves the actor behind an action: an active World, an active
-   * Character, and its active WorldMember membership (ADR-0002). Any
-   * inactive or missing link is a hard failure — never selected. */
+  /** Resolves an action actor only when the World, Character, and WorldMember
+   * membership are all active; otherwise it fails. */
   async resolveActor(
     worldSlug: string,
     characterId: string,
