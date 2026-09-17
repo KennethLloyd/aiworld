@@ -8,6 +8,7 @@ import {
   canonicalWorld,
   flattenComments,
   posts,
+  seededNarrative,
   seededCommentIds,
   seededPostIds,
   seedUuid,
@@ -303,5 +304,257 @@ describe('seeded vote rows', () => {
     expect(aggregateAfter._sum.value).toBe(
       expectedTotals.reduce((sum, target) => sum + target.total, 0),
     );
+  });
+
+  it('resets canonical runtime state and safely cleans only proven legacy seed data', async () => {
+    const world = await prisma.world.findUniqueOrThrow({
+      where: { slug: canonicalWorld.slug },
+      select: { id: true },
+    });
+    const staleCharacterId = seedUuid('character:seed-reset-stale');
+    const staleMemberId = seedUuid('member:seed-reset-stale');
+    const stalePostId = seedUuid('post:seed-reset-stale');
+    const staleCommentId = seedUuid('comment:seed-reset-stale');
+    const collisionCharacterId = seedUuid(
+      'character:seed-reset-legacy-handle-collision',
+    );
+    const orphanLegacyCharacterId = seedUuid('character:housecaptain');
+    const preservedLegacyCharacterId = seedUuid('character:ovenlight');
+    const preservationWorldId = seedUuid('world:seed-reset-preservation');
+    const preservationMemberId = seedUuid('member:seed-reset-preservation');
+    const nameOnlyWorldId = seedUuid('world:seed-reset-name-only');
+
+    await prisma.world.deleteMany({
+      where: { id: { in: [preservationWorldId, nameOnlyWorldId] } },
+    });
+    await prisma.character.deleteMany({
+      where: {
+        id: {
+          in: [
+            staleCharacterId,
+            collisionCharacterId,
+            orphanLegacyCharacterId,
+            preservedLegacyCharacterId,
+          ],
+        },
+      },
+    });
+    await prisma.world.createMany({
+      data: [
+        {
+          id: preservationWorldId,
+          slug: 'seed-reset-preservation',
+          name: 'Legacy preservation fixture',
+          rules: [],
+          topicScope: 'Fixture',
+        },
+        {
+          id: nameOnlyWorldId,
+          slug: 'seed-reset-name-only',
+          name: 'The MBTI House',
+          rules: [],
+          topicScope: 'Fixture',
+        },
+      ],
+    });
+    await prisma.character.createMany({
+      data: [
+        {
+          id: staleCharacterId,
+          handle: 'seed_reset_stale',
+          name: 'Seed Reset Stale',
+          biography: 'Fixture',
+          traits: [],
+          systemPrompt: 'Fixture',
+        },
+        {
+          id: collisionCharacterId,
+          handle: 'readthemanual',
+          name: 'Unrelated Handle Collision',
+          biography: 'Fixture',
+          traits: [],
+          systemPrompt: 'Fixture',
+        },
+        {
+          id: orphanLegacyCharacterId,
+          handle: 'actionitems',
+          name: 'Orphan Legacy Character',
+          biography: 'Fixture',
+          traits: [],
+          systemPrompt: 'Fixture',
+        },
+        {
+          id: preservedLegacyCharacterId,
+          handle: 'leftsnacks',
+          name: 'Preserved Legacy Character',
+          biography: 'Fixture',
+          traits: [],
+          systemPrompt: 'Fixture',
+        },
+      ],
+    });
+    await prisma.worldMember.createMany({
+      data: [
+        {
+          id: staleMemberId,
+          worldId: world.id,
+          characterId: staleCharacterId,
+          role: 'AI',
+        },
+        {
+          id: preservationMemberId,
+          worldId: preservationWorldId,
+          characterId: preservedLegacyCharacterId,
+          role: 'AI',
+        },
+      ],
+    });
+    await prisma.post.create({
+      data: {
+        id: stalePostId,
+        worldId: world.id,
+        authorMemberId: staleMemberId,
+        title: 'Stale post',
+        content: 'Stale activity.',
+      },
+    });
+    await prisma.comment.create({
+      data: {
+        id: staleCommentId,
+        postId: stalePostId,
+        authorMemberId: staleMemberId,
+        content: 'Stale comment.',
+      },
+    });
+    await prisma.worldNarrative.upsert({
+      where: { worldId: world.id },
+      create: {
+        worldId: world.id,
+        recentEvents: 'Stale events.',
+        storySoFar: 'Stale story.',
+        continuitySummary: 'Stale continuity.',
+        lastPostAt: new Date('2026-01-01T00:00:00Z'),
+        lastPostId: stalePostId,
+        lastCommentAt: new Date('2026-01-01T00:00:00Z'),
+        lastCommentId: staleCommentId,
+      },
+      update: {
+        recentEvents: 'Stale events.',
+        storySoFar: 'Stale story.',
+        continuitySummary: 'Stale continuity.',
+        lastPostAt: new Date('2026-01-01T00:00:00Z'),
+        lastPostId: stalePostId,
+        lastCommentAt: new Date('2026-01-01T00:00:00Z'),
+        lastCommentId: staleCommentId,
+      },
+    });
+    await prisma.simulationRuntimeState.create({
+      data: { worldId: world.id, pending: true, workExpected: true },
+    });
+    await prisma.simulationLog.create({
+      data: {
+        worldId: world.id,
+        characterId: staleCharacterId,
+        action: 'POST',
+        provider: 'fixture',
+        model: 'fixture',
+        executionSource: 'ONE_ACTION',
+        status: 'SUCCESS',
+      },
+    });
+
+    try {
+      await seedWorld(prisma);
+
+      expect(await prisma.post.count({ where: { worldId: world.id } })).toBe(
+        posts.length,
+      );
+      expect(
+        await prisma.comment.count({ where: { post: { worldId: world.id } } }),
+      ).toBe(posts.flatMap((post) => flattenComments(post.comments)).length);
+      expect(await prisma.vote.count({ where: targetFilter })).toBe(31);
+      expect(
+        await prisma.simulationLog.count({ where: { worldId: world.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.simulationRuntimeState.findUnique({
+          where: { worldId: world.id },
+        }),
+      ).toBeNull();
+      expect(
+        await prisma.worldNarrative.findUnique({
+          where: { worldId: world.id },
+          select: {
+            recentEvents: true,
+            storySoFar: true,
+            continuitySummary: true,
+            lastPostId: true,
+            lastCommentId: true,
+          },
+        }),
+      ).toEqual({
+        recentEvents: seededNarrative.recentEvents,
+        storySoFar: seededNarrative.storySoFar,
+        continuitySummary: seededNarrative.continuitySummary,
+        lastPostId: seedUuid(`post:${posts.at(-1)!.key}`),
+        lastCommentId: seedUuid(
+          `comment:${flattenComments(posts.at(-1)!.comments).at(-1)!.key}`,
+        ),
+      });
+      expect(
+        await prisma.character.findUnique({
+          where: { id: collisionCharacterId },
+          select: { handle: true },
+        }),
+      ).toEqual({ handle: 'readthemanual' });
+      expect(
+        await prisma.character.findUnique({
+          where: { id: orphanLegacyCharacterId },
+        }),
+      ).toBeNull();
+      expect(
+        await prisma.worldMember.findUnique({
+          where: { id: preservationMemberId },
+          select: { characterId: true, worldId: true },
+        }),
+      ).toEqual({
+        characterId: preservedLegacyCharacterId,
+        worldId: preservationWorldId,
+      });
+      expect(
+        await prisma.world.findUnique({ where: { id: nameOnlyWorldId } }),
+      ).not.toBeNull();
+
+      const beforeRerun = await Promise.all([
+        prisma.post.count({ where: { worldId: world.id } }),
+        prisma.comment.count({ where: { post: { worldId: world.id } } }),
+        prisma.vote.count({ where: targetFilter }),
+        prisma.simulationLog.count({ where: { worldId: world.id } }),
+      ]);
+      await seedWorld(prisma);
+      const afterRerun = await Promise.all([
+        prisma.post.count({ where: { worldId: world.id } }),
+        prisma.comment.count({ where: { post: { worldId: world.id } } }),
+        prisma.vote.count({ where: targetFilter }),
+        prisma.simulationLog.count({ where: { worldId: world.id } }),
+      ]);
+      expect(afterRerun).toEqual(beforeRerun);
+    } finally {
+      await prisma.world.deleteMany({
+        where: { id: { in: [preservationWorldId, nameOnlyWorldId] } },
+      });
+      await prisma.character.deleteMany({
+        where: {
+          id: {
+            in: [
+              staleCharacterId,
+              collisionCharacterId,
+              orphanLegacyCharacterId,
+              preservedLegacyCharacterId,
+            ],
+          },
+        },
+      });
+    }
   });
 });

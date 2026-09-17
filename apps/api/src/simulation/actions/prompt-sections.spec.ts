@@ -3,6 +3,7 @@ import {
   characterNarrativeMemorySection,
   currentVoteSection,
   recentEventsSection,
+  targetPostSection,
   threadSection,
   worldSection,
 } from './prompt-sections';
@@ -12,12 +13,19 @@ function comment(
   content: string,
   parentCommentId: string | null,
   createdAt: string,
+  identity: { gender?: string | null; pronouns?: string | null } = {},
 ) {
   return {
     id,
     postId: 'post-1',
     parentCommentId,
-    author: { id: `member-${id}`, handle: id, name: id, avatarUrl: null },
+    author: {
+      id: `member-${id}`,
+      handle: id,
+      name: id,
+      avatarUrl: null,
+      ...identity,
+    },
     content,
     voteScore: 0,
     createdAt: new Date(createdAt),
@@ -74,6 +82,49 @@ describe('threadSection', () => {
     const section = threadSection([], undefined);
 
     expect(section.body).toBe('(no comments yet)');
+  });
+
+  it('keeps exact handles and configured identity for target and thread authors', () => {
+    const post = {
+      id: 'post-1',
+      title: 'A thought',
+      content: 'Body text.',
+      voteScore: 0,
+      createdAt: new Date('2026-01-01'),
+      updatedAt: new Date('2026-01-01'),
+      author: {
+        id: 'member-post',
+        handle: 'post_author',
+        name: 'Post Author',
+        avatarUrl: null,
+        gender: 'female',
+        pronouns: 'she/her',
+      },
+    };
+    expect(targetPostSection(post).body).toContain(
+      '"A thought" by @post_author (gender: female) (pronouns: she/her)',
+    );
+
+    expect(
+      threadSection(
+        [
+          comment('configured', 'Configured.', null, '2026-01-01', {
+            gender: 'male',
+            pronouns: 'he/him',
+          }),
+          comment('fallback', 'Fallback.', null, '2026-01-02'),
+        ],
+        undefined,
+      ).body,
+    ).toContain(
+      '[commentId=configured] @configured (gender: male) (pronouns: he/him): Configured.',
+    );
+    expect(
+      threadSection(
+        [comment('fallback', 'Fallback.', null, '2026-01-02')],
+        undefined,
+      ).body,
+    ).toContain('[commentId=fallback] @fallback: Fallback.');
   });
 });
 

@@ -127,6 +127,13 @@ describe('canonical Stillwater seed data', () => {
 
     const voteKeys = seededVoteRows().map((row) => row.key);
     expect(new Set(voteKeys).size).toBe(voteKeys.length);
+    expect(voteKeys).toHaveLength(31);
+    expect(voteKeys).toEqual(
+      expect.arrayContaining([
+        'comment:p3-c2:theodaily',
+        'comment:p8-c2-r1:maraleads',
+      ]),
+    );
   });
 
   it('uses one relative timestamp scale spanning approximately seven days', () => {

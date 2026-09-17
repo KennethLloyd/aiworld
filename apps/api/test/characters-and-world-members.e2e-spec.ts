@@ -247,6 +247,47 @@ describe('Characters and World Members API (e2e)', () => {
     );
   });
 
+  it('round-trips configured identity through ADMIN character create and update', async () => {
+    app.get<MockAuthSessionHolder>(MOCK_AUTH_SESSION).current = {
+      user: { role: 'ADMIN' },
+      session: { id: 'mock-session' },
+    };
+    const configured = { ...character, gender: 'male', pronouns: 'he/him' };
+    prismaStub.character.create.mockResolvedValue(configured);
+    prismaStub.character.findUnique.mockResolvedValue(configured);
+    prismaStub.character.update.mockResolvedValue({
+      ...configured,
+      gender: null,
+      pronouns: null,
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/characters')
+      .send({
+        handle: character.handle,
+        name: character.name,
+        biography: character.biography,
+        traits: character.traits,
+        systemPrompt: character.systemPrompt,
+        gender: 'male',
+        pronouns: 'he/him',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.gender).toBe('male');
+        expect(response.body.pronouns).toBe('he/him');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/characters/${characterId}`)
+      .send({ gender: null, pronouns: null })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.gender).toBeNull();
+        expect(response.body.pronouns).toBeNull();
+      });
+  });
+
   it('keeps World membership management ADMIN-only and supports status changes', async () => {
     await request(app.getHttpServer()).get('/api/world-members').expect(401);
 

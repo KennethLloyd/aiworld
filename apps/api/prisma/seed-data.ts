@@ -185,7 +185,7 @@ export const posts: SeedPost[] = [
         content:
           'I have one box but it says FRAGILE: CABLES and neither word is true.',
         offsetMinutes: -7196,
-        votes: [],
+        votes: [vote('theodaily')],
         replies: [
           {
             key: 'p3-c2-r1',
@@ -428,7 +428,7 @@ export const posts: SeedPost[] = [
             authorKey: 'theodaily',
             content: 'Already put it aside.',
             offsetMinutes: -11,
-            votes: [],
+            votes: [vote('maraleads')],
             replies: [
               {
                 key: 'p8-c2-r1-r1',

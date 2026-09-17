@@ -111,6 +111,33 @@ describe('CharactersService', () => {
     );
   });
 
+  it('persists explicitly configured identity values when creating', async () => {
+    const create = jest.fn().mockResolvedValue({
+      ...character,
+      gender: 'male',
+      pronouns: 'he/him',
+    });
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({ character: { create } } as never),
+    );
+
+    await service.create({
+      handle: character.handle,
+      name: character.name,
+      biography: character.biography,
+      traits: ['Curious'],
+      systemPrompt: character.systemPrompt,
+      gender: 'male',
+      pronouns: 'he/him',
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ gender: 'male', pronouns: 'he/him' }),
+      }),
+    );
+  });
+
   it('preserves omitted identity fields and clears explicit null values on update', async () => {
     (prisma.character.findUnique as jest.Mock).mockResolvedValue(character);
     (prisma.character.update as jest.Mock).mockResolvedValue(character);
