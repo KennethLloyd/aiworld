@@ -119,6 +119,8 @@ describe('World and Character context sections', () => {
       name: 'inkweather',
       classification: null,
       classificationGroup: null,
+      gender: 'nonbinary',
+      pronouns: 'they/them',
       avatarUrl: null,
       biography: 'An overworked weather spirit.',
       traits: ['Curious'],
@@ -134,6 +136,8 @@ describe('World and Character context sections', () => {
     expect(worldSection(world).body).toContain('Rules:');
     expect(worldSection(world).body).toContain('- No mind-binding spells');
     expect(characterSection(character).body).toContain('Identity: @inkweather');
+    expect(characterSection(character).body).toContain('Gender: nonbinary');
+    expect(characterSection(character).body).toContain('Pronouns: they/them');
     expect(characterSection(character).body).toContain(
       'Personality instructions: Notice changes in atmospheric pressure.',
     );

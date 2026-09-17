@@ -13,6 +13,8 @@ export interface ContentAuthorRow {
     avatarUrl: string | null;
     classification?: string | null;
     classificationGroup?: string | null;
+    gender?: string | null;
+    pronouns?: string | null;
   } | null;
   user: {
     username: string;
@@ -44,6 +46,12 @@ export function mapContentAuthor(member: ContentAuthorRow): Author {
     }
     if (member.character.classificationGroup !== undefined) {
       author.classificationGroup = member.character.classificationGroup;
+    }
+    if (member.character.gender !== undefined) {
+      author.gender = member.character.gender;
+    }
+    if (member.character.pronouns !== undefined) {
+      author.pronouns = member.character.pronouns;
     }
 
     return author;

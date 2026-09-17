@@ -28,6 +28,14 @@ export const characterFormSchema = z
       z.literal(''),
       createCharacterSchema.shape.classificationGroup.unwrap().unwrap(),
     ]),
+    gender: z.union([
+      z.literal(''),
+      createCharacterSchema.shape.gender.unwrap().unwrap(),
+    ]),
+    pronouns: z.union([
+      z.literal(''),
+      createCharacterSchema.shape.pronouns.unwrap().unwrap(),
+    ]),
     avatarUrl: z.union([
       z.literal(''),
       createCharacterSchema.shape.avatarUrl.unwrap().unwrap(),
@@ -60,6 +68,8 @@ function toWireValues(values: CharacterFormValues) {
     classification: classification === '' ? null : classification,
     classificationGroup:
       classificationGroup === '' ? null : classificationGroup,
+    gender: values.gender.trim() === '' ? null : values.gender.trim(),
+    pronouns: values.pronouns.trim() === '' ? null : values.pronouns.trim(),
     avatarUrl: values.avatarUrl.trim() === '' ? null : values.avatarUrl.trim(),
     biography: values.biography,
     traits: values.traits
@@ -92,6 +102,8 @@ export function characterToFormValues(
     name: character.name,
     classification: character.classification ?? '',
     classificationGroup: character.classificationGroup ?? '',
+    gender: character.gender ?? '',
+    pronouns: character.pronouns ?? '',
     avatarUrl: character.avatarUrl ?? '',
     biography: character.biography,
     traits:

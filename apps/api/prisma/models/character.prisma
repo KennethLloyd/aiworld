@@ -4,6 +4,8 @@ model Character {
   name           String
   classification      String?
   classificationGroup String?
+  gender           String?
+  pronouns        String?
   avatarUrl      String?
   biography      String         @db.Text
   traits         Json

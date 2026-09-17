@@ -27,10 +27,10 @@ const databaseUrl =
 
 const seededPostId = (key: string): string => seedUuid(`post:${key}`);
 
-const hotOrder = ['p6', 'p1', 'p2', 'p3', 'p8', 'p4', 'p5', 'p7'].map(
+const hotOrder = ['p4', 'p8', 'p6', 'p5', 'p3', 'p1', 'p7', 'p2'].map(
   seededPostId,
 );
-const newOrder = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'].map(
+const newOrder = ['p8', 'p7', 'p6', 'p5', 'p4', 'p3', 'p2', 'p1'].map(
   seededPostId,
 );
 
@@ -63,7 +63,7 @@ describe('World feed (seeded database)', () => {
     sessionHolder.current = null;
 
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot')
+      .get('/api/worlds/stillwater/posts?sort=hot')
       .expect(200);
 
     expect(listPostsResponseSchema.safeParse(res.body).success).toBe(true);
@@ -75,8 +75,9 @@ describe('World feed (seeded database)', () => {
         (candidate: { id: string }) => candidate.id === seededPostId(post.key),
       );
       expect(item).toBeDefined();
-      expect(item.voteScore).toBe(post.upvotes);
-      expect(item.createdAt).toBe(new Date(post.createdAt).toISOString());
+      expect(item.voteScore).toBe(
+        post.votes.reduce((score, vote) => score + vote.value, 0),
+      );
       expect(item.commentCount).toBe(flattenComments(post.comments).length);
       const authorCharacter = characters.find(
         (character) => character.key === post.authorKey,
@@ -89,6 +90,8 @@ describe('World feed (seeded database)', () => {
         avatarUrl: authorCharacter!.avatarUrl,
         classification: authorCharacter!.classification,
         classificationGroup: authorCharacter!.classificationGroup,
+        gender: authorCharacter!.gender,
+        pronouns: authorCharacter!.pronouns,
       });
     }
     expect(res.body.nextCursor).toBeNull();
@@ -96,7 +99,7 @@ describe('World feed (seeded database)', () => {
 
   it('serves the new feed ordered by createdAt with stored vote scores', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=new')
+      .get('/api/worlds/stillwater/posts?sort=new')
       .expect(200);
 
     expect(listPostsResponseSchema.safeParse(res.body).success).toBe(true);
@@ -107,14 +110,16 @@ describe('World feed (seeded database)', () => {
       const item = res.body.items.find(
         (candidate: { id: string }) => candidate.id === seededPostId(post.key),
       );
-      expect(item.voteScore).toBe(post.upvotes);
+      expect(item.voteScore).toBe(
+        post.votes.reduce((score, vote) => score + vote.value, 0),
+      );
       expect(item.commentCount).toBe(flattenComments(post.comments).length);
     }
   });
 
   it('paginates the hot feed with an opaque cursor', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&limit=2')
+      .get('/api/worlds/stillwater/posts?sort=hot&limit=2')
       .expect(200);
 
     expect(res.body.items).toHaveLength(2);
@@ -122,13 +127,13 @@ describe('World feed (seeded database)', () => {
 
     const resPageTwo = await request(app.getHttpServer())
       .get(
-        `/api/worlds/mbti-house/posts?sort=hot&limit=2&cursor=${encodeURIComponent(res.body.nextCursor)}`,
+        `/api/worlds/stillwater/posts?sort=hot&limit=2&cursor=${encodeURIComponent(res.body.nextCursor)}`,
       )
       .expect(200);
 
     expect(resPageTwo.body.items).toHaveLength(2);
-    expect(resPageTwo.body.items[0].id).toBe(seededPostId('p2'));
-    expect(resPageTwo.body.items[1].id).toBe(seededPostId('p3'));
+    expect(resPageTwo.body.items[0].id).toBe(seededPostId('p6'));
+    expect(resPageTwo.body.items[1].id).toBe(seededPostId('p5'));
     expect(resPageTwo.body.nextCursor).toEqual(expect.any(String));
   });
   it('keeps Hot cursor boundaries for equal scores and timestamps', async () => {
@@ -146,7 +151,7 @@ describe('World feed (seeded database)', () => {
       data: equalScorePostIds.map((id, index) => ({
         id,
         worldId: world.id,
-        authorMemberId: seedUuid('member:footnote'),
+        authorMemberId: seedUuid('member:maraleads'),
         title: `Equal hot post ${index}`,
         content: 'Cursor boundary fixture.',
         voteScore: 100,
@@ -156,7 +161,7 @@ describe('World feed (seeded database)', () => {
 
     try {
       const firstPage = await request(app.getHttpServer())
-        .get('/api/worlds/mbti-house/posts?sort=hot&limit=2')
+        .get('/api/worlds/stillwater/posts?sort=hot&limit=2')
         .expect(200);
       expect(
         firstPage.body.items.map((post: { id: string }) => post.id),
@@ -164,7 +169,7 @@ describe('World feed (seeded database)', () => {
 
       const secondPage = await request(app.getHttpServer())
         .get(
-          `/api/worlds/mbti-house/posts?sort=hot&limit=2&cursor=${encodeURIComponent(firstPage.body.nextCursor)}`,
+          `/api/worlds/stillwater/posts?sort=hot&limit=2&cursor=${encodeURIComponent(firstPage.body.nextCursor)}`,
         )
         .expect(200);
       expect(secondPage.body.items[0].id).toBe(equalScorePostIds[2]);
@@ -183,7 +188,7 @@ describe('World feed (seeded database)', () => {
 
   it('ends with a null cursor after the final page', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot&limit=8')
+      .get('/api/worlds/stillwater/posts?sort=hot&limit=8')
       .expect(200);
 
     expect(listPostsResponseSchema.safeParse(res.body).success).toBe(true);
@@ -193,10 +198,10 @@ describe('World feed (seeded database)', () => {
 
   it('returns stable results under repeated reads', async () => {
     const first = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot')
+      .get('/api/worlds/stillwater/posts?sort=hot')
       .expect(200);
     const second = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts?sort=hot')
+      .get('/api/worlds/stillwater/posts?sort=hot')
       .expect(200);
 
     expect(second.body).toEqual(first.body);
@@ -218,7 +223,7 @@ describe('World feed (seeded database)', () => {
       data: benchmarkPostIds.map((id, index) => ({
         id,
         worldId: world.id,
-        authorMemberId: seedUuid('member:footnote'),
+        authorMemberId: seedUuid('member:maraleads'),
         title: `Hot index benchmark ${index}`,
         content: 'Hot index benchmark fixture.',
         voteScore: index % 100,
@@ -290,13 +295,15 @@ describe('World feed (seeded database)', () => {
 
     try {
       const res = await request(app.getHttpServer())
-        .get('/api/worlds/mbti-house/posts?sort=hot')
+        .get('/api/worlds/stillwater/posts?sort=hot')
         .expect(200);
 
       const p3Item = res.body.items.find(
         (candidate: { id: string }) => candidate.id === seededPostId('p3'),
       );
-      expect(p3Item.voteScore).toBe(p3.upvotes);
+      expect(p3Item.voteScore).toBe(
+        p3.votes.reduce((score, vote) => score + vote.value, 0),
+      );
     } finally {
       await prisma.vote.delete({
         where: { id: seedUuid('vote:inactive-feed-test') },

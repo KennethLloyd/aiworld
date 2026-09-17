@@ -6,6 +6,8 @@ export interface Author {
   avatarUrl: string | null;
   classification?: string | null;
   classificationGroup?: string | null;
+  gender?: string | null;
+  pronouns?: string | null;
 }
 
 export interface FlatComment {

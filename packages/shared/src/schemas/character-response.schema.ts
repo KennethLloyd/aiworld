@@ -8,6 +8,8 @@ const characterFields = {
   name: z.string(),
   classification: z.string().nullable(),
   classificationGroup: z.string().nullable(),
+  gender: z.string().nullable(),
+  pronouns: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   biography: z.string(),
   traits: z.array(z.string()),

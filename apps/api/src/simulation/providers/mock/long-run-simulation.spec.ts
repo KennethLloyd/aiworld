@@ -36,7 +36,7 @@ import { MockLlmProvider } from './mock-llm.provider';
 const world = {
   id: 'world-1',
   ...canonicalWorld,
-  residentCount: 16,
+  residentCount: characters.length,
   description: canonicalWorld.description,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
@@ -52,6 +52,8 @@ describe('bounded long-run mock simulation', () => {
         name: character.name,
         classification: character.classification,
         classificationGroup: character.classificationGroup,
+        gender: character.gender,
+        pronouns: character.pronouns,
         avatarUrl: character.avatarUrl,
         biography: character.biography,
         traits: character.traits,
@@ -79,6 +81,8 @@ describe('bounded long-run mock simulation', () => {
       avatarUrl: character.avatarUrl,
       classification: character.classification,
       classificationGroup: character.classificationGroup,
+      gender: character.gender,
+      pronouns: character.pronouns,
     });
     const posts: PostWithAuthor[] = [
       {
@@ -299,20 +303,20 @@ describe('bounded long-run mock simulation', () => {
       }
     }
 
-    expect(prompts).toHaveLength(48);
+    expect(prompts).toHaveLength(characters.length * 3);
     expect(
       prompts.every((prompt) => prompt.user.includes(world.topicScope)),
     ).toBe(true);
     expect(
       prompts.every((prompt) => prompt.system.includes('Never reveal')),
     ).toBe(true);
-    expect(posts).toHaveLength(17);
-    expect(comments).toHaveLength(16);
-    expect(votes.size).toBe(16);
-    expect(logs).toHaveLength(48);
+    expect(posts).toHaveLength(characters.length + 1);
+    expect(comments).toHaveLength(characters.length);
+    expect(votes.size).toBe(characters.length);
+    expect(logs).toHaveLength(characters.length * 3);
     expect(
       new Set(logs.map((log) => `${log.characterId}:${log.action}`)).size,
-    ).toBe(48);
+    ).toBe(characters.length * 3);
     expect(logs.every((log) => log.status === 'SUCCESS')).toBe(true);
     expect(logs.every((log) => (log.reasoning?.length ?? 0) > 0)).toBe(true);
     expect(

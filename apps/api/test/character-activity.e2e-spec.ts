@@ -118,6 +118,8 @@ const authorIdentityA = {
   avatarUrl: null,
   classification: null,
   classificationGroup: null,
+  gender: null,
+  pronouns: null,
 };
 
 const inactiveIdentity = {
@@ -128,6 +130,8 @@ const inactiveIdentity = {
   avatarUrl: null,
   classification: null,
   classificationGroup: null,
+  gender: null,
+  pronouns: null,
 };
 
 const dormantIdentity = {
@@ -138,6 +142,8 @@ const dormantIdentity = {
   avatarUrl: null,
   classification: null,
   classificationGroup: null,
+  gender: null,
+  pronouns: null,
 };
 
 const characterIds = [

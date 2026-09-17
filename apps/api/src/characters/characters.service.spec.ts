@@ -10,6 +10,8 @@ describe('CharactersService', () => {
     name: 'New Agent',
     classification: 'ENFP',
     classificationGroup: 'NF',
+    gender: null,
+    pronouns: null,
     avatarUrl: null,
     biography: 'A test resident',
     traits: ['Curious'] as Prisma.JsonValue,
@@ -86,5 +88,48 @@ describe('CharactersService', () => {
       service.update('missing-id', { name: 'Renamed' }),
     ).resolves.toBeNull();
     expect(prisma.character.update).not.toHaveBeenCalled();
+  });
+
+  it('normalizes omitted identity fields to null when creating', async () => {
+    const create = jest.fn().mockResolvedValue(character);
+    prisma.$transaction.mockImplementation(async (callback) =>
+      callback({ character: { create } } as never),
+    );
+
+    await service.create({
+      handle: character.handle,
+      name: character.name,
+      biography: character.biography,
+      traits: ['Curious'],
+      systemPrompt: character.systemPrompt,
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ gender: null, pronouns: null }),
+      }),
+    );
+  });
+
+  it('preserves omitted identity fields and clears explicit null values on update', async () => {
+    (prisma.character.findUnique as jest.Mock).mockResolvedValue(character);
+    (prisma.character.update as jest.Mock).mockResolvedValue(character);
+
+    await service.update(character.id, { name: 'Renamed' });
+    expect(prisma.character.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          gender: undefined,
+          pronouns: undefined,
+        }),
+      }),
+    );
+
+    await service.update(character.id, { gender: null, pronouns: null });
+    expect(prisma.character.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ gender: null, pronouns: null }),
+      }),
+    );
   });
 });

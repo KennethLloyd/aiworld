@@ -151,8 +151,8 @@ describe('Simulation cycle (seeded database)', () => {
   const createdLogIds: string[] = [];
   const createdPostIds: string[] = [];
 
-  const actorCharacterId = seedUuid('character:footnote');
-  const actorMemberId = seedUuid('member:footnote');
+  const actorCharacterId = seedUuid('character:maraleads');
+  const actorMemberId = seedUuid('member:maraleads');
 
   beforeAll(async () => {
     process.env.LLM_PROVIDER = 'mock';

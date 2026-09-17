@@ -415,6 +415,8 @@ function makeCharacter(
     name: overrides.name,
     classification: 'INFJ',
     classificationGroup: 'NF',
+    gender: null,
+    pronouns: null,
     avatarUrl: null,
     biography: 'A reusable Character.',
     traits: ['Curious'],

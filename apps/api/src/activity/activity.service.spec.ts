@@ -39,6 +39,8 @@ describe('ActivityService', () => {
     name: 'Standard_Procedure',
     classification: null,
     classificationGroup: null,
+    gender: null,
+    pronouns: null,
     avatarUrl: null,
     biography: 'A fixture character.',
     traits: [],

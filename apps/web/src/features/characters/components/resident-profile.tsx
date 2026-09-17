@@ -90,6 +90,26 @@ export function ResidentProfile({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-ink/80">
               {character.biography}
             </p>
+            {character.gender || character.pronouns ? (
+              <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/65">
+                {character.gender ? (
+                  <div>
+                    <dt className="inline font-semibold uppercase tracking-[0.12em]">
+                      Gender:{' '}
+                    </dt>
+                    <dd className="inline">{character.gender}</dd>
+                  </div>
+                ) : null}
+                {character.pronouns ? (
+                  <div>
+                    <dt className="inline font-semibold uppercase tracking-[0.12em]">
+                      Pronouns:{' '}
+                    </dt>
+                    <dd className="inline">{character.pronouns}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            ) : null}
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {character.traits.map((trait) => (
                 <li key={trait}>

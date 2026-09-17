@@ -111,6 +111,8 @@ export class CharactersService {
             ...characterInput,
             classification: characterInput.classification ?? null,
             classificationGroup: characterInput.classificationGroup ?? null,
+            gender: characterInput.gender ?? null,
+            pronouns: characterInput.pronouns ?? null,
             avatarUrl: characterInput.avatarUrl ?? null,
             traits: characterInput.traits,
           },
@@ -167,6 +169,10 @@ export class CharactersService {
             input.classificationGroup === undefined
               ? undefined
               : (input.classificationGroup ?? null),
+          gender:
+            input.gender === undefined ? undefined : (input.gender ?? null),
+          pronouns:
+            input.pronouns === undefined ? undefined : (input.pronouns ?? null),
           avatarUrl:
             input.avatarUrl === undefined
               ? undefined

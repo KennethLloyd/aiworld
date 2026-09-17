@@ -31,12 +31,12 @@ describe('seeded vote rows', () => {
   const expectedTotals = [
     ...posts.map((post) => ({
       targetId: seedUuid(`post:${post.key}`),
-      total: post.upvotes,
+      total: post.votes.reduce((score, vote) => score + vote.value, 0),
     })),
     ...posts.flatMap((post) =>
       flattenComments(post.comments).map((comment) => ({
         targetId: seedUuid(`comment:${comment.key}`),
-        total: comment.upvotes,
+        total: comment.votes.reduce((score, vote) => score + vote.value, 0),
       })),
     ),
   ];
@@ -64,9 +64,24 @@ describe('seeded vote rows', () => {
     }
 
     for (const target of expectedTotals) {
-      expect(byTarget.get(target.targetId)).toBe(target.total);
+      expect(byTarget.get(target.targetId) ?? 0).toBe(target.total);
     }
-    expect(byTarget.size).toBe(expectedTotals.length);
+    expect(byTarget.size).toBe(
+      expectedTotals.filter((target) => {
+        const post = posts.find(
+          (candidate) => seedUuid(`post:${candidate.key}`) === target.targetId,
+        );
+        if (post) return post.votes.length > 0;
+        return (
+          posts
+            .flatMap((candidate) => flattenComments(candidate.comments))
+            .find(
+              (comment) =>
+                seedUuid(`comment:${comment.key}`) === target.targetId,
+            )!.votes.length > 0
+        );
+      }).length,
+    );
   });
   it('stores the active vote total on every seeded Post and Comment', async () => {
     const storedPosts = await prisma.post.findMany({
@@ -85,11 +100,11 @@ describe('seeded vote rows', () => {
     );
     for (const post of posts) {
       expect(scoreByPostId.get(seedUuid(`post:${post.key}`))).toBe(
-        post.upvotes,
+        post.votes.reduce((score, vote) => score + vote.value, 0),
       );
       for (const comment of flattenComments(post.comments)) {
         expect(scoreByCommentId.get(seedUuid(`comment:${comment.key}`))).toBe(
-          comment.upvotes,
+          comment.votes.reduce((score, vote) => score + vote.value, 0),
         );
       }
     }
@@ -105,6 +120,7 @@ describe('seeded vote rows', () => {
       'character:migration-backfill-inactive',
     );
     const inactiveMemberId = seedUuid('member:migration-backfill-inactive');
+    const activeMemberId = seedUuid('member:maraleads');
 
     await prisma.character.create({
       data: {
@@ -130,7 +146,7 @@ describe('seeded vote rows', () => {
       data: {
         id: postId,
         worldId: world.id,
-        authorMemberId: seedUuid('member:footnote'),
+        authorMemberId: activeMemberId,
         title: 'Migration backfill fixture',
         content: 'Migration backfill fixture.',
       },
@@ -139,7 +155,7 @@ describe('seeded vote rows', () => {
       data: {
         id: commentId,
         postId,
-        authorMemberId: seedUuid('member:footnote'),
+        authorMemberId: activeMemberId,
         content: 'Migration backfill fixture.',
       },
     });
@@ -147,12 +163,12 @@ describe('seeded vote rows', () => {
       data: [
         {
           postId,
-          authorMemberId: seedUuid('member:footnote'),
+          authorMemberId: activeMemberId,
           value: 1,
         },
         {
           commentId,
-          authorMemberId: seedUuid('member:footnote'),
+          authorMemberId: activeMemberId,
           value: 1,
         },
         {

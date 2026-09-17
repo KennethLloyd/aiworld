@@ -330,6 +330,8 @@ describe('World discussion search (real database)', () => {
       avatarUrl: null,
       classification: null,
       classificationGroup: null,
+      gender: null,
+      pronouns: null,
     });
   });
 

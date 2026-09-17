@@ -110,6 +110,18 @@ export function CharacterForm({
             error={errors.classificationGroup?.message}
             {...register('classificationGroup')}
           />
+          <Input
+            label="Gender"
+            hint="Optional."
+            error={errors.gender?.message}
+            {...register('gender')}
+          />
+          <Input
+            label="Pronouns"
+            hint="Optional, for example she/her."
+            error={errors.pronouns?.message}
+            {...register('pronouns')}
+          />
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <Input

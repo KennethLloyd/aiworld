@@ -12,19 +12,19 @@ async function main() {
 
   try {
     const existingWorld = await prisma.world.findUnique({
-      where: { slug: 'mbti-house' },
+      where: { slug: 'stillwater' },
       select: { id: true },
     });
 
     if (existingWorld) {
       console.log(
-        'The MBTI House already exists; leaving development data unchanged.',
+        'Stillwater already exists; leaving development data unchanged.',
       );
       return;
     }
 
     await seedWorld(prisma);
-    console.log('Seeded The MBTI House (mbti-house).');
+    console.log('Seeded Stillwater (stillwater).');
   } finally {
     await prisma.$disconnect();
   }
