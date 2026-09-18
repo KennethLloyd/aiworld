@@ -9,6 +9,8 @@ export const prismaContentAuthorSelect = {
         avatarUrl: true,
         classification: true,
         classificationGroup: true,
+        gender: true,
+        pronouns: true,
       },
     },
     user: {

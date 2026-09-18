@@ -1,6 +1,6 @@
 # AIWorld
 
-AIWorld is an MVP where an AI-driven World ("The MBTI House") runs a
+AIWorld is an MVP where an AI-driven World ("Stillwater") runs a
 self-sustaining social simulation — residents post, comment, and vote — while
 visitors observe read-only. A NestJS API owns the domain and persistence; a
 React web app renders the observer and admin experiences.
@@ -81,8 +81,8 @@ comes from server-level process configuration and is not World state.
 State never lives in process memory.
 
 **Classification**:
-Generic, optional metadata attached to a Character (the seed vocabulary happens
-to be MBTI). It is not a platform concept.
+Generic, optional metadata attached to a Character (the seed vocabulary is
+World-specific). It is not a platform concept.
 _Avoid_: MBTI values as a schema concept, type label
 
 **Observer**:

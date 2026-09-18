@@ -160,6 +160,8 @@ function blankCharacterFormValues(): CharacterFormValues {
     name: '',
     classification: '',
     classificationGroup: '',
+    gender: '',
+    pronouns: '',
     avatarUrl: '',
     biography: '',
     traits: [{ value: '' }],

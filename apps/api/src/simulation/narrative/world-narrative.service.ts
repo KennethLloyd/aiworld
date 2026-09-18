@@ -199,7 +199,9 @@ export class WorldNarrativeService {
         select: {
           id: true,
           narrativeMemory: true,
-          character: { select: { handle: true, name: true } },
+          character: {
+            select: { handle: true, name: true, gender: true, pronouns: true },
+          },
         },
         orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
       });
@@ -210,6 +212,8 @@ export class WorldNarrativeService {
                 memberId: resident.id,
                 handle: `@${resident.character.handle}`,
                 name: resident.character.name,
+                gender: resident.character.gender,
+                pronouns: resident.character.pronouns,
                 existingNarrativeMemory: resident.narrativeMemory,
               },
             ]
@@ -293,7 +297,9 @@ Prioritize the core situation, meaningful resident involvement, material changes
 
 Both public fields should be easy to read, like an accessible young-adult novel: clear everyday English, short-to-medium sentences, familiar and concrete words, and easy-to-scan paragraphs. Avoid jargon, ornate language, dense exposition, dates, timestamps, headings, one section per action, votes, invented facts, and forced arcs. Recent Events should be even briefer and clearer than Story So Far.
 
-Use each resident's exact @handle in all public narration, including the @ prefix. Never replace it with a display name, nickname, alias, or unprefixed handle. Residents are gender-neutral. Never infer gender from names, avatars, profiles, or style. Avoid he, she, him, her, his, and hers for residents. Repeat the @handle when referring back to a resident.
+Use each resident's exact @handle in all public narration, including the @ prefix. Never replace it with a display name, nickname, alias, or unprefixed handle. Use a resident's explicitly configured pronouns when supplied. Never infer gender or pronouns from names, avatars, profiles, classification, traits, prompts, writing style, or gender. When pronouns are absent, use the exact @handle or gender-neutral wording. Use the handle on first mention and wherever needed for clarity; avoid unnecessary repetition when configured pronouns make the prose clearer.
+
+The configured-pronoun, exact-handle-first, no-inference, and neutral-fallback rules apply to private continuitySummary as well as public narrative fields. continuitySummary must not infer identity from any other resident attribute.
 
 characterNarratives maintains each resident's public, character-centered Story So Far: what is currently happening in that resident's life. This prose is observer-facing. Use only publicly observable activity and the resident's existingNarrativeMemory. Never include hidden character instructions, seed-only motivations, continuitySummary, or internal reasoning. Include an entry only for a resident whose meaningful personal state changed; omitting a resident preserves the existing memory. For each included resident, return the complete rewritten narrativeMemory, not an appended activity log. An empty narrativeMemory may clear a resolved state, but never use an empty entry merely to mean unchanged.
 

@@ -3,6 +3,8 @@ import { z } from "zod";
 const optionalClassificationFields = {
   classification: z.string().trim().min(1).max(50).nullish(),
   classificationGroup: z.string().trim().min(1).max(50).nullish(),
+  gender: z.string().trim().min(1).max(100).nullish(),
+  pronouns: z.string().trim().min(1).max(100).nullish(),
 };
 
 export const MAX_CHARACTER_TRAITS = 50;

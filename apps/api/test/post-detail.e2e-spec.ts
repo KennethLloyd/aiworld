@@ -90,6 +90,8 @@ const fixture = {
     avatarUrl: null,
     classification: null,
     classificationGroup: null,
+    gender: null,
+    pronouns: null,
   },
   authorCharacterId: seedUuid('character:detail-author'),
   commenter: {
@@ -494,6 +496,8 @@ describe('Post detail (real database)', () => {
         avatarUrl: null,
         classification: null,
         classificationGroup: null,
+        gender: null,
+        pronouns: null,
       });
       expect(res.body.comments[0].author!.id).toBe(memberId);
     } finally {
@@ -538,7 +542,7 @@ describe('Post detail (real database)', () => {
 
     try {
       const res = await request(app.getHttpServer())
-        .get(`/api/worlds/mbti-house/posts/${postId}`)
+        .get(`/api/worlds/stillwater/posts/${postId}`)
         .expect(404);
 
       expect(res.body).toEqual({
@@ -554,7 +558,7 @@ describe('Post detail (real database)', () => {
 
   it('returns 404 for a nonexistent post in an existing world', async () => {
     const res = await request(app.getHttpServer())
-      .get('/api/worlds/mbti-house/posts/00000000-0000-4000-8000-00000000dead')
+      .get('/api/worlds/stillwater/posts/00000000-0000-4000-8000-00000000dead')
       .expect(404);
 
     expect(res.body).toEqual({

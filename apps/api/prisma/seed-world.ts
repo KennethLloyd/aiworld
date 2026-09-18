@@ -5,112 +5,142 @@ import { PrismaClient } from '@/generated/prisma/client';
 import { createDefaultSimulationConfig } from '@/lib/config/simulation-config-defaults';
 
 import {
-  buildSeedVotes,
   canonicalWorld,
   characters,
   flattenComments,
   posts,
-  seededCommentIds,
-  seededPostIds,
+  seededNarrative,
+  seededVoteRows,
   seedUuid,
   validateCommentDepth,
 } from './seed-data';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
+function atOffset(anchor: Date, offsetMinutes: number): Date {
+  return new Date(anchor.getTime() + offsetMinutes * 60_000);
+}
+
+function voteScore(votes: Array<{ value: 1 | -1 }>): number {
+  return votes.reduce((score, entry) => score + entry.value, 0);
+}
+
 export async function seedWorld(prisma: PrismaClient) {
+  const anchor = new Date();
+
   for (const post of posts) {
     validateCommentDepth(post.comments);
   }
 
-  const simulationDefaults = createDefaultSimulationConfig();
-
   return prisma.$transaction(async (tx) => {
-    // Remove the starter world's obsolete slug while leaving generic World CRUD intact.
-    await tx.world.deleteMany({ where: { slug: 'mbti' } });
-
-    const world = await tx.world.upsert({
+    const existingWorld = await tx.world.findUnique({
       where: { slug: canonicalWorld.slug },
-      create: canonicalWorld,
-      update: canonicalWorld,
-    });
-    const currentCharacterIds = characters.map((character) =>
-      seedUuid(`character:${character.key}`),
-    );
-    const legacyMembers = await tx.worldMember.findMany({
-      where: {
-        worldId: world.id,
-        characterId: { notIn: currentCharacterIds },
-      },
       select: { id: true },
     });
-    if (legacyMembers.length > 0) {
-      const legacyMemberIds = legacyMembers.map((member) => member.id);
+    const world = existingWorld
+      ? await tx.world.update({
+          where: { id: existingWorld.id },
+          data: canonicalWorld,
+        })
+      : await tx.world.create({
+          data: { id: seedUuid('world:stillwater'), ...canonicalWorld },
+        });
+
+    const existingPosts = await tx.post.findMany({
+      where: { worldId: world.id },
+      select: { id: true },
+    });
+    const existingComments = await tx.comment.findMany({
+      where: { post: { worldId: world.id } },
+      select: { id: true },
+    });
+    const existingMemberIds = await tx.worldMember.findMany({
+      where: { worldId: world.id },
+      select: { id: true },
+    });
+
+    if (existingPosts.length > 0 || existingComments.length > 0) {
       await tx.vote.deleteMany({
-        where: { authorMemberId: { in: legacyMemberIds } },
+        where: {
+          OR: [
+            { postId: { in: existingPosts.map((post) => post.id) } },
+            {
+              commentId: { in: existingComments.map((comment) => comment.id) },
+            },
+          ],
+        },
       });
       await tx.comment.deleteMany({
-        where: { authorMemberId: { in: legacyMemberIds } },
+        where: { id: { in: existingComments.map((comment) => comment.id) } },
       });
       await tx.post.deleteMany({
-        where: { authorMemberId: { in: legacyMemberIds } },
-      });
-      await tx.worldMember.deleteMany({
-        where: { id: { in: legacyMemberIds } },
+        where: { id: { in: existingPosts.map((post) => post.id) } },
       });
     }
+    if (existingMemberIds.length > 0) {
+      await tx.vote.deleteMany({
+        where: {
+          authorMemberId: { in: existingMemberIds.map((member) => member.id) },
+        },
+      });
+    }
+    await tx.simulationLog.deleteMany({ where: { worldId: world.id } });
+    await tx.worldNarrative.deleteMany({ where: { worldId: world.id } });
+    await tx.simulationRuntimeState.deleteMany({
+      where: { worldId: world.id },
+    });
+    await tx.worldMember.deleteMany({ where: { worldId: world.id } });
 
     const memberIds = new Map<string, string>();
-
-    for (const character of characters) {
-      const characterId = seedUuid(`character:${character.key}`);
-
-      await tx.character.upsert({
-        where: { id: characterId },
-        create: {
-          id: characterId,
-          handle: character.handle,
-          name: character.name,
-          classification: character.classification,
-          classificationGroup: character.classificationGroup,
-          avatarUrl: character.avatarUrl,
-          biography: character.biography,
-          traits: character.traits,
-          systemPrompt: character.systemPrompt,
-          isActive: true,
-        },
-        update: {
-          handle: character.handle,
-          name: character.name,
-          classification: character.classification,
-          classificationGroup: character.classificationGroup,
-          avatarUrl: character.avatarUrl,
-          biography: character.biography,
-          traits: character.traits,
-          systemPrompt: character.systemPrompt,
-          isActive: true,
-        },
+    for (const [index, character] of characters.entries()) {
+      const existingCharacter = await tx.character.findUnique({
+        where: { handle: character.handle },
+        select: { id: true },
       });
-
-      const existingMember = await tx.worldMember.findFirst({
-        where: { worldId: world.id, characterId },
-      });
-      const member = await tx.worldMember.upsert({
-        where: {
-          id: existingMember?.id ?? seedUuid(`member:${character.key}`),
-        },
-        create: {
+      const persisted = existingCharacter
+        ? await tx.character.update({
+            where: { id: existingCharacter.id },
+            data: {
+              name: character.name,
+              classification: character.classification,
+              classificationGroup: character.classificationGroup,
+              gender: character.gender,
+              pronouns: character.pronouns,
+              avatarUrl: character.avatarUrl,
+              biography: character.biography,
+              traits: character.traits,
+              systemPrompt: character.systemPrompt,
+              isActive: character.isActive,
+            },
+          })
+        : await tx.character.create({
+            data: {
+              id: seedUuid(`character:${character.key}`),
+              handle: character.handle,
+              name: character.name,
+              classification: character.classification,
+              classificationGroup: character.classificationGroup,
+              gender: character.gender,
+              pronouns: character.pronouns,
+              avatarUrl: character.avatarUrl,
+              biography: character.biography,
+              traits: character.traits,
+              systemPrompt: character.systemPrompt,
+              isActive: character.isActive,
+            },
+          });
+      const member = await tx.worldMember.create({
+        data: {
           id: seedUuid(`member:${character.key}`),
           worldId: world.id,
-          characterId,
+          characterId: persisted.id,
           role: 'AI',
           isActive: true,
-        },
-        update: {
-          worldId: world.id,
-          characterId,
-          role: 'AI',
-          isActive: true,
+          joinedAt: atOffset(anchor, -characters.length + index),
+          narrativeMemory:
+            seededNarrative.characterNarratives[
+              character.key as keyof typeof seededNarrative.characterNarratives
+            ],
         },
       });
       memberIds.set(character.key, member.id);
@@ -123,44 +153,35 @@ export async function seedWorld(prisma: PrismaClient) {
       }
       return memberId;
     };
-    const memberKeyList = characters.map((character) => character.key);
-    const postVoteSets = posts.map((post) => ({
-      post,
-      votes: buildSeedVotes(post, memberKeyList),
-    }));
+    const voteRows = seededVoteRows();
+    for (const row of voteRows) {
+      const targetAuthorKey = row.postKey
+        ? posts.find((post) => post.key === row.postKey)?.authorKey
+        : posts
+            .flatMap((post) => flattenComments(post.comments))
+            .find((comment) => comment.key === row.commentKey)?.authorKey;
+      if (targetAuthorKey === row.memberKey) {
+        throw new Error(`Seeded self-vote is not allowed: ${row.key}`);
+      }
+    }
 
-    for (const { post, votes } of postVoteSets) {
-      const voteScore = votes.reduce((score, vote) => score + vote.value, 0);
-
-      await tx.post.upsert({
-        where: { id: seedUuid(`post:${post.key}`) },
-        create: {
+    for (const post of posts) {
+      const postVotes = post.votes;
+      await tx.post.create({
+        data: {
           id: seedUuid(`post:${post.key}`),
           worldId: world.id,
           authorMemberId: memberIdFor(post.authorKey),
           title: post.title,
           content: post.content,
-          voteScore,
-          createdAt: new Date(post.createdAt),
-        },
-        update: {
-          worldId: world.id,
-          authorMemberId: memberIdFor(post.authorKey),
-          title: post.title,
-          content: post.content,
-          voteScore,
-          createdAt: new Date(post.createdAt),
+          voteScore: voteScore(postVotes),
+          createdAt: atOffset(anchor, post.offsetMinutes),
         },
       });
-
       for (const comment of flattenComments(post.comments)) {
-        const voteScore = buildSeedVotes(comment, memberKeyList).reduce(
-          (score, vote) => score + vote.value,
-          0,
-        );
-        await tx.comment.upsert({
-          where: { id: seedUuid(`comment:${comment.key}`) },
-          create: {
+        const commentVotes = comment.votes;
+        await tx.comment.create({
+          data: {
             id: seedUuid(`comment:${comment.key}`),
             postId: seedUuid(`post:${post.key}`),
             authorMemberId: memberIdFor(comment.authorKey),
@@ -168,60 +189,53 @@ export async function seedWorld(prisma: PrismaClient) {
               ? seedUuid(`comment:${comment.parentKey}`)
               : null,
             content: comment.content,
-            voteScore,
-            createdAt: new Date(comment.createdAt),
-          },
-          update: {
-            postId: seedUuid(`post:${post.key}`),
-            authorMemberId: memberIdFor(comment.authorKey),
-            parentCommentId: comment.parentKey
-              ? seedUuid(`comment:${comment.parentKey}`)
-              : null,
-            content: comment.content,
-            voteScore,
-            createdAt: new Date(comment.createdAt),
+            voteScore: voteScore(commentVotes),
+            createdAt: atOffset(anchor, comment.offsetMinutes),
           },
         });
       }
     }
 
-    const voteRows = postVoteSets.flatMap(({ post, votes }) => [
-      ...votes.map((vote) => ({
-        id: seedUuid(`vote:${post.key}:${vote.memberKey}`),
-        postId: seedUuid(`post:${post.key}`),
-        commentId: null,
-        authorMemberId: memberIdFor(vote.memberKey),
-        value: vote.value,
+    await tx.vote.createMany({
+      data: voteRows.map((row) => ({
+        id: seedUuid(`vote:${row.key}`),
+        postId: row.postKey ? seedUuid(`post:${row.postKey}`) : null,
+        commentId: row.commentKey
+          ? seedUuid(`comment:${row.commentKey}`)
+          : null,
+        authorMemberId: memberIdFor(row.memberKey),
+        value: row.value,
       })),
-      ...flattenComments(post.comments).flatMap((comment) =>
-        buildSeedVotes(comment, memberKeyList).map((vote) => ({
-          id: seedUuid(`vote:${comment.key}:${vote.memberKey}`),
-          postId: null,
-          commentId: seedUuid(`comment:${comment.key}`),
-          authorMemberId: memberIdFor(vote.memberKey),
-          value: vote.value,
-        })),
-      ),
-    ]);
+    });
 
-    await tx.vote.deleteMany({
-      where: {
-        OR: [
-          { postId: { in: seededPostIds() } },
-          { commentId: { in: seededCommentIds() } },
-        ],
+    const newestPost = posts.at(-1);
+    const newestComment = posts
+      .flatMap((post) => flattenComments(post.comments))
+      .at(-1);
+    if (!newestPost || !newestComment) {
+      throw new Error('Canonical seed requires at least one Post and Comment.');
+    }
+    await tx.worldNarrative.create({
+      data: {
+        worldId: world.id,
+        recentEvents: seededNarrative.recentEvents,
+        storySoFar: seededNarrative.storySoFar,
+        continuitySummary: seededNarrative.continuitySummary,
+        lastPostAt: atOffset(anchor, newestPost.offsetMinutes),
+        lastPostId: seedUuid(`post:${newestPost.key}`),
+        lastCommentAt: atOffset(anchor, newestComment.offsetMinutes),
+        lastCommentId: seedUuid(`comment:${newestComment.key}`),
       },
     });
-    await tx.vote.createMany({ data: voteRows });
 
     await tx.worldSimulationConfig.upsert({
       where: { worldId: world.id },
       create: {
-        id: seedUuid('simulation-config:mbti-house'),
+        id: seedUuid('simulation-config:stillwater'),
         worldId: world.id,
-        ...simulationDefaults,
+        ...createDefaultSimulationConfig(),
       },
-      update: simulationDefaults,
+      update: createDefaultSimulationConfig(),
     });
 
     return world;
@@ -232,7 +246,9 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
   try {
     const world = await seedWorld(prisma);
-    console.log(`Seeded ${world.name} (${world.slug}).`);
+    console.log(
+      `Seeded ${world.name} (${world.slug}) at ${new Date().toISOString()}.`,
+    );
   } finally {
     await prisma.$disconnect();
   }

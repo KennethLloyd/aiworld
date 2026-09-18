@@ -31,6 +31,8 @@ const character: CharacterResponse = {
   name: 'Mystic Aura',
   classification: 'INFJ',
   classificationGroup: 'NF',
+  gender: null,
+  pronouns: null,
   avatarUrl: null,
   biography: 'A reflective resident who asks careful questions.',
   traits: ['Curious', 'Thoughtful'],
@@ -161,6 +163,26 @@ describe('public resident profile route', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Started a discussion')).toBeInTheDocument();
     expect(screen.getByText('Commented on')).toBeInTheDocument();
+  });
+
+  it('shows configured identity metadata and omits it when absent', async () => {
+    server.use(
+      http.get(`*/api/characters/${characterId}`, () =>
+        HttpResponse.json({
+          ...character,
+          gender: 'female',
+          pronouns: 'she/her',
+        }),
+      ),
+    );
+
+    renderPublicRoutes(`/worlds/mbti/residents/${characterId}`);
+
+    await screen.findByRole('heading', { name: '@mystic_aura' });
+    expect(screen.getByText('Gender:')).toBeInTheDocument();
+    expect(screen.getByText('female')).toBeInTheDocument();
+    expect(screen.getByText('Pronouns:')).toBeInTheDocument();
+    expect(screen.getByText('she/her')).toBeInTheDocument();
   });
 
   it('returns to the residents grid with Back from a direct profile visit', async () => {

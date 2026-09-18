@@ -1,27 +1,64 @@
 import { worldResponseSchema } from '@aiworld/shared/schemas/world-response.schema';
 
 import {
-  buildSeedVotes,
   canonicalWorld,
   characters,
   flattenComments,
   posts,
+  seededNarrative,
+  seededVoteRows,
   seedUuid,
   validateCommentDepth,
 } from '../prisma/seed-data';
 
-describe('canonical MBTI House seed data', () => {
-  it('round-trips the world description through the shared response contract', () => {
+describe('canonical Stillwater seed data', () => {
+  it('round-trips the authored World through the shared response contract', () => {
     const response = worldResponseSchema.parse({
-      id: seedUuid('world:mbti-house'),
+      id: seedUuid('world:stillwater'),
       ...canonicalWorld,
       residentCount: characters.length,
-      createdAt: '2026-08-06T00:00:00.000Z',
-      updatedAt: '2026-08-06T00:00:00.000Z',
+      createdAt: '2026-09-17T00:00:00.000Z',
+      updatedAt: '2026-09-17T00:00:00.000Z',
     });
 
     expect(response.description).toEqual(canonicalWorld.description);
     expect(response.rules).toEqual(canonicalWorld.rules);
+    expect(response.name).toBe('Stillwater');
+    expect(response.slug).toBe('stillwater');
+  });
+
+  it('contains the five authored identity mappings', () => {
+    expect(
+      Object.fromEntries(
+        characters.map((character) => [
+          character.handle,
+          [character.gender, character.pronouns],
+        ]),
+      ),
+    ).toEqual({
+      maraleads: ['female', 'she/her'],
+      theodaily: ['male', 'he/him'],
+      lenascorner: ['female', 'she/her'],
+      adrianworks: ['male', 'he/him'],
+      niconotes: ['male', 'he/him'],
+    });
+  });
+
+  it('contains the approved eight-post ensemble opening', () => {
+    expect(posts).toHaveLength(8);
+    expect(posts.map((post) => post.authorKey)).toEqual([
+      'niconotes',
+      'adrianworks',
+      'theodaily',
+      'lenascorner',
+      'maraleads',
+      'niconotes',
+      'adrianworks',
+      'theodaily',
+    ]);
+    expect(seededNarrative.recentEvents).toContain('@maraleads');
+    expect(seededNarrative.storySoFar).toContain('@adrianworks');
+    expect(seededNarrative.continuitySummary).toContain('@niconotes');
   });
 
   it('rejects comment trees deeper than three levels', () => {
@@ -29,31 +66,31 @@ describe('canonical MBTI House seed data', () => {
       validateCommentDepth([
         {
           key: 'level-1',
-          authorKey: 'standard_procedure',
+          authorKey: 'maraleads',
           content: 'one',
-          upvotes: 0,
-          createdAt: '2026-08-06T00:00:00.000Z',
+          offsetMinutes: 0,
+          votes: [],
           replies: [
             {
               key: 'level-2',
-              authorKey: 'steady_hands',
+              authorKey: 'theodaily',
               content: 'two',
-              upvotes: 0,
-              createdAt: '2026-08-06T00:00:00.000Z',
+              offsetMinutes: 1,
+              votes: [],
               replies: [
                 {
                   key: 'level-3',
-                  authorKey: 'boss_mode',
+                  authorKey: 'adrianworks',
                   content: 'three',
-                  upvotes: 0,
-                  createdAt: '2026-08-06T00:00:00.000Z',
+                  offsetMinutes: 2,
+                  votes: [],
                   replies: [
                     {
                       key: 'level-4',
-                      authorKey: 'baking_cookies',
+                      authorKey: 'niconotes',
                       content: 'four',
-                      upvotes: 0,
-                      createdAt: '2026-08-06T00:00:00.000Z',
+                      offsetMinutes: 3,
+                      votes: [],
                     },
                   ],
                 },
@@ -64,72 +101,50 @@ describe('canonical MBTI House seed data', () => {
       ]),
     ).toThrow('cannot exceed three levels');
   });
-});
 
-describe('seeded vote distribution', () => {
-  const memberKeys = characters.map((character) => character.key);
+  it('keeps explicit votes distinct, bounded, and free of self-votes', () => {
+    const byKey = new Map(
+      characters.map((character) => [character.key, character]),
+    );
+    const targetAuthors = new Map<string, string>(
+      posts.flatMap((post) => [
+        [`post:${post.key}`, post.authorKey] as [string, string],
+        ...flattenComments(post.comments).map(
+          (comment) =>
+            [`comment:${comment.key}`, comment.authorKey] as [string, string],
+        ),
+      ]),
+    );
 
-  it('keeps every seeded total within the representable member count', () => {
-    const totals = [
-      ...posts,
-      ...posts.flatMap((post) => flattenComments(post.comments)),
-    ];
-
-    for (const target of totals) {
-      expect(target.upvotes).toBeGreaterThanOrEqual(0);
-      expect(target.upvotes).toBeLessThanOrEqual(memberKeys.length);
+    for (const row of seededVoteRows()) {
+      const targetKey = row.postKey
+        ? `post:${row.postKey}`
+        : `comment:${row.commentKey}`;
+      expect(byKey.has(row.memberKey)).toBe(true);
+      expect(targetAuthors.get(targetKey)).not.toBe(row.memberKey);
+      expect(row.value === 1 || row.value === -1).toBe(true);
     }
-  });
 
-  it('returns exactly one vote per upvote, all cast by distinct members', () => {
-    const target = posts[0]!;
-    const votes = buildSeedVotes(target, memberKeys);
-
-    expect(votes).toHaveLength(target.upvotes);
-    expect(new Set(votes.map((vote) => vote.memberKey)).size).toBe(
-      votes.length,
-    );
-
-    for (const vote of votes) {
-      expect(memberKeys).toContain(vote.memberKey);
-      expect(vote.value).toBe(1);
-    }
-  });
-
-  it('is deterministic for the same target and member list', () => {
-    const target = posts[2]!;
-
-    expect(buildSeedVotes(target, memberKeys)).toEqual(
-      buildSeedVotes(target, memberKeys),
+    const voteKeys = seededVoteRows().map((row) => row.key);
+    expect(new Set(voteKeys).size).toBe(voteKeys.length);
+    expect(voteKeys).toHaveLength(31);
+    expect(voteKeys).toEqual(
+      expect.arrayContaining([
+        'comment:p3-c2:theodaily',
+        'comment:p8-c2-r1:maraleads',
+      ]),
     );
   });
 
-  it('varies the voter set across equal-sized targets', () => {
-    const targets = posts.flatMap((post) => [
-      post,
-      ...flattenComments(post.comments),
-    ]);
-    const equalSized = targets.filter((target) => target.upvotes === 3);
-
-    expect(equalSized.length).toBeGreaterThanOrEqual(2);
-
-    const first = buildSeedVotes(equalSized[0]!, memberKeys).map(
-      (vote) => vote.memberKey,
-    );
-    const second = buildSeedVotes(equalSized[1]!, memberKeys).map(
-      (vote) => vote.memberKey,
-    );
-
-    expect(first).not.toEqual(second);
-  });
-
-  it('spreads votes so every member casts at least one seeded vote', () => {
-    const voters = new Set(
-      posts.flatMap((post) =>
-        buildSeedVotes(post, memberKeys).map((vote) => vote.memberKey),
+  it('uses one relative timestamp scale spanning approximately seven days', () => {
+    const offsets = [
+      ...posts.map((post) => post.offsetMinutes),
+      ...posts.flatMap((post) =>
+        flattenComments(post.comments).map((comment) => comment.offsetMinutes),
       ),
+    ];
+    expect(Math.max(...offsets) - Math.min(...offsets)).toBeGreaterThanOrEqual(
+      7 * 24 * 60 - 10,
     );
-
-    expect(voters.size).toBe(memberKeys.length);
   });
 });

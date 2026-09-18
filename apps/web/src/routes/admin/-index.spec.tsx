@@ -47,6 +47,8 @@ const character: CharacterResponse = {
   name: 'Mystic Aura',
   classification: 'INFJ',
   classificationGroup: 'NF',
+  gender: null,
+  pronouns: null,
   avatarUrl: null,
   biography: 'A reflective resident.',
   traits: ['Curious'],

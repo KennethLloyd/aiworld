@@ -98,6 +98,8 @@ function makeCharacter(id: string) {
     name: 'Test Character',
     classification: null,
     classificationGroup: null,
+    gender: null,
+    pronouns: null,
     avatarUrl: null,
     biography: 'A test Character.',
     traits: [],

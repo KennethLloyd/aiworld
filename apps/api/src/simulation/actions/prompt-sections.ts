@@ -27,6 +27,8 @@ export function characterSection(character: CharacterView): PromptSection {
     heading: 'Character',
     body: [
       `Identity: @${character.handle}${character.name !== character.handle ? ` (${character.name})` : ''}`,
+      character.gender ? `Gender: ${character.gender}` : '',
+      character.pronouns ? `Pronouns: ${character.pronouns}` : '',
       character.classification
         ? `Classification: ${character.classification}`
         : '',
@@ -68,7 +70,10 @@ export function currentVoteSection(currentVote: 1 | -1 | null): PromptSection {
 export function targetPostSection(post: PostWithAuthor): PromptSection {
   return {
     heading: 'Target post',
-    body: `"${post.title}" by @${post.author.handle}\n${post.content}`,
+    body: [
+      `"${post.title}" by ${formatAuthorReference(post.author)}`,
+      post.content,
+    ].join('\n'),
   };
 }
 
@@ -105,11 +110,23 @@ export function threadSection(
 
   const lines = selected.map(
     (comment) =>
-      `[commentId=${comment.id}] @${comment.author.handle}: ${comment.content}`,
+      `[commentId=${comment.id}] ${formatAuthorReference(comment.author)}: ${comment.content}`,
   );
 
   return {
     heading: 'Thread',
     body: lines.length > 0 ? lines.join('\n') : '(no comments yet)',
   };
+}
+
+function formatAuthorReference(author: {
+  handle: string;
+  gender?: string | null;
+  pronouns?: string | null;
+}): string {
+  const identity = [
+    author.gender ? `(gender: ${author.gender})` : '',
+    author.pronouns ? `(pronouns: ${author.pronouns})` : '',
+  ].filter(Boolean);
+  return [`@${author.handle}`, ...identity].join(' ');
 }

@@ -3,7 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 import { PrismaClient } from '@/generated/prisma/client';
-import { WorldNarrativeService } from '@/simulation/narrative/world-narrative.service';
+import {
+  NARRATIVE_INSTRUCTIONS,
+  WorldNarrativeService,
+} from '@/simulation/narrative/world-narrative.service';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 
 const prisma = new PrismaClient({
@@ -28,7 +31,15 @@ describe('World narrative persistence', () => {
   const seen: string[][] = [];
   const contextTitles: string[] = [];
   const existingStories: Array<string | null> = [];
+  const continuitySummaries: string[] = [];
   const existingCharacterMemories: string[][] = [];
+  const residentIdentities: Array<
+    Array<{
+      handle: string;
+      gender: string | null;
+      pronouns: string | null;
+    }>
+  > = [];
   let narrativeCall = 0;
   let failNext = false;
   let routineCommentId = '';
@@ -43,9 +54,13 @@ describe('World narrative persistence', () => {
         }
         const requestContext = JSON.parse(request.prompt.user) as {
           existingStorySoFar: string | null;
+          continuitySummary: string;
           residents: Array<{
             memberId: string;
             existingNarrativeMemory: string;
+            handle: string;
+            gender: string | null;
+            pronouns: string | null;
           }>;
           sources: Array<{
             id: string;
@@ -55,6 +70,14 @@ describe('World narrative persistence', () => {
         };
         const sources = requestContext.sources;
         existingStories.push(requestContext.existingStorySoFar);
+        continuitySummaries.push(requestContext.continuitySummary);
+        residentIdentities.push(
+          requestContext.residents.map(({ handle, gender, pronouns }) => ({
+            handle,
+            gender,
+            pronouns,
+          })),
+        );
         existingCharacterMemories.push(
           requestContext.residents.map(
             (resident) => resident.existingNarrativeMemory,
@@ -137,6 +160,8 @@ describe('World narrative persistence', () => {
           id: characterId,
           handle: handle.slice(1),
           name: 'Ledger',
+          gender: 'male',
+          pronouns: 'he/him',
           biography: '',
           traits: {},
           systemPrompt: '',
@@ -145,6 +170,8 @@ describe('World narrative persistence', () => {
           id: replyingCharacterId,
           handle: replyingHandle.slice(1),
           name: 'Planner',
+          gender: 'female',
+          pronouns: 'she/her',
           biography: '',
           traits: {},
           systemPrompt: '',
@@ -217,6 +244,32 @@ describe('World narrative persistence', () => {
       null,
       'The workshop story was consolidated (1).',
     ]);
+    expect(residentIdentities[0]).toEqual(
+      expect.arrayContaining([
+        {
+          handle: `@ledger${worldId.replaceAll('-', '')}`,
+          gender: 'male',
+          pronouns: 'he/him',
+        },
+        {
+          handle: `@planner${worldId.replaceAll('-', '')}`,
+          gender: 'female',
+          pronouns: 'she/her',
+        },
+        {
+          handle: `@gardener${worldId.replaceAll('-', '')}`,
+          gender: null,
+          pronouns: null,
+        },
+      ]),
+    );
+    expect(continuitySummaries[0]).toBe('');
+    expect(NARRATIVE_INSTRUCTIONS).toContain(
+      'apply to private continuitySummary as well as public narrative fields',
+    );
+    expect(NARRATIVE_INSTRUCTIONS).toContain(
+      'continuitySummary must not infer identity',
+    );
     expect(
       await prisma.worldMember.findUnique({
         where: { id: memberId },
