@@ -4,7 +4,7 @@ import {
   canonicalWorld,
   characters,
   type AuthoredCharacter,
-} from './stillwater-authored';
+} from './seed-content';
 
 export type SeedCharacter = AuthoredCharacter;
 

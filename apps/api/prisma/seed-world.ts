@@ -17,27 +17,6 @@ import {
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
-const legacyMbtiWorldSlugs = ['mbti-house', 'mbti'] as const;
-
-const legacySeedCharacters = [
-  { key: 'footnote', handle: 'readthemanual' },
-  { key: 'ovenlight', handle: 'leftsnacks' },
-  { key: 'housecaptain', handle: 'actionitems' },
-  { key: 'crumbtrail', handle: 'groupthread' },
-  { key: 'wireframe', handle: 'smallwrench' },
-  { key: 'softlaunch', handle: 'softfocus' },
-  { key: 'fastforward', handle: 'lastknown' },
-  { key: 'sundayscaries', handle: 'plotdevice' },
-  { key: 'mystic_aura', handle: 'betweenlines' },
-  { key: 'papercomet', handle: 'unfinishedlore' },
-  { key: 'groupchat', handle: 'contextkeeper' },
-  { key: 'sidequest', handle: 'tabsopen' },
-  { key: 'longgame', handle: 'fourmovesahead' },
-  { key: 'actuallythough', handle: 'citationneeded' },
-  { key: 'calendarblock', handle: 'criticalpath' },
-  { key: 'contrarian', handle: 'counterpoint' },
-] as const;
-
 function atOffset(anchor: Date, offsetMinutes: number): Date {
   return new Date(anchor.getTime() + offsetMinutes * 60_000);
 }
@@ -54,64 +33,6 @@ export async function seedWorld(prisma: PrismaClient) {
   }
 
   return prisma.$transaction(async (tx) => {
-    const legacyWorlds = await tx.world.findMany({
-      where: { slug: { in: [...legacyMbtiWorldSlugs] } },
-      select: { id: true },
-    });
-    if (legacyWorlds.length > 0) {
-      for (const legacyWorld of legacyWorlds) {
-        const legacyPosts = await tx.post.findMany({
-          where: { worldId: legacyWorld.id },
-          select: { id: true },
-        });
-        const legacyComments = await tx.comment.findMany({
-          where: { post: { worldId: legacyWorld.id } },
-          select: { id: true },
-        });
-        const legacyMembers = await tx.worldMember.findMany({
-          where: { worldId: legacyWorld.id },
-          select: { id: true },
-        });
-        await tx.vote.deleteMany({
-          where: {
-            OR: [
-              { postId: { in: legacyPosts.map((post) => post.id) } },
-              {
-                commentId: { in: legacyComments.map((comment) => comment.id) },
-              },
-              {
-                authorMemberId: {
-                  in: legacyMembers.map((member) => member.id),
-                },
-              },
-            ],
-          },
-        });
-        await tx.comment.deleteMany({
-          where: { id: { in: legacyComments.map((comment) => comment.id) } },
-        });
-        await tx.post.deleteMany({
-          where: { id: { in: legacyPosts.map((post) => post.id) } },
-        });
-        await tx.simulationLog.deleteMany({
-          where: { worldId: legacyWorld.id },
-        });
-        await tx.worldNarrative.deleteMany({
-          where: { worldId: legacyWorld.id },
-        });
-        await tx.simulationRuntimeState.deleteMany({
-          where: { worldId: legacyWorld.id },
-        });
-        await tx.worldSimulationConfig.deleteMany({
-          where: { worldId: legacyWorld.id },
-        });
-        await tx.worldMember.deleteMany({ where: { worldId: legacyWorld.id } });
-      }
-      await tx.world.deleteMany({
-        where: { id: { in: legacyWorlds.map((world) => world.id) } },
-      });
-    }
-
     const existingWorld = await tx.world.findUnique({
       where: { slug: canonicalWorld.slug },
       select: { id: true },
@@ -316,25 +237,6 @@ export async function seedWorld(prisma: PrismaClient) {
       },
       update: createDefaultSimulationConfig(),
     });
-
-    const legacyCharacters = await tx.character.findMany({
-      where: {
-        OR: legacySeedCharacters.map(({ key, handle }) => ({
-          id: seedUuid(`character:${key}`),
-          handle,
-        })),
-        memberships: { none: {} },
-        simulationLogs: { none: {} },
-      },
-      select: { id: true },
-    });
-    if (legacyCharacters.length > 0) {
-      await tx.character.deleteMany({
-        where: {
-          id: { in: legacyCharacters.map((character) => character.id) },
-        },
-      });
-    }
 
     return world;
   });
