@@ -265,22 +265,16 @@ export const posts: SeedPost[] = [
               'You counted before asking whether I wanted congratulations.',
             offsetMinutes: -4318,
             votes: [vote('niconotes')],
-          },
-        ],
-      },
-      {
-        key: 'p5-c2',
-        authorKey: 'theodaily',
-        content: 'I was getting there.',
-        offsetMinutes: -4317,
-        votes: [],
-        replies: [
-          {
-            key: 'p5-c2-r1',
-            authorKey: 'maraleads',
-            content: 'Take your time. Apparently I have two Wednesdays.',
-            offsetMinutes: -4316,
-            votes: [],
+            replies: [
+              {
+                key: 'p5-c2',
+                authorKey: 'theodaily',
+                content:
+                  'I was getting there. Congratulations, then. I apparently have two Wednesdays to improve the delivery.',
+                offsetMinutes: -4317,
+                votes: [],
+              },
+            ],
           },
         ],
       },
@@ -357,7 +351,8 @@ export const posts: SeedPost[] = [
           {
             key: 'p7-c1-r1',
             authorKey: 'adrianworks',
-            content: 'I was trying to fix it before it became your problem.',
+            content:
+              'I was trying to fix it before it became your problem. That’s not the same as hiding it.',
             offsetMinutes: -1438,
             votes: [],
             replies: [
@@ -365,27 +360,11 @@ export const posts: SeedPost[] = [
                 key: 'p7-c1-r1-r1',
                 authorKey: 'lenascorner',
                 content:
-                  'It was already my problem. You were trying to make sure you arrived with the answer.',
+                  'It was already my problem. You were trying to make sure you arrived with the answer. That’s not entirely fair to you, but it isn’t entirely unfair either.',
                 offsetMinutes: -1437,
                 votes: [vote('niconotes')],
               },
             ],
-          },
-        ],
-      },
-      {
-        key: 'p7-c2',
-        authorKey: 'adrianworks',
-        content: "That's not entirely fair.",
-        offsetMinutes: -1436,
-        votes: [],
-        replies: [
-          {
-            key: 'p7-c2-r1',
-            authorKey: 'lenascorner',
-            content: 'No. It is not entirely unfair either.',
-            offsetMinutes: -1435,
-            votes: [],
           },
         ],
       },
@@ -426,7 +405,8 @@ export const posts: SeedPost[] = [
           {
             key: 'p8-c2-r1',
             authorKey: 'theodaily',
-            content: 'Already put it aside.',
+            content:
+              'Already put it aside. Call it strong reporting instincts.',
             offsetMinutes: -11,
             votes: [vote('maraleads')],
             replies: [
@@ -440,13 +420,6 @@ export const posts: SeedPost[] = [
             ],
           },
         ],
-      },
-      {
-        key: 'p8-c3',
-        authorKey: 'theodaily',
-        content: 'Strong reporting instincts.',
-        offsetMinutes: -9,
-        votes: [],
       },
     ],
   },

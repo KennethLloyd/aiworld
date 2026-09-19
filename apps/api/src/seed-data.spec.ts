@@ -102,6 +102,22 @@ describe('canonical Stillwater seed data', () => {
     ).toThrow('cannot exceed three levels');
   });
 
+  it('preserves the approved repaired comment threading', () => {
+    const comments = new Map(
+      posts
+        .flatMap((post) => flattenComments(post.comments))
+        .map((comment) => [comment.key, comment]),
+    );
+
+    expect(comments.size).toBe(35);
+    expect(comments.get('p5-c2')?.parentKey).toBe('p5-c1-r1');
+    expect(comments.get('p7-c1-r1-r1')?.parentKey).toBe('p7-c1-r1');
+    expect(comments.has('p7-c2')).toBe(false);
+    expect(comments.has('p7-c2-r1')).toBe(false);
+    expect(comments.get('p8-c2-r1-r1')?.parentKey).toBe('p8-c2-r1');
+    expect(comments.has('p8-c3')).toBe(false);
+  });
+
   it('keeps explicit votes distinct, bounded, and free of self-votes', () => {
     const byKey = new Map(
       characters.map((character) => [character.key, character]),
