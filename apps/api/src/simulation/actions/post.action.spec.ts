@@ -51,6 +51,7 @@ function createAction(overrides: {
     narrativeMemory: string;
     recentEvents: string | null;
   } | null;
+  recentPosts?: { title: string; content: string }[];
   provider?: MockLlmProvider | StubLlmProvider;
 }) {
   const worldRepository = {
@@ -72,7 +73,11 @@ function createAction(overrides: {
           : overrides.member,
       ),
   } as unknown as WorldMembersService;
-  const postRepository = {} as unknown as PostsService;
+  const postRepository = {
+    findByAuthorMembership: jest
+      .fn()
+      .mockResolvedValue(overrides.recentPosts ?? []),
+  } as unknown as PostsService;
   const commentRepository = {} as unknown as CommentsService;
 
   const contextProvider = new SimulationContextProvider(
@@ -149,7 +154,7 @@ describe('PostAction', () => {
     expect(prompt.user).not.toContain('Recent Events');
   });
 
-  it('uses personal narrative memory and Recent Events instead of raw posts', async () => {
+  it('uses personal memory, Recent Events, and the actor’s recent posts', async () => {
     const provider = new StubLlmProvider(mockConfig(), {
       title: 'T',
       content: 'C',
@@ -164,6 +169,12 @@ describe('PostAction', () => {
         recentEvents:
           '@theomercer shared that the station renovation is delayed.',
       },
+      recentPosts: [
+        {
+          title: 'Four versions of the demo',
+          content: 'I sent the city showcase demo at 11:58.',
+        },
+      ],
     });
 
     await action.execute(input);
@@ -181,6 +192,14 @@ describe('PostAction', () => {
     );
     expect(provider.lastPrompt().system).toContain(
       'optional ambient World awareness',
+    );
+    expect(provider.lastPrompt().system).toContain(
+      'Do not post the same update',
+    );
+    expect(provider.lastPrompt().user).toContain('## Your recent posts');
+    expect(provider.lastPrompt().user).toContain('Four versions of the demo');
+    expect(provider.lastPrompt().user).toContain(
+      'I sent the city showcase demo at 11:58.',
     );
   });
 

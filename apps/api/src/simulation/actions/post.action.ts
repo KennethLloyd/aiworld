@@ -6,6 +6,7 @@ import {
   characterSection,
   characterNarrativeMemorySection,
   recentEventsSection,
+  recentPostsSection,
   worldSection,
 } from '@/simulation/actions/prompt-sections';
 import { toActionFailure } from '@/simulation/actions/simulation-action.error';
@@ -18,7 +19,7 @@ import { assertSafeSimulationOutput } from '@/simulation/actions/simulation-outp
 import { postOutputSchema } from '@/simulation/actions/simulation-output.schema';
 import { LlmProvider } from '@/simulation/providers/llm-provider.port';
 export const POST_ACTION_INSTRUCTIONS =
-  'Start a new conversation only when this actor has a plausible reason to open the forum: an observation, question, discovery, bit of gossip, request for help, celebration, mundane detail, unpopular opinion, callback, or reaction to something in the current World. Use a specific hook grounded in the supplied World context rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another actor.';
+  'Start a new conversation only when this actor has a plausible reason to open the forum: an observation, question, discovery, bit of gossip, request for help, celebration, mundane detail, unpopular opinion, callback, or reaction to something in the current World. Use a specific hook grounded in the supplied World context rather than a generic philosophical prompt. Write a title that sounds like a real forum post and content that can be short, incomplete, funny, awkward, or thoughtful as the moment warrants. Your recent posts are supplied to prevent repetition. Do not post the same update, accomplishment, problem, promise, observation, or opinion again merely with different wording, framing, or jokes. A continuing personal storyline may appear again only when something materially changed, a new consequence occurred, another person changed the situation, the actor made a decision, or there is a genuinely new perspective worth sharing. If nothing meaningfully changed, let the topic rest and post about another part of the actor’s life, or choose not to revisit it. Do not write a personality demonstration, announce the classification, narrate private thoughts, invent outside-world access, or speak for another actor.';
 
 @Injectable()
 export class PostAction {
@@ -37,10 +38,15 @@ export class PostAction {
         input.characterId,
       );
       const context: PostActionContext = actor;
+      const recentPosts = await this.contextProvider.findRecentPostsForActor(
+        context.world.id,
+        context.memberId,
+      );
       const narrativeMemory = characterNarrativeMemorySection(
         context.narrativeMemory,
       );
       const recentEvents = recentEventsSection(context.recentEvents);
+      const personalPosts = recentPostsSection(recentPosts);
       const prompt = composeActionPrompt({
         action: 'POST',
         instructions: POST_ACTION_INSTRUCTIONS,
@@ -51,6 +57,7 @@ export class PostAction {
           characterSection(context.character),
           ...(narrativeMemory ? [narrativeMemory] : []),
           ...(recentEvents ? [recentEvents] : []),
+          ...(personalPosts ? [personalPosts] : []),
         ],
       });
       const { output, telemetry } = await this.provider.generateStructured({
