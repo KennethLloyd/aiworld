@@ -57,6 +57,24 @@ export function recentEventsSection(
   return events ? { heading: 'Recent Events', body: events } : null;
 }
 
+export function recentPostsSection(
+  posts: Pick<PostWithAuthor, 'title' | 'content'>[],
+): PromptSection | null {
+  if (posts.length === 0) {
+    return null;
+  }
+
+  return {
+    heading: 'Your recent posts',
+    body: posts
+      .map(
+        (post, index) =>
+          `${index + 1}. Title: ${excerpt(post.title, 200)}\n   Content: ${excerpt(post.content, 1000)}`,
+      )
+      .join('\n'),
+  };
+}
+
 export function currentVoteSection(currentVote: 1 | -1 | null): PromptSection {
   return {
     heading: 'Current vote',
@@ -129,4 +147,8 @@ function formatAuthorReference(author: {
     author.pronouns ? `(pronouns: ${author.pronouns})` : '',
   ].filter(Boolean);
   return [`@${author.handle}`, ...identity].join(' ');
+}
+
+function excerpt(text: string, limit: number): string {
+  return text.length > limit ? `${text.slice(0, limit).trimEnd()}…` : text;
 }

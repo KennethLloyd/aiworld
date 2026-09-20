@@ -120,6 +120,7 @@ describe('bounded long-run mock simulation', () => {
         worldId === world.id
           ? (posts.find((post) => post.id === postId) ?? null)
           : null,
+      findByAuthorMembership: async () => [],
       create: async (input: {
         worldId: string;
         authorMemberId: string;

@@ -298,6 +298,7 @@ describe('SimulationRunner', () => {
           model: 'legacy-world-model',
         } as unknown as SimulationConfig;
         const contextProvider = {
+          findRecentPostsForActor: jest.fn().mockResolvedValue([]),
           resolveActor: jest.fn().mockResolvedValue({
             world,
             character: {

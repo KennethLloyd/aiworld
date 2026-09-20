@@ -73,6 +73,13 @@ export class SimulationContextProvider {
     return post;
   }
 
+  async findRecentPostsForActor(
+    worldId: string,
+    memberId: string,
+  ): Promise<PostWithAuthor[]> {
+    return this.postsService.findByAuthorMembership(worldId, memberId, null, 5);
+  }
+
   async findThread(postId: string): Promise<FlatComment[]> {
     return this.commentsService.findByPostId(postId);
   }
