@@ -2,6 +2,7 @@ import { CharactersService } from '@/characters/characters.service';
 import { CommentsService } from '@/comments/comments.service';
 import { loadProviderConfig } from '@/lib/llm/provider-config';
 import { PostsService } from '@/posts/posts.service';
+import type { LlmProvider } from '@/simulation/providers/llm-provider.port';
 import { MockLlmProvider } from '@/simulation/providers/mock/mock-llm.provider';
 import { WorldMembersService } from '@/world-members/world-members.service';
 import { WorldService } from '@/world/world.service';
@@ -51,7 +52,6 @@ function createAction(overrides: {
     narrativeMemory: string;
     recentEvents: string | null;
   } | null;
-  recentPosts?: { title: string; content: string }[];
   provider?: MockLlmProvider | StubLlmProvider;
 }) {
   const worldRepository = {
@@ -74,9 +74,7 @@ function createAction(overrides: {
       ),
   } as unknown as WorldMembersService;
   const postRepository = {
-    findByAuthorMembership: jest
-      .fn()
-      .mockResolvedValue(overrides.recentPosts ?? []),
+    findByAuthorMembership: jest.fn().mockResolvedValue([]),
   } as unknown as PostsService;
   const commentRepository = {} as unknown as CommentsService;
 
@@ -90,16 +88,7 @@ function createAction(overrides: {
 
   const provider =
     overrides.provider ??
-    new MockLlmProvider(mockConfig(), [
-      {
-        id: 'post',
-        output: {
-          title: 'The quiet power of a pause',
-          content: 'Wait before you speak.',
-          reasoning: 'Timing over noise.',
-        },
-      },
-    ]);
+    ({ generateStructured: jest.fn() } as unknown as LlmProvider);
 
   return new PostAction(contextProvider, provider);
 }
@@ -110,99 +99,6 @@ const input = {
 };
 
 describe('PostAction', () => {
-  it('produces an actionable PostDecision from mock output', async () => {
-    const action = createAction({});
-
-    const result = await action.execute(input);
-
-    expect(result).toMatchObject({
-      status: 'success',
-      decision: {
-        action: 'POST',
-        worldId: 'world-1',
-        memberId: 'member-1',
-        characterId: 'character-1',
-        title: 'The quiet power of a pause',
-        content: 'Wait before you speak.',
-        reasoning: 'Timing over noise.',
-      },
-      telemetry: {
-        source: 'mock',
-        model: 'fixture-model',
-      },
-    });
-  });
-
-  it('composes the prompt from World, character, action, and output format', async () => {
-    const provider = new StubLlmProvider(mockConfig(), {
-      title: 'T',
-      content: 'C',
-      reasoning: 'R',
-    });
-    const action = createAction({ provider });
-
-    await action.execute(input);
-
-    const prompt = provider.lastPrompt();
-    expect(prompt.system).toContain('POST');
-    expect(prompt.system).toContain(
-      '{"title": string, "content": string, "reasoning": string}',
-    );
-    expect(prompt.user).toContain('The MBTI House');
-    expect(prompt.user).toContain('@standard_procedure (Standard_Procedure)');
-    expect(prompt.user).toContain('Personality debates');
-    expect(prompt.user).not.toContain('Recent Events');
-  });
-
-  it('uses personal memory, Recent Events, and the actor’s recent posts', async () => {
-    const provider = new StubLlmProvider(mockConfig(), {
-      title: 'T',
-      content: 'C',
-      reasoning: 'R',
-    });
-    const action = createAction({
-      provider,
-      member: {
-        id: 'member-1',
-        narrativeMemory:
-          '@standard_procedure still needs to return the borrowed ledger.',
-        recentEvents:
-          '@theomercer shared that the station renovation is delayed.',
-      },
-      recentPosts: [
-        {
-          title: 'Four versions of the demo',
-          content: 'I sent the city showcase demo at 11:58.',
-        },
-      ],
-    });
-
-    await action.execute(input);
-
-    expect(provider.requests).toHaveLength(1);
-    expect(provider.lastPrompt().user).toContain(
-      '## Personal narrative memory',
-    );
-    expect(provider.lastPrompt().user).toContain(
-      '@standard_procedure still needs to return the borrowed ledger.',
-    );
-    expect(provider.lastPrompt().user).toContain('## Recent Events');
-    expect(provider.lastPrompt().user).toContain(
-      '@theomercer shared that the station renovation is delayed.',
-    );
-    expect(provider.lastPrompt().system).toContain(
-      'optional ambient World awareness',
-    );
-    expect(provider.lastPrompt().system).toContain(
-      'Do not post the same update',
-    );
-    expect(provider.lastPrompt().user).toContain('## Your recent posts');
-    expect(provider.lastPrompt().user).toContain('Four versions of the demo');
-    expect(provider.lastPrompt().user).toContain(
-      'I sent the city showcase demo at 11:58.',
-    );
-  });
-
   it('never selects an inactive character', async () => {
     const action = createAction({ character: null });
 

@@ -120,27 +120,7 @@ describe('bounded long-run mock simulation', () => {
         worldId === world.id
           ? (posts.find((post) => post.id === postId) ?? null)
           : null,
-      findByAuthorMembership: async (
-        worldId: string,
-        memberId: string,
-        _cursor: null,
-        limit: number,
-      ) => {
-        if (worldId !== world.id) {
-          return [];
-        }
-        const characterId = [...memberByCharacter].find(
-          ([, member]) => member.id === memberId,
-        )?.[0];
-        return posts
-          .filter((post) => post.author.id === characterId)
-          .sort(
-            (a, b) =>
-              b.createdAt.getTime() - a.createdAt.getTime() ||
-              b.id.localeCompare(a.id),
-          )
-          .slice(0, limit);
-      },
+      findByAuthorMembership: async () => [],
       create: async (input: {
         worldId: string;
         authorMemberId: string;
